@@ -1,0 +1,51 @@
+{
+  "name": "board-vscode",
+  "displayName": "Board — Project Kanban",
+  "description": "Git-like Kanban boards inside VS Code. Edit .board files with a visual editor.",
+  "version": "0.1.0",
+  "publisher": "board",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.92.0"
+  },
+  "categories": ["Visualization", "Other"],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "board.boardEditor",
+        "displayName": "Board Editor",
+        "selector": [
+          {
+            "filenamePattern": "*.board"
+          }
+        ],
+        "priority": "default"
+      }
+    ]
+  },
+  "scripts": {
+    "build:extension": "esbuild ./src/extension.ts --bundle --outfile=./dist/extension.js --external:vscode --format=cjs --platform=node --tsconfig=tsconfig.json",
+    "build:webview:js": "esbuild ./src/webview/main.tsx --bundle --outfile=./dist/webview.js --jsx=automatic --tsconfig=tsconfig.json",
+    "build:webview:css": "tailwindcss -i ./src/webview/styles/globals.css -o ./dist/webview.css --minify",
+    "build": "npm run build:extension && npm run build:webview:css && npm run build:webview:js",
+    "watch:extension": "esbuild ./src/extension.ts --bundle --outfile=./dist/extension.js --external:vscode --format=cjs --platform=node --watch",
+    "watch:webview": "esbuild ./src/webview/main.tsx --bundle --outfile=./dist/webview.js --jsx=automatic --watch",
+    "watch": "npm run build:webview:css && concurrently \"npm run watch:extension\" \"npm run watch:webview\""
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@types/vscode": "^1.92.0",
+    "concurrently": "^8.2.0",
+    "esbuild": "^0.24.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.5.0"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  }
+}
