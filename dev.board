@@ -1,0 +1,183 @@
+title: dev
+columns:
+- id: todo
+  name: Todo
+- id: doing
+  name: Doing
+- id: review
+  name: Review
+- id: done
+  name: Done
+cards:
+- id: board-init
+  title: board init
+  description: Scaffold .board/ with config.json + .gitignore
+  column: done
+  priority: high
+  labels:
+  - cli
+  assignee: board
+  checklist: []
+  comments: []
+  attachments: []
+  created_at: 2026-07-30T07:18:05.217598Z
+  updated_at: 2026-07-30T07:18:05.217598Z
+- id: board-create
+  title: board create
+  description: Create new .board YAML files
+  column: done
+  priority: high
+  labels:
+  - cli
+  checklist: []
+  comments: []
+  attachments: []
+  created_at: 2026-07-30T07:18:05.234629Z
+  updated_at: 2026-07-30T07:18:05.234629Z
+- id: card-crud
+  title: Card CRUD
+  description: Add, list, show, update, remove cards
+  column: done
+  priority: high
+  labels:
+  - cli
+  checklist: []
+  comments: []
+  attachments: []
+  created_at: 2026-07-30T07:18:05.248328Z
+  updated_at: 2026-07-30T07:18:05.248328Z
+- id: board-move-status
+  title: board move/status
+  description: Move cards between columns, quick status transitions
+  column: done
+  priority: high
+  labels:
+  - cli
+  checklist: []
+  comments: []
+  attachments: []
+  created_at: 2026-07-30T07:18:05.271617Z
+  updated_at: 2026-07-30T07:18:05.271617Z
+- id: board-validate-doctor
+  title: board validate/doctor
+  description: Validate board files, auto-fix missing fields
+  column: done
+  priority: high
+  labels:
+  - cli
+  checklist: []
+  comments: []
+  attachments: []
+  created_at: 2026-07-30T07:18:05.286606Z
+  updated_at: 2026-07-30T07:18:05.286606Z
+- id: board-clean
+  title: board clean
+  description: Remove stale locks and orphaned history
+  column: done
+  priority: medium
+  labels:
+  - cli
+  checklist: []
+  comments: []
+  attachments: []
+  created_at: 2026-07-30T07:18:05.299697Z
+  updated_at: 2026-07-30T07:18:05.299697Z
+- id: board-export-import
+  title: board export/import
+  description: Export board as JSON/YAML, import from stdin/file
+  column: done
+  priority: high
+  labels:
+  - cli
+  checklist: []
+  comments: []
+  attachments: []
+  created_at: 2026-07-30T07:18:05.312191Z
+  updated_at: 2026-07-30T07:18:05.312191Z
+- id: history-logging
+  title: History logging
+  description: JSONL history log for all card operations
+  column: done
+  priority: high
+  labels:
+  - cli
+  checklist: []
+  comments: []
+  attachments: []
+  created_at: 2026-07-30T07:18:05.326922Z
+  updated_at: 2026-07-30T07:18:05.326922Z
+- id: vs-code-extension
+  title: VS Code extension
+  description: Custom Editor for .board files with React webview
+  column: done
+  priority: high
+  labels:
+  - extension
+  checklist: []
+  comments: []
+  attachments: []
+  created_at: 2026-07-30T07:18:05.336769Z
+  updated_at: 2026-07-30T07:18:05.336769Z
+- id: drag-drop
+  title: Drag & drop
+  description: dnd-kit integration for card movement
+  column: todo
+  priority: medium
+  labels:
+  - extension
+  assignee: future
+  checklist: []
+  comments: []
+  attachments: []
+  created_at: 2026-07-30T07:18:05.345999Z
+  updated_at: 2026-07-30T07:18:05.345999Z
+- id: keyboard-shortcuts
+  title: Keyboard shortcuts
+  description: N=New, Del=Delete, Enter=Edit, Ctrl+S=Save
+  column: todo
+  priority: medium
+  labels:
+  - extension
+  assignee: future
+  checklist: []
+  comments: []
+  attachments: []
+  created_at: 2026-07-30T07:18:05.358845Z
+  updated_at: 2026-07-30T07:18:05.358845Z
+- id: dark-light-mode
+  title: Dark/light mode
+  description: VS Code theme-aware styling
+  column: todo
+  priority: low
+  labels:
+  - extension
+  assignee: future
+  checklist: []
+  comments: []
+  attachments: []
+  created_at: 2026-07-30T07:18:05.371324Z
+  updated_at: 2026-07-30T07:18:05.371324Z
+- id: integration-tests
+  title: Integration tests
+  description: 20 CLI integration tests covering full workflow
+  column: done
+  priority: high
+  labels:
+  - testing
+  checklist: []
+  comments: []
+  attachments: []
+  created_at: 2026-07-30T07:18:05.381402Z
+  updated_at: 2026-07-30T07:18:05.381402Z
+- id: readme
+  title: README
+  description: Create README.md with usage docs
+  column: done
+  priority: high
+  labels:
+  - docs
+  checklist: []
+  comments: []
+  attachments: []
+  created_at: 2026-07-30T07:18:05.395401Z
+  updated_at: 2026-07-30T07:18:05.395401Z
