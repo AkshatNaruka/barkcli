@@ -6,6 +6,7 @@ static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 fn board_binary() -> PathBuf {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.pop(); // workspace root (board-cli/ -> project root)
     path.push("target");
     path.push("debug");
     path.push("board");

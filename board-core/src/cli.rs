@@ -96,6 +96,9 @@ fn print_usage() {
     println!("  clean                   Clean stale locks and cache");
     println!("  export <name> [format]  Export board (json/yaml)");
     println!("  import <name> [file]    Import board from stdin or file");
+    println!("  tui [name]              Open interactive terminal UI");
+    println!("  serve [--port N] [--board name] [--open]  Start local Kanban web UI");
+    println!("  open [name]             Open board (TUI if terminal, else browser)");
     println!();
     println!("Board operations:");
     println!("  board <name> add <title>   Add a card");

@@ -1,0 +1,23 @@
+[package]
+name = "board-cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "board"
+path = "src/main.rs"
+
+[dependencies]
+board-core = { path = "../board-core" }
+board-tui = { path = "../board-tui", optional = true }
+board-server = { path = "../board-server", optional = true }
+tokio = { version = "1", features = ["rt", "macros"] }
+atty = "0.2"
+
+[dev-dependencies]
+serde_json = "1"
+
+[features]
+default = ["tui", "serve"]
+tui = ["board-tui"]
+serve = ["board-server"]

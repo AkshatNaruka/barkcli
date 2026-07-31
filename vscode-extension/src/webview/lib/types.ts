@@ -36,3 +36,22 @@ export interface Board {
   columns: Column[];
   cards: Card[];
 }
+
+export function generateId(title: string, existingIds: string[]): string {
+  let slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  if (!slug) slug = "card";
+  let id = slug;
+  let i = 1;
+  while (existingIds.includes(id)) {
+    id = `${slug}-${i}`;
+    i++;
+  }
+  return id;
+}
+
+export function nowISO(): string {
+  return new Date().toISOString();
+}

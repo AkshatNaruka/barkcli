@@ -64,6 +64,7 @@ export class BoardEditorProvider implements vscode.CustomTextEditorProvider {
 
     return html
       .replace(/\{\{nonce\}\}/g, nonce)
+      .replace(/\{\{cspSource\}\}/g, webview.cspSource)
       .replace(/\{\{webviewJsUri\}\}/g, jsUri.toString())
       .replace(/\{\{webviewCssUri\}\}/g, cssUri.toString());
   }

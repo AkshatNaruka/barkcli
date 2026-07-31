@@ -1,0 +1,11 @@
+[package]
+name = "board-tui"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+board-core = { path = "../board-core" }
+anyhow = "1"
+chrono = "0.4"
+ratatui = "0.29"
+crossterm = "0.28"

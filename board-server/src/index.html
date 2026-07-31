@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' ws:;" />
+  <link rel="stylesheet" href="/webview.css" />
+  <title>Board</title>
+</head>
+<body>
+<div id="root"></div>
+<script>
+;(function() {
+  var boardName = null;
+
+  function setBoard(name) {
+    boardName = name;
+    localStorage.setItem('board-selected', name);
+    loadBoard();
+  }
+
+  function loadBoard() {
+    var url = boardName ? '/api/board?name=' + encodeURIComponent(boardName) : '/api/board';
+    fetch(url).then(function(r) {
+      if (!r.ok) { throw new Error('Failed to load board'); }
+      return r.json();
+    }).then(function(data) {
+      window.postMessage({type:'load', yaml: data.yaml}, '*');
+    }).catch(function(e) {
+      // Show board picker if load fails
+      fetch('/api/boards').then(function(r){return r.json()}).then(function(data){
+        if (data.boards && data.boards.length > 0) {
+          showPicker(data.boards);
+        } else {
+          document.getElementById('root').innerHTML =
+            '<p style="color:red;padding:2em">No boards found. Create one with <code>board create &lt;name&gt;</code></p>';
+        }
+      }).catch(function(e2){
+        document.getElementById('root').innerHTML =
+          '<p style="color:red;padding:2em">Error: ' + e.message + '</p>';
+      });
+    });
+  }
+
+  function showPicker(boards) {
+    var html = '<div style="padding:2em;font-family:sans-serif">' +
+      '<h2>Select a board</h2><ul>';
+    for (var i = 0; i < boards.length; i++) {
+      html += '<li><a href="#" onclick="setBoard(\'' + boards[i] + '\');return false">' +
+        boards[i] + '</a></li>';
+    }
+    html += '</ul></div>';
+    document.getElementById('root').innerHTML = html;
+  }
+
+  var saved = localStorage.getItem('board-selected');
+  var api = {
+    postMessage: function(msg) {
+      if (msg.type === 'ready') {
+        if (saved) { setBoard(saved); }
+        else { loadBoard(); }
+      } else if (msg.type === 'save') {
+        fetch('/api/board', {
+          method: 'PUT',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({yaml: msg.yaml, name: boardName})
+        }).catch(function(e){console.error('board: save failed', e)});
+      } else if (msg.type === 'select-board') {
+        setBoard(msg.name);
+      }
+    },
+    getState: function(){return null},
+    setState: function(){}
+  };
+  window.acquireVsCodeApi = function(){return api};
+  var ws = new WebSocket('ws://'+location.host+'/ws');
+  ws.onmessage = function(e){
+    try {
+      var msg = JSON.parse(e.data);
+      if(msg && msg.type === 'reload'){
+        loadBoard();
+      }
+    } catch(ex) { console.error('board: ws message error', ex); }
+  };
+  ws.onclose = function(){};
+  ws.onerror = function(e){};
+})();
+</script>
+<script src="/webview.js"></script>
+</body>
+</html>

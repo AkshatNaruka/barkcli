@@ -8,6 +8,8 @@ board create dev    # Create a new board
 board dev add "Fix auth bug" -p high -l backend
 board dev move fix-auth-bug doing
 board status        # See all boards at a glance
+board tui           # Open interactive terminal UI
+board serve --open  # Open browser-based Kanban UI
 ```
 
 ---
@@ -52,6 +54,15 @@ board sprint-1 show jwt-login          # full card details
 board sprint-1 remove oauth-setup      # delete card
 ```
 
+### 5. Interactive UI
+
+```shell
+board sprint-1 tui            # Terminal Kanban (ratatui)
+board sprint-1 serve --open   # Browser Kanban (hot-reloads on file changes)
+board tui                     # Auto-detect board and open TUI
+board open                    # TUI if terminal, browser otherwise
+```
+
 ---
 
 ## Commands
@@ -69,6 +80,9 @@ board sprint-1 remove oauth-setup      # delete card
 | `board clean` | Remove stale locks + orphaned history |
 | `board export <name> [json\|yaml]` | Export board to stdout |
 | `board import <name> [file]` | Import board from stdin or file |
+| `board tui [name]` | Open interactive terminal Kanban UI (ratatui) |
+| `board serve [--port N] [--board name] [--open]` | Start local Kanban web UI server |
+| `board open [name]` | Open board (TUI if terminal, browser if piped) |
 
 ### Card operations
 
@@ -93,6 +107,20 @@ board <name> export [format]
 | `-a` / `--assignee` | add, update | Assignee name |
 | `-c` / `--column` | add, update, list | Column filter or target |
 | `-t` / `--title` | update | New title |
+
+### TUI keyboard shortcuts
+
+| Key | Action |
+|---|---|
+| `←`/`→` or `h`/`l` | Focus column |
+| `↑`/`↓` or `j`/`k` | Select card |
+| `Enter` | Card detail panel |
+| `H`/`L` or `m` | Move card left/right |
+| `a` | Add card |
+| `e` | Edit selected card |
+| `d` | Delete card (confirm with `y`/`n`) |
+| `/` | Search/filter by text, label, or assignee |
+| `q` / `Esc` | Quit (Esc closes panel first if open) |
 
 ---
 
@@ -147,6 +175,73 @@ cd vscode-extension
 npm install
 npm run build
 # Open the folder in VS Code, press F5
+```
+
+---
+
+## Neovim Integration
+
+Add to `~/.config/nvim/after/ftplugin/board.lua`:
+
+```lua
+vim.api.nvim_create_autocmd("BufReadPre", {
+  pattern = "*.board",
+  callback = function()
+    local buf = vim.api.nvim_create_buf(false, true)
+    local width = math.floor(vim.o.columns * 0.85)
+    local height = math.floor(vim.o.lines * 0.85)
+    local win = vim.api.nvim_open_win(buf, true, {
+      relative = "editor",
+      width = width, height = height,
+      row = math.floor((vim.o.lines - height) / 2),
+      col = math.floor((vim.o.columns - width) / 2),
+      style = "minimal", border = "single"
+    })
+    vim.fn.termopen("board " .. vim.fn.expand("%:t:r") .. " tui")
+  end
+})
+```
+
+Set `vim.g.board_backend = "browser"` to use `board serve --open` instead.
+
+---
+
+## JetBrains Integration
+
+Minimal IntelliJ Platform Plugin setup:
+
+1. Create a new IntelliJ Platform Plugin project
+2. Register `*.board` file type in `plugin.xml`:
+   ```xml
+   <fileType name="Board" implementationClass="BoardFileType"
+             extensions="board" fieldName="INSTANCE"/>
+   ```
+3. Create `BoardEditorProvider.kt` that:
+   - On open, runs `board serve --port 4321` as a background process
+   - Opens a JCEF browser panel at `http://localhost:4321`
+   - Kills the server process when the project closes
+4. Build with Gradle and install
+
+---
+
+## OS File Association
+
+Register `board open <file>` as the default handler for `.board` files:
+
+**macOS**: Use `duti` or configure `LSHandlers` in `Info.plist`:
+```shell
+duti -s board board open all
+```
+
+**Linux**: Create a `.desktop` file and update `xdg-mime`:
+```shell
+xdg-mime default board.desktop text/board
+```
+
+**Windows**: Use `ftype` and `assoc`:
+```cmd
+assoc .board=BoardFile
+ftype BoardFile=board open "%1"
 ```
 
 ---
