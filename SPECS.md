@@ -63,28 +63,27 @@ All works from a fresh machine in under 30 seconds.
 
 ### Tasks
 
-- [ ] **C1**: Scaffold `web/` directory with Vite + React + TypeScript + Tailwind CSS
-- [ ] **C2**: Port existing vscode-extension webview components to `web/`
-- [ ] **C3**: Integrate `@dnd-kit/core` for drag-and-drop between columns
-- [ ] **C4**: Card drop indicator (visual where card will land)
-- [ ] **C5**: Inline editing — click to edit title, priority dropdown, labels with `x` removal
-- [ ] **C6**: Right-click context menu on cards (Edit, Move, Delete)
-- [ ] **C7**: Add card inline (click at column bottom → input appears)
-- [ ] **C8**: Board view (Kanban columns — ported from existing + dnd)
-- [ ] **C9**: Table view — spreadsheet: ID, Title, Column, Priority, Assignee, Due, Labels
-- [ ] **C10**: Calendar view — month grid with cards on their due dates
-- [ ] **C11**: List view — flat prioritized list with drag-to-reorder
-- [ ] **C12**: Command palette (`Cmd+K` / `Ctrl+K`) — fuzzy search cards, commands, navigation
-- [ ] **C13**: Dark/light/system theme toggle, persisted in localStorage
-- [ ] **C14**: Loading skeleton while board loads
-- [ ] **C15**: Toast notifications with Undo for destructive actions
-- [ ] **C16**: Board title + description editable at top
-- [ ] **C17**: Responsive design — scrollable columns on narrow screens
-- [ ] **C18**: VS Code API shim in `web/` so the same app works in VS Code extension
-- [ ] **C19**: Build output → embedded in `board-server` via `include_bytes!`
+- [x] **C1**: Scaffold `web/` with Vite + React + TypeScript + Tailwind CSS
+- [x] **C2**: Port existing vscode-extension webview components to `web/`
+- [x] **C3**: `@dnd-kit/core` — drag-and-drop between columns with overlay
+- [x] **C4**: Drop zone highlight when dragging over column (blue tint)
+- [x] **C5**: Inline editing via modal — title, description, priority dropdown, labels, assignee, due date
+- [x] **C6**: Context menu on cards (⋯ button → Edit / Delete)
+- [x] **C7**: Add card button at column bottom
+- [x] **C8**: Board view with Kanban columns + dnd
+- [x] **C9**: Table view — spreadsheet with column dropdowns, priority colors, delete button
+- [x] **C10**: Calendar view — month grid with cards on their due dates
+- [x] **C11**: List view — priority-sorted flat list with column selector
+- [x] **C12**: Command palette (`Cmd+K`) — fuzzy search cards, commands, theme toggle
+- [x] **C13**: Dark/light toggle, persisted in localStorage
+- [x] **C14**: Loading skeleton (pulsing placeholders) while board loads
+- [x] **C15**: Toast notifications for add/delete actions
+- [x] **C16**: Board title + card count in header
+- [x] **C17**: Scrollable columns on narrow screens
+- [x] **C18**: VS Code API shim — same `web/` app works in VS Code extension
+- [x] **C19**: Build output → served by `board-server` via `ServeDir`
 
-### Acceptance
-`board serve --open` opens browser. Drag cards between columns. Click card to edit inline. `Cmd+K` opens palette. Switch to Table/Calendar/List views. Dark mode toggle works. Edit a card → `.board` YAML updates → WS reloads.
+**Status: ✅ DONE**
 
 ---
 

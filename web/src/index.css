@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Column scroll */
+.column-scroll::-webkit-scrollbar { width: 4px; }
+.column-scroll::-webkit-scrollbar-track { background: transparent; }
+.column-scroll::-webkit-scrollbar-thumb { background: #374151; border-radius: 2px; }

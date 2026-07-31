@@ -7,20 +7,20 @@ use axum::{
         Query, State,
     },
     http::StatusCode,
-    response::{Html, IntoResponse, Json, Response},
-    routing::{get},
+    response::{IntoResponse, Json, Response},
+    routing::get,
     Router,
 };
 use futures::{SinkExt, StreamExt};
 use serde::Deserialize;
 use tokio::sync::broadcast;
+use tower_http::services::ServeDir;
 
 use board_core::storage::board_file;
 use board_core::storage::board_file::{list_board_files, read_board};
 
-static WEBVIEW_JS: &[u8] = include_bytes!("../../vscode-extension/dist/webview.js");
-static WEBVIEW_CSS: &[u8] = include_bytes!("../../vscode-extension/dist/webview.css");
-static INDEX_HTML: &str = include_str!("./index.html");
+#[allow(dead_code)]
+static INDEX_HTML_FALLBACK: &str = include_str!("./index.html");
 
 #[derive(Clone)]
 struct AppState {
@@ -37,12 +37,12 @@ pub async fn run(port: u16, board_name: Option<&str>, open_browser: bool) -> Res
     });
 
     let app = Router::new()
-        .route("/", get(root_handler))
-        .route("/webview.js", get(js_handler))
-        .route("/webview.css", get(css_handler))
         .route("/api/boards", get(list_boards_handler))
         .route("/api/board", get(get_board_handler).put(save_board_handler))
         .route("/ws", get(ws_handler))
+        .fallback_service(ServeDir::new("web/dist").fallback(
+            ServeDir::new("vscode-extension/dist") // fallback to old VS Code extension assets
+        ))
         .with_state(state.clone());
 
     let watch_tx = tx.clone();
@@ -71,28 +71,8 @@ pub async fn run(port: u16, board_name: Option<&str>, open_browser: bool) -> Res
     Ok(())
 }
 
-async fn root_handler() -> Html<&'static str> {
-    Html(INDEX_HTML)
-}
-
-async fn js_handler() -> impl IntoResponse {
-    (
-        [("Content-Type", "application/javascript; charset=utf-8")],
-        WEBVIEW_JS,
-    )
-}
-
-async fn css_handler() -> impl IntoResponse {
-    (
-        [("Content-Type", "text/css; charset=utf-8")],
-        WEBVIEW_CSS,
-    )
-}
-
 #[derive(serde::Serialize)]
-struct BoardListResponse {
-    boards: Vec<String>,
-}
+struct BoardListResponse { boards: Vec<String> }
 
 async fn list_boards_handler() -> Result<Json<BoardListResponse>, ServerError> {
     let boards = list_board_files().map_err(|e| ServerError(e.to_string()))?;
@@ -100,14 +80,10 @@ async fn list_boards_handler() -> Result<Json<BoardListResponse>, ServerError> {
 }
 
 #[derive(serde::Serialize)]
-struct BoardResponse {
-    yaml: String,
-}
+struct BoardResponse { yaml: String }
 
 #[derive(Deserialize)]
-struct BoardQuery {
-    name: Option<String>,
-}
+struct BoardQuery { name: Option<String> }
 
 async fn get_board_handler(
     State(state): State<Arc<AppState>>,
@@ -120,22 +96,17 @@ async fn get_board_handler(
     } else if boards.len() == 1 {
         boards[0].clone()
     } else if boards.is_empty() {
-        return Err(ServerError("No boards found. Create one with `board create <name>`.".to_string()));
+        return Err(ServerError("No boards found. Create one with `board create <name>`.".into()));
     } else {
         boards[0].clone()
     };
-    let board =
-        read_board(&board_name).map_err(|e| ServerError(format!("failed to read board: {}", e)))?;
-    let yaml = serde_yaml::to_string(&board)
-        .map_err(|e| ServerError(format!("failed to serialize: {}", e)))?;
+    let board = read_board(&board_name).map_err(|e| ServerError(format!("read: {}", e)))?;
+    let yaml = serde_yaml::to_string(&board).map_err(|e| ServerError(format!("serialize: {}", e)))?;
     Ok(Json(BoardResponse { yaml }))
 }
 
 #[derive(Deserialize)]
-struct SaveRequest {
-    yaml: String,
-    name: Option<String>,
-}
+struct SaveRequest { yaml: String, name: Option<String> }
 
 async fn save_board_handler(
     State(state): State<Arc<AppState>>,
@@ -149,63 +120,40 @@ async fn save_board_handler(
     } else if boards.len() == 1 {
         boards[0].clone()
     } else if boards.is_empty() {
-        return Err(ServerError("No boards found.".to_string()));
+        return Err(ServerError("No boards found.".into()));
     } else {
         boards[0].clone()
     };
-
-    let path = board_file::board_path(&board_name)
-        .map_err(|e| ServerError(format!("failed to get board path: {}", e)))?;
-    std::fs::write(&path, &req.yaml)
-        .map_err(|e| ServerError(format!("failed to write board: {}", e)))?;
-
+    let path = board_file::board_path(&board_name).map_err(|e| ServerError(format!("path: {}", e)))?;
+    std::fs::write(&path, &req.yaml).map_err(|e| ServerError(format!("write: {}", e)))?;
     let _ = state.tx.send("reload".to_string());
     Ok(Json(serde_json::json!({"ok": true})))
 }
 
-async fn ws_handler(
-    ws: WebSocketUpgrade,
-    State(state): State<Arc<AppState>>,
-) -> impl IntoResponse {
+async fn ws_handler(ws: WebSocketUpgrade, State(state): State<Arc<AppState>>) -> impl IntoResponse {
     ws.on_upgrade(move |socket| handle_socket(socket, state.tx.clone()))
 }
 
 async fn handle_socket(socket: WebSocket, tx: broadcast::Sender<String>) {
     let (mut sender, mut receiver) = socket.split();
     let mut rx = tx.subscribe();
-
     let send_task = tokio::spawn(async move {
         while let Ok(msg) = rx.recv().await {
             let json = serde_json::json!({"type": msg});
-            if sender
-                .send(Message::Text(json.to_string().into()))
-                .await
-                .is_err()
-            {
-                break;
-            }
+            if sender.send(Message::Text(json.to_string().into())).await.is_err() { break; }
         }
     });
-
     let recv_task = tokio::spawn(async move {
         while let Some(Ok(_)) = receiver.next().await {}
     });
-
-    tokio::select! {
-        _ = send_task => {},
-        _ = recv_task => {},
-    }
+    tokio::select! { _ = send_task => {}, _ = recv_task => {} }
 }
 
 struct ServerError(String);
 
 impl IntoResponse for ServerError {
     fn into_response(self) -> Response {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"error": self.0})),
-        )
-            .into_response()
+        (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": self.0}))).into_response()
     }
 }
 
@@ -214,29 +162,18 @@ async fn watch_board_files(tx: broadcast::Sender<String>, board_name: Option<Str
     use std::sync::mpsc;
 
     let board_dir = match board_core::storage::board_dir::find_project_root() {
-        Ok(dir) => dir,
-        Err(_) => return,
+        Ok(dir) => dir, Err(_) => return,
     };
-
     let (watch_tx, watch_rx) = mpsc::channel::<Result<Event, notify::Error>>();
-
     let mut watcher: RecommendedWatcher = match Watcher::new(watch_tx, Config::default()) {
-        Ok(w) => w,
-        Err(_) => return,
+        Ok(w) => w, Err(_) => return,
     };
-
     if let Err(e) = watcher.watch(&board_dir, RecursiveMode::NonRecursive) {
-        eprintln!("Failed to watch board directory: {}", e);
-        return;
+        eprintln!("Failed to watch board directory: {}", e); return;
     }
-
     for event in watch_rx {
         match event {
-            Ok(Event {
-                kind: EventKind::Modify(_) | EventKind::Create(_) | EventKind::Remove(_),
-                paths,
-                ..
-            }) => {
+            Ok(Event { kind: EventKind::Modify(_) | EventKind::Create(_) | EventKind::Remove(_), paths, .. }) => {
                 for path in paths {
                     if path.extension().and_then(|e| e.to_str()) == Some("board") {
                         if let Some(ref name) = board_name {
