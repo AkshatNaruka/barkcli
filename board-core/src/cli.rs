@@ -100,6 +100,9 @@ fn print_usage() {
     println!("  serve [--port N] [--board name] [--open]  Start local Kanban web UI");
     println!("  open [name]             Open board (TUI if terminal, else browser)");
     println!("  update                  Self-update to latest version");
+    println!("  log [--board <name>]    Show card operation history");
+    println!("  diff [--board <name>] [ref]  Show board changes vs git ref");
+    println!("  pr-summary [--board <name>] [--base <branch>]  Generate PR markdown");
     println!("  --version, -V           Print version");
     println!();
     println!("Board operations:");

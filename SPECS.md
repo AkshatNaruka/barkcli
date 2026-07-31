@@ -93,18 +93,13 @@ All works from a fresh machine in under 30 seconds.
 
 ### Tasks
 
-- [ ] **D1**: `board init` installs `pre-commit` hook that runs `board validate`
-- [ ] **D2**: `board init` offers `commit-msg` hook template: `[card-id] Your message`
-- [ ] **D3**: `board log [--board <name>]` — reads `.board/history/<name>.log` and pretty-prints
-- [ ] **D4**: `board diff [--board <name>] [<ref>]` — shows what changed between git refs in board terms
-- [ ] **D5**: `board pr-summary [--base <branch>]` — markdown table summarizing board changes for PRs
+- [x] **D1**: `board init` installs `pre-commit` hook that runs `board validate`
+- [x] **D2**: `board init` offers `commit-msg` hook template: `[card-id] Your message`
+- [x] **D3**: `board log [--board <name>]` — reads `.board/history/<name>.log` and pretty-prints
+- [x] **D4**: `board diff [--board <name>] [<ref>]` — shows added, removed, moved cards vs git ref
+- [x] **D5**: `board pr-summary [--board <name>] [--base <branch>]` — markdown table for PRs
 
-### Acceptance
-```shell
-board log                    # shows last N card operations
-board diff HEAD~1            # shows: 3 cards moved to Done, 2 added, 1 priority changed
-board pr-summary --base main # generates markdown table
-```
+**Status: ✅ DONE**
 
 ---
 

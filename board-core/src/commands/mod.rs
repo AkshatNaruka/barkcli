@@ -3,6 +3,7 @@ pub mod clean;
 pub mod create;
 pub mod doctor;
 pub mod export;
+pub mod git_ops;
 pub mod import;
 pub mod init;
 pub mod list;

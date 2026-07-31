@@ -94,6 +94,56 @@ fn do_update() {
     }
 }
 
+fn parse_board_arg(args: &[String]) -> Option<String> {
+    let mut board = None;
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--board" | "-b" => { i += 1; board = args.get(i).cloned(); }
+            s if !s.starts_with('-') => { if board.is_none() { board = Some(s.to_string()); } }
+            _ => {}
+        }
+        i += 1;
+    }
+    board
+}
+
+fn parse_diff_args(args: &[String]) -> (Option<String>, Option<String>) {
+    let mut board = None;
+    let mut git_ref = None;
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--board" | "-b" => { i += 1; board = args.get(i).cloned(); }
+            s if !s.starts_with('-') => {
+                if board.is_none() { board = Some(s.to_string()); }
+                else if git_ref.is_none() { git_ref = Some(s.to_string()); }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    (board, git_ref)
+}
+
+fn parse_pr_args(args: &[String]) -> (Option<String>, Option<String>) {
+    let mut board = None;
+    let mut base = None;
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--board" | "-b" => { i += 1; board = args.get(i).cloned(); }
+            "--base" => { i += 1; base = args.get(i).cloned(); }
+            s if !s.starts_with('-') => {
+                if board.is_none() { board = Some(s.to_string()); }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    (board, base)
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let rest = &args[1..];
@@ -110,6 +160,30 @@ fn main() {
             }
             "version" => {
                 print_version();
+                return;
+            }
+            "log" => {
+                let board_name = parse_board_arg(&rest[1..]);
+                if let Err(e) = board_core::commands::git_ops::run_log(board_name.as_deref()) {
+                    eprintln!("error: {}", e);
+                    std::process::exit(1);
+                }
+                return;
+            }
+            "diff" => {
+                let (board_name, ref_spec) = parse_diff_args(&rest[1..]);
+                if let Err(e) = board_core::commands::git_ops::run_diff(board_name.as_deref(), ref_spec.as_deref()) {
+                    eprintln!("error: {}", e);
+                    std::process::exit(1);
+                }
+                return;
+            }
+            "pr-summary" => {
+                let (board_name, base) = parse_pr_args(&rest[1..]);
+                if let Err(e) = board_core::commands::git_ops::run_pr_summary(board_name.as_deref(), base.as_deref()) {
+                    eprintln!("error: {}", e);
+                    std::process::exit(1);
+                }
                 return;
             }
             "tui" => {
