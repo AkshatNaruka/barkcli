@@ -1,3 +1,9 @@
+mod version;
+
+const GIT_HASH: &str = env!("GIT_HASH");
+const VERSION: &str = "0.1.0";
+const REPO: &str = "anomalyco/board";
+
 #[cfg(feature = "tui")]
 fn run_tui(args: &[String]) {
     let name = args.first().map(|s| s.as_str());
@@ -28,9 +34,8 @@ fn run_serve(args: &[String]) {
             "--open" | "-o" => {
                 open_browser = true;
             }
-            s if s.starts_with('-') => { /* skip unknown flags */ }
+            s if s.starts_with('-') => {}
             s => {
-                // First non-flag argument is the board name
                 if board_name.is_none() {
                     board_name = Some(s.to_string());
                 }
@@ -45,12 +50,68 @@ fn run_serve(args: &[String]) {
     }
 }
 
+fn print_version() {
+    println!("board {} (git: {})", VERSION, GIT_HASH);
+}
+
+fn do_update() {
+    print_version();
+    let exe = match std::env::current_exe() {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("Cannot determine binary path: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    let target = version::get_target_triple();
+    let release = match version::get_latest_release() {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("Failed to check for updates: {}", e);
+            eprintln!("Try building from source: cargo install board");
+            std::process::exit(1);
+        }
+    };
+
+    if release.tag_name == format!("v{}", VERSION) && GIT_HASH != "unknown" {
+        println!("Already up to date (v{}).", VERSION);
+        return;
+    }
+
+    println!("Updating to {}...", release.tag_name);
+    let url = format!(
+        "https://github.com/{}/releases/download/{}/board-{}.tar.gz",
+        REPO, release.tag_name, target
+    );
+
+    match version::download_and_replace(&url, &exe) {
+        Ok(()) => println!("Updated to {}. Restart to use the new version.", release.tag_name),
+        Err(e) => {
+            eprintln!("Update failed: {}", e);
+            std::process::exit(1);
+        }
+    }
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let rest = &args[1..];
 
     if let Some(first) = rest.first() {
         match first.as_str() {
+            "--version" | "-V" => {
+                print_version();
+                return;
+            }
+            "update" | "upgrade" => {
+                do_update();
+                return;
+            }
+            "version" => {
+                print_version();
+                return;
+            }
             "tui" => {
                 #[cfg(feature = "tui")]
                 run_tui(&rest[1..]);

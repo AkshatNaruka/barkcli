@@ -99,6 +99,8 @@ fn print_usage() {
     println!("  tui [name]              Open interactive terminal UI");
     println!("  serve [--port N] [--board name] [--open]  Start local Kanban web UI");
     println!("  open [name]             Open board (TUI if terminal, else browser)");
+    println!("  update                  Self-update to latest version");
+    println!("  --version, -V           Print version");
     println!();
     println!("Board operations:");
     println!("  board <name> add <title>   Add a card");
