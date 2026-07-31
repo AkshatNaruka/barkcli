@@ -4,7 +4,7 @@ use board_core::storage::board_file::{read_board, write_board};
 use board_core::storage::history;
 use board_core::util::slug::unique_slug;
 use chrono::Utc;
-use ratatui::Terminal;
+use ratatui::{style::Color, Terminal};
 use crossterm::event::{self, Event, KeyEventKind};
 
 use crate::handlers;
@@ -15,6 +15,7 @@ pub enum AppMode {
     BoardPicker,
     Normal,
     FilterInput,
+    CommandPalette,
     AddingTitle,
     EditingCard,
     ViewingDetail,
@@ -28,8 +29,13 @@ pub enum EditField {
     Priority,
     Labels,
     Assignee,
-    Column,
     Done,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum Theme {
+    Dark,
+    Light,
 }
 
 pub struct App {
@@ -41,6 +47,7 @@ pub struct App {
     pub card_focus: usize,
 
     pub filter: String,
+    pub filter_query: ParsedQuery,
 
     pub mode: AppMode,
 
@@ -49,6 +56,19 @@ pub struct App {
     pub edit_card_idx: Option<usize>,
 
     pub should_quit: bool,
+
+    pub theme: Theme,
+    pub palette_matches: Vec<String>,
+}
+
+#[derive(Clone, Default)]
+pub struct ParsedQuery {
+    pub text: String,
+    pub column: Option<String>,
+    pub priority: Option<String>,
+    pub label: Option<String>,
+    pub assignee: Option<String>,
+    pub is_raw: String,
 }
 
 impl App {
@@ -61,11 +81,14 @@ impl App {
             focused_column: 0,
             card_focus: 0,
             filter: String::new(),
+            filter_query: ParsedQuery::default(),
             mode: AppMode::Normal,
             edit_buffer: String::new(),
             edit_field: EditField::Title,
             edit_card_idx: None,
             should_quit: false,
+            theme: Theme::Dark,
+            palette_matches: Vec::new(),
         })
     }
 
@@ -77,11 +100,14 @@ impl App {
             focused_column: 0,
             card_focus: 0,
             filter: String::new(),
+            filter_query: ParsedQuery::default(),
             mode: AppMode::BoardPicker,
             edit_buffer: String::new(),
             edit_field: EditField::Title,
             edit_card_idx: None,
             should_quit: false,
+            theme: Theme::Dark,
+            palette_matches: Vec::new(),
         }
     }
 
@@ -97,17 +123,59 @@ impl App {
             .enumerate()
             .filter(|(_, c)| c.column == *col_id)
             .collect();
-        if self.filter.is_empty() {
-            return all;
-        }
-        let flt = self.filter.to_lowercase();
-        all.into_iter()
+
+        let query = &self.filter_query;
+        let mut cards: Vec<(usize, &Card)> = all
+            .into_iter()
             .filter(|(_, c)| {
+                if !query.text.is_empty()
+                    && !c.title.to_lowercase().contains(&query.text.to_lowercase())
+                    && !c.labels.iter().any(|l| l.to_lowercase().contains(&query.text.to_lowercase()))
+                    && !c.assignee.as_deref().unwrap_or("").to_lowercase().contains(&query.text.to_lowercase())
+                {
+                    return false;
+                }
+                if let Some(ref p) = query.priority {
+                    if c.priority != *p {
+                        return false;
+                    }
+                }
+                if let Some(ref a) = query.assignee {
+                    if c.assignee.as_deref().unwrap_or("") != a.as_str() {
+                        return false;
+                    }
+                }
+                if let Some(ref l) = query.label {
+                    if !c.labels.iter().any(|x| x == l) {
+                        return false;
+                    }
+                }
+                if let Some(ref col) = query.column {
+                    if c.column != *col {
+                        return false;
+                    }
+                }
+                true
+            })
+            .collect();
+
+        // Also check raw filter for backward compat
+        if !self.filter.is_empty() && query.text.is_empty() && query.priority.is_none() && query.label.is_none() {
+            let flt = self.filter.to_lowercase();
+            cards.retain(|(_, c)| {
                 c.title.to_lowercase().contains(&flt)
                     || c.labels.iter().any(|l| l.to_lowercase().contains(&flt))
                     || c.assignee.as_deref().unwrap_or("").to_lowercase().contains(&flt)
-            })
-            .collect()
+            });
+        } else if !query.is_raw.is_empty() {
+            let raw = query.is_raw.to_lowercase();
+            cards.retain(|(_, c)| {
+                c.title.to_lowercase().contains(&raw)
+                    || c.labels.iter().any(|l| l.to_lowercase().contains(&raw))
+                    || c.assignee.as_deref().unwrap_or("").to_lowercase().contains(&raw)
+            });
+        }
+        cards
     }
 
     pub fn focused_column_card_count(&self) -> usize {
@@ -123,9 +191,42 @@ impl App {
         Some(cards[idx])
     }
 
+    pub fn parse_query(&mut self) {
+        if self.filter.is_empty() {
+            self.filter_query = ParsedQuery::default();
+            return;
+        }
+        // Check for query syntax: key:value pairs
+        let mut text_parts = Vec::new();
+        let mut column = None;
+        let mut priority = None;
+        let mut label = None;
+        let mut assignee = None;
+        for token in self.filter.split_whitespace() {
+            if let Some((key, value)) = token.split_once(':') {
+                match key {
+                    "is" | "column" | "col" => column = Some(value.to_string()),
+                    "priority" | "pri" | "p" => priority = Some(value.to_string()),
+                    "label" | "l" => label = Some(value.to_string()),
+                    "assignee" | "a" | "who" => assignee = Some(value.to_string()),
+                    _ => text_parts.push(token),
+                }
+            } else {
+                text_parts.push(token);
+            }
+        }
+        self.filter_query = ParsedQuery {
+            text: text_parts.join(" "),
+            column,
+            priority,
+            label,
+            assignee,
+            is_raw: String::new(),
+        }
+    }
+
     pub fn save(&mut self) -> Result<()> {
-        write_board(&self.board_name, &self.board)
-            .context("failed to write board")
+        write_board(&self.board_name, &self.board).context("failed to write board")
     }
 
     pub fn run(&mut self, terminal: &mut Terminal<impl ratatui::backend::Backend>) -> Result<()> {
@@ -146,11 +247,9 @@ impl App {
         } else {
             self.board.columns[0].id.clone()
         };
-
         let existing_ids: Vec<String> = self.board.cards.iter().map(|c| c.id.clone()).collect();
         let id = unique_slug(title, &existing_ids);
         let now = Utc::now();
-
         let card = Card {
             id: id.clone(),
             title: title.to_string(),
@@ -166,7 +265,6 @@ impl App {
             created_at: now,
             updated_at: now,
         };
-
         self.board.cards.push(card);
         let _ = history::log_add(&self.board_name, &id, title);
         self.save()?;
@@ -183,7 +281,10 @@ impl App {
         Ok(())
     }
 
-    pub fn update_card(&mut self, idx: usize, title: &str, description: &str, priority: &str, labels: &str, assignee: &str) -> Result<()> {
+    pub fn update_card(
+        &mut self, idx: usize, title: &str, description: &str,
+        priority: &str, labels: &str, assignee: &str,
+    ) -> Result<()> {
         if idx < self.board.cards.len() {
             let card = &mut self.board.cards[idx];
             let old_title = card.title.clone();
@@ -215,5 +316,40 @@ impl App {
             self.save()?;
         }
         Ok(())
+    }
+
+    pub fn theme_bg(&self) -> Color {
+        match self.theme {
+            Theme::Dark => Color::Rgb(10, 10, 15),
+            Theme::Light => Color::Rgb(245, 245, 250),
+        }
+    }
+
+    pub fn theme_text(&self) -> Color {
+        match self.theme {
+            Theme::Dark => Color::Rgb(220, 220, 230),
+            Theme::Light => Color::Rgb(30, 30, 40),
+        }
+    }
+
+    pub fn theme_col_bg(&self) -> Color {
+        match self.theme {
+            Theme::Dark => Color::Rgb(18, 18, 28),
+            Theme::Light => Color::Rgb(235, 235, 245),
+        }
+    }
+
+    pub fn theme_card_bg(&self) -> Color {
+        match self.theme {
+            Theme::Dark => Color::Rgb(25, 25, 38),
+            Theme::Light => Color::Rgb(255, 255, 255),
+        }
+    }
+
+    pub fn theme_muted(&self) -> Color {
+        match self.theme {
+            Theme::Dark => Color::Rgb(80, 80, 100),
+            Theme::Light => Color::Rgb(160, 160, 170),
+        }
     }
 }

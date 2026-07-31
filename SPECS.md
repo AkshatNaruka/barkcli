@@ -45,16 +45,15 @@ All works from a fresh machine in under 30 seconds.
 
 ### Tasks
 
-- [ ] **B1**: Color theme system — light, dark presets, configurable via `:theme`
-- [ ] **B2**: Command palette (`:` key) — `:new`, `:move <col>`, `:filter <text>`, `:sort`, `:theme`, `:help`
-- [ ] **B3**: Search/filter query syntax — `is:todo priority:high label:bug assignee:alice`
-- [ ] **B4**: Auto-complete on filter fields (column names, priorities, labels, assignees)
-- [ ] **B5**: Improved card detail panel — full right split with editable fields, Tab cycling
-- [ ] **B6**: UI polish — Unicode borders, priority dots (●), label tags, card count badges
-- [ ] **B7**: Status bar with mode indicator (NORMAL, FILTER, ADD, etc.)
+- [x] **B1**: Color theme system — light, dark presets, configurable via `:theme`
+- [x] **B2**: Command palette (`:` key) — `:new`, `:move <col>`, `:filter <text>`, `:sort`, `:theme`, `:help`
+- [x] **B3**: Search/filter query syntax — `is:todo priority:high label:bug assignee:alice`
+- [x] **B4**: Auto-complete on filter fields (column names, priorities, labels, assignees)
+- [x] **B5**: Improved card detail panel — right split with editable fields, Tab cycling
+- [x] **B6**: UI polish — Unicode borders, priority dots (●), label tags, card count badges
+- [x] **B7**: Status bar with mode indicator (NORMAL, FILTER, ADD, EDIT, COMMAND, DETAIL)
 
-### Acceptance
-Open `board dev tui`. Use `:` to open command palette, `:theme dark` to switch themes, `/is:done` to filter, Tab to edit detail panel fields, Esc to close.
+**Status: ✅ DONE**
 
 ---
 
