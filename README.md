@@ -1,15 +1,21 @@
-# Board — Git-like Project Board Tool
+# Board — Git-like Task Management
 
-`board` is a CLI (+ VS Code extension) for task tracking inside any project. Like `.git` but for Kanban boards.
+> A single binary. No database. No cloud. Works offline.
+> Like `.git` but for Kanban boards — committed YAML files you can diff, merge, and grep.
+
+[**Website**](https://get.board.io) · [GitHub](https://github.com/anomalyco/board)
 
 ```shell
-board init          # Initialize board tracking in this project
-board create dev    # Create a new board
-board dev add "Fix auth bug" -p high -l backend
-board dev move fix-auth-bug doing
-board status        # See all boards at a glance
-board tui           # Open interactive terminal UI
-board serve --open  # Open browser-based Kanban UI
+curl -fsSL https://get.board.io | sh   # install in 10 seconds
+```
+
+```shell
+board init                        # initialize in any project
+board add "Fix auth bug" -p high  # add a task
+board list                        # see all tasks
+board move fix-auth-bug doing     # move through workflow
+board done fix-auth-bug           # mark as done
+board undo                        # revert last change
 ```
 
 ---
@@ -19,10 +25,14 @@ board serve --open  # Open browser-based Kanban UI
 ### 1. Install
 
 ```shell
-git clone <this-repo>
+# One-command install
+curl -fsSL https://raw.githubusercontent.com/anomalyco/board/main/install.sh | sh
+
+# Or from source
+git clone https://github.com/anomalyco/board
 cd board
 cargo build --release
-cp target/release/board ~/bin/board   # or anywhere on $PATH
+cp target/release/board ~/bin/board
 ```
 
 ### 2. Initialize in any project

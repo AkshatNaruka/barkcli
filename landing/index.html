@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Board — Git-like Project Management</title>
+  <meta name="description" content="Board is a Git-like CLI tool for task tracking inside any project. A single binary. No database. No cloud. Works offline." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50: '#eef2ff', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca', 900: '#312e81' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .gradient-text { background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .gradient-bg { background: linear-gradient(135deg, #0f0f1a 0%, #1a1030 50%, #0f1a2e 100%); }
+    .card-hover { transition: all 0.2s; }
+    .card-hover:hover { transform: translateY(-2px); }
+    pre { scrollbar-width: none; }
+    pre::-webkit-scrollbar { display: none; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+  </style>
+</head>
+<body class="gradient-bg min-h-screen text-gray-100 font-sans antialiased">
+
+  <!-- Nav -->
+  <nav class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between fade-in">
+    <div class="flex items-center gap-3">
+      <span class="text-2xl font-bold gradient-text">⬡ board</span>
+      <span class="text-xs text-gray-500 bg-gray-800/50 px-2 py-0.5 rounded-full">v0.2.0</span>
+    </div>
+    <div class="flex items-center gap-4 text-sm">
+      <a href="https://github.com/anomalyco/board" class="text-gray-400 hover:text-white transition-colors">GitHub</a>
+      <a href="#install" class="text-gray-400 hover:text-white transition-colors">Install</a>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="max-w-4xl mx-auto px-6 py-20 text-center fade-in">
+    <h1 class="text-5xl md:text-7xl font-bold mb-6 tracking-tight">
+      <span class="gradient-text">Task tracking,</span><br>
+      <span class="text-white">the way git does code.</span>
+    </h1>
+    <p class="text-lg text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+      A single binary. No database. No cloud. Works offline.<br>
+      Like <code class="text-gray-300 bg-gray-800 px-1.5 py-0.5 rounded">.git</code> but for Kanban boards — committed YAML files you can diff, merge, and grep.
+    </p>
+
+    <!-- Install command -->
+    <div id="install" class="max-w-lg mx-auto mb-8">
+      <p class="text-xs text-gray-500 mb-2 uppercase tracking-wider">Install in 10 seconds</p>
+      <div class="bg-gray-900 border border-gray-700 rounded-xl p-1 flex items-center gap-2">
+        <code class="flex-1 text-left pl-4 py-3 text-gray-300 text-sm font-mono overflow-x-auto whitespace-nowrap">curl -fsSL https://get.board.io | sh</code>
+        <button onclick="navigator.clipboard.writeText('curl -fsSL https://get.board.io | sh')" class="bg-brand-600 hover:bg-brand-700 text-white text-sm px-4 py-2 rounded-lg font-medium transition-colors flex-shrink-0">
+          Copy
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Code demo -->
+  <section class="max-w-2xl mx-auto px-6 pb-16 fade-in" style="animation-delay: 0.2s">
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden shadow-2xl">
+      <div class="flex items-center gap-1.5 px-4 py-3 border-b border-gray-800">
+        <span class="w-3 h-3 rounded-full bg-red-500/80"></span>
+        <span class="w-3 h-3 rounded-full bg-yellow-500/80"></span>
+        <span class="w-3 h-3 rounded-full bg-green-500/80"></span>
+        <span class="text-xs text-gray-500 ml-2">terminal</span>
+      </div>
+      <pre class="p-6 text-sm leading-relaxed overflow-x-auto"><span class="text-gray-500"># Initialize in any project</span>
+<span class="text-green-400">$</span> board init
+
+<span class="text-gray-500"># Add tasks — the core six commands you'll use daily</span>
+<span class="text-green-400">$</span> board add <span class="text-yellow-300">"Fix auth bug"</span> -p high -l backend
+<span class="text-green-400">$</span> board add <span class="text-yellow-300">"Write onboarding docs"</span> -p low
+<span class="text-green-400">$</span> board list
+
+<span class="text-gray-500"># Move tasks through your workflow</span>
+<span class="text-green-400">$</span> board move fix-auth-bug doing
+<span class="text-green-400">$</span> board done fix-auth-bug
+
+<span class="text-gray-500"># History, undo, diff — just like git</span>
+<span class="text-green-400">$</span> board log
+<span class="text-green-400">$</span> board undo
+<span class="text-green-400">$</span> board diff</pre>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="max-w-5xl mx-auto px-6 py-16 fade-in" style="animation-delay: 0.4s">
+    <h2 class="text-3xl font-bold text-center mb-12">Everything you need. Nothing you don't.</h2>
+    <div class="grid md:grid-cols-3 gap-6">
+      <!-- TUI -->
+      <div class="bg-gray-900/50 border border-gray-800/50 rounded-xl p-6 card-hover">
+        <div class="text-3xl mb-3">⌨️</div>
+        <h3 class="font-semibold mb-2">Terminal TUI</h3>
+        <p class="text-sm text-gray-400">Interactive Kanban with vim keys, command palette, themes, and query syntax. Never leave your terminal.</p>
+        <code class="block mt-3 text-xs text-gray-500">board tui</code>
+      </div>
+      <!-- Web -->
+      <div class="bg-gray-900/50 border border-gray-800/50 rounded-xl p-6 card-hover">
+        <div class="text-3xl mb-3">🌐</div>
+        <h3 class="font-semibold mb-2">Web Kanban</h3>
+        <p class="text-sm text-gray-400">Drag-and-drop board, table, calendar, and list views. Live-reloads on file changes. Works in any browser.</p>
+        <code class="block mt-3 text-xs text-gray-500">board serve --open</code>
+      </div>
+      <!-- Git -->
+      <div class="bg-gray-900/50 border border-gray-800/50 rounded-xl p-6 card-hover">
+        <div class="text-3xl mb-3">🔀</div>
+        <h3 class="font-semibold mb-2">Git-Native</h3>
+        <p class="text-sm text-gray-400">Board files are plain YAML committed to your repo. PRs show card diffs. Merge = sync. No merge conflicts.</p>
+        <code class="block mt-3 text-xs text-gray-500">board log && board diff HEAD~1</code>
+      </div>
+    </div>
+  </section>
+
+  <!-- Second row -->
+  <section class="max-w-5xl mx-auto px-6 pb-16 fade-in" style="animation-delay: 0.6s">
+    <div class="grid md:grid-cols-3 gap-6">
+      <!-- CLI -->
+      <div class="bg-gray-900/50 border border-gray-800/50 rounded-xl p-6 card-hover">
+        <div class="text-3xl mb-3">⚡</div>
+        <h3 class="font-semibold mb-2">Powerful CLI</h3>
+        <p class="text-sm text-gray-400"><code class="text-gray-300">add</code>, <code class="text-gray-300">move</code>, <code class="text-gray-300">done</code>, <code class="text-gray-300">undo</code>, <code class="text-gray-300">comment</code>, <code class="text-gray-300">block</code>, <code class="text-gray-300">snapshot</code> — all from your terminal. Scriptable and pipeable.</p>
+      </div>
+      <!-- IDE -->
+      <div class="bg-gray-900/50 border border-gray-800/50 rounded-xl p-6 card-hover">
+        <div class="text-3xl mb-3">🛠️</div>
+        <h3 class="font-semibold mb-2">VS Code + IDE</h3>
+        <p class="text-sm text-gray-400">Open any <code class="text-gray-300">.board</code> file in VS Code for a full Kanban editor. Neovim floating window. JetBrains browser panel.</p>
+      </div>
+      <!-- Zero config -->
+      <div class="bg-gray-900/50 border border-gray-800/50 rounded-xl p-6 card-hover">
+        <div class="text-3xl mb-3">🎯</div>
+        <h3 class="font-semibold mb-2">Zero Config</h3>
+        <p class="text-sm text-gray-400">No database, no Docker, no `docker-compose up`. Single binary written in Rust. Works on macOS, Linux, and Windows.</p>
+        <code class="block mt-3 text-xs text-gray-500">file target/release/board</code>
+      </div>
+    </div>
+  </section>
+
+  <!-- YAML format -->
+  <section class="max-w-2xl mx-auto px-6 pb-20 fade-in" style="animation-delay: 0.8s">
+    <h2 class="text-2xl font-bold text-center mb-6">Human-readable. Diff-friendly. Git-tracked.</h2>
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+      <div class="flex items-center gap-1.5 px-4 py-3 border-b border-gray-800">
+        <span class="text-xs text-gray-500">tasks.board — committed to git</span>
+      </div>
+      <pre class="p-6 text-sm leading-relaxed overflow-x-auto"><span class="text-gray-500">title:</span> <span class="text-blue-300">My Project</span>
+<span class="text-gray-500">columns:</span>
+  <span class="text-gray-500">- id:</span> todo
+    <span class="text-gray-500">name:</span> <span class="text-blue-300">Todo</span>
+  <span class="text-gray-500">- id:</span> doing
+    <span class="text-gray-500">name:</span> <span class="text-blue-300">Doing</span>
+  <span class="text-gray-500">- id:</span> done
+    <span class="text-gray-500">name:</span> <span class="text-blue-300">Done</span>
+<span class="text-gray-500">cards:</span>
+  <span class="text-gray-500">- id:</span> fix-auth-bug
+    <span class="text-gray-500">title:</span> <span class="text-yellow-300">Fix auth bug</span>
+    <span class="text-gray-500">column:</span> doing
+    <span class="text-gray-500">priority:</span> high
+    <span class="text-gray-500">labels:</span> <span class="text-green-300">[backend, auth]</span>
+    <span class="text-gray-500">assignee:</span> alice</pre>
+    </div>
+    <p class="text-center mt-4 text-sm text-gray-500">
+      <code class="text-gray-300">cat</code>, <code class="text-gray-300">grep</code>, <code class="text-gray-300">diff</code>, and <code class="text-gray-300">git merge</code> all work. Just like any other source file.
+    </p>
+  </section>
+
+  <!-- CTA -->
+  <section class="max-w-xl mx-auto px-6 pb-24 text-center fade-in" style="animation-delay: 1s">
+    <h2 class="text-3xl font-bold mb-4">Start tracking tasks in 10 seconds.</h2>
+    <div class="bg-gray-900 border border-gray-700 rounded-xl p-1 flex items-center gap-2 max-w-md mx-auto mb-4">
+      <code class="flex-1 text-left pl-4 py-3 text-gray-300 text-sm font-mono overflow-x-auto whitespace-nowrap">curl -fsSL https://get.board.io | sh</code>
+      <button onclick="navigator.clipboard.writeText('curl -fsSL https://get.board.io | sh')" class="bg-brand-600 hover:bg-brand-700 text-white text-sm px-4 py-2 rounded-lg font-medium transition-colors flex-shrink-0">
+        Copy
+      </button>
+    </div>
+    <p class="text-sm text-gray-500">Or <a href="https://github.com/anomalyco/board" class="text-brand-500 hover:underline">build from source</a>. MIT licensed.</p>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-t border-gray-800/50 py-8 text-center text-sm text-gray-600">
+    <p>Board · MIT License · <a href="https://github.com/anomalyco/board" class="hover:text-gray-400">GitHub</a></p>
+  </footer>
+</body>
+</html>
