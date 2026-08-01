@@ -166,7 +166,7 @@ fn test_list_boards() {
     run_board(&["create", "alpha"], &dir);
     run_board(&["create", "beta"], &dir);
 
-    let (out, _, _) = run_board(&["list"], &dir);
+    let (out, _, _) = run_board(&["boards"], &dir);
     assert!(out.contains("alpha"));
     assert!(out.contains("beta"));
 }
@@ -228,7 +228,7 @@ fn test_full_workflow() {
     assert!(!out.contains("logout"));
 
     // board list and status
-    let (out, _, _) = run_board(&["list"], &dir);
+    let (out, _, _) = run_board(&["boards"], &dir);
     assert!(out.contains("sprint"));
 
     let (out, _, _) = run_board(&["status"], &dir);

@@ -15,7 +15,6 @@ pub fn init_config(board_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-#[allow(dead_code)]
 pub fn read_config(board_dir: &Path) -> Result<Config> {
     let path = board_dir.join(CONFIG_FILENAME);
     let content =
@@ -23,4 +22,12 @@ pub fn read_config(board_dir: &Path) -> Result<Config> {
     let config: Config =
         serde_json::from_str(&content).context(format!("failed to parse {}", path.display()))?;
     Ok(config)
+}
+
+pub fn write_config(board_dir: &Path, config: &Config) -> Result<()> {
+    let path = board_dir.join(CONFIG_FILENAME);
+    let content =
+        serde_json::to_string_pretty(config).context("failed to serialize config")?;
+    std::fs::write(&path, &content).context(format!("failed to write {}", path.display()))?;
+    Ok(())
 }

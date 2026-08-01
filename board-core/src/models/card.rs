@@ -20,6 +20,8 @@ pub struct Card {
     pub due_date: Option<String>,
     #[serde(default)]
     pub comments: Vec<Comment>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blocked_by: Option<String>,
     #[serde(default)]
     pub attachments: Vec<String>,
     #[serde(default = "default_now")]
@@ -42,6 +44,7 @@ impl Card {
             checklist: Vec::new(),
             due_date: None,
             comments: Vec::new(),
+            blocked_by: None,
             attachments: Vec::new(),
             created_at: now,
             updated_at: now,

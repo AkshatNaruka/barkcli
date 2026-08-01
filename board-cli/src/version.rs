@@ -5,6 +5,37 @@ pub struct Release {
     pub tag_name: String,
 }
 
+pub fn do_update() {
+    println!("board {} (git: {})", env!("CARGO_PKG_VERSION"), env!("GIT_HASH"));
+    let exe = match std::env::current_exe() {
+        Ok(p) => p,
+        Err(e) => { eprintln!("Cannot determine binary path: {}", e); std::process::exit(1); }
+    };
+    let target = get_target_triple();
+    let release = match get_latest_release() {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("Failed to check for updates: {}", e);
+            eprintln!("Try building from source: cargo install board");
+            std::process::exit(1);
+        }
+    };
+    let version = env!("CARGO_PKG_VERSION");
+    if release.tag_name == format!("v{}", version) {
+        println!("Already up to date (v{}).", version);
+        return;
+    }
+    println!("Updating to {}...", release.tag_name);
+    let url = format!(
+        "https://github.com/anomalyco/board/releases/download/{}/board-{}.tar.gz",
+        release.tag_name, target
+    );
+    match download_and_replace(&url, &exe) {
+        Ok(()) => println!("Updated to {}. Restart to use it.", release.tag_name),
+        Err(e) => { eprintln!("Update failed: {}", e); std::process::exit(1); }
+    }
+}
+
 pub fn get_target_triple() -> String {
     let os = std::env::consts::OS;
     let arch = std::env::consts::ARCH;

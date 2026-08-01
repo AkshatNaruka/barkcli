@@ -22,6 +22,7 @@ pub fn run(name: &str, args: &[String]) -> Result<()> {
     let mut description = None;
     let mut labels = Vec::new();
     let mut assignee = None;
+    let mut due_date = None;
 
     let mut i = 0;
     while i < rest.len() {
@@ -48,6 +49,12 @@ pub fn run(name: &str, args: &[String]) -> Result<()> {
                 i += 1;
                 assignee = rest.get(i).cloned();
             }
+            "--due" => {
+                i += 1;
+                if let Some(d) = rest.get(i) {
+                    due_date = Some(format!("{}T00:00:00Z", d));
+                }
+            }
             _ => {}
         }
         i += 1;
@@ -66,6 +73,7 @@ pub fn run(name: &str, args: &[String]) -> Result<()> {
     card.description = description;
     card.labels = labels;
     card.assignee = assignee;
+    card.due_date = due_date;
 
     board.cards.push(card);
     write_board(name, &board).context("failed to write board")?;

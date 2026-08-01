@@ -261,6 +261,7 @@ impl App {
             checklist: Vec::new(),
             due_date: None,
             comments: Vec::new(),
+            blocked_by: None,
             attachments: Vec::new(),
             created_at: now,
             updated_at: now,
