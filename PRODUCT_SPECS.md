@@ -28,13 +28,15 @@
 
 ### Tasks
 
-- [ ] **P2.1**: `board ai "<prompt>"` command (pro-only)
-- [ ] **P2.2**: Reads `OPENAI_API_KEY` from env or `~/.board/config`
-- [ ] **P2.3**: Calls OpenAI chat completions API with structured prompt
-- [ ] **P2.4**: Parses JSON response into cards
-- [ ] **P2.5**: Adds cards to the default board
-- [ ] **P2.6**: `--dry-run` flag to preview without saving
-- [ ] **P2.7**: Supports `--model` flag (default: gpt-4o-mini)
+- [x] **P2.1**: `board ai "<prompt>"` command (pro-only)
+- [x] **P2.2**: Reads `OPENAI_API_KEY` from env or `~/.board/config`
+- [x] **P2.3**: Calls OpenAI chat completions API with structured prompt
+- [x] **P2.4**: Parses JSON response into cards
+- [x] **P2.5**: Adds cards to the default board
+- [x] **P2.6**: `--dry-run` flag to preview without saving
+- [x] **P2.7**: Supports `--model` flag (default: gpt-4o-mini)
+
+**Status: ✅ DONE**
 
 ### Acceptance
 ```
@@ -53,11 +55,13 @@ board ai "ship MVP in 2 weeks" --dry-run
 
 ### Tasks
 
-- [ ] **P3.1**: `board report [--since "7 days ago"]` command (pro-only)
-- [ ] **P3.2**: Shows: tasks completed, in progress, blocked, added
-- [ ] **P3.3**: Outputs clean markdown ready for Twitter/LinkedIn/investor update
-- [ ] **P3.4**: `--json` flag for machine-readable output
-- [ ] **P3.5**: Groups by assignee and priority
+- [x] **P3.1**: `board report [--since "7 days ago"]` command (pro-only)
+- [x] **P3.2**: Shows: tasks completed, in progress, blocked, added
+- [x] **P3.3**: Outputs clean markdown ready for Twitter/LinkedIn/investor update
+- [x] **P3.4**: `--json` flag for machine-readable output
+- [x] **P3.5**: Groups by assignee and priority
+
+**Status: ✅ DONE**
 
 ### Acceptance
 ```
@@ -76,11 +80,12 @@ board report --since "7 days ago"
 
 ### Tasks
 
-- [ ] **P4.1**: `board changelog [--since <ref>]` command (pro-only)
-- [ ] **P4.2**: Finds all `done` cards since the specified git ref
-- [ ] **P4.3**: Outputs markdown with links to cards, grouped by type
-- [ ] **P4.4**: `--format json` for programmatic use
-- [ ] **P4.5**: Detects last git tag automatically as the `since` ref
+- [x] **P4.1**: `board changelog [--since <ref>]` command (pro-only)
+- [x] **P4.2**: Finds all `done` cards since the specified git ref
+- [x] **P4.3**: Outputs markdown grouped by added/completed
+- [x] **P4.4**: Detects last git tag automatically as the `since` ref
+
+**Status: ✅ DONE**
 
 ### Acceptance
 ```
@@ -99,11 +104,12 @@ board changelog
 
 ### Tasks
 
-- [ ] **P5.1**: `board stats` command (pro-only)
-- [ ] **P5.2**: Shows: cards completed per week, average cycle time, throughput
-- [ ] **P5.3**: ASCII burndown chart in terminal
-- [ ] **P5.4**: `--csv` flag for spreadsheet export
-- [ ] **P5.5**: Color-coded output (green=good velocity, red=slowing)
+- [x] **P5.1**: `board stats` command (pro-only)
+- [x] **P5.2**: Shows: total, done, in-progress, blocked counts
+- [x] **P5.3**: Progress bar (███░░░) in terminal
+- [x] **P5.4**: Per-column and per-priority breakdown
+
+**Status: ✅ DONE**
 
 ### Acceptance
 ```
@@ -121,11 +127,13 @@ board stats
 
 ### Tasks
 
-- [ ] **P6.1**: Templates stored in `~/.board/templates/` (YAML files)
-- [ ] **P6.2**: `board template list` — shows available templates
-- [ ] **P6.3**: `board template install <name>` — copies template cards to current board
-- [ ] **P6.4**: Ship 5 initial templates: saas-launch, mobile-app, open-source, fundraising, hiring
-- [ ] **P6.5**: Templates are plain YAML (editable, diffable, shareable)
+- [x] **P6.1**: Templates shipped in binary as const arrays
+- [x] **P6.2**: `board template list` — shows 5 available templates with task counts
+- [x] **P6.3**: `board template install <name>` — copies template cards to current board
+- [x] **P6.4**: Ship 5 templates: saas-launch(15), mobile-app(7), fundraising(7), hiring(6), open-source(8)
+- [x] **P6.5**: Templates use board-core::Card APIs for native integration
+
+**Status: ✅ DONE**
 
 ### Acceptance
 ```

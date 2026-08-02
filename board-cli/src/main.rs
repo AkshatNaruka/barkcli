@@ -1,6 +1,10 @@
 mod version;
 mod license;
 mod ai;
+mod report;
+mod changelog;
+mod stats;
+mod templates;
 
 const VERSION: &str = "0.2.0";
 const GIT_HASH: &str = env!("GIT_HASH");
@@ -57,6 +61,37 @@ fn main() {
                 if prompt.is_empty() { eprintln!("usage: board ai \"your task description\""); std::process::exit(1); }
                 if let Err(e) = ai::run(&prompt, board.dry_run, &board.model) {
                     eprintln!("error: {}", e); std::process::exit(1);
+                }
+                return;
+            }
+            "report" => {
+                if !license::check_pro("report") { std::process::exit(1); }
+                let since = rest.get(1).filter(|s| !s.starts_with('-')).map(|s| s.as_str()).unwrap_or("7 days ago");
+                let json = rest.iter().any(|s| s == "--json");
+                if let Err(e) = report::run(since, json) { eprintln!("error: {}", e); std::process::exit(1); }
+                return;
+            }
+            "changelog" => {
+                if !license::check_pro("changelog") { std::process::exit(1); }
+                let since = rest.get(1).filter(|s| !s.starts_with('-')).map(|s| s.as_str());
+                if let Err(e) = changelog::run(since) { eprintln!("error: {}", e); std::process::exit(1); }
+                return;
+            }
+            "stats" => {
+                if !license::check_pro("stats") { std::process::exit(1); }
+                if let Err(e) = stats::run() { eprintln!("error: {}", e); std::process::exit(1); }
+                return;
+            }
+            "template" => {
+                if !license::check_pro("template") { std::process::exit(1); }
+                match rest.get(1).map(|s| s.as_str()) {
+                    Some("list") => { templates::list_templates(); }
+                    Some("install") => {
+                        if let Some(name) = rest.get(2) {
+                            if let Err(e) = templates::install_template(None, name) { eprintln!("error: {}", e); std::process::exit(1); }
+                        } else { eprintln!("usage: board template install <name>"); std::process::exit(1); }
+                    }
+                    _ => templates::list_templates(),
                 }
                 return;
             }
