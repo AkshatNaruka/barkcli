@@ -59,8 +59,9 @@ pub fn run() -> Result<()> {
 
         "snapshot" => handle_snapshot(cmd_args)?,
 
-        // Interfaces — handled by board-cli's main.rs
-        "tui" | "serve" | "open" => {}
+        // Interfaces / self-update — handled by board-cli's main.rs
+        "tui" | "serve" | "open" | "update" | "upgrade" => {}
+        "--version" | "-V" | "version" => {}
         "--version" | "-V" | "version" | "upgrade" => {}
         "help" | "--help" | "-h" => print_usage(),
 
@@ -317,6 +318,7 @@ fn handle_legacy(name: &str, args: &[String]) -> Result<()> {
         "export" => commands::export::run(name, action_args),
         "tui" => Ok(()),
         "serve" => Ok(()),
+        "open" => Ok(()),
         "help" => {
             println!("Board '{}' operations:", name);
             println!("  add <title>   list   show <id>   move <id> <col>   update <id>   remove <id>");
