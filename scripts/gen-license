@@ -1,0 +1,21 @@
+#!/bin/sh
+# Generate a license key and its hash for `board pro`.
+# Usage: ./scripts/gen-license <customer-id>
+# The hash goes into board-cli/src/license.rs VALID_LICENSES array.
+
+set -e
+
+ID="${1:-dev-0000}"
+
+# Derive a key from the ID
+KEY="BOARD-PRO-$(echo -n "$ID" | sha256sum | cut -c1-16 | tr '[:lower:]' '[:upper:]')"
+
+# Compute the hash for the binary
+HASH=$(echo -n "$KEY" | sha256sum | cut -d' ' -f1)
+
+echo ""
+echo "License Key:    $KEY"
+echo "Hash (add to VALID_LICENSES): $HASH"
+echo ""
+echo "# Rust:"
+echo "    \"$HASH\","
