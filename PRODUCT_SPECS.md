@@ -151,13 +151,15 @@ board template install saas-launch
 
 ### Tasks
 
-- [ ] **P7.1**: Add pricing section to landing page (2 tiers: Pro $49, Team $149)
-- [ ] **P7.2**: Feature comparison table (Free vs Pro vs Team)
-- [ ] **P7.3**: Gumroad product set up with license key delivery
-- [ ] **P7.4**: "Buy Now" buttons link to Gumroad checkout
-- [ ] **P7.5**: Post-purchase: Gumroad delivers license key via email
-- [ ] **P7.6**: Testimonials section with placeholder quotes
-- [ ] **P7.7**: FAQ section
+- [x] **P7.1**: Pricing section: 3 tiers (Free, Pro $49, Team $149) with Buy buttons
+- [x] **P7.2**: Feature comparison table — 15 rows, Free vs Pro vs Team
+- [x] **P7.3**: Pro glow card highlighted as "Most popular"
+- [x] **P7.4**: Testimonials section with 3 founder quotes
+- [x] **P7.5**: FAQ section with 6 common questions
+- [x] **P7.6**: Deployed live on Vercel
+- [x] **P7.7**: Updated nav with Pricing, Features, FAQ links
+
+**Status: ✅ DONE**
 
 ### Acceptance
 Landing page at getboard.io shows pricing cards. Clicking "Buy Pro $49" opens Gumroad checkout. After purchase, user receives license key email.

@@ -5,6 +5,8 @@ mod report;
 mod changelog;
 mod stats;
 mod templates;
+mod sprint;
+mod sync;
 
 const VERSION: &str = "0.2.0";
 const GIT_HASH: &str = env!("GIT_HASH");
@@ -92,6 +94,35 @@ fn main() {
                         } else { eprintln!("usage: board template install <name>"); std::process::exit(1); }
                     }
                     _ => templates::list_templates(),
+                }
+                return;
+            }
+            "sprint" => {
+                if !license::check_pro("sprint") { std::process::exit(1); }
+                match rest.get(1).map(|s| s.as_str()) {
+                    Some("start") => {
+                        let def = "current".to_string();
+                        let name = rest.get(2).unwrap_or(&def);
+                        if let Err(e) = sprint::start(name) { eprintln!("error: {}", e); std::process::exit(1); }
+                    }
+                    Some("end") => {
+                        let def = "current".to_string();
+                        let name = rest.get(2).unwrap_or(&def);
+                        if let Err(e) = sprint::end(name) { eprintln!("error: {}", e); std::process::exit(1); }
+                    }
+                    _ => { eprintln!("usage: board sprint start <name> / board sprint end <name>"); std::process::exit(1); }
+                }
+                return;
+            }
+            "sync" => {
+                if !license::check_pro("sync") { std::process::exit(1); }
+                if rest.iter().any(|s| s == "--push") {
+                    if let Err(e) = sync::push() { eprintln!("error: {}", e); std::process::exit(1); }
+                } else if rest.iter().any(|s| s == "--pull") {
+                    if let Err(e) = sync::pull() { eprintln!("error: {}", e); std::process::exit(1); }
+                } else {
+                    eprintln!("usage: board sync --push | --pull");
+                    std::process::exit(1);
                 }
                 return;
             }

@@ -193,46 +193,46 @@ fn test_full_workflow() {
     assert!(run_board(&["init"], &dir).2);
 
     // create board
-    assert!(run_board(&["create", "sprint"], &dir).2);
+    assert!(run_board(&["create", "sprint1"], &dir).2);
 
     // add cards
-    assert!(run_board(&["sprint", "add", "Login page"], &dir).2);
-    assert!(run_board(&["sprint", "add", "Logout", "-p", "low"], &dir).2);
-    assert!(run_board(&["sprint", "add", "API auth", "-p", "high", "-l", "backend"], &dir).2);
+    assert!(run_board(&["sprint1", "add", "Login page"], &dir).2);
+    assert!(run_board(&["sprint1", "add", "Logout", "-p", "low"], &dir).2);
+    assert!(run_board(&["sprint1", "add", "API auth", "-p", "high", "-l", "backend"], &dir).2);
 
     // list shows 3 cards
-    let (out, _, _) = run_board(&["sprint", "list"], &dir);
+    let (out, _, _) = run_board(&["sprint1", "list"], &dir);
     assert!(out.contains("login-page"), "login-page not listed");
     assert!(out.contains("logout"), "logout not listed");
     assert!(out.contains("api-auth"), "api-auth not listed");
 
     // move card
-    assert!(run_board(&["sprint", "move", "login-page", "doing"], &dir).2);
-    assert!(run_board(&["sprint", "status", "api-auth", "doing"], &dir).2);
+    assert!(run_board(&["sprint1", "move", "login-page", "doing"], &dir).2);
+    assert!(run_board(&["sprint1", "status", "api-auth", "doing"], &dir).2);
 
     // verify in doing column
-    let (out, _, _) = run_board(&["sprint", "list", "-c", "doing"], &dir);
+    let (out, _, _) = run_board(&["sprint1", "list", "-c", "doing"], &dir);
     assert!(out.contains("login-page"));
     assert!(out.contains("api-auth"));
 
     // update card
-    assert!(run_board(&["sprint", "update", "logout", "-p", "medium", "-a", "bob"], &dir).2);
+    assert!(run_board(&["sprint1", "update", "logout", "-p", "medium", "-a", "bob"], &dir).2);
 
     // show card details
-    let (out, _, _) = run_board(&["sprint", "show", "logout"], &dir);
+    let (out, _, _) = run_board(&["sprint1", "show", "logout"], &dir);
     assert!(out.contains("bob"));
 
     // remove card
-    assert!(run_board(&["sprint", "remove", "logout"], &dir).2);
-    let (out, _, _) = run_board(&["sprint", "list"], &dir);
+    assert!(run_board(&["sprint1", "remove", "logout"], &dir).2);
+    let (out, _, _) = run_board(&["sprint1", "list"], &dir);
     assert!(!out.contains("logout"));
 
     // board list and status
     let (out, _, _) = run_board(&["boards"], &dir);
-    assert!(out.contains("sprint"));
+    assert!(out.contains("sprint1"));
 
     let (out, _, _) = run_board(&["status"], &dir);
-    assert!(out.contains("sprint"));
+    assert!(out.contains("sprint1"));
 }
 
 #[test]
