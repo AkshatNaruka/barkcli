@@ -1,2 +1,3 @@
-* text=auto
-*.board text eol=lf
+*.tar.gz binary
+*.tar.xz binary
+*.zip binary

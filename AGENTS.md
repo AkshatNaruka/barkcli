@@ -1,6 +1,6 @@
-# Board — Git-like Project Board Tool
+# barkcli — Git-like Project Board Tool
 
-`board` is a CLI (+ VS Code extension) for task tracking inside any project. Like `.git` but for Kanban boards.
+`barkcli` is a CLI (+ VS Code extension) for task tracking inside any project. Like `.git` but for Kanban boards.
 
 ## Repository layout
 
@@ -13,7 +13,7 @@ project/
 └── tests/cli.rs         # 20 integration tests
 ```
 
-## CLI — `board`
+## CLI — `barkcli`
 
 Build + test: `cargo build && cargo test` (from repo root, 20 tests).
 
@@ -21,34 +21,34 @@ Build + test: `cargo build && cargo test` (from repo root, 20 tests).
 
 | Command | Description |
 |---|---|
-| `board init` | Create `.board/` + config.json + `.gitignore` |
-| `board create <name>` | Create `<name>.board` YAML |
-| `board list` / `ls` | Table of all boards |
-| `board status` | Cross-board column summary |
-| `board validate` | Validate all `.board` files (exit 1 on error) |
-| `board doctor` | Validate + auto-fix missing fields |
-| `board clean` | Remove stale locks + orphaned history |
-| `board export <name> [json\|yaml]` | Export board to stdout |
-| `board import <name> [file]` | Import board from stdin or file (JSON/YAML) |
+| `barkcli init` | Create `.board/` + config.json + `.gitignore` |
+| `barkcli create <name>` | Create `<name>.board` YAML |
+| `barkcli list` / `ls` | Table of all boards |
+| `barkcli status` | Cross-board column summary |
+| `barkcli validate` | Validate all `.board` files (exit 1 on error) |
+| `barkcli doctor` | Validate + auto-fix missing fields |
+| `barkcli clean` | Remove stale locks + orphaned history |
+| `barkcli export <name> [json\|yaml]` | Export board to stdout |
+| `barkcli import <name> [file]` | Import board from stdin or file (JSON/YAML) |
 
 ### Board card operations
 
 ```
-board <name> add <title>       (-d, -p, -l, -a, --column)
-board <name> list              (-c, -p, -l filters)
-board <name> show <id>
-board <name> move <id> <col>
-board <name> status <id> <col> (quick alias for move)
-board <name> update <id>       (-t, -d, -p, -l, -a, -c)
-board <name> remove <id>
-board <name> export [format]
+barkcli <name> add <title>       (-d, -p, -l, -a, --column)
+barkcli <name> list              (-c, -p, -l filters)
+barkcli <name> show <id>
+barkcli <name> move <id> <col>
+barkcli <name> status <id> <col> (quick alias for move)
+barkcli <name> update <id>       (-t, -d, -p, -l, -a, -c)
+barkcli <name> remove <id>
+barkcli <name> export [format]
 ```
 
 ### Card IDs
 Auto-generated kebab-case slugs from title (e.g. `"JWT Login"` → `jwt-login`). Deduplicated with numeric suffix.
 
 ### History
-Every card operation logs to `.board/history/<board>.log` (JSONL). `read_history()` available for Phase 4 `board log`.
+Every card operation logs to `.board/history/<board>.log` (JSONL). `read_history()` available for Phase 4 `barkcli log`.
 
 ## VS Code Extension
 
@@ -68,4 +68,4 @@ Run the extension: Open `vscode-extension/` in VS Code, press F5.
 - **Board format**: YAML with `title`, `columns`, `cards` (see spec in plan)
 - **Board dir**: Walks up directory tree to find `.board/` (like git)
 - **Card schema**: `id`, `title`, `description`, `column`, `priority`, `labels`, `assignee`, `checklist`, `comments`, `due_date`, `created_at`, `updated_at`
-- **Rust → Extension bridge**: Subprocess calls (`board parse --json`, `board validate`)
+- **Rust → Extension bridge**: Subprocess calls (`barkcli parse --json`, `barkcli validate`)

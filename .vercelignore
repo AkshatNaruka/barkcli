@@ -1,8 +1,8 @@
 web/
-board-core/
-board-cli/
-board-tui/
-board-server/
+barkcli-core/
+barkcli-cli/
+barkcli-tui/
+barkcli-server/
 vscode-extension/
 target/
 node_modules/

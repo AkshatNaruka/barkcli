@@ -1,4 +1,4 @@
-# Specs: `board` v1.0 Enhancement
+# Specs: `barkcli` v1.0 Enhancement
 
 > Status: Each spec has checkboxes. Mark `[x]` when a task is fully done and verified.
 > Branch: `feat/enhanced-ui`
@@ -7,32 +7,32 @@
 
 ## Design Principles
 
-1. **Install in 10 seconds** — `curl get.board.io | sh` → single binary on `$PATH`
-2. **Works in any project** — `board init` → done. No config wizard, no Docker, no DB.
+1. **Install in 10 seconds** — `curl getbarkcli.dev | sh` → single binary on `$PATH`
+2. **Works in any project** — `barkcli init` → done. No config wizard, no Docker, no DB.
 3. **Git-native** — `.board` YAML files committed to repo. PRs show card diffs. Merge = sync.
 4. **Work in any medium** — Same data, same tool in terminal, browser, IDE.
 5. **Keyboard-driven** — Every action reachable without a mouse, TUI and web both.
-6. **Progressive complexity** — `board add "fix bug"` is enough to start.
+6. **Progressive complexity** — `barkcli add "fix bug"` is enough to start.
 
 ---
 
 ## Spec A: One-Command Install
 
-**Goal**: Install board in one terminal command, zero dependencies except Rust toolchain (or download binary from releases).
+**Goal**: Install barkcli in one terminal command, zero dependencies except Rust toolchain (or download binary from releases).
 
 ### Tasks
 
 - [x] **A1**: `install.sh` — detects OS (macOS, Linux), installs with cargo or downloads binary
-- [x] **A2**: `board --version` prints version + commit SHA + build date
-- [x] **A3**: `board update` command — checks GitHub releases, downloads latest, replaces binary
+- [x] **A2**: `barkcli --version` prints version + commit SHA + build date
+- [x] **A3**: `barkcli update` command — checks GitHub releases, downloads latest, replaces binary
 - [ ] **A4**: `.gitattributes` for binary in releases
 - [ ] **A5**: README updated with install instructions
 
 ### Acceptance
 ```shell
 curl -fsSL https://raw.githubusercontent.com/.../main/install.sh | sh
-board --version
-board init && board create test && board test add "hello" && board test list
+barkcli --version
+barkcli init && barkcli create test && barkcli test add "hello" && barkcli test list
 ```
 All works from a fresh machine in under 30 seconds.
 **Status: ✅ DONE**
@@ -81,7 +81,7 @@ All works from a fresh machine in under 30 seconds.
 - [x] **C16**: Board title + card count in header
 - [x] **C17**: Scrollable columns on narrow screens
 - [x] **C18**: VS Code API shim — same `web/` app works in VS Code extension
-- [x] **C19**: Build output → served by `board-server` via `ServeDir`
+- [x] **C19**: Build output → served by `barkcli-server` via `ServeDir`
 
 **Status: ✅ DONE**
 
@@ -93,11 +93,11 @@ All works from a fresh machine in under 30 seconds.
 
 ### Tasks
 
-- [x] **D1**: `board init` installs `pre-commit` hook that runs `board validate`
-- [x] **D2**: `board init` offers `commit-msg` hook template: `[card-id] Your message`
-- [x] **D3**: `board log [--board <name>]` — reads `.board/history/<name>.log` and pretty-prints
-- [x] **D4**: `board diff [--board <name>] [<ref>]` — shows added, removed, moved cards vs git ref
-- [x] **D5**: `board pr-summary [--board <name>] [--base <branch>]` — markdown table for PRs
+- [x] **D1**: `barkcli init` installs `pre-commit` hook that runs `barkcli validate`
+- [x] **D2**: `barkcli init` offers `commit-msg` hook template: `[card-id] Your message`
+- [x] **D3**: `barkcli log [--board <name>]` — reads `.board/history/<name>.log` and pretty-prints
+- [x] **D4**: `barkcli diff [--board <name>] [<ref>]` — shows added, removed, moved cards vs git ref
+- [x] **D5**: `barkcli pr-summary [--board <name>] [--base <branch>]` — markdown table for PRs
 
 **Status: ✅ DONE**
 
@@ -127,7 +127,7 @@ All works from a fresh machine in under 30 seconds.
 - [x] **F1**: Webview JS bundle: 260KB (83KB gzipped) — well under 500KB target
 - [x] **F2**: Server serves static assets from RAM (ServeDir) — < 1ms TTFB
 - [x] **F3**: TUI renders from in-memory Board struct — no re-parsing per frame
-- [x] **F4**: `board validate` on current board < 5ms
-- [x] **F5**: `board serve` startup < 100ms
+- [x] **F4**: `barkcli validate` on current board < 5ms
+- [x] **F5**: `barkcli serve` startup < 100ms
 
 **Status: ✅ DONE**

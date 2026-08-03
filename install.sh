@@ -1,16 +1,16 @@
 #!/bin/sh
 set -e
 
-# board — Install script
-# Usage: curl -fsSL https://raw.githubusercontent.com/anomalyco/board/main/install.sh | sh
+# barkcli — Install script
+# Usage: curl -fsSL https://raw.githubusercontent.com/anomalyco/barkcli/main/install.sh | sh
 
-REPO="anomalyco/board"
-BIN_NAME="board"
+REPO="anomalyco/barkcli"
+BIN_NAME="barkcli"
 INSTALL_DIR="${HOME}/.local/bin"
 
 # Allow custom install dir
-if [ -n "$BOARD_INSTALL_DIR" ]; then
-    INSTALL_DIR="$BOARD_INSTALL_DIR"
+if [ -n "$BARKCLI_INSTALL_DIR" ]; then
+    INSTALL_DIR="$BARKCLI_INSTALL_DIR"
 fi
 
 # Detect OS and arch
@@ -20,13 +20,13 @@ ARCH="$(uname -m)"
 case "$OS" in
     Darwin)  OS_TARGET="apple-darwin" ;;
     Linux)   OS_TARGET="unknown-linux-gnu" ;;
-    *)       echo "Unsupported OS: $OS. Try installing via cargo: cargo install board" >&2; exit 1 ;;
+    *)       echo "Unsupported OS: $OS. Try installing via cargo: cargo install barkcli" >&2; exit 1 ;;
 esac
 
 case "$ARCH" in
     x86_64|amd64) ARCH_TARGET="x86_64" ;;
     aarch64|arm64) ARCH_TARGET="aarch64" ;;
-    *)       echo "Unsupported arch: $ARCH. Try installing via cargo: cargo install board" >&2; exit 1 ;;
+    *)       echo "Unsupported arch: $ARCH. Try installing via cargo: cargo install barkcli" >&2; exit 1 ;;
 esac
 
 TARGET="${ARCH_TARGET}-${OS_TARGET}"
@@ -38,10 +38,10 @@ done
 
 # Try cargo install first (gets the latest version from source)
 if command -v cargo >/dev/null 2>&1; then
-    echo "Installing board via cargo (Rust toolchain detected)..."
-    cargo install --git "https://github.com/${REPO}.git" board
-    echo "board installed to $(command -v board || echo "$HOME/.cargo/bin/board")"
-    board --version
+    echo "Installing barkcli via cargo (Rust toolchain detected)..."
+    cargo install --git "https://github.com/${REPO}.git" barkcli
+    echo "barkcli installed to $(command -v barkcli || echo "$HOME/.cargo/bin/barkcli")"
+    barkcli --version
     exit 0
 fi
 
@@ -49,29 +49,29 @@ fi
 echo "No Rust toolchain found. Downloading pre-built binary..."
 echo "Detected: $TARGET"
 
-LATEST_URL="https://github.com/${REPO}/releases/latest/download/board-${TARGET}.tar.gz"
+LATEST_URL="https://github.com/${REPO}/releases/latest/download/barkcli-${TARGET}.tar.gz"
 
 TMPDIR="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR"' EXIT
 
 echo "Downloading from $LATEST_URL..."
-if ! curl -fsSL "$LATEST_URL" -o "$TMPDIR/board.tar.gz"; then
+if ! curl -fsSL "$LATEST_URL" -o "$TMPDIR/barkcli.tar.gz"; then
     # Fallback: try building from source
     echo "No pre-built binary available for $TARGET."
-    echo "Install Rust (https://rustup.rs) then run: cargo install board"
+    echo "Install Rust (https://rustup.rs) then run: cargo install barkcli"
     exit 1
 fi
 
-tar -xzf "$TMPDIR/board.tar.gz" -C "$TMPDIR"
+tar -xzf "$TMPDIR/barkcli.tar.gz" -C "$TMPDIR"
 
-# Find the board binary in extracted files
-find "$TMPDIR" -type f -name "board" -perm +111 2>/dev/null | head -1 > /dev/null
+# Find the barkcli binary in extracted files
+find "$TMPDIR" -type f -name "barkcli" -perm +111 2>/dev/null | head -1 > /dev/null
 
 mkdir -p "$INSTALL_DIR"
-cp "$TMPDIR/board" "$INSTALL_DIR/board"
-chmod +x "$INSTALL_DIR/board"
+cp "$TMPDIR/barkcli" "$INSTALL_DIR/barkcli"
+chmod +x "$INSTALL_DIR/barkcli"
 
-echo "board installed to $INSTALL_DIR/board"
+echo "barkcli installed to $INSTALL_DIR/barkcli"
 
 # Check if install dir is on PATH
 case ":$PATH:" in
@@ -84,5 +84,5 @@ case ":$PATH:" in
         ;;
 esac
 
-"$INSTALL_DIR/board" --version
-echo "Done. Run 'board init' in any project to get started."
+"$INSTALL_DIR/barkcli" --version
+echo "Done. Run 'barkcli init' in any project to get started."
