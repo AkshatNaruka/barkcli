@@ -71,7 +71,7 @@ pub fn get_latest_release() -> Result<Release, String> {
 }
 
 pub fn download_and_replace(url: &str, target_exe: &Path) -> Result<(), String> {
-    let tmp_dir = std::env::temp_dir().join(format!("board_update_{}", std::process::id()));
+    let tmp_dir = std::env::temp_dir().join(        format!("barkcli_update_{}", std::process::id()));
     fs::create_dir_all(&tmp_dir).map_err(|e| format!("mkdir failed: {}", e))?;
 
     let tar_path = tmp_dir.join("release.tar.gz");

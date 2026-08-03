@@ -18,7 +18,7 @@ pub fn find_board_dir_opt() -> Result<Option<PathBuf>> {
 }
 
 pub fn find_board_dir() -> Result<PathBuf> {
-    find_board_dir_opt()?.context("fatal: not a board project (run `board init`)")
+    find_board_dir_opt()?.context("fatal: not a board project (run `barkcli init`)")
 }
 
 pub fn ensure_board_dir() -> Result<PathBuf> {

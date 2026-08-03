@@ -1,5 +1,9 @@
 # barkcli — Git-native task management
 
+[![CI](https://github.com/AkshatNaruka/barkcli/actions/workflows/ci.yml/badge.svg)](https://github.com/AkshatNaruka/barkcli/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-0.2.0-brown)](https://github.com/AkshatNaruka/barkcli/releases)
+
 A single binary. No database. No cloud. Your tasks are YAML files committed to your repo — diff them, merge them, grep them.
 
 ```shell

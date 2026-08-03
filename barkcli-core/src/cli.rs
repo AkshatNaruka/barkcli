@@ -59,7 +59,7 @@ pub fn run() -> Result<()> {
 
         "snapshot" => handle_snapshot(cmd_args)?,
 
-        // Interfaces / self-update — handled by board-cli's main.rs
+        // Interfaces / self-update — handled by barkcli-cli's main.rs
         "tui" | "serve" | "open" | "update" | "upgrade" => {}
         "--version" | "-V" | "version" => {}
         "--version" | "-V" | "version" | "upgrade" => {}
@@ -97,7 +97,7 @@ fn handle_show(args: &[String]) -> Result<()> {
 
 fn handle_move(args: &[String]) -> Result<()> {
     let (board, rest) = parse_board_flag(args)?;
-    if rest.len() < 2 { bail!("usage: board move <id> <column>"); }
+    if rest.len() < 2 {             bail!("usage: barkcli move <id> <column>"); }
     let board_name = resolve_board(board.as_deref())?;
     save_undo(Some(&board_name), "move", Some(&rest[0]))?;
     commands::card::move_cmd::run(&board_name, &rest)
@@ -105,7 +105,7 @@ fn handle_move(args: &[String]) -> Result<()> {
 
 fn handle_done(args: &[String]) -> Result<()> {
     let (board, rest) = parse_board_flag(args)?;
-    if rest.is_empty() { bail!("usage: board done <id>"); }
+    if rest.is_empty() {             bail!("usage: barkcli done <id>"); }
     let board_name = resolve_board(board.as_deref())?;
     save_undo(Some(&board_name), "done", Some(&rest[0]))?;
     commands::card::move_cmd::run(&board_name, &[rest[0].clone(), "done".into()])
@@ -113,7 +113,7 @@ fn handle_done(args: &[String]) -> Result<()> {
 
 fn handle_update(args: &[String]) -> Result<()> {
     let (board, rest) = parse_board_flag(args)?;
-    if rest.is_empty() { bail!("usage: board update <id> [flags]"); }
+    if rest.is_empty() {             bail!("usage: barkcli update <id> [flags]"); }
     let board_name = resolve_board(board.as_deref())?;
     save_undo(Some(&board_name), "update", Some(&rest[0]))?;
     commands::card::update::run(&board_name, &rest)
@@ -121,7 +121,7 @@ fn handle_update(args: &[String]) -> Result<()> {
 
 fn handle_remove(args: &[String]) -> Result<()> {
     let (board, rest) = parse_board_flag(args)?;
-    if rest.is_empty() { bail!("usage: board remove <id>"); }
+    if rest.is_empty() {             bail!("usage: barkcli remove <id>"); }
     let board_name = resolve_board(board.as_deref())?;
     save_undo(Some(&board_name), "remove", Some(&rest[0]))?;
     commands::card::remove::run(&board_name, &rest)
@@ -148,13 +148,13 @@ fn handle_diff(args: &[String]) -> Result<()> {
 
 fn handle_blame(args: &[String]) -> Result<()> {
     let (board, rest) = parse_board_flag(args)?;
-    if rest.is_empty() { bail!("usage: board blame <id>"); }
+    if rest.is_empty() {             bail!("usage: barkcli blame <id>"); }
     undo::run_blame(board.as_deref(), &rest[0])
 }
 
 fn handle_snapshot(args: &[String]) -> Result<()> {
     let (board, rest) = parse_board_flag(args)?;
-    if rest.is_empty() { bail!("usage: board snapshot <label>"); }
+    if rest.is_empty() {             bail!("usage: barkcli snapshot <label>"); }
     undo::run_snapshot(board.as_deref(), &rest[0])
 }
 
@@ -162,7 +162,7 @@ fn handle_snapshot(args: &[String]) -> Result<()> {
 
 fn handle_comment(args: &[String]) -> Result<()> {
     let (board, rest) = parse_board_flag(args)?;
-    if rest.len() < 2 { bail!("usage: board comment <id> \"text\""); }
+    if rest.len() < 2 {             bail!("usage: barkcli comment <id> \"text\""); }
     let board_name = resolve_board(board.as_deref())?;
 
     let id = &rest[0];
@@ -174,7 +174,7 @@ fn handle_comment(args: &[String]) -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("card '{}' not found", id))?;
 
     card.comments.push(crate::models::card::Comment {
-        author: "board".into(),
+        author: "barkcli".into(),
         text,
         at: chrono::Utc::now(),
     });
@@ -185,7 +185,7 @@ fn handle_comment(args: &[String]) -> Result<()> {
 
 fn handle_block(args: &[String]) -> Result<()> {
     let (board, rest) = parse_board_flag(args)?;
-    if rest.is_empty() { bail!("usage: board block <id> --on <other-id>"); }
+    if rest.is_empty() {             bail!("usage: barkcli block <id> --on <other-id>"); }
     let board_name = resolve_board(board.as_deref())?;
 
     let id = &rest[0];
@@ -225,7 +225,7 @@ fn handle_boards_cmd(args: &[String]) -> Result<()> {
     } else {
         match args[0].as_str() {
             "create" => {
-                if args.len() < 2 { bail!("usage: board boards create <name>"); }
+                if args.len() < 2 {                     bail!("usage: barkcli boards create <name>"); }
                 commands::boards::run_boards_create(&args[1])
             }
             _ => bail!("unknown boards subcommand: {}", args[0]),
@@ -234,7 +234,7 @@ fn handle_boards_cmd(args: &[String]) -> Result<()> {
 }
 
 fn handle_switch(args: &[String]) -> Result<()> {
-    if args.is_empty() { bail!("usage: board switch <name>"); }
+    if args.is_empty() {             bail!("usage: barkcli switch <name>"); }
     commands::boards::run_switch(&args[0])
 }
 
@@ -258,7 +258,7 @@ fn handle_export(args: &[String]) -> Result<()> {
 fn handle_import(args: &[String]) -> Result<()> {
     let (board, rest) = parse_board_flag(args)?;
     if board.is_none() && rest.is_empty() {
-        bail!("usage: board import <name> [file]  or  board import --board <name> [file]");
+            bail!("usage: barkcli import <name> [file]  or  barkcli import --board <name> [file]");
     }
     let board_name = board.clone().unwrap_or_else(|| rest[0].clone());
     let file_args: Vec<String> = if board.is_some() {
@@ -276,10 +276,10 @@ fn handle_legacy(name: &str, args: &[String]) -> Result<()> {
         let board = crate::storage::board_file::read_board(name);
         match board {
             Ok(_) => {
-                println!("Board '{}' exists. Use `board switch {}` for flat CLI.", name, name);
+                println!("Board '{}' exists. Use `barkcli switch {}` for flat CLI.", name, name);
             }
             Err(_) => {
-                bail!("unknown command '{}'. Try `board help`", name);
+                bail!("unknown command '{}'. Try `barkcli help`", name);
             }
         }
         return Ok(());
@@ -322,10 +322,10 @@ fn handle_legacy(name: &str, args: &[String]) -> Result<()> {
         "help" => {
             println!("Board '{}' operations:", name);
             println!("  add <title>   list   show <id>   move <id> <col>   update <id>   remove <id>");
-            println!("  Or use the flat CLI: board add/list/show/move/...  (no board name needed)");
+            println!("  Or use the flat CLI: barkcli add/list/show/move/...  (no board name needed)");
             Ok(())
         }
-        _ => bail!("unknown action '{}' for board '{}'. Try `board {}` (flat CLI)", action, name, action),
+            _ => bail!("unknown action '{}' for board '{}'. Try `barkcli {}` (flat CLI)", action, name, action),
     }
 }
 
@@ -390,6 +390,18 @@ fn print_usage() {
     println!("  import <name> [file] Import tasks");
     println!("  update              Self-update barkcli");
     println!("  --version           Print version");
+    println!();
+    println!("Pro commands (license required — barkcli license activate <key>):");
+    println!("  ai \"<prompt>\"        AI task breakdown (OpenAI)");
+    println!("  report [since]      Weekly markdown report");
+    println!("  changelog [since]   Auto-generate from git tags");
+    println!("  stats               Progress bar + analytics");
+    println!("  template list       Show 5 available templates");
+    println!("  template install <n> Load a template");
+    println!("  sprint start <name> Start a sprint");
+    println!("  sprint end <name>   End sprint, show velocity");
+    println!("  sync --push         Push to GitHub Issues");
+    println!("  sync --pull         Pull from GitHub Issues");
     println!();
     println!("Flags (for add/update/list):");
     println!("  -p priority    high | medium | low");

@@ -37,7 +37,7 @@ pub fn push() -> Result<()> {
         let resp = ureq::post(&url)
             .set("Authorization", &format!("Bearer {}", token))
             .set("Accept", "application/vnd.github+json")
-            .set("User-Agent", "board-cli")
+            .set("User-Agent", "barkcli-cli")
             .send_json(body);
 
         match resp {

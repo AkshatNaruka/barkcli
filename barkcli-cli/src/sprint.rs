@@ -20,7 +20,7 @@ pub fn start(name: &str) -> Result<()> {
     }
     write_board(&board_name, &board)?;
     println!("Sprint '{}' started. {} tasks tagged.", name, tagged);
-    println!("  → board list -l sprint:{}", name);
+    println!("  → barkcli list -l sprint:{}", name);
     Ok(())
 }
 

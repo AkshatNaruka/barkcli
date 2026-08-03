@@ -27,7 +27,7 @@ pub fn run() -> Result<()> {
     }
 
     if has_errors {
-        println!("\nValidation found errors. Run `board doctor` to auto-fix.");
+        println!("\nValidation found errors. Run `barkcli doctor` to auto-fix.");
         std::process::exit(1);
     } else {
         println!("\nAll boards valid.");

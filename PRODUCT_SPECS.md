@@ -170,9 +170,11 @@ Landing page at getbarkcli.dev shows pricing cards. Clicking "Buy Pro $49" opens
 
 **Goal**: `barkcli sprint start/end` for time-boxed planning.
 
-- [ ] **P8.1**: `barkcli sprint start <name>` — tags current `todo` cards as sprint items
-- [ ] **P8.2**: `barkcli sprint end` — moves remaining to next sprint, shows velocity
-- [ ] **P8.3**: Sprint history stored for velocity calculations
+- [x] **P8.1**: `barkcli sprint start <name>` — tags current `todo` cards as sprint items
+- [x] **P8.2**: `barkcli sprint end` — moves remaining to next sprint, shows velocity
+- [x] **P8.3**: Sprint history stored for velocity calculations
+
+**Status: ✅ DONE**
 
 ---
 
@@ -180,9 +182,11 @@ Landing page at getbarkcli.dev shows pricing cards. Clicking "Buy Pro $49" opens
 
 **Goal**: `barkcli sync` pushes cards to GitHub Issues.
 
-- [ ] **P9.1**: `barkcli sync --push` — creates GitHub Issues from cards
-- [ ] **P9.2**: `barkcli sync --pull` — imports GitHub Issues as cards
-- [ ] **P9.3**: Two-way link stored in card metadata (`github_issue: 42`)
+- [x] **P9.1**: `barkcli sync --push` — creates GitHub Issues from cards
+- [x] **P9.2**: `barkcli sync --pull` — imports GitHub Issues as cards
+- [x] **P9.3**: Two-way link stored in card metadata (`synced` label + `gh:<number>` label)
+
+**Status: ✅ DONE**
 
 ---
 

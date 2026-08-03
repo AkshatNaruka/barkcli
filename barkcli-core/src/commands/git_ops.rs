@@ -160,7 +160,7 @@ fn resolve_board(board_name: Option<&str>) -> Result<String> {
     }
     let boards = list_board_files()?;
     if boards.is_empty() {
-        anyhow::bail!("No boards found. Create one with `board create <name>`");
+        anyhow::bail!("No boards found. Create one with `barkcli create <name>`");
     }
     if boards.len() == 1 {
         Ok(boards[0].clone())

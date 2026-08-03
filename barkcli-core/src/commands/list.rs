@@ -8,7 +8,7 @@ use crate::util::display::table;
 pub fn run() -> Result<()> {
     let boards = list_board_files()?;
     if boards.is_empty() {
-        println!("No boards found. Create one with `board create <name>`");
+        println!("No boards found. Create one with `barkcli create <name>`");
         return Ok(());
     }
 

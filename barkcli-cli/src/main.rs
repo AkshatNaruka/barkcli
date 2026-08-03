@@ -110,7 +110,7 @@ fn main() {
                         let name = rest.get(2).unwrap_or(&def);
                         if let Err(e) = sprint::end(name) { eprintln!("error: {}", e); std::process::exit(1); }
                     }
-                    _ => { eprintln!("usage: barkcli sprint start <name> / board sprint end <name>"); std::process::exit(1); }
+                    _ => { eprintln!("usage: barkcli sprint start <name> / barkcli sprint end <name>"); std::process::exit(1); }
                 }
                 return;
             }

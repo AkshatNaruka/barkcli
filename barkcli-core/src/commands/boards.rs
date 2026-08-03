@@ -8,7 +8,7 @@ use crate::storage::config_store::{read_config, write_config};
 pub fn run_boards_list() -> Result<()> {
     let boards = list_board_files()?;
     if boards.is_empty() {
-        println!("No boards. Create one with `board boards create <name>`");
+        println!("No boards. Create one with `barkcli boards create <name>`");
         return Ok(());
     }
 
@@ -31,13 +31,13 @@ pub fn run_boards_create(name: &str) -> Result<()> {
     let board = Board::new(name);
     write_board(name, &board)?;
     println!("Created board '{}.board'", name);
-    println!("Switch to it: board switch {}", name);
+    println!("Switch to it: barkcli switch {}", name);
     Ok(())
 }
 
 pub fn run_switch(name: &str) -> Result<()> {
     if !board_exists(name) {
-        bail!("board '{}' does not exist. Create it: board boards create {}", name, name);
+        bail!(        "board '{}' does not exist. Create it: barkcli boards create {}", name, name);
     }
 
     let board_dir = find_board_dir()?;
@@ -70,10 +70,10 @@ pub fn resolve_board(board_arg: Option<&str>) -> Result<String> {
         return Ok(boards[0].clone());
     }
     if boards.is_empty() {
-        bail!("No boards found. Run `board init` first.");
+        bail!("No boards found. Run `barkcli init` first.");
     }
     bail!(
-        "No default board set. Choose one: board switch <name>\nAvailable: {}",
+        "No default board set. Choose one: barkcli switch <name>\nAvailable: {}",
         boards.join(", ")
     );
 }

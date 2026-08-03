@@ -25,8 +25,8 @@
 - [x] **A1**: `install.sh` — detects OS (macOS, Linux), installs with cargo or downloads binary
 - [x] **A2**: `barkcli --version` prints version + commit SHA + build date
 - [x] **A3**: `barkcli update` command — checks GitHub releases, downloads latest, replaces binary
-- [ ] **A4**: `.gitattributes` for binary in releases
-- [ ] **A5**: README updated with install instructions
+- [x] **A4**: `.gitattributes` for binary in releases
+- [x] **A5**: README updated with install instructions + badges
 
 ### Acceptance
 ```shell

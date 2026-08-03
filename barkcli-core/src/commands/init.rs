@@ -36,9 +36,9 @@ pub fn run() -> Result<()> {
 
     println!("Initialized board project in {}", board_dir.display());
     println!("Ready. Try:");
-    println!("  board add \"Fix auth bug\" -p high");
-    println!("  board list");
-    println!("  board move <id> doing");
+    println!("  barkcli add \"Fix auth bug\" -p high");
+    println!("  barkcli list");
+    println!("  barkcli move <id> doing");
     Ok(())
 }
 
@@ -50,7 +50,7 @@ fn install_git_hooks(root: &Path) -> Result<()> {
 
     let pre_commit = hooks_dir.join("pre-commit");
     if !pre_commit.exists() {
-        let content = "#!/bin/sh\nboard validate || exit 1\n";
+        let content = "#!/bin/sh\nbarkcli validate || exit 1\n";
         std::fs::write(&pre_commit, content).context("pre-commit hook")?;
         #[cfg(unix)] {
             use std::os::unix::fs::PermissionsExt;

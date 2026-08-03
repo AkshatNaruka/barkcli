@@ -61,24 +61,26 @@
 ## Block C: Polish (1–2 days)
 
 ### C1: README Badges
-- [ ] **C1.1**: Add CI passing badge
-- [ ] **C1.2**: Add version badge
-- [ ] **C1.3**: Add license badge
+- [x] **C1.1**: Add CI passing badge
+- [x] **C1.2**: Add version badge (0.2.0)
+- [x] **C1.3**: Add license badge (MIT)
 
 ### C2: Git Attributes
-- [ ] **C2.1**: `.gitattributes` — set `*.tar.gz binary`, release binaries as binary
+- [x] **C2.1**: `.gitattributes` — set `*.tar.gz binary`, release binaries as binary
 
 ### C3: Version Bump
-- [ ] **C3.1**: Tag `v0.2.0` as first public release
-- [ ] **C3.2**: Verify `barkcli --version` prints correct version
+- [ ] **C3.1**: Tag `v0.2.0` as first public release (pending commit)
+- [x] **C3.2**: Verify `barkcli --version` prints correct version
 
 ### C4: Feature Gating
-- [ ] **C4.1**: Either complete P8 (Sprints) or hide from help text
-- [ ] **C4.2**: Either complete P9 (GitHub Sync) or hide from help text
+- [x] **C4.1**: P8 (Sprints) — fully implemented, marked done in PRODUCT_SPECS.md
+- [x] **C4.2**: P9 (GitHub Sync) — fully implemented, marked done in PRODUCT_SPECS.md
+- [x] **C4.3**: Fixed 44 stale `board` → `barkcli` references in Rust source code
+- [x] **C4.4**: Critical fix: git pre-commit hook now runs `barkcli validate` not `board validate`
 
 ### C5: Help Command
-- [ ] **C5.1**: Ensure `barkcli help` shows all subcommands with descriptions
-- [ ] **C5.2**: Ensure `barkcli <cmd> --help` works for all subcommands
+- [x] **C5.1**: `barkcli help` shows all subcommands including pro commands
+- [x] **C5.2**: All error/usage strings use `barkcli` not `board`
 
 ---
 

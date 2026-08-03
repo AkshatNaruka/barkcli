@@ -45,7 +45,7 @@ pub fn activate(key: &str) -> Result<(), String> {
 
     if !VALID_LICENSES.contains(&h.as_str()) {
         return Err(format!(
-            "Invalid license key '{}'.\nGet a valid key at https://getboard.io",
+            "Invalid license key '{}'.\nGet a valid key at https://getbarkcli.dev",
             key
         ));
     }
@@ -57,17 +57,17 @@ pub fn activate(key: &str) -> Result<(), String> {
 
     fs::write(&path, key.trim()).map_err(|e| format!("Cannot write license: {}", e))?;
 
-    println!("✓ Board Pro activated!");
+    println!("✓ barkcli Pro activated!");
     println!("  License: {}", key);
     Ok(())
 }
 
 pub fn status() {
     if is_licensed() {
-        println!("Board Pro — activated ✓");
+        println!("barkcli Pro — activated ✓");
     } else {
-        println!("Board (free tier)");
-        println!("Upgrade to Pro at https://getboard.io");
+        println!("barkcli (free tier)");
+        println!("Upgrade to Pro at https://getbarkcli.dev");
     }
 }
 
@@ -76,7 +76,7 @@ pub fn check_pro(cmd: &str) -> bool {
         return true;
     }
     eprintln!(
-        "{} requires Board Pro. Get a license at https://getboard.io",
+        "{} requires barkcli Pro. Get a license at https://getbarkcli.dev",
         cmd
     );
     false

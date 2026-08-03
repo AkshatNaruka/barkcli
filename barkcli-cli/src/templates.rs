@@ -70,7 +70,7 @@ pub fn list_templates() {
         println!("  {}  {} ({} tasks)", id, name, items.len());
     }
     println!();
-    println!("Install: board template install <name>");
+    println!("Install: barkcli template install <name>");
 }
 
 pub fn install_template(board_name: Option<&str>, template_id: &str) -> Result<()> {
@@ -101,6 +101,6 @@ pub fn install_template(board_name: Option<&str>, template_id: &str) -> Result<(
 
     write_board(&name, &board)?;
     println!("Added {} tasks from '{}' template to {}.board", added, template.0, name);
-    println!("  → board list");
+    println!("  → barkcli list");
     Ok(())
 }
