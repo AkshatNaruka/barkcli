@@ -9,7 +9,7 @@ fn board_binary() -> PathBuf {
     path.pop(); // workspace root (board-cli/ -> project root)
     path.push("target");
     path.push("debug");
-    path.push("board");
+    path.push("barkcli");
     path
 }
 

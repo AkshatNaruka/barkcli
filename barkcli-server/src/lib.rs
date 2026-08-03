@@ -16,8 +16,8 @@ use serde::Deserialize;
 use tokio::sync::broadcast;
 use tower_http::services::ServeDir;
 
-use board_core::storage::board_file;
-use board_core::storage::board_file::{list_board_files, read_board};
+use barkcli_core::storage::board_file;
+use barkcli_core::storage::board_file::{list_board_files, read_board};
 
 #[allow(dead_code)]
 static INDEX_HTML_FALLBACK: &str = include_str!("./index.html");
@@ -161,7 +161,7 @@ async fn watch_board_files(tx: broadcast::Sender<String>, board_name: Option<Str
     use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
     use std::sync::mpsc;
 
-    let board_dir = match board_core::storage::board_dir::find_project_root() {
+    let board_dir = match barkcli_core::storage::board_dir::find_project_root() {
         Ok(dir) => dir, Err(_) => return,
     };
     let (watch_tx, watch_rx) = mpsc::channel::<Result<Event, notify::Error>>();

@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use anyhow::{bail, Result};
 
-use board_core::models::Board;
-use board_core::storage::board_file::{read_board, write_board};
+use barkcli_core::models::Board;
+use barkcli_core::storage::board_file::{read_board, write_board};
 
 /// Shipped templates. Each includes a title and list of card (title, description, priority, labels).
 type Template = (&'static str, &'static str, &'static [(&'static str, &'static str, &'static str, &'static [&'static str])]);
@@ -80,7 +80,7 @@ pub fn install_template(board_name: Option<&str>, template_id: &str) -> Result<(
             anyhow::anyhow!("Unknown template '{}'. Available: {}", template_id, ids.join(", "))
         })?;
 
-    let name = board_core::commands::boards::resolve_board(board_name)?;
+    let name = barkcli_core::commands::boards::resolve_board(board_name)?;
     let mut board = read_board(&name)?;
     let existing_ids: Vec<String> = board.cards.iter().map(|c| c.id.clone()).collect();
     let now = chrono::Utc::now();
@@ -88,8 +88,8 @@ pub fn install_template(board_name: Option<&str>, template_id: &str) -> Result<(
 
     let mut added = 0;
     for (title, desc, priority, labels) in template.2 {
-        let id = board_core::util::slug::unique_slug(title, &existing_ids);
-        let mut card = board_core::models::Card::new(&id, *title, &first_col);
+        let id = barkcli_core::util::slug::unique_slug(title, &existing_ids);
+        let mut card = barkcli_core::models::Card::new(&id, *title, &first_col);
         card.priority = (*priority).to_string();
         card.description = if desc.is_empty() { None } else { Some((*desc).to_string()) };
         card.labels = labels.iter().map(|s| s.to_string()).collect();

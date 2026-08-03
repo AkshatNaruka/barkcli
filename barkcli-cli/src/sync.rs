@@ -1,10 +1,10 @@
 use anyhow::{bail, Result};
 use serde_json::json;
-use board_core::models::Card;
-use board_core::storage::board_file::read_board;
+use barkcli_core::models::Card;
+use barkcli_core::storage::board_file::read_board;
 
 pub fn push() -> Result<()> {
-    let board_name = board_core::commands::boards::resolve_board(None)?;
+    let board_name = barkcli_core::commands::boards::resolve_board(None)?;
     let board = read_board(&board_name)?;
 
     let token = std::env::var("GITHUB_TOKEN").or_else(|_| std::env::var("GH_TOKEN"))
@@ -51,7 +51,7 @@ pub fn push() -> Result<()> {
                         c.labels.push("synced".to_string());
                     }
                 }
-                board_core::storage::board_file::write_board(&board_name, &board)?;
+                barkcli_core::storage::board_file::write_board(&board_name, &board)?;
                 println!("  ✓ #{} — {}", number, card.title);
             }
             Ok(r) => {
@@ -69,7 +69,7 @@ pub fn push() -> Result<()> {
 }
 
 pub fn pull() -> Result<()> {
-    let board_name = board_core::commands::boards::resolve_board(None)?;
+    let board_name = barkcli_core::commands::boards::resolve_board(None)?;
     let mut board = read_board(&board_name)?;
 
     let token = std::env::var("GITHUB_TOKEN").or_else(|_| std::env::var("GH_TOKEN"))
@@ -102,7 +102,7 @@ pub fn pull() -> Result<()> {
             continue;
         }
 
-        let id = board_core::util::slug::unique_slug(title, &existing_ids);
+        let id = barkcli_core::util::slug::unique_slug(title, &existing_ids);
         let labels: Vec<String> = issue["labels"].as_array()
             .map(|arr| arr.iter().filter_map(|l| l["name"].as_str().map(|s| s.to_string())).collect())
             .unwrap_or_default();
@@ -120,7 +120,7 @@ pub fn pull() -> Result<()> {
     }
 
     if imported > 0 {
-        board_core::storage::board_file::write_board(&board_name, &board)?;
+        barkcli_core::storage::board_file::write_board(&board_name, &board)?;
         println!("Imported {} issues from GitHub to {}.board", imported, board_name);
     } else {
         println!("No new issues to import.");

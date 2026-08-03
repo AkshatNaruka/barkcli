@@ -7,7 +7,7 @@ use ratatui::{
 };
 
 use crate::app::{App, AppMode, EditField};
-use board_core::models::Card;
+use barkcli_core::models::Card;
 
 pub fn draw(f: &mut Frame, app: &App) {
     let size = f.area();

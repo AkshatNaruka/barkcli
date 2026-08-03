@@ -1,9 +1,9 @@
 use anyhow::Result;
 
-use board_core::storage::board_file::read_board;
+use barkcli_core::storage::board_file::read_board;
 
 pub fn run() -> Result<()> {
-    let name = board_core::commands::boards::resolve_board(None)?;
+    let name = barkcli_core::commands::boards::resolve_board(None)?;
     let board = read_board(&name)?;
 
     let total = board.cards.len();

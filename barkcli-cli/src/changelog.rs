@@ -1,10 +1,10 @@
 use anyhow::Result;
 
-use board_core::models::Board;
-use board_core::storage::board_file::read_board;
+use barkcli_core::models::Board;
+use barkcli_core::storage::board_file::read_board;
 
 pub fn run(since: Option<&str>) -> Result<()> {
-    let name = board_core::commands::boards::resolve_board(None)?;
+    let name = barkcli_core::commands::boards::resolve_board(None)?;
     let board = read_board(&name)?;
 
     let git_ref = if let Some(s) = since {

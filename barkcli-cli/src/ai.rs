@@ -1,10 +1,10 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-use board_core::models::Card;
-use board_core::storage::board_file::{read_board, write_board};
-use board_core::storage::history;
-use board_core::util::slug::unique_slug;
+use barkcli_core::models::Card;
+use barkcli_core::storage::board_file::{read_board, write_board};
+use barkcli_core::storage::history;
+use barkcli_core::util::slug::unique_slug;
 
 #[derive(Serialize)]
 struct OpenAiRequest {
@@ -76,7 +76,7 @@ pub fn run(prompt: &str, dry_run: bool, model: &str) -> Result<()> {
         return Ok(());
     }
 
-    let board_name = board_core::commands::boards::resolve_board(None)?;
+    let board_name = barkcli_core::commands::boards::resolve_board(None)?;
 
     if dry_run {
         println!("Would create {} tasks (dry run):", tasks.len());

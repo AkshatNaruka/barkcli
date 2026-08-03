@@ -20,7 +20,7 @@ pub fn run(board_name: Option<&str>) -> Result<()> {
     let mut app = if let Some(name) = board_name {
         App::from_board_name(name)?
     } else {
-        let boards = board_core::storage::board_file::list_board_files()?;
+        let boards = barkcli_core::storage::board_file::list_board_files()?;
         if boards.is_empty() {
             eprintln!("No boards found. Create one with `board create <name>`");
             return Ok(());

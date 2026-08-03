@@ -1,10 +1,10 @@
 [package]
-name = "board-server"
-version = "0.1.0"
+name = "barkcli-server"
+version = "0.2.0"
 edition = "2021"
 
 [dependencies]
-board-core = { path = "../board-core" }
+barkcli-core = { path = "../barkcli-core" }
 anyhow = "1"
 axum = { version = "0.8", features = ["ws"] }
 tokio = { version = "1", features = ["full"] }

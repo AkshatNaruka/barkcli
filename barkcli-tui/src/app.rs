@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
-use board_core::models::{Board, Card};
-use board_core::storage::board_file::{read_board, write_board};
-use board_core::storage::history;
-use board_core::util::slug::unique_slug;
+use barkcli_core::models::{Board, Card};
+use barkcli_core::storage::board_file::{read_board, write_board};
+use barkcli_core::storage::history;
+use barkcli_core::util::slug::unique_slug;
 use chrono::Utc;
 use ratatui::{style::Color, Terminal};
 use crossterm::event::{self, Event, KeyEventKind};

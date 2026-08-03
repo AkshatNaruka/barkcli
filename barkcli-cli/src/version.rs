@@ -6,7 +6,7 @@ pub struct Release {
 }
 
 pub fn do_update() {
-    println!("board {} (git: {})", env!("CARGO_PKG_VERSION"), env!("GIT_HASH"));
+    println!("barkcli {} (git: {})", env!("CARGO_PKG_VERSION"), env!("GIT_HASH"));
     let exe = match std::env::current_exe() {
         Ok(p) => p,
         Err(e) => { eprintln!("Cannot determine binary path: {}", e); std::process::exit(1); }
@@ -16,7 +16,7 @@ pub fn do_update() {
         Ok(r) => r,
         Err(e) => {
             eprintln!("Failed to check for updates: {}", e);
-            eprintln!("Try building from source: cargo install board");
+            eprintln!("Try building from source: cargo install barkcli");
             std::process::exit(1);
         }
     };
@@ -27,7 +27,7 @@ pub fn do_update() {
     }
     println!("Updating to {}...", release.tag_name);
     let url = format!(
-        "https://github.com/anomalyco/board/releases/download/{}/board-{}.tar.gz",
+        "https://github.com/anomalyco/barkcli/releases/download/{}/barkcli-{}.tar.gz",
         release.tag_name, target
     );
     match download_and_replace(&url, &exe) {
@@ -54,7 +54,7 @@ pub fn get_target_triple() -> String {
 }
 
 pub fn get_latest_release() -> Result<Release, String> {
-    let body = curl_get("https://api.github.com/repos/anomalyco/board/releases/latest")?;
+    let body = curl_get("https://api.github.com/repos/anomalyco/barkcli/releases/latest")?;
 
     let tag_start = body
         .find("\"tag_name\":")
@@ -80,7 +80,7 @@ pub fn download_and_replace(url: &str, target_exe: &Path) -> Result<(), String> 
         .arg(&tar_path)
         .arg(url)
         .status()
-        .map_err(|e| format!("curl not found: {}. Install curl to use `board update`.", e))?;
+        .map_err(|e| format!("curl not found: {}. Install curl to use `barkcli update`.", e))?;
 
     if !status.success() {
         return Err("download failed".into());
@@ -92,13 +92,13 @@ pub fn download_and_replace(url: &str, target_exe: &Path) -> Result<(), String> 
         .arg("-C")
         .arg(&tmp_dir)
         .status()
-        .map_err(|e| format!("tar not found: {}. Install tar to use `board update`.", e))?;
+        .map_err(|e| format!("tar not found: {}. Install tar to use `barkcli update`.", e))?;
 
     if !status.success() {
         return Err("extraction failed".into());
     }
 
-    let new_binary = find_binary(&tmp_dir).ok_or("board binary not found in release archive")?;
+    let new_binary = find_binary(&tmp_dir).ok_or("barkcli binary not found in release archive")?;
 
     #[cfg(unix)]
     {
@@ -132,7 +132,7 @@ fn find_binary(dir: &Path) -> Option<std::path::PathBuf> {
                 }
             }
         } else if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-            if name == "board" || name == "board.exe" {
+            if name == "barkcli" || name == "barkcli.exe" {
                 return Some(path);
             }
         }
@@ -147,7 +147,7 @@ fn curl_get(url: &str) -> Result<String, String> {
             "-H",
             "Accept: application/json",
             "-H",
-            "User-Agent: board-cli",
+            "User-Agent: barkcli-cli",
             url,
         ])
         .output()

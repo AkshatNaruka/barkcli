@@ -108,6 +108,68 @@ dependencies = [
 ]
 
 [[package]]
+name = "barkcli-cli"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "atty",
+ "barkcli-core",
+ "barkcli-server",
+ "barkcli-tui",
+ "chrono",
+ "hex",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sha2",
+ "tokio",
+ "ureq",
+]
+
+[[package]]
+name = "barkcli-core"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "comfy-table",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "thiserror 1.0.69",
+ "walkdir",
+]
+
+[[package]]
+name = "barkcli-server"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "barkcli-core",
+ "futures",
+ "notify",
+ "open",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tokio",
+ "tower",
+ "tower-http",
+]
+
+[[package]]
+name = "barkcli-tui"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "barkcli-core",
+ "chrono",
+ "crossterm 0.28.1",
+ "ratatui",
+]
+
+[[package]]
 name = "base64"
 version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -132,68 +194,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3078c7629b62d3f0439517fa394996acacc5cbc91c5a20d8c658e77abd503a71"
 dependencies = [
  "generic-array",
-]
-
-[[package]]
-name = "board-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "atty",
- "board-core",
- "board-server",
- "board-tui",
- "chrono",
- "hex",
- "serde",
- "serde_json",
- "serde_yaml",
- "sha2",
- "tokio",
- "ureq",
-]
-
-[[package]]
-name = "board-core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "comfy-table",
- "serde",
- "serde_json",
- "serde_yaml",
- "thiserror 1.0.69",
- "walkdir",
-]
-
-[[package]]
-name = "board-server"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "board-core",
- "futures",
- "notify",
- "open",
- "serde",
- "serde_json",
- "serde_yaml",
- "tokio",
- "tower",
- "tower-http",
-]
-
-[[package]]
-name = "board-tui"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "board-core",
- "chrono",
- "crossterm 0.28.1",
- "ratatui",
 ]
 
 [[package]]

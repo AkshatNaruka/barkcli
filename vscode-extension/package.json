@@ -1,9 +1,9 @@
 {
-  "name": "board-vscode",
+  "name": "barkcli-vscode",
   "displayName": "Board — Project Kanban",
   "description": "Git-like Kanban boards inside VS Code. Edit .board files with a visual editor.",
   "version": "0.1.0",
-  "publisher": "board",
+  "publisher": "barkcli",
   "license": "MIT",
   "engines": {
     "vscode": "^1.92.0"
@@ -14,7 +14,7 @@
   "contributes": {
     "customEditors": [
       {
-        "viewType": "board.boardEditor",
+        "viewType": "barkcli.boardEditor",
         "displayName": "Board Editor",
         "selector": [
           {

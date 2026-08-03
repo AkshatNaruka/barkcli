@@ -14,7 +14,7 @@ const GIT_HASH: &str = env!("GIT_HASH");
 #[cfg(feature = "tui")]
 fn run_tui(args: &[String]) {
     let name = args.first().map(|s| s.as_str());
-    if let Err(e) = board_tui::run(name) {
+    if let Err(e) = barkcli_tui::run(name) {
         eprintln!("error: {}", e);
         std::process::exit(1);
     }
@@ -37,7 +37,7 @@ fn run_serve(args: &[String]) {
         i += 1;
     }
     let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
-    if let Err(e) = rt.block_on(board_server::run(port, board_name.as_deref(), open_browser)) {
+    if let Err(e) = rt.block_on(barkcli_server::run(port, board_name.as_deref(), open_browser)) {
         eprintln!("error: {}", e);
         std::process::exit(1);
     }
@@ -45,7 +45,7 @@ fn run_serve(args: &[String]) {
 
 fn print_version() {
     let pro = if license::is_licensed() { " pro" } else { "" };
-    println!("board{} {} (git: {})", pro, VERSION, GIT_HASH);
+    println!("barkcli{} {} (git: {})", pro, VERSION, GIT_HASH);
 }
 
 fn main() {
@@ -60,7 +60,7 @@ fn main() {
                 if !license::check_pro("ai") { std::process::exit(1); }
                 let (board, rest) = parse_ai_args(&rest[1..]);
                 let prompt = rest.join(" ").trim().to_string();
-                if prompt.is_empty() { eprintln!("usage: board ai \"your task description\""); std::process::exit(1); }
+                if prompt.is_empty() { eprintln!("usage: barkcli ai \"your task description\""); std::process::exit(1); }
                 if let Err(e) = ai::run(&prompt, board.dry_run, &board.model) {
                     eprintln!("error: {}", e); std::process::exit(1);
                 }
@@ -91,7 +91,7 @@ fn main() {
                     Some("install") => {
                         if let Some(name) = rest.get(2) {
                             if let Err(e) = templates::install_template(None, name) { eprintln!("error: {}", e); std::process::exit(1); }
-                        } else { eprintln!("usage: board template install <name>"); std::process::exit(1); }
+                        } else { eprintln!("usage: barkcli template install <name>"); std::process::exit(1); }
                     }
                     _ => templates::list_templates(),
                 }
@@ -110,7 +110,7 @@ fn main() {
                         let name = rest.get(2).unwrap_or(&def);
                         if let Err(e) = sprint::end(name) { eprintln!("error: {}", e); std::process::exit(1); }
                     }
-                    _ => { eprintln!("usage: board sprint start <name> / board sprint end <name>"); std::process::exit(1); }
+                    _ => { eprintln!("usage: barkcli sprint start <name> / board sprint end <name>"); std::process::exit(1); }
                 }
                 return;
             }
@@ -121,7 +121,7 @@ fn main() {
                 } else if rest.iter().any(|s| s == "--pull") {
                     if let Err(e) = sync::pull() { eprintln!("error: {}", e); std::process::exit(1); }
                 } else {
-                    eprintln!("usage: board sync --push | --pull");
+                    eprintln!("usage: barkcli sync --push | --pull");
                     std::process::exit(1);
                 }
                 return;
@@ -135,7 +135,7 @@ fn main() {
                                 std::process::exit(1);
                             }
                         } else {
-                            eprintln!("usage: board license activate <key>");
+                            eprintln!("usage: barkcli license activate <key>");
                             std::process::exit(1);
                         }
                     }
@@ -159,11 +159,11 @@ fn main() {
                 let board_name = rest.get(1).map(|s| s.as_str());
                 if atty::is(atty::Stream::Stdout) {
                     #[cfg(feature = "tui")]
-                    { if let Err(e) = board_tui::run(board_name) { eprintln!("error: {}", e); std::process::exit(1); } }
+                    { if let Err(e) = barkcli_tui::run(board_name) { eprintln!("error: {}", e); std::process::exit(1); } }
                 } else {
                     #[cfg(feature = "serve")] {
                         let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
-                        if let Err(e) = rt.block_on(board_server::run(4321, board_name, true)) { eprintln!("error: {}", e); std::process::exit(1); }
+                        if let Err(e) = rt.block_on(barkcli_server::run(4321, board_name, true)) { eprintln!("error: {}", e); std::process::exit(1); }
                     }
                 }
                 return;
@@ -190,8 +190,8 @@ fn parse_ai_args(args: &[String]) -> (AiArgs, Vec<String>) {
     (opts, rest)
 }
 
-    // Everything else goes to board_core's flat CLI dispatch
-    if let Err(e) = board_core::cli::run() {
+    // Everything else goes to the flat CLI dispatch
+    if let Err(e) = barkcli_core::cli::run() {
         eprintln!("error: {}", e);
         std::process::exit(1);
     }

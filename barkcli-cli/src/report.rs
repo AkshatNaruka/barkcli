@@ -1,10 +1,10 @@
 use anyhow::{bail, Result};
 
-use board_core::models::Board;
-use board_core::storage::board_file::read_board;
+use barkcli_core::models::Board;
+use barkcli_core::storage::board_file::read_board;
 
 pub fn run(since: &str, json: bool) -> Result<()> {
-    let name = board_core::commands::boards::resolve_board(None)?;
+    let name = barkcli_core::commands::boards::resolve_board(None)?;
     let board = read_board(&name)?;
 
     let now = chrono::Utc::now();
@@ -74,7 +74,7 @@ pub fn run(since: &str, json: bool) -> Result<()> {
     Ok(())
 }
 
-fn labels_str(c: &board_core::models::Card) -> String {
+fn labels_str(c: &barkcli_core::models::Card) -> String {
     if c.labels.is_empty() {
         String::new()
     } else {

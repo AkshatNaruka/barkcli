@@ -28,7 +28,7 @@ fn handle_picker(app: &mut App, key: KeyEvent) -> Result<()> {
         KeyCode::Enter => {
             if app.card_focus < app.all_boards.len() {
                 let name = &app.all_boards[app.card_focus];
-                if let Ok(b) = board_core::storage::board_file::read_board(name) {
+                if let Ok(b) = barkcli_core::storage::board_file::read_board(name) {
                     app.board = b;
                     app.board_name = name.clone();
                     app.mode = AppMode::Normal;

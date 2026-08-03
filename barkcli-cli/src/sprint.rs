@@ -1,10 +1,10 @@
 use anyhow::Result;
-use board_core::models::Card;
-use board_core::storage::board_file::{read_board, write_board};
+use barkcli_core::models::Card;
+use barkcli_core::storage::board_file::{read_board, write_board};
 use chrono::Utc;
 
 pub fn start(name: &str) -> Result<()> {
-    let board_name = board_core::commands::boards::resolve_board(None)?;
+    let board_name = barkcli_core::commands::boards::resolve_board(None)?;
     let mut board = read_board(&board_name)?;
 
     // Tag all current todo/doing cards as sprint items
@@ -25,7 +25,7 @@ pub fn start(name: &str) -> Result<()> {
 }
 
 pub fn end(name: &str) -> Result<()> {
-    let board_name = board_core::commands::boards::resolve_board(None)?;
+    let board_name = barkcli_core::commands::boards::resolve_board(None)?;
     let mut board = read_board(&board_name)?;
 
     let sprint_label = format!("sprint:{}", name);

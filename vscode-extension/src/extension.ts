@@ -4,7 +4,7 @@ import { BoardEditorProvider } from "./boardEditor";
 export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.window.registerCustomEditorProvider(
-      "board.boardEditor",
+      "barkcli.boardEditor",
       new BoardEditorProvider(context),
       {
         webviewOptions: {
