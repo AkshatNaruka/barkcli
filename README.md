@@ -46,6 +46,8 @@ barkcli tui                             # interactive terminal UI
 barkcli serve --open                    # browser Kanban
 ```
 
+---
+
 ## Commands
 
 ### Core six
@@ -92,6 +94,8 @@ barkcli serve --open                    # browser Kanban
 | `barkcli template install <name>` | Load a template |
 | `barkcli sprint start <name>` | Start a sprint |
 | `barkcli sprint end <name>` | End sprint, show velocity |
+| `barkcli sync --push` | Push tasks to GitHub Issues |
+| `barkcli sync --pull` | Pull GitHub Issues as tasks |
 
 ### Boards (optional)
 
@@ -157,6 +161,31 @@ Human-readable. Diff-friendly. Git-tracked. No lock-in.
 
 ---
 
+## Architecture
+
+```
+barkcli (single binary)
+├── CLI   — barkcli add, list, move, undo, log, diff, blame
+├── TUI   — barkcli tui (ratatui + crossterm, vim keys, themes)
+├── Web   — barkcli serve (axum server + Vite/React kanban, port 4321)
+└── VS Code — Custom Editor for *.board files (dnd-kit drag-and-drop)
+```
+
+All four interfaces read and write the same YAML `.board` files. No sync server needed — git is the sync mechanism.
+
+### Workspace crates
+
+| Crate | Purpose |
+|---|---|
+| `barkcli-core` | Shared library: models, storage, CLI dispatch, commands |
+| `barkcli-cli` | Binary entry point + pro features (AI, reports, sprints, sync) |
+| `barkcli-tui` | Terminal UI (ratatui), optional feature |
+| `barkcli-server` | Axum web server + REST API + WebSocket, optional feature |
+| `web/` | Vite + React + TypeScript kanban UI (served by barkcli-server) |
+| `vscode-extension/` | VS Code Custom Editor extension |
+
+---
+
 ## TUI Shortcuts
 
 | Key | Action |
@@ -181,9 +210,14 @@ cargo build --release
 cp target/release/barkcli ~/.local/bin/barkcli
 ```
 
-## VS Code Extension
+### Running tests
 
-Open any `.board` file in VS Code for the Kanban editor:
+```shell
+cargo test
+# 22 tests: 20 CLI integration + 2 slug unit tests
+```
+
+### VS Code Extension
 
 ```shell
 cd vscode-extension
@@ -191,6 +225,25 @@ npm install
 npm run build
 # Open the folder in VS Code, press F5
 ```
+
+To package for marketplace:
+
+```shell
+cd vscode-extension
+npm run vscode:prepublish   # syncs web build
+npx @vscode/vsce package    # creates .vsix
+```
+
+### Web UI
+
+```shell
+cd web
+npm install
+npm run dev        # dev server with HMR
+npm run build      # production build (served by barkcli-server)
+```
+
+---
 
 ## Neovim
 
@@ -216,9 +269,55 @@ vim.api.nvim_create_autocmd("BufReadPre", {
 
 ---
 
-## Design
+## Design Principles
 
 - **Offline** — no cloud, no database, no server required
 - **Plain YAML** — `cat`, `grep`, `diff`, `git merge` all work
 - **Single binary** — written in Rust, no runtime dependencies
 - **One-time purchase** — pay once, use forever, no subscription
+- **Install in 10 seconds** — `curl \| sh` → ready
+- **Works in any project** — `barkcli init` → done
+
+---
+
+## Pricing
+
+| Tier | Price | Features |
+|---|---|---|
+| **Free** | $0 | Unlimited boards, CLI, TUI, web, VS Code, git integration, history, undo |
+| **Pro** | $49 one-time | AI task breakdown, reports, changelog, stats, templates, sprints, GitHub sync |
+| **Cloud Sync** | $5/user/mo (planned) | Cloud-hosted boards, team sync, activity feed |
+
+---
+
+## Documentation
+
+| Document | Purpose |
+|---|---|
+| [SPECS.md](SPECS.md) | v1.0 enhancement specs — all features with acceptance criteria |
+| [PRODUCT_SPECS.md](PRODUCT_SPECS.md) | Pro/paid feature specs (P1-P9) |
+| [SHIPPING_SPECS.md](SHIPPING_SPECS.md) | Market readiness plan — Phase 1-3 with checkbox tracking |
+| [LAUNCH.md](LAUNCH.md) | Launch copy — PH, HN, awesome lists, Twitter thread |
+| [MARKETING.md](MARKETING.md) | Marketing plan — positioning, audience, channels, metrics |
+| [MANUAL.md](MANUAL.md) | Go-live checklist — manual steps to ship |
+| [DESIGN.md](DESIGN.md) | Design system — colors, typography, component patterns |
+| [AGENTS.md](AGENTS.md) | AI agent instructions — codebase overview for contributors |
+
+---
+
+## Contributing
+
+1. Read [AGENTS.md](AGENTS.md) for a codebase overview
+2. Check [SHIPPING_SPECS.md](SHIPPING_SPECS.md) for current priorities
+3. Build: `cargo build`
+4. Test: `cargo test` (22 tests must pass)
+5. Lint: `cargo clippy`
+6. Open a PR against `master`
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+Your tasks stay yours. The file format is plain YAML. No lock-in, ever.

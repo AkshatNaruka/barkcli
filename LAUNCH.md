@@ -1,6 +1,9 @@
 # Launch Checklist — barkcli v0.2.0
 
 > All content prepped. Check each item after completing.
+>
+> See also: [MANUAL.md](MANUAL.md) for step-by-step go-live instructions,
+> [MARKETING.md](MARKETING.md) for positioning strategy.
 
 ---
 
