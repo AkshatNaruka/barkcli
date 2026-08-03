@@ -351,10 +351,10 @@ fn parse_board_flag(args: &[String]) -> Result<(Option<String>, Vec<String>)> {
 }
 
 fn print_usage() {
-    println!("Usage: board <command> [args]");
+    println!("Usage: barkcli <command> [args]");
     println!();
     println!("The core six — all you need most days:");
-    println!("  init                Set up board tracking");
+    println!("  init                Set up task tracking");
     println!("  add <title>         Add a task (-p, -l, -a, --due)");
     println!("  list                Show tasks grouped by column (-c, -l, -a filters)");
     println!("  move <id> <col>     Move a task");
@@ -384,11 +384,11 @@ fn print_usage() {
     println!();
     println!("Housekeeping:");
     println!("  status              Summary: counts per column");
-    println!("  validate            Check board files");
+    println!("  validate            Check task files");
     println!("  doctor              Validate + auto-fix");
-    println!("  export [name] [fmt] Export board (json/yaml)");
-    println!("  import <name> [file] Import board");
-    println!("  update              Self-update board CLI");
+    println!("  export [name] [fmt] Export tasks (json/yaml)");
+    println!("  import <name> [file] Import tasks");
+    println!("  update              Self-update barkcli");
     println!("  --version           Print version");
     println!();
     println!("Flags (for add/update/list):");

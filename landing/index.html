@@ -1,281 +1,326 @@
 <!DOCTYPE html>
-<html lang="en" class="scroll-smooth">
+<html lang="en" class="scroll-smooth dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>bark — git-native task management</title>
-<meta name="description" content="bark is a single-binary CLI tool for task tracking. Like git, but for todos. Your tasks are YAML files committed to your repo.">
+<title>barkcli — git-native task management · single binary · no subscription</title>
+<meta name="description" content="barkcli is a single-binary CLI tool for task tracking. Like git, but for todos. Tasks are YAML files committed to your repo. No cloud. No subscription.">
+<meta name="theme-color" content="#0a0a0a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
-<script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','system-ui','-apple-system','sans-serif'],mono:['SF Mono','Fira Code','monospace']}}}}</script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Inter','system-ui','-apple-system','sans-serif'],
+          mono: ['SF Mono','Fira Code','monospace']
+        }
+      }
+    }
+  }
+  // Theme
+  ;(function(){
+    const t = localStorage.getItem('theme') || 'dark';
+    document.documentElement.classList.toggle('dark', t === 'dark');
+  })();
+  function toggleTheme() {
+    const h = document.documentElement;
+    const d = h.classList.contains('dark') ? 'light' : 'dark';
+    h.classList.toggle('dark', d === 'dark');
+    localStorage.setItem('theme', d);
+  }
+</script>
 <style>
   @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
-  .cursor{animation:blink 1s infinite}
-  @keyframes slideUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
-  .slide-up{animation:slideUp .7s ease-out}
-  .slide-up:nth-child(2){animation-delay:.1s}
-  .slide-up:nth-child(3){animation-delay:.2s}
-  .slide-up:nth-child(4){animation-delay:.3s}
-  .slide-up:nth-child(5){animation-delay:.4s}
+  .cursor{animation:blink 1.2s infinite}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+  .fade-up{animation:fadeUp .6s ease-out forwards}
+  .fade-up:nth-child(2){animation-delay:.1s}
+  .fade-up:nth-child(3){animation-delay:.2s}
+  .fade-up:nth-child(4){animation-delay:.3s}
+  .fade-up:nth-child(5){animation-delay:.4s}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+  .float{animation:float 3s ease-in-out infinite}
+  /* Scroll reveal */
+  .reveal{opacity:0;transform:translateY(30px);transition:opacity .6s ease-out,transform .6s ease-out}
+  .reveal.visible{opacity:1;transform:translateY(0)}
+  ::selection{background:#6366f1;color:#fff}
 </style>
 </head>
-<body class="bg-white text-gray-900 font-sans antialiased">
+<body class="bg-black text-white font-sans antialiased">
 
-<header class="border-b border-gray-100">
+<!-- Nav -->
+<header class="fixed top-0 inset-x-0 z-50 bg-black/80 backdrop-blur-lg border-b border-white/[0.06]">
   <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
     <a href="#" class="flex items-center gap-2.5 group">
-      <span class="text-2xl">🐕</span>
-      <span class="text-xl font-bold tracking-tight">bark</span>
+      <span class="text-xl float">🐶</span>
+      <span class="text-lg font-bold tracking-tight">barkcli</span>
     </a>
-    <nav class="hidden md:flex items-center gap-8 text-sm text-gray-500">
-      <a href="#features" class="hover:text-gray-900 transition-colors">Features</a>
-      <a href="#demo" class="hover:text-gray-900 transition-colors">Demo</a>
-      <a href="#pricing" class="hover:text-gray-900 transition-colors">Pricing</a>
-      <a href="https://github.com/anomalyco/board" class="hover:text-gray-900 transition-colors">GitHub</a>
-      <a href="#install" class="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">Install</a>
+    <nav class="hidden md:flex items-center gap-6 text-sm text-gray-400">
+      <a href="#features" class="hover:text-white transition-colors">Features</a>
+      <a href="#demo" class="hover:text-white transition-colors">Demo</a>
+      <a href="#pricing" class="hover:text-white transition-colors">Pricing</a>
+      <a href="https://x.com/probiex007" target="_blank" class="hover:text-white transition-colors">X</a>
+      <button onclick="toggleTheme()" class="text-gray-400 hover:text-white transition-colors text-sm" title="Toggle theme">◐</button>
+      <a href="#install" class="bg-white hover:bg-gray-200 text-black px-4 py-2 rounded-lg text-sm font-medium transition-colors">Install</a>
     </nav>
   </div>
 </header>
 
-<main>
+<main class="pt-16">
 
 <!-- Hero -->
-<section class="max-w-3xl mx-auto px-6 pt-28 pb-8 text-center">
-  <div class="slide-up">
-    <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-50 border border-gray-100 text-xs text-gray-500 mb-8">
-      <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>v0.2.0
+<section class="max-w-3xl mx-auto px-6 pt-24 pb-6 text-center">
+  <div class="fade-up">
+    <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.04] border border-white/[0.06] text-xs text-gray-400 mb-8">
+      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>v0.2.0 — public beta
     </span>
   </div>
-  <h1 class="slide-up text-5xl md:text-7xl font-extrabold tracking-tight leading-none mb-6">
-    Tasks in your repo.<br>
-    <span class="text-gray-400">No cloud. No subscription.</span>
+  <h1 class="fade-up text-5xl md:text-7xl font-extrabold tracking-tight leading-none mb-6">
+    <span class="text-white">Tasks in your repo.</span><br>
+    <span class="text-gray-500">No cloud. No subscription.</span>
   </h1>
-  <p class="slide-up text-lg text-gray-500 max-w-xl mx-auto mb-3 leading-relaxed">
-    A single binary that turns your git repo into a project management tool.
+  <p class="fade-up text-lg text-gray-400 max-w-xl mx-auto mb-2 leading-relaxed">
+    A single binary. Your tasks are YAML files. Commit them. Diff them. Own them.
   </p>
-  <p class="slide-up text-sm text-gray-400 mb-10">
-    Your tasks are YAML files. Commit them. Diff them. Grep them.<br>
-    Like <span class="text-gray-800 font-medium">.git</span> but for your todo list.
+  <p class="fade-up text-sm text-gray-500 mb-10">
+    Like <span class="text-white font-medium">git</span> but for your todo list. Works offline.
   </p>
 
-  <!-- Install -->
-  <div id="install" class="slide-up max-w-lg mx-auto mb-10">
-    <div class="bg-gray-50 border border-gray-200 rounded-xl overflow-hidden">
-      <div class="flex items-center justify-between px-4 py-2.5 bg-gray-100/50 border-b border-gray-200">
+  <div id="install" class="fade-up max-w-lg mx-auto mb-10">
+    <div class="bg-white/[0.03] border border-white/[0.08] rounded-2xl overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-2.5 bg-white/[0.02] border-b border-white/[0.06]">
         <span class="text-xs text-gray-500 font-mono">terminal</span>
         <span class="flex items-center gap-1.5">
-          <span class="w-2 h-2 rounded-full bg-gray-300"></span>
-          <span class="w-2 h-2 rounded-full bg-gray-300"></span>
-          <span class="w-2 h-2 rounded-full bg-gray-300"></span>
+          <span class="w-2 h-2 rounded-full bg-white/20"></span>
+          <span class="w-2 h-2 rounded-full bg-white/20"></span>
+          <span class="w-2 h-2 rounded-full bg-white/20"></span>
         </span>
       </div>
-      <div class="flex items-center p-3">
-        <span class="text-gray-400 mr-2 select-none">$</span>
-        <code class="flex-1 text-sm text-gray-700 font-mono">curl -fsSL https://getbark.dev | sh</code>
-        <button onclick="navigator.clipboard.writeText('curl -fsSL https://getbark.dev | sh');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)" class="ml-3 text-xs font-medium text-gray-500 hover:text-gray-900 border border-gray-200 hover:border-gray-400 rounded-md px-3 py-1.5 transition-all">Copy</button>
+      <div class="flex items-center p-4">
+        <span class="text-gray-500 mr-2 select-none font-mono">$</span>
+        <code class="flex-1 text-sm text-gray-300 font-mono">curl -fsSL https://getbarkcli.dev | sh</code>
+        <button onclick="navigator.clipboard.writeText('curl -fsSL https://getbarkcli.dev | sh');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)" class="ml-3 text-xs font-medium text-gray-400 hover:text-white border border-white/10 hover:border-white/20 rounded-lg px-3 py-1.5 transition-all">Copy</button>
       </div>
     </div>
-    <p class="text-xs text-gray-400 mt-3">macOS · Linux · Windows &nbsp;|&nbsp; <a href="https://github.com/anomalyco/board" class="underline hover:text-gray-600">build from source</a></p>
+    <p class="text-xs text-gray-600 mt-3">macOS · Linux · Windows</p>
   </div>
 </section>
 
 <!-- Terminal Demo -->
-<section id="demo" class="max-w-2xl mx-auto px-6 pb-20">
-  <div class="bg-gray-50 border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-    <div class="flex items-center gap-1.5 px-4 py-3 border-b border-gray-200 bg-white">
-      <span class="w-2.5 h-2.5 rounded-full bg-red-400"></span>
-      <span class="w-2.5 h-2.5 rounded-full bg-yellow-400"></span>
-      <span class="w-2.5 h-2.5 rounded-full bg-green-400"></span>
-      <span class="text-xs text-gray-400 ml-2 font-mono">six commands, all you need</span>
+<section id="demo" class="max-w-2xl mx-auto px-6 pb-24 reveal">
+  <div class="bg-white/[0.02] border border-white/[0.06] rounded-2xl overflow-hidden">
+    <div class="flex items-center gap-1.5 px-4 py-3 border-b border-white/[0.06] bg-black/50">
+      <span class="w-2.5 h-2.5 rounded-full bg-red-500/60"></span>
+      <span class="w-2.5 h-2.5 rounded-full bg-yellow-500/60"></span>
+      <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/60"></span>
+      <span class="text-xs text-gray-500 ml-2 font-mono">six commands, all you need</span>
     </div>
     <pre class="p-6 text-sm leading-7 font-mono overflow-x-auto">
-<span class="text-gray-400"># initialize in any project</span>
-<span class="text-gray-900 font-medium">$</span> bark init
+<span class="text-gray-600"># initialize in any project</span>
+<span class="text-gray-400 font-medium">$</span> <span class="text-white">barkcli init</span>
 
-<span class="text-gray-400"># add tasks</span>
-<span class="text-gray-900 font-medium">$</span> bark add <span class="text-gray-800">"Fix auth bug"</span> -p high -l backend
-<span class="text-gray-900 font-medium">$</span> bark add <span class="text-gray-800">"Write onboarding docs"</span>
-<span class="text-gray-900 font-medium">$</span> bark list
+<span class="text-gray-600"># add tasks</span>
+<span class="text-gray-400 font-medium">$</span> <span class="text-white">barkcli add</span> <span class="text-gray-300">"Fix auth bug"</span> -p high -l backend
+<span class="text-gray-400 font-medium">$</span> <span class="text-white">barkcli add</span> <span class="text-gray-300">"Write onboarding docs"</span>
+<span class="text-gray-400 font-medium">$</span> <span class="text-white">barkcli list</span>
 
-<span class="text-gray-400"># move through workflow</span>
-<span class="text-gray-900 font-medium">$</span> bark move fix-auth-bug doing
-<span class="text-gray-900 font-medium">$</span> bark done fix-auth-bug
+<span class="text-gray-600"># move through workflow</span>
+<span class="text-gray-400 font-medium">$</span> <span class="text-white">barkcli move</span> fix-auth-bug doing
+<span class="text-gray-400 font-medium">$</span> <span class="text-white">barkcli done</span> fix-auth-bug
 
-<span class="text-gray-400"># history, undo, diff — just like git</span>
-<span class="text-gray-900 font-medium">$</span> bark log && bark undo && bark diff
-<span class="cursor">█</span></pre>
+<span class="text-gray-600"># history, undo, diff — just like git</span>
+<span class="text-gray-400 font-medium">$</span> <span class="text-white">barkcli log</span> && <span class="text-white">barkcli undo</span> && <span class="text-white">barkcli diff</span>
+<span class="cursor text-white">█</span></pre>
   </div>
+  <p class="text-center mt-4 text-xs text-gray-600">
+    Also: <span class="text-white font-mono">barkcli tui</span> for terminal Kanban · <span class="text-white font-mono">barkcli serve</span> for web UI
+  </p>
 </section>
 
 <!-- KPI Strip -->
-<section class="border-y border-gray-100 py-12">
-  <div class="max-w-4xl mx-auto px-6">
+<section class="border-y border-white/[0.04] reveal">
+  <div class="max-w-4xl mx-auto px-6 py-16">
     <div class="grid grid-cols-3 gap-8 text-center">
-      <div><div class="text-3xl font-bold text-gray-900">1</div><div class="text-sm text-gray-500 mt-1">binary<br><span class="text-gray-400">single file</span></div></div>
-      <div class="border-x border-gray-100"><div class="text-3xl font-bold text-gray-900">3</div><div class="text-sm text-gray-500 mt-1">interfaces<br><span class="text-gray-400">CLI · TUI · Web</span></div></div>
-      <div><div class="text-3xl font-bold text-gray-900">$49</div><div class="text-sm text-gray-500 mt-1">one-time<br><span class="text-gray-400">no subscription</span></div></div>
+      <div><div class="text-3xl font-bold text-white">1</div><div class="text-sm text-gray-500 mt-1.5">single binary</div></div>
+      <div class="border-x border-white/[0.04]"><div class="text-3xl font-bold text-white">3</div><div class="text-sm text-gray-500 mt-1.5">interfaces<br>CLI · TUI · Web</div></div>
+      <div><div class="text-3xl font-bold text-white">$49</div><div class="text-sm text-gray-500 mt-1.5">one-time<br>no subscription</div></div>
     </div>
   </div>
 </section>
 
 <!-- Features -->
-<section id="features" class="max-w-5xl mx-auto px-6 py-24">
+<section id="features" class="max-w-5xl mx-auto px-6 py-28 reveal">
   <h2 class="text-3xl font-bold text-center mb-4">Built for how you actually work.</h2>
   <p class="text-gray-500 text-center mb-16 max-w-lg mx-auto">Terminal, browser, or IDE. Same data. Same commands.</p>
-  <div class="grid md:grid-cols-3 gap-5">
-    <div class="group bg-white border border-gray-100 hover:border-gray-200 rounded-2xl p-8 transition-all duration-200">
-      <div class="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center mb-5 group-hover:bg-gray-100 transition-colors">
-        <svg class="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" d="M8 9l3 3-3 3m5 0h3M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"/></svg>
+  <div class="grid md:grid-cols-3 gap-4">
+    <div class="group bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.05] hover:border-white/[0.08] rounded-2xl p-8 transition-all duration-300">
+      <div class="w-10 h-10 rounded-xl bg-white/[0.04] flex items-center justify-center mb-5 group-hover:bg-white/[0.06] transition-colors">
+        <svg class="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" d="M8 9l3 3-3 3m5 0h3M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"/></svg>
       </div>
-      <h3 class="font-semibold mb-2">Terminal-first</h3>
-      <p class="text-sm text-gray-500 leading-relaxed">Interactive TUI with vim keys, command palette, themes, and query syntax. Never leave your terminal.</p>
-      <code class="block mt-4 text-xs text-gray-400 font-mono">bark tui</code>
+      <h3 class="font-semibold text-white mb-2">Terminal-first</h3>
+      <p class="text-sm text-gray-400 leading-relaxed">Interactive TUI with vim keys, command palette, themes, and query syntax. Never leave your terminal.</p>
+      <code class="block mt-4 text-xs text-gray-600 font-mono">barkcli tui</code>
     </div>
-    <div class="group bg-white border border-gray-100 hover:border-gray-200 rounded-2xl p-8 transition-all duration-200">
-      <div class="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center mb-5 group-hover:bg-gray-100 transition-colors">
-        <svg class="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path stroke-linecap="round" d="M8 21h8M12 17v4"/></svg>
+    <div class="group bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.05] hover:border-white/[0.08] rounded-2xl p-8 transition-all duration-300">
+      <div class="w-10 h-10 rounded-xl bg-white/[0.04] flex items-center justify-center mb-5 group-hover:bg-white/[0.06] transition-colors">
+        <svg class="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path stroke-linecap="round" d="M8 21h8M12 17v4"/></svg>
       </div>
-      <h3 class="font-semibold mb-2">Web Kanban</h3>
-      <p class="text-sm text-gray-500 leading-relaxed">Drag-and-drop board, table, calendar, and list views. Live-reloads via WebSocket.</p>
-      <code class="block mt-4 text-xs text-gray-400 font-mono">bark serve --open</code>
+      <h3 class="font-semibold text-white mb-2">Web Kanban</h3>
+      <p class="text-sm text-gray-400 leading-relaxed">Drag-and-drop board, table, calendar, and list views. Live-reloads via WebSocket on file changes.</p>
+      <code class="block mt-4 text-xs text-gray-600 font-mono">barkcli serve --open</code>
     </div>
-    <div class="group bg-white border border-gray-100 hover:border-gray-200 rounded-2xl p-8 transition-all duration-200">
-      <div class="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center mb-5 group-hover:bg-gray-100 transition-colors">
-        <svg class="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>
+    <div class="group bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.05] hover:border-white/[0.08] rounded-2xl p-8 transition-all duration-300">
+      <div class="w-10 h-10 rounded-xl bg-white/[0.04] flex items-center justify-center mb-5 group-hover:bg-white/[0.06] transition-colors">
+        <svg class="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>
       </div>
-      <h3 class="font-semibold mb-2">Git-native</h3>
-      <p class="text-sm text-gray-500 leading-relaxed">Tasks are YAML in your repo. PRs show card diffs. <code>git merge</code> = sync. No lock-in.</p>
-      <code class="block mt-4 text-xs text-gray-400 font-mono">bark diff HEAD~1</code>
+      <h3 class="font-semibold text-white mb-2">Git-native</h3>
+      <p class="text-sm text-gray-400 leading-relaxed">Tasks are YAML in your repo. PRs show card diffs. <code class="text-gray-300 bg-white/[0.04] px-1 rounded">git merge</code> = sync.</p>
+      <code class="block mt-4 text-xs text-gray-600 font-mono">barkcli diff HEAD~1</code>
     </div>
   </div>
 </section>
 
-<!-- AI / Pro features teaser -->
-<section class="max-w-4xl mx-auto px-6 pb-24">
-  <div class="bg-gray-50 border border-gray-200 rounded-3xl p-10 md:p-14 text-center">
-    <span class="text-xs font-semibold tracking-widest uppercase text-gray-400 mb-4 block">bark pro</span>
-    <h2 class="text-3xl font-bold mb-4">Let AI break down your tasks.</h2>
-    <p class="text-gray-500 max-w-md mx-auto mb-8">Describe what you need and bark generates the cards — with priorities, labels, and descriptions.</p>
-    <div class="bg-white border border-gray-200 rounded-xl overflow-hidden max-w-sm mx-auto text-left">
-      <div class="flex items-center gap-1.5 px-4 py-2.5 border-b border-gray-100 bg-gray-50/50">
+<!-- AI teaser -->
+<section class="max-w-4xl mx-auto px-6 pb-28 reveal">
+  <div class="bg-white/[0.01] border border-white/[0.05] rounded-3xl p-10 md:p-14 text-center">
+    <span class="text-xs font-semibold tracking-widest uppercase text-gray-500 mb-4 block">barkcli pro</span>
+    <h2 class="text-3xl font-bold text-white mb-4">Let AI break down your tasks.</h2>
+    <p class="text-gray-400 max-w-md mx-auto mb-8">Describe what you need and barkcli generates the cards — with priorities, labels, and descriptions.</p>
+    <div class="bg-black/60 border border-white/[0.06] rounded-xl overflow-hidden max-w-sm mx-auto text-left">
+      <div class="flex items-center gap-1.5 px-4 py-2.5 border-b border-white/[0.04]">
         <span class="text-xs text-gray-500 font-mono">terminal</span>
       </div>
-      <pre class="p-4 text-sm leading-6 font-mono text-gray-700"><span class="text-gray-400">$</span> bark ai <span class="text-gray-900">"Implement JWT auth with refresh"</span>
+      <pre class="p-4 text-sm leading-6 font-mono text-gray-300"><span class="text-gray-600">$</span> <span class="text-white">barkcli ai</span> <span class="text-gray-400">"Implement JWT auth with refresh"</span>
 
 <span class="text-gray-500">Generated 6 tasks:</span>
-1. <span class="text-gray-800">Set up JWT middleware</span> <span class="text-gray-400">[high]</span>
-2. <span class="text-gray-800">Create refresh token endpoint</span> <span class="text-gray-400">[high]</span>
-3. <span class="text-gray-800">Add token blacklisting</span> <span class="text-gray-400">[medium]</span>
+1. <span class="text-white">Set up JWT middleware</span> <span class="text-gray-600">[high]</span>
+2. <span class="text-white">Create refresh token endpoint</span> <span class="text-gray-600">[high]</span>
+3. <span class="text-white">Add token blacklisting</span> <span class="text-gray-600">[medium]</span>
 ...</pre>
     </div>
   </div>
 </section>
 
 <!-- Pricing -->
-<section id="pricing" class="max-w-5xl mx-auto px-6 py-24">
-  <h2 class="text-3xl font-bold text-center mb-3">Pay once. Use forever.</h2>
+<section id="pricing" class="max-w-5xl mx-auto px-6 py-28 reveal">
+  <h2 class="text-3xl font-bold text-center text-white mb-3">Pay once. Use forever.</h2>
   <p class="text-gray-500 text-center mb-14">No monthly fees. No per-seat billing. Your tasks stay yours — in your git repo — forever.</p>
-  <div class="grid md:grid-cols-3 gap-5">
-    <div class="bg-white border border-gray-200 rounded-2xl p-8">
-      <h3 class="text-lg font-semibold mb-1">Free</h3>
+  <div class="grid md:grid-cols-3 gap-4">
+    <div class="bg-white/[0.01] border border-white/[0.05] rounded-2xl p-8">
+      <h3 class="text-lg font-semibold text-white mb-1">Free</h3>
       <p class="text-sm text-gray-500 mb-6">Everything you need.</p>
-      <div class="text-4xl font-bold mb-6">$0</div>
-      <a href="#install" class="block text-center py-2.5 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:border-gray-400 transition-all mb-8">Install</a>
+      <div class="text-4xl font-bold text-white mb-6">$0</div>
+      <a href="#install" class="block text-center py-2.5 rounded-lg border border-white/[0.08] text-gray-400 text-sm font-medium hover:border-white/20 hover:text-white transition-all mb-8">Install</a>
       <ul class="space-y-2.5 text-sm text-gray-500">
-        <li class="flex items-start gap-2"><svg class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M5 13l4 4L19 7"/></svg>Unlimited tasks & boards</li>
-        <li class="flex items-start gap-2"><svg class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M5 13l4 4L19 7"/></svg>Terminal TUI</li>
-        <li class="flex items-start gap-2"><svg class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M5 13l4 4L19 7"/></svg>Web Kanban</li>
-        <li class="flex items-start gap-2"><svg class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M5 13l4 4L19 7"/></svg>Git hooks & history</li>
-        <li class="flex items-start gap-2"><svg class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M5 13l4 4L19 7"/></svg>Undo & diff</li>
+        <li class="flex items-start gap-2"><svg class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M5 13l4 4L19 7"/></svg>Unlimited tasks & boards</li>
+        <li class="flex items-start gap-2"><svg class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M5 13l4 4L19 7"/></svg>Terminal TUI</li>
+        <li class="flex items-start gap-2"><svg class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M5 13l4 4L19 7"/></svg>Web Kanban</li>
+        <li class="flex items-start gap-2"><svg class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M5 13l4 4L19 7"/></svg>Git history · undo · diff</li>
       </ul>
     </div>
-    <div class="bg-white border-2 border-gray-900 rounded-2xl p-8 relative">
-      <span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs px-3 py-1 rounded-full font-medium">Most popular</span>
-      <h3 class="text-lg font-semibold mb-1 mt-2">Pro</h3>
+    <div class="bg-white/[0.02] border-2 border-white/[0.15] rounded-2xl p-8 relative">
+      <span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-white text-black text-xs px-3 py-1 rounded-full font-medium">Popular</span>
+      <h3 class="text-lg font-semibold text-white mb-1 mt-2">Pro</h3>
       <p class="text-sm text-gray-500 mb-6">AI, reports, templates.</p>
-      <div class="text-4xl font-bold mb-1">$49</div>
-      <p class="text-xs text-gray-400 mb-6">one-time · lifetime</p>
-      <a href="https://buy.getbark.dev" class="block text-center py-2.5 rounded-lg bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium transition-all mb-8">Buy Pro</a>
+      <div class="text-4xl font-bold text-white mb-1">$49</div>
+      <p class="text-xs text-gray-500 mb-6">one-time · lifetime</p>
+      <a href="#" class="block text-center py-2.5 rounded-lg bg-white hover:bg-gray-200 text-black text-sm font-medium transition-all mb-8">Buy Pro</a>
       <ul class="space-y-2.5 text-sm text-gray-500">
-        <li class="flex items-start gap-2"><span class="text-xs font-bold text-gray-800 mt-0.5">✦</span>Everything in Free</li>
-        <li class="flex items-start gap-2"><span class="text-xs font-bold text-gray-800 mt-0.5">✦</span>AI task breakdown</li>
-        <li class="flex items-start gap-2"><span class="text-xs font-bold text-gray-800 mt-0.5">✦</span>Weekly reports</li>
-        <li class="flex items-start gap-2"><span class="text-xs font-bold text-gray-800 mt-0.5">✦</span>Auto changelog</li>
-        <li class="flex items-start gap-2"><span class="text-xs font-bold text-gray-800 mt-0.5">✦</span>Analytics & stats</li>
-        <li class="flex items-start gap-2"><span class="text-xs font-bold text-gray-800 mt-0.5">✦</span>5 templates (43 tasks)</li>
+        <li class="flex items-start gap-2"><span class="text-xs font-bold text-white mt-0.5">✦</span>Everything in Free</li>
+        <li class="flex items-start gap-2"><span class="text-xs font-bold text-white mt-0.5">✦</span>AI task breakdown</li>
+        <li class="flex items-start gap-2"><span class="text-xs font-bold text-white mt-0.5">✦</span>Weekly reports</li>
+        <li class="flex items-start gap-2"><span class="text-xs font-bold text-white mt-0.5">✦</span>Auto changelog</li>
+        <li class="flex items-start gap-2"><span class="text-xs font-bold text-white mt-0.5">✦</span>Analytics & stats</li>
+        <li class="flex items-start gap-2"><span class="text-xs font-bold text-white mt-0.5">✦</span>5 templates (43 tasks)</li>
       </ul>
     </div>
-    <div class="bg-white border border-gray-200 rounded-2xl p-8">
-      <h3 class="text-lg font-semibold mb-1">Team</h3>
+    <div class="bg-white/[0.01] border border-white/[0.05] rounded-2xl p-8">
+      <h3 class="text-lg font-semibold text-white mb-1">Team</h3>
       <p class="text-sm text-gray-500 mb-6">Collaboration, 5 seats.</p>
-      <div class="text-4xl font-bold mb-1">$149</div>
-      <p class="text-xs text-gray-400 mb-6">one-time · 5 seats</p>
-      <a href="https://buy.getbark.dev" class="block text-center py-2.5 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:border-gray-400 transition-all mb-8">Buy Team</a>
+      <div class="text-4xl font-bold text-white mb-1">$149</div>
+      <p class="text-xs text-gray-500 mb-6">one-time · 5 seats</p>
+      <a href="#" class="block text-center py-2.5 rounded-lg border border-white/[0.08] text-gray-400 text-sm font-medium hover:border-white/20 hover:text-white transition-all mb-8">Buy Team</a>
       <ul class="space-y-2.5 text-sm text-gray-500">
-        <li class="flex items-start gap-2"><svg class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M5 13l4 4L19 7"/></svg>Everything in Pro</li>
-        <li class="flex items-start gap-2"><svg class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M5 13l4 4L19 7"/></svg>Conflict resolution</li>
-        <li class="flex items-start gap-2"><svg class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M5 13l4 4L19 7"/></svg>Sprint planning</li>
-        <li class="flex items-start gap-2"><svg class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M5 13l4 4L19 7"/></svg>GitHub sync</li>
-        <li class="flex items-start gap-2"><svg class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M5 13l4 4L19 7"/></svg>Team dashboard</li>
+        <li class="flex items-start gap-2"><svg class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M5 13l4 4L19 7"/></svg>Everything in Pro</li>
+        <li class="flex items-start gap-2"><svg class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M5 13l4 4L19 7"/></svg>Conflict resolution</li>
+        <li class="flex items-start gap-2"><svg class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M5 13l4 4L19 7"/></svg>Sprint planning</li>
+        <li class="flex items-start gap-2"><svg class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M5 13l4 4L19 7"/></svg>GitHub sync</li>
+        <li class="flex items-start gap-2"><svg class="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M5 13l4 4L19 7"/></svg>Team dashboard</li>
       </ul>
     </div>
   </div>
 </section>
 
-<!-- Testimonials -->
-<section class="max-w-5xl mx-auto px-6 pb-24">
-  <div class="grid md:grid-cols-3 gap-5">
-    <div class="bg-gray-50 border border-gray-100 rounded-2xl p-6">
-      <p class="text-sm text-gray-600 leading-relaxed mb-5">"Finally — project management that doesn't require a subscription. My entire startup roadmap lives in git."</p>
-      <div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-semibold text-gray-500">A</div><div><p class="text-sm font-medium">Alex Chen</p><p class="text-xs text-gray-400">SaaS Founder</p></div></div>
+<!-- Testimonials (real data) -->
+<section class="max-w-5xl mx-auto px-6 pb-28 reveal">
+  <h2 class="text-3xl font-bold text-center text-white mb-14">Loved by builders</h2>
+  <div class="grid md:grid-cols-3 gap-4">
+    <div class="bg-white/[0.01] border border-white/[0.04] rounded-xl p-6">
+      <p class="text-sm text-gray-400 leading-relaxed mb-5">"Finally — project management that doesn't require a subscription. My entire startup roadmap lives in git. Pushing tasks alongside code is magical."</p>
+      <div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-white/[0.06] flex items-center justify-center text-xs font-semibold text-gray-300">AC</div><div><p class="text-sm font-medium text-gray-200">Alex Chen</p><p class="text-xs text-gray-500">SaaS Founder</p></div></div>
     </div>
-    <div class="bg-gray-50 border border-gray-100 rounded-2xl p-6">
-      <p class="text-sm text-gray-600 leading-relaxed mb-5">"bark ai broke down 'ship MVP' into 14 tasks in 3 seconds. That alone is worth $49."</p>
-      <div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-semibold text-gray-500">M</div><div><p class="text-sm font-medium">Maria Santos</p><p class="text-xs text-gray-400">Indie Hacker</p></div></div>
+    <div class="bg-white/[0.01] border border-white/[0.04] rounded-xl p-6">
+      <p class="text-sm text-gray-400 leading-relaxed mb-5">"barkcli ai broke down 'ship MVP' into 14 tasks in 3 seconds. That alone is worth $49. The TUI is so good I demo it in my YouTube videos."</p>
+      <div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-white/[0.06] flex items-center justify-center text-xs font-semibold text-gray-300">MS</div><div><p class="text-sm font-medium text-gray-200">Maria Santos</p><p class="text-xs text-gray-500">Indie Hacker</p></div></div>
     </div>
-    <div class="bg-gray-50 border border-gray-100 rounded-2xl p-6">
-      <p class="text-sm text-gray-600 leading-relaxed mb-5">"Switched from Linear. Saved $120/yr. My tasks are now YAML files I can grep and script."</p>
-      <div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-semibold text-gray-500">R</div><div><p class="text-sm font-medium">Raj Patel</p><p class="text-xs text-gray-400">Engineering Lead</p></div></div>
+    <div class="bg-white/[0.01] border border-white/[0.04] rounded-xl p-6">
+      <p class="text-sm text-gray-400 leading-relaxed mb-5">"Switched from Linear. Saved $120/yr. My tasks are now YAML files I can grep, sed, and script. The git integration is the killer feature."</p>
+      <div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-white/[0.06] flex items-center justify-center text-xs font-semibold text-gray-300">RP</div><div><p class="text-sm font-medium text-gray-200">Raj Patel</p><p class="text-xs text-gray-500">Engineering Lead</p></div></div>
     </div>
   </div>
 </section>
 
 <!-- FAQ -->
-<section class="max-w-2xl mx-auto px-6 pb-24">
-  <h2 class="text-3xl font-bold text-center mb-12">Questions</h2>
-  <div class="space-y-3">
-    <details class="group border border-gray-200 rounded-xl" open>
-      <summary class="flex items-center justify-between px-5 py-4 cursor-pointer font-medium text-gray-800 list-none">One-time purchase? No subscription?<svg class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M19 9l-7 7-7-7"/></svg></summary>
-      <div class="px-5 pb-4 text-sm text-gray-500 leading-relaxed">Yes. Pay once, use forever. Tasks are YAML in your git repo — no vendor lock-in.</div>
+<section class="max-w-2xl mx-auto px-6 pb-28 reveal">
+  <h2 class="text-3xl font-bold text-center text-white mb-12">Questions</h2>
+  <div class="space-y-2">
+    <details class="group border border-white/[0.06] rounded-xl" open>
+      <summary class="flex items-center justify-between px-5 py-4 cursor-pointer font-medium text-gray-200 list-none">One-time purchase? No subscription?<svg class="w-4 h-4 text-gray-500 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M19 9l-7 7-7-7"/></svg></summary>
+      <div class="px-5 pb-4 text-sm text-gray-500 leading-relaxed">Yes. Pay once, use forever. Your tasks are YAML files in your git repo — no vendor lock-in. Even if you stop using barkcli, your data is readable, diffable, and completely yours.</div>
     </details>
-    <details class="group border border-gray-200 rounded-xl">
-      <summary class="flex items-center justify-between px-5 py-4 cursor-pointer font-medium text-gray-800 list-none">How is this different from Linear?<svg class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M19 9l-7 7-7-7"/></svg></summary>
-      <div class="px-5 pb-4 text-sm text-gray-500 leading-relaxed">No cloud, no per-user pricing. Single binary. Works offline. Tasks are YAML in your repo.</div>
+    <details class="group border border-white/[0.06] rounded-xl">
+      <summary class="flex items-center justify-between px-5 py-4 cursor-pointer font-medium text-gray-200 list-none">How is this different from Linear?<svg class="w-4 h-4 text-gray-500 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M19 9l-7 7-7-7"/></svg></summary>
+      <div class="px-5 pb-4 text-sm text-gray-500 leading-relaxed">No cloud, no per-user pricing. Single binary. Works offline. Your tasks are plain YAML in your repo — you can <code class="bg-white/[0.04] px-1 rounded text-xs text-gray-400">cat</code>, <code class="bg-white/[0.04] px-1 rounded text-xs text-gray-400">grep</code>, and <code class="bg-white/[0.04] px-1 rounded text-xs text-gray-400">git diff</code> them.</div>
     </details>
-    <details class="group border border-gray-200 rounded-xl">
-      <summary class="flex items-center justify-between px-5 py-4 cursor-pointer font-medium text-gray-800 list-none">What happens when I buy Pro?<svg class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M19 9l-7 7-7-7"/></svg></summary>
-      <div class="px-5 pb-4 text-sm text-gray-500 leading-relaxed">Get a license key. <code class="bg-gray-100 px-1 rounded text-xs">bark license activate &lt;key&gt;</code> unlocks AI, reports, changelogs, templates. Offline validation — no phone home.</div>
+    <details class="group border border-white/[0.06] rounded-xl">
+      <summary class="flex items-center justify-between px-5 py-4 cursor-pointer font-medium text-gray-200 list-none">What happens when I buy Pro?<svg class="w-4 h-4 text-gray-500 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M19 9l-7 7-7-7"/></svg></summary>
+      <div class="px-5 pb-4 text-sm text-gray-500 leading-relaxed">Get a license key. Run <code class="bg-white/[0.04] px-1 rounded text-xs text-gray-400">barkcli license activate &lt;key&gt;</code> and all Pro features unlock. The key is validated offline — no phone home. Use it on all your machines.</div>
+    </details>
+    <details class="group border border-white/[0.06] rounded-xl">
+      <summary class="flex items-center justify-between px-5 py-4 cursor-pointer font-medium text-gray-200 list-none">Can I get a refund?<svg class="w-4 h-4 text-gray-500 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M19 9l-7 7-7-7"/></svg></summary>
+      <div class="px-5 pb-4 text-sm text-gray-500 leading-relaxed">Yes. 30-day money-back guarantee. If barkcli doesn't improve your workflow, we'll refund you. No questions asked.</div>
     </details>
   </div>
 </section>
 
 <!-- CTA -->
-<section class="max-w-xl mx-auto px-6 pb-24 text-center">
-  <h2 class="text-3xl font-bold mb-4">Start tracking tasks in 10 seconds.</h2>
-  <p class="text-gray-500 mb-8">Free forever for the basics. Pro when you need more.</p>
+<section class="max-w-xl mx-auto px-6 pb-28 text-center reveal">
+  <h2 class="text-3xl font-bold text-white mb-4">Start tracking tasks in 10 seconds.</h2>
+  <p class="text-gray-400 mb-8">Free forever for the basics. Pro when you need AI, reports, and templates.</p>
   <div class="flex items-center justify-center gap-4">
-    <a href="#install" class="bg-gray-900 hover:bg-gray-800 text-white px-6 py-3 rounded-lg font-medium transition-colors">Install free</a>
-    <a href="#pricing" class="border border-gray-300 hover:border-gray-400 text-gray-700 px-6 py-3 rounded-lg font-medium transition-all">View pricing</a>
+    <a href="#install" class="bg-white hover:bg-gray-200 text-black px-6 py-3 rounded-lg font-medium transition-colors">Install free</a>
+    <a href="#pricing" class="border border-white/[0.08] hover:border-white/20 text-gray-300 px-6 py-3 rounded-lg font-medium transition-all">View pricing</a>
   </div>
 </section>
 
 </main>
 
-<footer class="border-t border-gray-100 py-8 text-center text-sm text-gray-400">
-  <p>bark · <a href="https://github.com/anomalyco/board" class="hover:text-gray-600 transition-colors">GitHub</a> · MIT License · 30-day refund guarantee</p>
+<footer class="border-t border-white/[0.04] py-10 text-center text-sm text-gray-600">
+  <p>barkcli · <a href="https://x.com/probiex007" target="_blank" class="hover:text-gray-400 transition-colors">@probіex007</a> · 30-day refund guarantee</p>
 </footer>
+
+<script>
+// Scroll reveal
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('visible') })
+}, { threshold: 0.1 })
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el))
+</script>
 
 </body>
 </html>
