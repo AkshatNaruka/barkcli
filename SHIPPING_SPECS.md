@@ -87,23 +87,36 @@
 ## Block D: Launch (1 day)
 
 ### D1: VS Code Marketplace
-- [x] (Covered in B3)
+- [x] **D1.1**: VSIX packaged — 91 KB, 12 files
+- [x] **D1.2**: Store listing copy written (short + full description)
+- [ ] **D1.3**: Publish (`npx @vscode/vsce publish`) — needs publisher account
 
 ### D2: Product Hunt
-- [ ] **D2.1**: Write tagline: "Git for tasks — CLI-native Kanban that lives in your repo"
-- [ ] **D2.2**: Record demo GIF/video showing full workflow
-- [ ] **D2.3**: Draft first comment with "why we built this" story
-- [ ] **D2.4**: Submit to Product Hunt
+- [x] **D2.1**: Tagline: "Git for tasks — CLI-native Kanban that lives in your repo"
+- [x] **D2.2**: Demo script with 10 command sequence
+- [x] **D2.3**: First comment draft explaining "why we built this"
+- [x] **D2.4**: Pro tips (timing, upvotes, engagement)
+- [ ] **D2.5**: Submit to Product Hunt
 
 ### D3: Awesome Lists
-- [ ] **D3.1**: Submit PR to `awesome-rust`
-- [ ] **D3.2**: Submit PR to `awesome-cli`
-- [ ] **D3.3**: Submit PR to `awesome-vscode`
-- [ ] **D3.4**: Submit PR to `awesome-tuis`
+- [x] **D3.1**: awesome-rust submission blurb
+- [x] **D3.2**: awesome-cli submission blurb
+- [x] **D3.3**: awesome-vscode submission blurb
+- [x] **D3.4**: awesome-tuis submission blurb
+- [ ] **D3.5**: Submit PRs to all 4 lists
 
 ### D4: Hacker News
-- [ ] **D4.1**: Draft Show HN post title and first comment
-- [ ] **D4.2**: Submit at optimal time (weekday morning Pacific)
+- [x] **D4.1**: Show HN post title + URL
+- [x] **D4.2**: First comment draft with key decisions + ask
+- [x] **D4.3**: Timing guidance
+- [ ] **D4.4**: Submit Show HN
+
+### D5: Social
+- [x] **D5.1**: 7-tweet Twitter/X thread drafted
+- [ ] **D5.2**: Post thread on launch day
+
+### D6: Launch Materials
+- [x] **D6.1**: LAUNCH.md — all copy, scripts, URLs in one place
 
 ---
 
