@@ -5,6 +5,16 @@
   "version": "0.1.0",
   "publisher": "barkcli",
   "license": "MIT",
+  "icon": "icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AkshatNaruka/barkcli.git"
+  },
+  "homepage": "https://getbarkcli.dev",
+  "bugs": {
+    "url": "https://github.com/AkshatNaruka/barkcli/issues"
+  },
+  "keywords": ["kanban", "board", "task", "project-management", "yaml", "barkcli"],
   "engines": {
     "vscode": "^1.92.0"
   },
@@ -30,7 +40,9 @@
     "build:webview:js": "esbuild ./src/webview/main.tsx --bundle --outfile=./dist/webview.js --jsx=automatic --loader:.css=empty --tsconfig=tsconfig.json",
     "build:webview:css": "tailwindcss -i ./src/webview/styles/globals.css -o ./dist/webview.css --minify",
     "build": "npm run build:extension && npm run build:webview:css && npm run build:webview:js",
+    "vscode:prepublish": "npm run build:sync-web",
     "build:sync-web": "(cd ../web && npm run build) && cp ../web/dist/index.html dist/ && mkdir -p dist/assets && cp ../web/dist/assets/* dist/assets/ 2>/dev/null; echo 'Synced web build to dist' || true",
+    "package": "npm run vscode:prepublish && npx @vscode/vsce package",
     "watch:extension": "esbuild ./src/extension.ts --bundle --outfile=./dist/extension.js --external:vscode --format=cjs --platform=node --watch",
     "watch:webview": "esbuild ./src/webview/main.tsx --bundle --outfile=./dist/webview.js --jsx=automatic --watch",
     "watch": "npm run build:webview:css && concurrently \"npm run watch:extension\" \"npm run watch:webview\""

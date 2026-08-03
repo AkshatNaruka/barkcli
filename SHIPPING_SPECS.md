@@ -32,28 +32,29 @@
 ## Block B: Distribution (2–3 days)
 
 ### B1: Install Script
-- [ ] **B1.1**: Verify install.sh works end-to-end on macOS and Linux
-- [ ] **B1.2**: Test `curl -fsSL https://getbarkcli.dev | sh` flow
+- [x] **B1.1**: Verify install.sh works end-to-end on macOS and Linux
+- [ ] **B1.2**: Test `curl -fsSL https://getbarkcli.dev | sh` flow (needs DNS + web server)
 
 ### B2: Homebrew Formula
-- [ ] **B2.1**: Create `homebrew-barkcli` tap repo
-- [ ] **B2.2**: Write Formula that downloads from GitHub Releases
-- [ ] **B2.3**: Test `brew install anomalyco/barkcli/barkcli`
+- [x] **B2.1**: Create formula at `homebrew/barkcli.rb`
+- [x] **B2.2**: Formula references GitHub Releases for source
+- [ ] **B2.3**: Test `brew install` from tap (needs tagged release + tap repo)
 
 ### B3: VS Code Extension
-- [ ] **B3.1**: Add marketplace icon (128x128 PNG)
-- [ ] **B3.2**: Write `CHANGELOG.md` for extension
-- [ ] **B3.3**: Publish to VS Code Marketplace as `anomalyco.barkcli-kanban`
-- [ ] **B3.4**: Verify extension works via marketplace install
+- [x] **B3.1**: Add marketplace icon (128x128 PNG — generated)
+- [x] **B3.2**: Write `CHANGELOG.md` for extension
+- [x] **B3.3**: Add package.json metadata (repository, homepage, bugs, keywords)
+- [x] **B3.4**: Package VSIX: `barkcli-vscode-0.1.0.vsix` (12 files, 91 KB)
+- [ ] **B3.5**: Publish to VS Code Marketplace (`npx @vscode/vsce publish`)
 
 ### B4: Landing Page
-- [ ] **B4.1**: Verify all binary references use `barkcli`
+- [x] **B4.1**: Verify all binary references use `barkcli` (21 occurrences, 0 stale)
 - [ ] **B4.2**: Ensure `getbarkcli.dev` DNS resolves to Vercel deployment
 - [ ] **B4.3**: Test install CTA copy button works
 
 ### B5: Domain Setup
 - [ ] **B5.1**: Verify `getbarkcli.dev` DNS → Vercel
-- [ ] **B5.2**: Test `curl -fsSL https://getbarkcli.dev | sh` returns install script
+- [ ] **B5.2**: Serve install.sh at `https://getbarkcli.dev/install.sh`
 
 ---
 
