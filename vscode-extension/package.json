@@ -4,7 +4,7 @@
   "description": "Git-like Kanban boards inside VS Code. Edit .board files with a visual editor.",
   "version": "0.1.0",
   "publisher": "barkcli",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "icon": "icon.png",
   "repository": {
     "type": "git",

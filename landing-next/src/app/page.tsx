@@ -562,7 +562,7 @@ export default function Home() {
           >
             X
           </a>{" "}
-          · MIT License
+          · barkcli
         </p>
       </footer>
     </>

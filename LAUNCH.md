@@ -63,7 +63,7 @@ The insight: git already solves version control, diffing, and merging for code. 
 
 Tasks are `.board` YAML files in your repo. `git diff` shows what changed. `git merge` syncs tasks. No database. No accounts. No lock-in.
 
-It's open source (MIT), free for personal use. Pro is $49 one-time — no subscription.
+Free for personal use. Pro is $49 one-time — no subscription.
 
 Try it: curl -fsSL https://getbarkcli.dev | sh
 
@@ -79,49 +79,7 @@ Happy to answer questions! What would make you switch from your current task too
 
 ## D3: Awesome Lists
 
-### awesome-rust
-**Title:** Add barkcli — git-native Kanban board CLI
-```
-barkcli is a single-binary CLI for task tracking. Like .git but for
-Kanban boards. Tasks are YAML files committed to your repo.
-
-- CLI, TUI (ratatui), web server (axum), VS Code extension
-- Git integration: diff, blame, changelog, pre-commit hooks
-- AI task breakdown (OpenAI), sprint planning, GitHub Issues sync
-- Offline-first, no cloud dependency — MIT licensed
-- Repo: https://github.com/AkshatNaruka/barkcli
-```
-
-### awesome-cli
-**Title:** Add barkcli — Git-native project board in your terminal
-```
-CLI-first task manager that stores tasks as YAML files in git.
-Terminal, browser, and IDE — same data, same commands.
-Install: curl -fsSL https://getbarkcli.dev | sh
-Repo: https://github.com/AkshatNaruka/barkcli
-```
-
-### awesome-vscode
-**Title:** Add barkcli — Kanban board editor for .board files
-```
-VS Code Custom Editor for git-native Kanban boards. Open .board
-YAML files as visual drag-and-drop boards. 91 KB VSIX.
-- Visual Kanban with dnd-kit drag-and-drop
-- Card CRUD with modal forms, priority coloring, label pills
-- Works alongside CLI: same file, multiple interfaces
-Repo: https://github.com/AkshatNaruka/barkcli
-```
-
-### awesome-tuis
-**Title:** Add barkcli — Terminal Kanban board with vim keys
-```
-Ratatui-based interactive Kanban board.
-- vim keys: j/k nav, h/l columns, H/L move cards
-- Command palette (:), search (/), themes
-- Filter syntax: is:todo priority:high label:bug assignee:alice
-Start: barkcli tui
-Repo: https://github.com/AkshatNaruka/barkcli
-```
+Skipped — proprietary product, not OSS.
 
 ---
 
@@ -204,6 +162,6 @@ Ask me anything!
 6/7 Free forever for individuals. Pro = $49 one-time.
     No subscriptions. Your tasks stay in your repo. No lock-in.
 
-7/7 Open source (MIT). Built in Rust. Ships with 20 integration tests.
+7/7 Built in Rust. Single binary. VS Code extension included.
     Try it: curl -fsSL https://getbarkcli.dev | sh
     ⭐ on GitHub: https://github.com/AkshatNaruka/barkcli

@@ -99,11 +99,7 @@
 - [ ] **D2.5**: Submit to Product Hunt
 
 ### D3: Awesome Lists
-- [x] **D3.1**: awesome-rust submission blurb
-- [x] **D3.2**: awesome-cli submission blurb
-- [x] **D3.3**: awesome-vscode submission blurb
-- [x] **D3.4**: awesome-tuis submission blurb
-- [ ] **D3.5**: Submit PRs to all 4 lists
+- [~] **D3.1-D3.4**: Skipped — product is proprietary, not open source
 
 ### D4: Hacker News
 - [x] **D4.1**: Show HN post title + URL

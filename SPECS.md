@@ -1,7 +1,6 @@
 # Specs: `barkcli` v1.0 Enhancement
 
-> Status: Each spec has checkboxes. Mark `[x]` when a task is fully done and verified.
-> Branch: `feat/enhanced-ui`
+> Internal development specs. Status: ✅ Complete
 
 ---
 

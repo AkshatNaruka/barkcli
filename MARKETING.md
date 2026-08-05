@@ -15,8 +15,7 @@ barkcli turns your git repo into a project board. Tasks are YAML files committed
 **Category:**
 Developer Tools → Project Management → Git-Native Task Tracking
 
-**Why this category?**
-No existing product occupies "git-native Kanban board." Linear, Jira, and Notion are cloud-first. Taskwarrior and TaskLite are task lists, not boards. git-bug tracks bugs, not project workflows. barkcli is the first tool at the intersection of CLI + Kanban + VS Code + git-committed files.
+**Distribution:** Compiled binaries (Homebrew, GitHub Releases), VS Code Marketplace. Not open source.
 
 ---
 
@@ -86,7 +85,7 @@ No existing product occupies "git-native Kanban board." Linear, Jira, and Notion
 1. **Data format**: `.board` YAML is dead simple. No one owns this format.
 2. **Multi-interface**: CLI + TUI + web + VS Code from one binary. Competitors do 1-2.
 3. **Git integration depth**: Undo, diff, blame, pre-commit hooks, changelog. Not surface-level.
-4. **Open-core model**: The core is MIT. Pro features are real value-adds, not paywalls.
+4. **Compiled binary**: Written in Rust. Source is closed — competitors can't fork it.
 
 ---
 
@@ -142,7 +141,7 @@ No existing product occupies "git-native Kanban board." Linear, Jira, and Notion
 | **Homebrew** | macOS developers | `brew install barkcli` | 500 downloads |
 | **Product Hunt** | Early adopters, indie hackers | Launch on a Tuesday, 12 AM PST | Top 5 product of the day |
 | **Hacker News** | Developers, founders | Show HN, weekday morning Pacific | Front page, 100+ points |
-| **GitHub** | Open source community | Stars, awesome lists, search ranking | 500 stars in month 1 |
+| **GitHub** | Developer community | Stars, search ranking | 500 stars in month 1 |
 | **Twitter/X** | Dev community | Regular posts, launch thread | 200 followers |
 | **Reddit** | r/rust, r/commandline, r/vscode | Share launches, respond to questions | 50 upvotes per post |
 | **Dev.to / Hashnode** | Developer blogs | Technical deep-dives, "how we built" | 2-3 articles |

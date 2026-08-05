@@ -1,8 +1,6 @@
 # barkcli — Git-native task management
 
-[![CI](https://github.com/AkshatNaruka/barkcli/actions/workflows/ci.yml/badge.svg)](https://github.com/AkshatNaruka/barkcli/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.2.0-brown)](https://github.com/AkshatNaruka/barkcli/releases)
+[![Version](https://img.shields.io/badge/version-0.2.0-black)](https://github.com/AkshatNaruka/barkcli/releases)
 
 A single binary. No database. No cloud. Your tasks are YAML files committed to your repo — diff them, merge them, grep them.
 
@@ -161,31 +159,6 @@ Human-readable. Diff-friendly. Git-tracked. No lock-in.
 
 ---
 
-## Architecture
-
-```
-barkcli (single binary)
-├── CLI   — barkcli add, list, move, undo, log, diff, blame
-├── TUI   — barkcli tui (ratatui + crossterm, vim keys, themes)
-├── Web   — barkcli serve (axum server + Vite/React kanban, port 4321)
-└── VS Code — Custom Editor for *.board files (dnd-kit drag-and-drop)
-```
-
-All four interfaces read and write the same YAML `.board` files. No sync server needed — git is the sync mechanism.
-
-### Workspace crates
-
-| Crate | Purpose |
-|---|---|
-| `barkcli-core` | Shared library: models, storage, CLI dispatch, commands |
-| `barkcli-cli` | Binary entry point + pro features (AI, reports, sprints, sync) |
-| `barkcli-tui` | Terminal UI (ratatui), optional feature |
-| `barkcli-server` | Axum web server + REST API + WebSocket, optional feature |
-| `web/` | Vite + React + TypeScript kanban UI (served by barkcli-server) |
-| `vscode-extension/` | VS Code Custom Editor extension |
-
----
-
 ## TUI Shortcuts
 
 | Key | Action |
@@ -203,78 +176,11 @@ All four interfaces read and write the same YAML `.board` files. No sync server 
 
 ---
 
-## Building from Source
-
-```shell
-cargo build --release
-cp target/release/barkcli ~/.local/bin/barkcli
-```
-
-### Running tests
-
-```shell
-cargo test
-# 22 tests: 20 CLI integration + 2 slug unit tests
-```
-
-### VS Code Extension
-
-```shell
-cd vscode-extension
-npm install
-npm run build
-# Open the folder in VS Code, press F5
-```
-
-To package for marketplace:
-
-```shell
-cd vscode-extension
-npm run vscode:prepublish   # syncs web build
-npx @vscode/vsce package    # creates .vsix
-```
-
-### Web UI
-
-```shell
-cd web
-npm install
-npm run dev        # dev server with HMR
-npm run build      # production build (served by barkcli-server)
-```
-
----
-
-## Neovim
-
-Add to `~/.config/nvim/after/ftplugin/board.lua`:
-
-```lua
-vim.api.nvim_create_autocmd("BufReadPre", {
-  pattern = "*.board",
-  callback = function()
-    local buf = vim.api.nvim_create_buf(false, true)
-    local w = math.floor(vim.o.columns * 0.85)
-    local h = math.floor(vim.o.lines * 0.85)
-    local win = vim.api.nvim_open_win(buf, true, {
-      relative = "editor", width = w, height = h,
-      row = math.floor((vim.o.lines - h) / 2),
-      col = math.floor((vim.o.columns - w) / 2),
-      style = "minimal", border = "single"
-    })
-    vim.fn.termopen("barkcli tui")
-  end
-})
-```
-
----
-
 ## Design Principles
 
 - **Offline** — no cloud, no database, no server required
 - **Plain YAML** — `cat`, `grep`, `diff`, `git merge` all work
 - **Single binary** — written in Rust, no runtime dependencies
-- **One-time purchase** — pay once, use forever, no subscription
 - **Install in 10 seconds** — `curl \| sh` → ready
 - **Works in any project** — `barkcli init` → done
 
@@ -286,7 +192,6 @@ vim.api.nvim_create_autocmd("BufReadPre", {
 |---|---|---|
 | **Free** | $0 | Unlimited boards, CLI, TUI, web, VS Code, git integration, history, undo |
 | **Pro** | $49 one-time | AI task breakdown, reports, changelog, stats, templates, sprints, GitHub sync |
-| **Cloud Sync** | $5/user/mo (planned) | Cloud-hosted boards, team sync, activity feed |
 
 ---
 
@@ -294,30 +199,17 @@ vim.api.nvim_create_autocmd("BufReadPre", {
 
 | Document | Purpose |
 |---|---|
-| [SPECS.md](SPECS.md) | v1.0 enhancement specs — all features with acceptance criteria |
+| [SPECS.md](SPECS.md) | v1.0 enhancement specs |
 | [PRODUCT_SPECS.md](PRODUCT_SPECS.md) | Pro/paid feature specs (P1-P9) |
-| [SHIPPING_SPECS.md](SHIPPING_SPECS.md) | Market readiness plan — Phase 1-3 with checkbox tracking |
-| [LAUNCH.md](LAUNCH.md) | Launch copy — PH, HN, awesome lists, Twitter thread |
-| [MARKETING.md](MARKETING.md) | Marketing plan — positioning, audience, channels, metrics |
-| [MANUAL.md](MANUAL.md) | Go-live checklist — manual steps to ship |
-| [DESIGN.md](DESIGN.md) | Design system — colors, typography, component patterns |
-| [AGENTS.md](AGENTS.md) | AI agent instructions — codebase overview for contributors |
-
----
-
-## Contributing
-
-1. Read [AGENTS.md](AGENTS.md) for a codebase overview
-2. Check [SHIPPING_SPECS.md](SHIPPING_SPECS.md) for current priorities
-3. Build: `cargo build`
-4. Test: `cargo test` (22 tests must pass)
-5. Lint: `cargo clippy`
-6. Open a PR against `master`
+| [SHIPPING_SPECS.md](SHIPPING_SPECS.md) | Market readiness plan |
+| [LAUNCH.md](LAUNCH.md) | Launch copy for PH, HN, social |
+| [MARKETING.md](MARKETING.md) | Marketing strategy, positioning, channels |
+| [MANUAL.md](MANUAL.md) | Go-live checklist |
+| [DESIGN.md](DESIGN.md) | Design system — colors, typography, components |
 
 ---
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+Proprietary. All rights reserved. The barkcli CLI and VS Code extension are free to use. Pro features require a license.
 
-Your tasks stay yours. The file format is plain YAML. No lock-in, ever.

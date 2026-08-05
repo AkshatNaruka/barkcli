@@ -1,4 +1,6 @@
-# barkcli — Git-like Project Board Tool
+# barkcli — Git-like Project Board Tool (Internal)
+
+> Private repository. Do not share outside the team.
 
 `barkcli` is a CLI (+ VS Code extension) for task tracking inside any project. Like `.git` but for Kanban boards.
 

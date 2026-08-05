@@ -3,7 +3,7 @@ class Barkcli < Formula
   homepage "https://getbarkcli.dev"
   url "https://github.com/AkshatNaruka/barkcli/archive/refs/tags/v0.2.0.tar.gz"
   sha256 "TBD"
-  license "MIT"
+  license "Proprietary"
   version "0.2.0"
   head "https://github.com/AkshatNaruka/barkcli.git", branch: "master"
 
