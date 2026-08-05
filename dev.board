@@ -12,7 +12,7 @@ cards:
   - id: board-init
     title: board init
     description: Scaffold .board/ with config.json + .gitignore
-    column: done
+    column: review
     priority: high
     labels:
       - cli
@@ -21,11 +21,11 @@ cards:
     comments: []
     attachments: []
     created_at: 2026-07-30T07:18:05.217Z
-    updated_at: 2026-07-30T07:18:05.217Z
+    updated_at: '2026-08-05T14:46:11.599Z'
   - id: board-create
     title: board create
     description: Create new .board YAML files
-    column: done
+    column: review
     priority: high
     labels:
       - cli
@@ -33,7 +33,7 @@ cards:
     comments: []
     attachments: []
     created_at: 2026-07-30T07:18:05.234Z
-    updated_at: 2026-07-30T07:18:05.234Z
+    updated_at: '2026-08-05T14:47:29.905Z'
   - id: card-crud
     title: Card CRUD
     description: Add, list, show, update, remove cards
@@ -109,7 +109,7 @@ cards:
   - id: dark-light-mode
     title: Dark/light mode
     description: VS Code theme-aware styling
-    column: doing
+    column: done
     priority: low
     labels:
       - extension
@@ -118,7 +118,7 @@ cards:
     comments: []
     attachments: []
     created_at: 2026-07-30T07:18:05.371Z
-    updated_at: '2026-08-05T10:20:41.215Z'
+    updated_at: '2026-08-05T14:46:04.886Z'
   - id: integration-tests
     title: Integration tests
     description: 20 CLI integration tests covering full workflow

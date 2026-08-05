@@ -1,0 +1,10 @@
+{
+  "iconDefinitions": {
+    "_board": {
+      "iconPath": "./board.svg"
+    }
+  },
+  "fileExtensions": {
+    "board": "_board"
+  }
+}

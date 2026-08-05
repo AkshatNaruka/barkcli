@@ -22,6 +22,13 @@
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
+    "iconThemes": [
+      {
+        "id": "barkcli-file-icons",
+        "label": "barkcli file icons",
+        "path": "./icons/icon-theme.json"
+      }
+    ],
     "customEditors": [
       {
         "viewType": "barkcli.boardEditor",

@@ -33,15 +33,6 @@ export function KanbanColumn({ column, cards, onAdd, onEdit, onDelete, onToggleP
           <span className="text-xs text-muted bg-card border border-border px-2 py-0.5 rounded-full">
             {cards.length}
           </span>
-          <button
-            onClick={onAdd}
-            className="text-muted hover:text-accent p-0.5 rounded transition-colors"
-            title="Add card"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8 2a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 8 2z" />
-            </svg>
-          </button>
         </div>
       </div>
       <div
@@ -52,13 +43,7 @@ export function KanbanColumn({ column, cards, onAdd, onEdit, onDelete, onToggleP
       >
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>
           {cards.length === 0 ? (
-            <button
-              onClick={onAdd}
-              className="flex flex-col items-center justify-center gap-1.5 py-6 rounded-lg border border-dashed border-border text-muted hover:text-text hover:border-border-strong hover:bg-card transition-colors"
-            >
-              <span className="text-base">＋</span>
-              <span className="text-xs">Add card</span>
-            </button>
+            <p className="text-xs text-muted text-center py-5">No cards</p>
           ) : (
             cards.map((card) => (
               <SortableCard
@@ -75,7 +60,7 @@ export function KanbanColumn({ column, cards, onAdd, onEdit, onDelete, onToggleP
         </SortableContext>
         <button
           onClick={onAdd}
-          className="text-xs text-muted hover:text-text py-2 text-center rounded hover:bg-card transition-colors"
+          className="text-xs text-muted hover:text-text py-2 text-center rounded hover:bg-card transition-colors shrink-0"
         >
           + Add card
         </button>

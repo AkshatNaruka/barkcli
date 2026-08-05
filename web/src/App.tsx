@@ -53,17 +53,26 @@ export function App() {
   const [gitInfo, setGitInfo] = useState<GitInfo | null>(null);
   const [historyCard, setHistoryCard] = useState<{ id: string; entries: any[] } | null>(null);
 
-  const loadBoard = useCallback(async () => {
-    setLoading(true);
+  // When we save, the extension writes the file which triggers a reload
+  // message. We already have the fresh state — skip that round trip so
+  // drag/drop and edits feel instant (no skeleton flash, no re-render).
+  const skipReloadRef = useRef(false);
+
+  const loadBoard = useCallback(async (showSkeleton: boolean) => {
+    if (!showSkeleton && skipReloadRef.current) {
+      skipReloadRef.current = false;
+      return;
+    }
+    if (showSkeleton) setLoading(true);
     const b = await fetchBoard();
     if (b) { setBoard(b); setError(null); }
     else { setError("Failed to load board data"); }
-    setLoading(false);
+    if (showSkeleton) setLoading(false);
   }, []);
 
   useEffect(() => {
-    loadBoard();
-    const cleanWs = connectWs(loadBoard);
+    loadBoard(true);
+    const cleanWs = connectWs(() => loadBoard(false));
     return cleanWs;
   }, [loadBoard]);
 
@@ -72,6 +81,8 @@ export function App() {
   const doSave = useCallback(async (b: BoardType) => {
     setBoard(b);
     saveBoard(b);
+    skipReloadRef.current = true;
+    setTimeout(() => { skipReloadRef.current = false; }, 500);
   }, []);
 
   const notify = useCallback((msg: string) => {
