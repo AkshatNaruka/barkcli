@@ -51,30 +51,7 @@ export class BoardEditorProvider implements vscode.CustomTextEditorProvider {
   private getHtml(webview: vscode.Webview): string {
     const nonce = getNonce();
 
-    // Try new web build first (from build:sync-web), fallback to old extension build
-    const webIndex = vscode.Uri.joinPath(this.context.extensionUri, "dist", "index.html");
-    const webJs = vscode.Uri.joinPath(this.context.extensionUri, "dist", "assets", "index.js");
-    const webCss = vscode.Uri.joinPath(this.context.extensionUri, "dist", "assets", "index.css");
-
-    if (fs.existsSync(webIndex.fsPath)) {
-      let html = fs.readFileSync(webIndex.fsPath, "utf8");
-      html = html.replace(
-        /<script.*src="\/assets\/index.js"><\/script>/g,
-        `<script nonce="${nonce}" src="${webview.asWebviewUri(webJs)}"></script>`
-      );
-      html = html.replace(
-        /<link rel="stylesheet".*href="\/assets\/index.css">/g,
-        `<link rel="stylesheet" href="${webview.asWebviewUri(webCss)}" />`
-      );
-      // Add CSP meta
-      html = html.replace(
-        "<head>",
-        `<head>\n  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' ${webview.cspSource}; script-src 'nonce-${nonce}';">`
-      );
-      return html;
-    }
-
-    // Old fallback
+    // Use old esbuild webview — simpler, works reliably in webviews
     const jsUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.context.extensionUri, "dist", "webview.js")
     );
