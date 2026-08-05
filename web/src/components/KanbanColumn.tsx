@@ -10,9 +10,12 @@ interface Props {
   onAdd: () => void;
   onEdit: (card: Card) => void;
   onDelete: (id: string) => void;
+  onTogglePin: (id: string) => void;
+  onShowHistory: (cardId: string) => void;
+  onCopyCommitMsg: (card: Card) => void;
 }
 
-export function KanbanColumn({ column, cards, onAdd, onEdit, onDelete }: Props) {
+export function KanbanColumn({ column, cards, onAdd, onEdit, onDelete, onTogglePin, onShowHistory, onCopyCommitMsg }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
   const ids = cards.map((c) => c.id);
 
@@ -53,6 +56,9 @@ export function KanbanColumn({ column, cards, onAdd, onEdit, onDelete }: Props) 
                 card={card}
                 onEdit={onEdit}
                 onDelete={onDelete}
+                onTogglePin={onTogglePin}
+                onShowHistory={onShowHistory}
+                onCopyCommitMsg={onCopyCommitMsg}
               />
             ))
           )}

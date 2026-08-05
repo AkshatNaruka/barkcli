@@ -8,13 +8,16 @@ import { KanbanCard } from "./KanbanCard";
 interface Props {
   board: BoardType;
   onMoveCard: (id: string, column: string) => void;
+  onTogglePin: (id: string) => void;
   onAddCard: () => void;
   onAddToColumn: (colId: string) => void;
   onEditCard: (card: Card) => void;
   onDeleteCard: (id: string) => void;
+  onShowHistory: (cardId: string) => void;
+  onCopyCommitMsg: (card: Card) => void;
 }
 
-export function BoardView({ board, onMoveCard, onAddToColumn, onEditCard, onDeleteCard }: Props) {
+export function BoardView({ board, onMoveCard, onTogglePin, onAddToColumn, onEditCard, onDeleteCard, onShowHistory, onCopyCommitMsg }: Props) {
   const [activeCard, setActiveCard] = useState<Card | null>(null);
 
   const sensors = useSensors(
@@ -51,21 +54,29 @@ export function BoardView({ board, onMoveCard, onAddToColumn, onEditCard, onDele
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="flex gap-4 p-4 h-full overflow-x-auto">
-        {board.columns.map((col) => (
+        {board.columns.map((col) => {
+          const colCards = board.cards
+            .filter((c) => c.column === col.id)
+            .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+          return (
           <KanbanColumn
             key={col.id}
             column={col}
-            cards={board.cards.filter((c) => c.column === col.id)}
+            cards={colCards}
             onAdd={() => onAddToColumn(col.id)}
             onEdit={onEditCard}
             onDelete={onDeleteCard}
+            onTogglePin={onTogglePin}
+            onShowHistory={onShowHistory}
+            onCopyCommitMsg={onCopyCommitMsg}
           />
-        ))}
+          );
+        })}
       </div>
       <DragOverlay>
         {activeCard && (
           <div className="w-72 opacity-90">
-            <KanbanCard card={activeCard} isOverlay onEdit={() => {}} onDelete={() => {}} onContextMenu={() => {}} />
+            <KanbanCard card={activeCard} isOverlay onEdit={() => {}} onDelete={() => {}} onTogglePin={() => {}} onShowHistory={() => {}} onCopyCommitMsg={() => {}} />
           </div>
         )}
       </DragOverlay>

@@ -8,9 +8,12 @@ interface Props {
   card: Card;
   onEdit: (card: Card) => void;
   onDelete: (id: string) => void;
+  onTogglePin: (id: string) => void;
+  onShowHistory: (cardId: string) => void;
+  onCopyCommitMsg: (card: Card) => void;
 }
 
-export function SortableCard({ card, onEdit, onDelete }: Props) {
+export function SortableCard({ card, onEdit, onDelete, onTogglePin, onShowHistory, onCopyCommitMsg }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: card.id,
   });
@@ -27,10 +30,9 @@ export function SortableCard({ card, onEdit, onDelete }: Props) {
         card={card}
         onEdit={onEdit}
         onDelete={onDelete}
-        onContextMenu={(e, c) => {
-          e.preventDefault();
-          // Context menu handled by the card
-        }}
+        onTogglePin={onTogglePin}
+        onShowHistory={onShowHistory}
+        onCopyCommitMsg={onCopyCommitMsg}
       />
     </div>
   );

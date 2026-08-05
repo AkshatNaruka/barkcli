@@ -1,5 +1,7 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
+import * as path from "path";
+import { execSync } from "child_process";
 
 export class BoardEditorProvider implements vscode.CustomTextEditorProvider {
   constructor(private readonly context: vscode.ExtensionContext) {}
@@ -16,9 +18,12 @@ export class BoardEditorProvider implements vscode.CustomTextEditorProvider {
 
     webviewPanel.webview.html = this.getHtml(webviewPanel.webview);
 
+    const boardName = path.basename(document.uri.fsPath, ".board");
+    const projectRoot = path.dirname(document.uri.fsPath);
+
     const sendLoad = () => {
       const content = fs.readFileSync(document.uri.fsPath, "utf8");
-      webviewPanel.webview.postMessage({ type: "load", yaml: content });
+      webviewPanel.webview.postMessage({ type: "load", yaml: content, boardName, projectRoot });
     };
 
     const changeListener = vscode.workspace.onDidChangeTextDocument((e) => {
@@ -42,6 +47,28 @@ export class BoardEditorProvider implements vscode.CustomTextEditorProvider {
           );
           edit.replace(document.uri, fullRange, message.yaml);
           vscode.workspace.applyEdit(edit);
+          break;
+        }
+        case "getGitInfo": {
+          try {
+            const branch = execSync("git branch --show-current", { cwd: projectRoot, encoding: "utf8" }).trim();
+            const lastCommit = execSync('git log -1 --format="%h %s (%an, %ar)"', { cwd: projectRoot, encoding: "utf8" }).trim();
+            const authors = execSync('git log --format="%an" --all | sort -u', { cwd: projectRoot, encoding: "utf8", shell: "/bin/bash" }).trim().split("\n").filter(Boolean);
+            webviewPanel.webview.postMessage({ type: "gitInfo", branch, lastCommit, authors });
+          } catch {
+            webviewPanel.webview.postMessage({ type: "gitInfo", branch: "?", lastCommit: "?", authors: [] });
+          }
+          break;
+        }
+        case "getCardHistory": {
+          const historyPath = path.join(projectRoot, ".board", "history", boardName + ".log");
+          if (!fs.existsSync(historyPath)) {
+            webviewPanel.webview.postMessage({ type: "cardHistory", cardId: message.cardId, entries: [] });
+            return;
+          }
+          const raw = fs.readFileSync(historyPath, "utf8");
+          const entries = raw.split("\n").filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter((e: any) => e && e.card === message.cardId);
+          webviewPanel.webview.postMessage({ type: "cardHistory", cardId: message.cardId, entries });
           break;
         }
       }

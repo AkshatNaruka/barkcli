@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import type { Board as BoardType, Card, ViewMode } from "./lib/types";
-import { fetchBoard, saveBoard, connectWs } from "./lib/api";
+import { fetchBoard, saveBoard, connectWs, getGitInfo, getCardHistory, type GitInfo } from "./lib/api";
 import { BoardView } from "./components/BoardView";
 import { TableView } from "./components/TableView";
 import { CalendarView } from "./components/CalendarView";
@@ -8,6 +8,35 @@ import { ListView } from "./components/ListView";
 import { CardForm } from "./components/CardForm";
 import { CommandPalette } from "./components/CommandPalette";
 import { Toast } from "./components/Toast";
+
+function CardHistoryModal({ cardId, entries, onClose }: { cardId: string; entries: any[]; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-2xl max-w-md w-full mx-4 max-h-[400px] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
+          <h3 className="font-semibold text-gray-200">History: {cardId}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="p-4 space-y-2">
+          {entries.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-4">No history entries</p>
+          ) : (
+            entries.map((e: any, i: number) => (
+              <div key={i} className="flex items-start gap-2 text-xs border-b border-gray-700/50 pb-2 last:border-0">
+                <span className="text-gray-400 font-mono shrink-0 mt-0.5">{e.at?.slice(11, 19) || "?"}</span>
+                <span className="text-gray-500 bg-gray-700/50 px-1 rounded font-mono text-[10px]">{e.op}</span>
+                <span className="text-gray-300">
+                  {e.old_value && <span className="text-gray-500">{e.old_value} → </span>}
+                  {e.new_value || e.card || ""}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function App() {
   const [board, setBoard] = useState<BoardType | null>(null);
@@ -20,6 +49,9 @@ export function App() {
   const [toast, setToast] = useState<string | null>(null);
   const boardRef = useRef(board);
   boardRef.current = board;
+
+  const [gitInfo, setGitInfo] = useState<GitInfo | null>(null);
+  const [historyCard, setHistoryCard] = useState<{ id: string; entries: any[] } | null>(null);
 
   const loadBoard = useCallback(async () => {
     setLoading(true);
@@ -34,6 +66,8 @@ export function App() {
     const cleanWs = connectWs(loadBoard);
     return cleanWs;
   }, [loadBoard]);
+
+  useEffect(() => { getGitInfo().then(setGitInfo).catch(() => {}); }, []);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -108,6 +142,26 @@ export function App() {
     await doSave(b);
   }, [doSave]);
 
+  const handleTogglePin = useCallback(async (id: string) => {
+    if (!boardRef.current) return;
+    const b = { ...boardRef.current };
+    b.cards = b.cards.map((c) =>
+      c.id === id ? { ...c, pinned: !c.pinned, updated_at: new Date().toISOString() } : c
+    );
+    await doSave(b);
+  }, [doSave]);
+
+  const handleCopyCommitMsg = useCallback((card: Card) => {
+    navigator.clipboard.writeText(`[${card.id}] ${card.title}`).then(() => {
+      notify(`Copied: [${card.id}] ${card.title}`);
+    });
+  }, [notify]);
+
+  const handleShowHistory = useCallback(async (cardId: string) => {
+    const entries = await getCardHistory(cardId);
+    setHistoryCard({ id: cardId, entries });
+  }, []);
+
   if (error && !board) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-950">
@@ -147,6 +201,11 @@ export function App() {
           <span className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">
             {board?.cards.length || 0} cards
           </span>
+          {gitInfo && (
+            <span className="text-[10px] text-gray-600 font-mono border-l border-gray-700 pl-2">
+              {gitInfo.branch} · {gitInfo.lastCommit}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {/* View tabs */}
@@ -184,10 +243,13 @@ export function App() {
           <BoardView
             board={board}
             onMoveCard={handleMoveCard}
+            onTogglePin={handleTogglePin}
             onAddCard={() => setForm({ columnId: board.columns[0]?.id || "todo" })}
             onAddToColumn={(colId) => setForm({ columnId: colId })}
             onEditCard={(card) => setForm({ card })}
             onDeleteCard={handleDeleteCard}
+            onShowHistory={handleShowHistory}
+            onCopyCommitMsg={handleCopyCommitMsg}
           />
         )}
         {board && view === "table" && (
@@ -243,6 +305,9 @@ export function App() {
 
       {/* Toasts */}
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}
+      {historyCard && (
+        <CardHistoryModal cardId={historyCard.id} entries={historyCard.entries} onClose={() => setHistoryCard(null)} />
+      )}
     </div>
   );
 }

@@ -97,6 +97,17 @@ window.addEventListener("message", (event) => {
     }
     initialLoadDone = true;
   }
+  if (msg?.type === "gitInfo" && gitInfoResolve) {
+    gitInfoResolve({ branch: msg.branch, lastCommit: msg.lastCommit, authors: msg.authors });
+    gitInfoResolve = null;
+  }
+  if (msg?.type === "cardHistory") {
+    const resolve = historyResolves.get(msg.cardId);
+    if (resolve) {
+      resolve(msg.entries || []);
+      historyResolves.delete(msg.cardId);
+    }
+  }
 });
 
 async function fetchBoardVsCode(): Promise<Board | null> {
@@ -123,4 +134,28 @@ async function fetchBoardVsCode(): Promise<Board | null> {
 async function saveBoardVsCode(board: Board): Promise<void> {
   const yaml = yamlDump(board, { indent: 2, lineWidth: -1 });
   vscodeApi?.postMessage({ type: "save", yaml });
+}
+
+// ── Git info + Card history (VS Code mode) ──
+
+export interface GitInfo { branch: string; lastCommit: string; authors: string[] }
+
+export function requestGitInfo() { vscodeApi?.postMessage({ type: "getGitInfo" }); }
+export function requestCardHistory(cardId: string) { vscodeApi?.postMessage({ type: "getCardHistory", cardId }); }
+
+let gitInfoResolve: ((v: GitInfo) => void) | null = null;
+const historyResolves = new Map<string, (entries: any[]) => void>();
+
+export function getGitInfo(): Promise<GitInfo> {
+  return new Promise((resolve) => {
+    requestGitInfo();
+    gitInfoResolve = resolve;
+  });
+}
+
+export function getCardHistory(cardId: string): Promise<any[]> {
+  return new Promise((resolve) => {
+    requestCardHistory(cardId);
+    historyResolves.set(cardId, resolve);
+  });
 }
