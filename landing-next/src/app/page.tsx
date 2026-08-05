@@ -42,120 +42,264 @@ function Priority({ level }: { level: "high" | "medium" | "low" }) {
   );
 }
 
-/* ── Product depiction — VS Code window with kanban ── */
-
-function ProductDepiction() {
-  return (
-    <div className="w-full max-w-2xl mx-auto select-none">
-      <div className="rounded-xl border border-border shadow-sm overflow-hidden">
-        {/* Titlebar */}
-        <div className="flex items-center gap-2 px-4 py-2.5 bg-secondary border-b border-border">
-          <span className="w-3 h-3 rounded-full bg-red-400/60" />
-          <span className="w-3 h-3 rounded-full bg-amber-400/60" />
-          <span className="w-3 h-3 rounded-full bg-emerald-400/60" />
-          <span className="ml-2 text-xs font-mono text-muted-foreground">
-            tasks.board — barkcli
-          </span>
-        </div>
-        {/* Board */}
-        <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 min-h-[260px]">
-          {/* TODO */}
-          <div className="flex flex-col gap-2">
-            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">
-              Todo
-            </div>
-            <div className="flex flex-col gap-2">
-              <CardBox
-                title="JWT auth"
-                priority="high"
-                label="backend"
-                color="bg-red-50 border-red-200"
-              />
-              <CardBox
-                title="OAuth login"
-                priority="high"
-                label="frontend"
-                color="bg-red-50 border-red-200"
-              />
-            </div>
-          </div>
-          {/* DOING */}
-          <div className="flex flex-col gap-2">
-            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">
-              Doing
-            </div>
-            <div className="flex flex-col gap-2">
-              <CardBox
-                title="Unit tests"
-                priority="medium"
-                label="testing"
-                color="bg-white border-border"
-              />
-            </div>
-          </div>
-          {/* REVIEW */}
-          <div className="flex flex-col gap-2">
-            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">
-              Review
-            </div>
-            <div className="flex flex-col gap-2">
-              <CardBox
-                title="API docs"
-                priority="low"
-                label="docs"
-                color="bg-white border-border"
-              />
-            </div>
-          </div>
-          {/* DONE */}
-          <div className="flex flex-col gap-2">
-            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">
-              Done
-            </div>
-            <div className="flex flex-col gap-2">
-              <CardBox
-                title="Setup CI"
-                priority="medium"
-                label="devops"
-                color="bg-emerald-50/50 border-emerald-200"
-              />
-              <CardBox
-                title="README"
-                priority="low"
-                label="docs"
-                color="bg-emerald-50/50 border-emerald-200"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+/* ── Card box for kanban cards ── */
 
 function CardBox({
   title,
   priority,
   label,
-  color,
 }: {
   title: string;
   priority: "high" | "medium" | "low";
   label: string;
-  color: string;
 }) {
+  const borderColor = {
+    high: "border-l-red-400",
+    medium: "border-l-amber-400",
+    low: "border-l-emerald-400",
+  };
   return (
     <div
-      className={`rounded-lg border px-3 py-2.5 text-left ${color} transition-colors`}
+      className={`rounded-md border border-border border-l-2 ${borderColor[priority]} bg-white px-2.5 py-2 text-left shadow-sm`}
     >
-      <div className="text-xs font-medium text-foreground leading-tight mb-1.5">
+      <div className="text-[11px] font-medium text-foreground leading-tight mb-1">
         {title}
       </div>
       <div className="flex items-center gap-1.5">
         <Priority level={priority} />
-        <span className="text-[10px] text-muted-foreground font-mono">
+        <span className="text-[9px] text-muted-foreground font-mono">
           {label}
         </span>
+      </div>
+    </div>
+  );
+}
+
+/* ── Kanban board (shown in editor when .board file selected) ── */
+
+function KanbanBoard() {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 h-full">
+      <div className="flex flex-col gap-1.5">
+        <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1 mb-0.5">
+          Todo
+        </div>
+        <CardBox title="JWT auth" priority="high" label="backend" />
+        <CardBox title="OAuth login" priority="high" label="frontend" />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1 mb-0.5">
+          Doing
+        </div>
+        <CardBox title="Unit tests" priority="medium" label="testing" />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1 mb-0.5">
+          Review
+        </div>
+        <CardBox title="API docs" priority="low" label="docs" />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1 mb-0.5">
+          Done
+        </div>
+        <CardBox title="Setup CI" priority="medium" label="devops" />
+        <CardBox title="README" priority="low" label="docs" />
+      </div>
+    </div>
+  );
+}
+
+/* ── Interactive IDE depiction ── */
+
+function IDEDepiction() {
+  const [activeFile, setActiveFile] = useState<string | null>(null);
+  const [terminalLine, setTerminalLine] = useState("$ ");
+  const [showBoard, setShowBoard] = useState(false);
+
+  const openBoard = () => {
+    setActiveFile("tasks.board");
+    setShowBoard(true);
+    setTerminalLine("$ barkcli tui");
+  };
+
+  const openFile = (name: string) => {
+    setActiveFile(name);
+    setShowBoard(false);
+    setTerminalLine("$ ");
+  };
+
+  return (
+    <div className="w-full max-w-2xl mx-auto select-none">
+      <div className="rounded-xl border border-border shadow-sm overflow-hidden bg-white">
+        {/* Titlebar */}
+        <div className="flex items-center gap-2 px-4 py-2 bg-[#F0F0F0] border-b border-border">
+          <span className="w-3 h-3 rounded-full bg-red-400/70" />
+          <span className="w-3 h-3 rounded-full bg-amber-400/70" />
+          <span className="w-3 h-3 rounded-full bg-emerald-400/70" />
+          <span className="ml-2 text-[11px] font-mono text-muted-foreground">
+            {activeFile ? `${activeFile} — my-project` : "my-project — VS Code"}
+          </span>
+        </div>
+
+        {/* IDE body: sidebar + editor */}
+        <div className="flex min-h-[300px]">
+          {/* Sidebar */}
+          <div className="w-[130px] sm:w-[160px] shrink-0 bg-[#F8F8F8] border-r border-border flex flex-col">
+            <div className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2.5 border-b border-border/50">
+              Explorer
+            </div>
+            <div className="flex flex-col py-1.5 text-[11px] font-mono">
+              {/* Folder: src */}
+              <div
+                onClick={() => openFile("src/auth.ts")}
+                className={`flex items-center gap-1.5 px-3 py-1 cursor-pointer transition-colors ${
+                  activeFile === "src/auth.ts"
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-muted-foreground hover:bg-secondary"
+                }`}
+              >
+                <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M2 6a2 2 0 012-2h5l2 2h9a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                </svg>
+                <span>src/</span>
+              </div>
+              {/* File: auth.ts */}
+              <div
+                onClick={() => openFile("src/auth.ts")}
+                className={`flex items-center gap-1.5 pl-7 pr-3 py-1 cursor-pointer transition-colors ${
+                  activeFile === "src/auth.ts"
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-muted-foreground hover:bg-secondary"
+                }`}
+              >
+                <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <path d="M14 2v6h6" />
+                </svg>
+                auth.ts
+              </div>
+              {/* File: server.ts */}
+              <div
+                onClick={() => openFile("src/server.ts")}
+                className={`flex items-center gap-1.5 pl-7 pr-3 py-1 cursor-pointer transition-colors ${
+                  activeFile === "src/server.ts"
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-muted-foreground hover:bg-secondary"
+                }`}
+              >
+                <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <path d="M14 2v6h6" />
+                </svg>
+                server.ts
+              </div>
+
+              {/* Board file — clickable to show kanban */}
+              <div
+                onClick={openBoard}
+                className={`flex items-center gap-1.5 px-3 py-1 cursor-pointer transition-all rounded-sm mx-1 ${
+                  activeFile === "tasks.board"
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-muted-foreground hover:bg-secondary board-file-hint"
+                }`}
+              >
+                <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="7" height="7" rx="1" />
+                  <rect x="14" y="3" width="7" height="7" rx="1" />
+                  <rect x="3" y="14" width="7" height="7" rx="1" />
+                  <rect x="14" y="14" width="7" height="7" rx="1" />
+                </svg>
+                tasks.board
+              </div>
+
+              <div
+                onClick={() => openFile("README.md")}
+                className={`flex items-center gap-1.5 px-3 py-1 cursor-pointer transition-colors ${
+                  activeFile === "README.md"
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-muted-foreground hover:bg-secondary"
+                }`}
+              >
+                <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <path d="M14 2v6h6" />
+                </svg>
+                README.md
+              </div>
+
+              <div className="flex items-center gap-1.5 px-3 py-1 text-muted-foreground">
+                <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <path d="M14 2v6h6" />
+                </svg>
+                package.json
+              </div>
+            </div>
+          </div>
+
+          {/* Editor pane */}
+          <div className="flex-1 flex flex-col min-w-0">
+            {/* Tabs row */}
+            <div className="flex items-center bg-[#F0F0F0] border-b border-border px-1 pt-1 gap-0">
+              {activeFile && (
+                <div className="flex items-center gap-1.5 bg-white border border-b-0 border-border rounded-t-md px-3 py-1.5 text-[10px] font-mono text-foreground">
+                  {activeFile}
+                  <span className="text-muted-foreground cursor-pointer hover:text-foreground">&times;</span>
+                </div>
+              )}
+            </div>
+            {/* Editor content */}
+            <div className="flex-1 overflow-y-auto p-3 relative">
+              <div
+                className="transition-opacity duration-300"
+                style={{ opacity: showBoard ? 1 : 0, position: showBoard ? 'relative' : 'absolute', pointerEvents: showBoard ? 'auto' : 'none' }}
+              >
+                <div className="text-[10px] text-muted-foreground font-mono mb-2 border-b border-border/50 pb-1.5">
+                  tasks.board — YAML
+                </div>
+                <KanbanBoard />
+              </div>
+              {!showBoard && (
+                <div className="transition-opacity duration-300 opacity-100">
+                  {activeFile ? (
+                    <div className="font-mono text-[11px] leading-relaxed text-muted-foreground">
+                      <span className="text-blue-600">import</span>{" "}
+                      <span className="text-emerald-700">{"{ barkcli }"}</span>{" "}
+                      <span className="text-blue-600">from</span>{" "}
+                      <span className="text-amber-700">&apos;barkcli&apos;</span>
+                      <br />
+                      <br />
+                      <span className="text-blue-600">const</span>{" "}
+                      <span className="text-foreground">app</span> ={" "}
+                      <span className="text-amber-700">barkcli</span>.
+                      <span className="text-emerald-700">init</span>()
+                      <br />
+                      <br />
+                      <span className="text-muted-foreground/60">
+                        // Select tasks.board ← in the sidebar to see the
+                        board
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <p className="text-[11px] text-muted-foreground font-mono">
+                        Select a file to open
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Terminal */}
+        <div className="border-t border-border bg-[#1E1E1E] px-3 py-2 font-mono text-[11px] flex items-center gap-1.5 min-h-[32px]">
+          <span className="text-emerald-400 shrink-0">~</span>
+          <span className="text-gray-400">{terminalLine}</span>
+          {showBoard && <span className="animate-pulse text-white/70 ml-0.5">█</span>}
+        </div>
       </div>
     </div>
   );
@@ -248,7 +392,7 @@ export default function Home() {
 
         {/* Product depiction */}
         <div className="mb-10 animate-fade-in [animation-delay:0.3s]">
-          <ProductDepiction />
+          <IDEDepiction />
         </div>
 
         {/* Install command */}

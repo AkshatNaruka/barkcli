@@ -69,3 +69,13 @@
 .animate-fade-in {
   animation: fade-in 0.6s ease-out both;
 }
+
+/* Pulsing border to hint clickable board file */
+@keyframes board-hint {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+  50% { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+}
+
+.board-file-hint {
+  animation: board-hint 2s ease-in-out 1.5s 3;
+}
