@@ -1,16 +1,17 @@
 import React, { useState } from "react";
-import type { Card, Column } from "../lib/types";
+import type { Card, Column, ChecklistItem } from "../lib/types";
 
 interface Props {
   card?: Card;
   columns: Column[];
   defaultColumn?: string;
+  authors?: string[];
   onSave: (data: Partial<Card>) => void;
   onCancel: () => void;
   onDelete?: () => void;
 }
 
-export function CardForm({ card, columns, defaultColumn, onSave, onCancel, onDelete }: Props) {
+export function CardForm({ card, columns, defaultColumn, authors = [], onSave, onCancel, onDelete }: Props) {
   const [title, setTitle] = useState(card?.title || "");
   const [desc, setDesc] = useState(card?.description || "");
   const [column, setColumn] = useState(card?.column || defaultColumn || columns[0]?.id || "");
@@ -18,6 +19,14 @@ export function CardForm({ card, columns, defaultColumn, onSave, onCancel, onDel
   const [labels, setLabels] = useState((card?.labels || []).join(", "));
   const [assignee, setAssignee] = useState(card?.assignee || "");
   const [dueDate, setDueDate] = useState(card?.due_date?.slice(0, 10) || "");
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(card?.checklist || []);
+  const [newItem, setNewItem] = useState("");
+  const [showAuthors, setShowAuthors] = useState(false);
+  const [commentText, setCommentText] = useState("");
+
+  const filteredAuthors = authors.filter((a) =>
+    assignee ? a.toLowerCase().includes(assignee.toLowerCase()) : true
+  ).slice(0, 5);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,12 +39,27 @@ export function CardForm({ card, columns, defaultColumn, onSave, onCancel, onDel
       labels: labels.split(",").map((s) => s.trim()).filter(Boolean),
       assignee: assignee.trim() || undefined,
       due_date: dueDate ? `${dueDate}T00:00:00Z` : undefined,
+      checklist,
     });
+  };
+
+  const addChecklistItem = () => {
+    if (!newItem.trim()) return;
+    setChecklist([...checklist, { text: newItem.trim(), done: false }]);
+    setNewItem("");
+  };
+
+  const toggleChecklistItem = (idx: number) => {
+    setChecklist(checklist.map((item, i) => i === idx ? { ...item, done: !item.done } : item));
+  };
+
+  const removeChecklistItem = (idx: number) => {
+    setChecklist(checklist.filter((_, i) => i !== idx));
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onCancel}>
-      <div className="bg-gray-900 rounded-xl shadow-2xl w-full max-w-md mx-4 p-6 border border-gray-800" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-gray-900 rounded-xl shadow-2xl w-full max-w-lg mx-4 p-6 border border-gray-800 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-lg font-bold mb-4 text-gray-100">{card ? "Edit Card" : "New Card"}</h2>
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <div>
@@ -47,7 +71,7 @@ export function CardForm({ card, columns, defaultColumn, onSave, onCancel, onDel
           <div>
             <label className="block text-xs font-medium text-gray-400 mb-1">Description</label>
             <textarea value={desc} onChange={(e) => setDesc(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-500 resize-none" rows={3}
+              className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-500 resize-none" rows={2}
               placeholder="Optional description" />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -75,11 +99,20 @@ export function CardForm({ card, columns, defaultColumn, onSave, onCancel, onDel
               placeholder="bug, frontend, urgent" />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div>
+            <div className="relative">
               <label className="block text-xs font-medium text-gray-400 mb-1">Assignee</label>
-              <input value={assignee} onChange={(e) => setAssignee(e.target.value)}
+              <input value={assignee} onChange={(e) => { setAssignee(e.target.value); setShowAuthors(true); }}
+                onFocus={() => setShowAuthors(true)} onBlur={() => setTimeout(() => setShowAuthors(false), 200)}
                 className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-500"
                 placeholder="Username" />
+              {showAuthors && filteredAuthors.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-30 bg-gray-800 border border-gray-700 rounded-lg mt-1 overflow-hidden shadow-xl">
+                  {filteredAuthors.map((a) => (
+                    <button key={a} type="button" onMouseDown={() => { setAssignee(a); setShowAuthors(false); }}
+                      className="w-full text-left px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-700">{a}</button>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-400 mb-1">Due date</label>
@@ -87,6 +120,47 @@ export function CardForm({ card, columns, defaultColumn, onSave, onCancel, onDel
                 className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
           </div>
+
+          {/* Checklist */}
+          <div>
+            <label className="block text-xs font-medium text-gray-400 mb-1">Checklist</label>
+            <div className="space-y-1.5 mb-2 max-h-32 overflow-y-auto">
+              {checklist.map((item, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <button type="button" onClick={() => toggleChecklistItem(idx)}
+                    className={`text-xs ${item.done ? "text-emerald-400" : "text-gray-500"} hover:text-gray-300`}>
+                    {item.done ? "☑" : "☐"}
+                  </button>
+                  <span className={`flex-1 text-xs ${item.done ? "text-gray-500 line-through" : "text-gray-300"}`}>{item.text}</span>
+                  <button type="button" onClick={() => removeChecklistItem(idx)} className="text-gray-600 hover:text-red-400 text-xs">✕</button>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input value={newItem} onChange={(e) => setNewItem(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addChecklistItem(); } }}
+                className="flex-1 px-2 py-1.5 rounded bg-gray-800 border border-gray-700 text-gray-100 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                placeholder="Add checklist item" />
+              <button type="button" onClick={addChecklistItem} className="px-3 py-1.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600">Add</button>
+            </div>
+          </div>
+
+          {/* Comments display (read-only in form) */}
+          {card && card.comments.length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-gray-400 mb-1">Comments ({card.comments.length})</label>
+              <div className="space-y-2 max-h-24 overflow-y-auto">
+                {card.comments.map((c, i) => (
+                  <div key={i} className="text-xs">
+                    <span className="text-gray-400 font-medium">{c.author}</span>
+                    <span className="text-gray-600 ml-2">{c.at?.slice(0, 10)}</span>
+                    <p className="text-gray-300 mt-0.5">{c.text}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-between mt-2">
             {onDelete && (
               <button type="button" onClick={onDelete} className="px-3 py-2 text-sm text-red-400 hover:bg-red-900/20 rounded-lg">Delete</button>

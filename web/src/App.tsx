@@ -275,10 +275,11 @@ export function App() {
 
       {/* Modals */}
       {form && board && (
-        <CardForm
-          card={form.card}
-          columns={board.columns}
-          defaultColumn={form.columnId}
+          <CardForm
+            card={form.card}
+            columns={board.columns}
+            defaultColumn={form.columnId}
+            authors={gitInfo?.authors || []}
           onSave={(data) => {
             if (form.card) {
               handleUpdateCard(form.card.id, data);
