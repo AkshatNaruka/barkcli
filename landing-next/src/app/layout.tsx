@@ -32,6 +32,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("barkcli-theme");if(t==="dark"||t==="light"){document.documentElement.classList.add(t);}}catch(e){document.documentElement.classList.add("dark");}})();`,
+          }}
+        />
+      </head>
       <body className="min-h-screen flex flex-col">{children}</body>
     </html>
   );

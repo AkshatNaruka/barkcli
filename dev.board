@@ -12,7 +12,7 @@ cards:
   - id: board-init
     title: board init
     description: Scaffold .board/ with config.json + .gitignore
-    column: review
+    column: doing
     priority: high
     labels:
       - cli
@@ -21,7 +21,7 @@ cards:
     comments: []
     attachments: []
     created_at: 2026-07-30T07:18:05.217Z
-    updated_at: '2026-08-05T14:46:11.599Z'
+    updated_at: '2026-08-05T14:53:30.159Z'
   - id: board-create
     title: board create
     description: Create new .board YAML files

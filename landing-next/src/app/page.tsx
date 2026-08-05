@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 /* ── Copy button for install command ── */
 
@@ -29,9 +30,9 @@ function CopyButton({ text }: { text: string }) {
 
 function Priority({ level }: { level: "high" | "medium" | "low" }) {
   const colors = {
-    high: "bg-red-50 text-red-700 border-red-200",
-    medium: "bg-amber-50 text-amber-700 border-amber-200",
-    low: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    high: "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/60 dark:text-red-300 dark:border-red-900",
+    medium: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-900",
+    low: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-900",
   };
   return (
     <span
@@ -60,7 +61,7 @@ function CardBox({
   };
   return (
     <div
-      className={`rounded-md border border-border border-l-2 ${borderColor[priority]} bg-white px-2.5 py-2 text-left shadow-sm`}
+      className={`rounded-md border border-border border-l-2 ${borderColor[priority]} bg-white dark:bg-[#1E1E1E] px-2.5 py-2 text-left shadow-sm`}
     >
       <div className="text-[11px] font-medium text-foreground leading-tight mb-1">
         {title}
@@ -131,9 +132,9 @@ function IDEDepiction() {
 
   return (
     <div className="w-full max-w-2xl mx-auto select-none">
-      <div className="rounded-xl border border-border shadow-sm overflow-hidden bg-white">
+      <div className="rounded-xl border border-border shadow-sm overflow-hidden bg-white dark:bg-[#1E1E1E]">
         {/* Titlebar */}
-        <div className="flex items-center gap-2 px-4 py-2 bg-[#F0F0F0] border-b border-border">
+        <div className="flex items-center gap-2 px-4 py-2 bg-[#F0F0F0] dark:bg-[#323233] border-b border-border">
           <span className="w-3 h-3 rounded-full bg-red-400/70" />
           <span className="w-3 h-3 rounded-full bg-amber-400/70" />
           <span className="w-3 h-3 rounded-full bg-emerald-400/70" />
@@ -145,7 +146,7 @@ function IDEDepiction() {
         {/* IDE body: sidebar + editor */}
         <div className="flex min-h-[300px]">
           {/* Sidebar */}
-          <div className="w-[130px] sm:w-[160px] shrink-0 bg-[#F8F8F8] border-r border-border flex flex-col">
+          <div className="w-[130px] sm:w-[160px] shrink-0 bg-[#F8F8F8] dark:bg-[#252526] border-r border-border flex flex-col">
             <div className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2.5 border-b border-border/50">
               Explorer
             </div>
@@ -155,7 +156,7 @@ function IDEDepiction() {
                 onClick={() => openFile("src/auth.ts")}
                 className={`flex items-center gap-1.5 px-3 py-1 cursor-pointer transition-colors ${
                   activeFile === "src/auth.ts"
-                    ? "bg-blue-50 text-blue-700"
+                    ? "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
                     : "text-muted-foreground hover:bg-secondary"
                 }`}
               >
@@ -169,7 +170,7 @@ function IDEDepiction() {
                 onClick={() => openFile("src/auth.ts")}
                 className={`flex items-center gap-1.5 pl-7 pr-3 py-1 cursor-pointer transition-colors ${
                   activeFile === "src/auth.ts"
-                    ? "bg-blue-50 text-blue-700"
+                    ? "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
                     : "text-muted-foreground hover:bg-secondary"
                 }`}
               >
@@ -184,7 +185,7 @@ function IDEDepiction() {
                 onClick={() => openFile("src/server.ts")}
                 className={`flex items-center gap-1.5 pl-7 pr-3 py-1 cursor-pointer transition-colors ${
                   activeFile === "src/server.ts"
-                    ? "bg-blue-50 text-blue-700"
+                    ? "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
                     : "text-muted-foreground hover:bg-secondary"
                 }`}
               >
@@ -200,7 +201,7 @@ function IDEDepiction() {
                 onClick={openBoard}
                 className={`flex items-center gap-1.5 px-3 py-1 cursor-pointer transition-all rounded-sm mx-1 ${
                   activeFile === "tasks.board"
-                    ? "bg-blue-50 text-blue-700"
+                    ? "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
                     : "text-muted-foreground hover:bg-secondary board-file-hint"
                 }`}
               >
@@ -217,7 +218,7 @@ function IDEDepiction() {
                 onClick={() => openFile("README.md")}
                 className={`flex items-center gap-1.5 px-3 py-1 cursor-pointer transition-colors ${
                   activeFile === "README.md"
-                    ? "bg-blue-50 text-blue-700"
+                    ? "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
                     : "text-muted-foreground hover:bg-secondary"
                 }`}
               >
@@ -241,9 +242,9 @@ function IDEDepiction() {
           {/* Editor pane */}
           <div className="flex-1 flex flex-col min-w-0">
             {/* Tabs row */}
-            <div className="flex items-center bg-[#F0F0F0] border-b border-border px-1 pt-1 gap-0">
+            <div className="flex items-center bg-[#F0F0F0] dark:bg-[#323233] border-b border-border px-1 pt-1 gap-0">
               {activeFile && (
-                <div className="flex items-center gap-1.5 bg-white border border-b-0 border-border rounded-t-md px-3 py-1.5 text-[10px] font-mono text-foreground">
+                <div className="flex items-center gap-1.5 bg-white dark:bg-[#1E1E1E] border border-b-0 border-border rounded-t-md px-3 py-1.5 text-[10px] font-mono text-foreground">
                   {activeFile}
                   <span className="text-muted-foreground cursor-pointer hover:text-foreground">&times;</span>
                 </div>
@@ -264,16 +265,16 @@ function IDEDepiction() {
                 <div className="transition-opacity duration-300 opacity-100">
                   {activeFile ? (
                     <div className="font-mono text-[11px] leading-relaxed text-muted-foreground">
-                      <span className="text-blue-600">import</span>{" "}
-                      <span className="text-emerald-700">{"{ barkcli }"}</span>{" "}
-                      <span className="text-blue-600">from</span>{" "}
-                      <span className="text-amber-700">&apos;barkcli&apos;</span>
+                      <span className="text-blue-600 dark:text-blue-400">import</span>{" "}
+                      <span className="text-emerald-700 dark:text-emerald-400">{"{ barkcli }"}</span>{" "}
+                      <span className="text-blue-600 dark:text-blue-400">from</span>{" "}
+                      <span className="text-amber-700 dark:text-amber-400">&apos;barkcli&apos;</span>
                       <br />
                       <br />
-                      <span className="text-blue-600">const</span>{" "}
+                      <span className="text-blue-600 dark:text-blue-400">const</span>{" "}
                       <span className="text-foreground">app</span> ={" "}
-                      <span className="text-amber-700">barkcli</span>.
-                      <span className="text-emerald-700">init</span>()
+                      <span className="text-amber-700 dark:text-amber-400">barkcli</span>.
+                      <span className="text-emerald-700 dark:text-emerald-400">init</span>()
                       <br />
                       <br />
                       <span className="text-muted-foreground/60">
@@ -369,12 +370,20 @@ export default function Home() {
               barkcli
             </span>
           </a>
-          <a
-            href="https://github.com/AkshatNaruka/barkcli"
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors font-mono"
-          >
-            GitHub →
-          </a>
+          <nav className="flex items-center gap-5 text-xs text-muted-foreground font-mono">
+            <a href="#features" className="hover:text-foreground transition-colors">
+              Features
+            </a>
+            <a href="#pricing" className="hover:text-foreground transition-colors">
+              Pricing
+            </a>
+            <ThemeToggle />
+            <a href="#install">
+              <Button size="sm" className="font-semibold">
+                Install
+              </Button>
+            </a>
+          </nav>
         </div>
       </header>
 
@@ -549,13 +558,6 @@ export default function Home() {
       <footer className="border-t border-border py-8 text-center text-xs text-muted-foreground font-mono">
         <p>
           barkcli ·{" "}
-          <a
-            href="https://github.com/AkshatNaruka/barkcli"
-            className="hover:text-foreground transition-colors"
-          >
-            GitHub
-          </a>{" "}
-          ·{" "}
           <a
             href="https://x.com/probiex007"
             className="hover:text-foreground transition-colors"
