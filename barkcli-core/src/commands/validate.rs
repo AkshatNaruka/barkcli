@@ -4,11 +4,12 @@ use anyhow::Result;
 use serde_yaml;
 
 use crate::storage::board_file::list_board_files;
+use crate::util::style;
 
 pub fn run() -> Result<()> {
     let boards = list_board_files()?;
     if boards.is_empty() {
-        println!("No boards found.");
+        println!("{}", style::muted("No boards found."));
         return Ok(());
     }
 
@@ -17,20 +18,20 @@ pub fn run() -> Result<()> {
     for name in &boards {
         let errors = validate_board(name);
         if errors.is_empty() {
-            println!("OK  {}.board", name);
+            println!("{}  {}.board", style::ok("OK"), name);
         } else {
             has_errors = true;
             for err in &errors {
-                println!("ERR {}.board: {}", name, err);
+                println!("{} {}.board: {}", style::err("ERR"), name, err);
             }
         }
     }
 
     if has_errors {
-        println!("\nValidation found errors. Run `barkcli doctor` to auto-fix.");
+        println!("\n{}", style::warn("Validation found errors. Run `barkcli doctor` to auto-fix."));
         std::process::exit(1);
     } else {
-        println!("\nAll boards valid.");
+        println!("\n{}", style::ok("All boards valid."));
     }
     Ok(())
 }

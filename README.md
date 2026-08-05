@@ -201,6 +201,7 @@ Human-readable. Diff-friendly. Git-tracked. No lock-in.
 |---|---|
 | [SPECS.md](SPECS.md) | v1.0 enhancement specs |
 | [PRODUCT_SPECS.md](PRODUCT_SPECS.md) | Pro/paid feature specs (P1-P9) |
+| [THEME_SPECS.md](THEME_SPECS.md) | Theme & UI specs — professional board, CLI styling |
 | [SHIPPING_SPECS.md](SHIPPING_SPECS.md) | Market readiness plan |
 | [LAUNCH.md](LAUNCH.md) | Launch copy for PH, HN, social |
 | [MARKETING.md](MARKETING.md) | Marketing strategy, positioning, channels |

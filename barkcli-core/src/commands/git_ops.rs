@@ -3,30 +3,36 @@ use comfy_table::Cell;
 
 use crate::storage::board_file::{list_board_files, read_board};
 use crate::storage::history::read_history;
-use crate::util::display::table;
+use crate::util::{display, style};
 
 pub fn run_log(board_name: Option<&str>) -> Result<()> {
     let name = resolve_board(board_name)?;
     let entries = read_history(&name)?;
     if entries.is_empty() {
-        println!("No history for '{}'", name);
+        println!("{}", style::muted(format!("No history for '{}'", name)));
         return Ok(());
     }
 
-    let mut t = table();
-    t.set_header(vec!["Time", "Op", "Card", "Field", "Old", "New"]);
+    let mut t = display::table();
+    t.set_header(display::header(vec!["Time", "Op", "Card", "Field", "Old", "New"]));
     for entry in entries.iter().rev().take(50) {
+        let op_styled = match entry.op.as_str() {
+            "add" => style::ok(&entry.op),
+            "remove" => style::err(&entry.op),
+            "move" | "done" => style::warn(&entry.op),
+            _ => style::accent(&entry.op),
+        };
         t.add_row(vec![
-            Cell::new(&entry.at),
-            Cell::new(&entry.op),
-            Cell::new(&entry.card),
-            Cell::new(entry.field.as_deref().unwrap_or("-")),
-            Cell::new(entry.old_value.as_deref().unwrap_or("-")),
-            Cell::new(entry.new_value.as_deref().unwrap_or("-")),
+            Cell::new(style::muted(&entry.at)),
+            Cell::new(op_styled),
+            Cell::new(style::accent(&entry.card)),
+            Cell::new(style::muted(entry.field.as_deref().unwrap_or("-"))),
+            Cell::new(style::muted(entry.old_value.as_deref().unwrap_or("-"))),
+            Cell::new(style::strong(entry.new_value.as_deref().unwrap_or("-"))),
         ]);
     }
     println!("{t}");
-    println!("Showing last {} entries for '{}'", entries.len().min(50), name);
+    println!("{}", style::muted(format!("Showing last {} entries for '{}'", entries.len().min(50), name)));
     Ok(())
 }
 
@@ -62,25 +68,25 @@ pub fn run_diff(board_name: Option<&str>, ref_spec: Option<&str>) -> Result<()> 
                 })
                 .collect();
 
-            println!("Diff {} → current for '{}':", git_ref, name);
+            println!("{}", style::accent(format!("Diff {} → current for '{}':", git_ref, name)));
             println!();
             if added.is_empty() && removed.is_empty() && moved.is_empty() {
-                println!("No changes.");
+                println!("{}", style::muted("No changes."));
             }
             if !added.is_empty() {
-                println!("Added ({}):", added.len());
-                for c in added { println!("  + {} [{}]", c.title, c.id); }
+                println!("{}", style::ok(format!("Added ({}):", added.len())));
+                for c in added { println!("  {} {} [{}]", style::ok("+"), style::strong(&c.title), style::muted(&c.id)); }
             }
             if !removed.is_empty() {
-                println!("Removed ({}):", removed.len());
-                for c in removed { println!("  - {} [{}]", c.title, c.id); }
+                println!("{}", style::err(format!("Removed ({}):", removed.len())));
+                for c in removed { println!("  {} {} [{}]", style::err("-"), style::strong(&c.title), style::muted(&c.id)); }
             }
             if !moved.is_empty() {
-                println!("Moved ({}):", moved.len());
+                println!("{}", style::warn(format!("Moved ({}):", moved.len())));
                 for c in moved {
                     let prev_col = prev.cards.iter().find(|p| p.id == c.id)
                         .map(|p| p.column.as_str()).unwrap_or("?");
-                    println!("  → {} {} → {}", c.title, prev_col, c.column);
+                    println!("  {} {} {} → {}", style::warn("→"), style::strong(&c.title), prev_col, c.column);
                 }
             }
         }

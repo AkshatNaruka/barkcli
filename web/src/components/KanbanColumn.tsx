@@ -18,20 +18,24 @@ interface Props {
 export function KanbanColumn({ column, cards, onAdd, onEdit, onDelete, onTogglePin, onShowHistory, onCopyCommitMsg }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
   const ids = cards.map((c) => c.id);
+  const pinned = cards.filter((c) => c.pinned).length;
 
   return (
     <div
-      className="flex flex-col bg-gray-900 rounded-lg min-w-[280px] max-w-[320px] flex-shrink-0 border border-gray-800"
+      className="flex flex-col bg-surface rounded-lg min-w-[280px] max-w-[320px] flex-shrink-0 border border-border"
     >
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
-        <h3 className="font-semibold text-sm text-gray-300">{column.name}</h3>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <h3 className="font-semibold text-sm text-text">{column.name}</h3>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">
+          {pinned > 0 && (
+            <span className="text-[10px] text-muted" title="Pinned cards">📌{pinned}</span>
+          )}
+          <span className="text-xs text-muted bg-card border border-border px-2 py-0.5 rounded-full">
             {cards.length}
           </span>
           <button
             onClick={onAdd}
-            className="text-gray-500 hover:text-blue-400 p-0.5 rounded"
+            className="text-muted hover:text-accent p-0.5 rounded transition-colors"
             title="Add card"
           >
             <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
@@ -42,13 +46,19 @@ export function KanbanColumn({ column, cards, onAdd, onEdit, onDelete, onToggleP
       </div>
       <div
         ref={setNodeRef}
-        className={`flex flex-col gap-2 p-3 overflow-y-auto flex-1 column-scroll min-h-[60px] ${
-          isOver ? "bg-blue-900/20" : ""
+        className={`flex flex-col gap-2 p-3 overflow-y-auto flex-1 column-scroll min-h-[60px] transition-colors ${
+          isOver ? "bg-accent-soft" : ""
         }`}
       >
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>
           {cards.length === 0 ? (
-            <p className="text-xs text-gray-600 text-center py-4">No cards</p>
+            <button
+              onClick={onAdd}
+              className="flex flex-col items-center justify-center gap-1.5 py-6 rounded-lg border border-dashed border-border text-muted hover:text-text hover:border-border-strong hover:bg-card transition-colors"
+            >
+              <span className="text-base">＋</span>
+              <span className="text-xs">Add card</span>
+            </button>
           ) : (
             cards.map((card) => (
               <SortableCard
@@ -63,10 +73,9 @@ export function KanbanColumn({ column, cards, onAdd, onEdit, onDelete, onToggleP
             ))
           )}
         </SortableContext>
-        {/* Drop zone at bottom of column */}
         <button
           onClick={onAdd}
-          className="text-xs text-gray-600 hover:text-gray-400 py-2 text-center rounded hover:bg-gray-800/50 transition-colors"
+          className="text-xs text-muted hover:text-text py-2 text-center rounded hover:bg-card transition-colors"
         >
           + Add card
         </button>

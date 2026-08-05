@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 
 use crate::models::Board;
 use crate::storage::board_file::write_board;
+use crate::util::style;
 
 pub fn run(name: &str, args: &[String]) -> Result<()> {
     let input = if let Some(file) = args.first() {
@@ -24,6 +25,6 @@ pub fn run(name: &str, args: &[String]) -> Result<()> {
         .context("failed to parse board data")?;
 
     write_board(name, &board).context("failed to write board")?;
-    println!("Imported board '{}' ({} cards)", name, board.cards.len());
+    println!("{} board '{}' ({} cards)", style::ok("Imported"), name, board.cards.len());
     Ok(())
 }

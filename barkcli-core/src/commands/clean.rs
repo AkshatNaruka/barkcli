@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 
 use crate::storage::board_dir::find_board_dir;
 use crate::storage::board_file::list_board_files;
+use crate::util::style;
 
 pub fn run() -> Result<()> {
     let board_dir = find_board_dir()?;
@@ -17,7 +18,7 @@ pub fn run() -> Result<()> {
             std::fs::remove_dir_all(&locks_dir)
                 .context("failed to remove locks directory")?;
             std::fs::create_dir_all(&locks_dir).ok();
-            println!("Cleaned {} lock file(s)", count);
+            println!("{} {} lock file(s)", style::ok("Cleaned"), count);
             cleaned += count;
         }
     }
@@ -43,9 +44,9 @@ pub fn run() -> Result<()> {
     }
 
     if cleaned == 0 {
-        println!("Nothing to clean.");
+        println!("{}", style::muted("Nothing to clean."));
     } else {
-        println!("Cleaned {} item(s).", cleaned);
+        println!("{} {} item(s).", style::ok("Cleaned"), cleaned);
     }
     Ok(())
 }

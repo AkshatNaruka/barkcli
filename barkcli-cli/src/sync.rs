@@ -2,6 +2,7 @@ use anyhow::{bail, Result};
 use serde_json::json;
 use barkcli_core::models::Card;
 use barkcli_core::storage::board_file::read_board;
+use barkcli_core::util::style;
 
 pub fn push() -> Result<()> {
     let board_name = barkcli_core::commands::boards::resolve_board(None)?;
@@ -19,11 +20,11 @@ pub fn push() -> Result<()> {
         .collect();
 
     if unsynced.is_empty() {
-        println!("No unsynced tasks.");
+        println!("{}", style::muted("No unsynced tasks."));
         return Ok(());
     }
 
-    println!("Syncing {} tasks to GitHub Issues...", unsynced.len());
+    println!("{} {} tasks to GitHub Issues...", style::accent("Syncing"), unsynced.len());
     for card in &unsynced {
         let body = json!({
             "title": card.title,
@@ -52,15 +53,15 @@ pub fn push() -> Result<()> {
                     }
                 }
                 barkcli_core::storage::board_file::write_board(&board_name, &board)?;
-                println!("  ✓ #{} — {}", number, card.title);
+                println!("  {} #{} — {}", style::ok("✓"), number, card.title);
             }
             Ok(r) => {
                 let status = r.status();
                 let body = r.into_string().unwrap_or_default();
-                println!("  ✗ {} — HTTP {}: {}", card.title, status, &body[..body.len().min(200)]);
+                println!("  {} {} — HTTP {}: {}", style::err("✗"), card.title, status, &body[..body.len().min(200)]);
             }
             Err(e) => {
-                println!("  ✗ {} — {}", card.title, e);
+                println!("  {} {} — {}", style::err("✗"), card.title, e);
             }
         }
     }
@@ -121,9 +122,9 @@ pub fn pull() -> Result<()> {
 
     if imported > 0 {
         barkcli_core::storage::board_file::write_board(&board_name, &board)?;
-        println!("Imported {} issues from GitHub to {}.board", imported, board_name);
+        println!("{} {} issues from GitHub to {}.board", style::ok("Imported"), imported, board_name);
     } else {
-        println!("No new issues to import.");
+        println!("{}", style::muted("No new issues to import."));
     }
 
     Ok(())

@@ -110,6 +110,12 @@ fn handle_normal(app: &mut App, key: KeyEvent) -> Result<()> {
             app.palette_matches.clear();
         }
         KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
+        KeyCode::Char('T') => {
+            app.theme = match app.theme {
+                Theme::Dark => Theme::Light,
+                Theme::Light => Theme::Dark,
+            };
+        }
         _ => {}
     }
     Ok(())

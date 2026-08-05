@@ -6,6 +6,7 @@ use crate::models::Board;
 use crate::storage::board_dir::ensure_board_dir;
 use crate::storage::config_store::{init_config, read_config, write_config};
 use crate::storage::board_file::write_board;
+use crate::util::style;
 
 const DEFAULT_BOARD: &str = "tasks";
 
@@ -26,7 +27,7 @@ pub fn run() -> Result<()> {
         config.default_board = Some(default_name.to_string());
         write_config(&board_dir, &config)?;
 
-        println!("Created default board '{}.board'", default_name);
+        println!("{} default board '{}.board'", style::ok("Created"), default_name);
     }
 
     let gitignore_path = project_root.join(".gitignore");
@@ -34,8 +35,8 @@ pub fn run() -> Result<()> {
 
     install_git_hooks(project_root)?;
 
-    println!("Initialized board project in {}", board_dir.display());
-    println!("Ready. Try:");
+    println!("{} board project in {}", style::ok("Initialized"), board_dir.display());
+    println!("{} Try:", style::accent("Ready."));
     println!("  barkcli add \"Fix auth bug\" -p high");
     println!("  barkcli list");
     println!("  barkcli move <id> doing");
@@ -58,7 +59,7 @@ fn install_git_hooks(root: &Path) -> Result<()> {
             p.set_mode(0o755);
             std::fs::set_permissions(&pre_commit, p).ok();
         }
-        println!("  Installed .git/hooks/pre-commit");
+        println!("  {} .git/hooks/pre-commit", style::ok("Installed"));
     }
 
     let commit_msg = hooks_dir.join("commit-msg");
@@ -71,7 +72,7 @@ fn install_git_hooks(root: &Path) -> Result<()> {
             p.set_mode(0o755);
             std::fs::set_permissions(&commit_msg, p).ok();
         }
-        println!("  Installed .git/hooks/commit-msg");
+        println!("  {} .git/hooks/commit-msg", style::ok("Installed"));
     }
 
     Ok(())

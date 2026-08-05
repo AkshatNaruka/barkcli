@@ -1,6 +1,7 @@
 use anyhow::Result;
 use barkcli_core::models::Card;
 use barkcli_core::storage::board_file::{read_board, write_board};
+use barkcli_core::util::style;
 use chrono::Utc;
 
 pub fn start(name: &str) -> Result<()> {
@@ -19,8 +20,8 @@ pub fn start(name: &str) -> Result<()> {
         }
     }
     write_board(&board_name, &board)?;
-    println!("Sprint '{}' started. {} tasks tagged.", name, tagged);
-    println!("  → barkcli list -l sprint:{}", name);
+    println!("{} Sprint '{}' started. {} tasks tagged.", style::ok("✓"), name, tagged);
+    println!("  {} barkcli list -l sprint:{}", style::accent("→"), name);
     Ok(())
 }
 
@@ -44,8 +45,8 @@ pub fn end(name: &str) -> Result<()> {
     write_board(&board_name, &board)?;
 
     let pct = if total > 0 { (done as f64 / total as f64 * 100.0) as u32 } else { 0 };
-    println!("Sprint '{}' ended.", name);
-    println!("  ✅ Completed: {}/{} ({}%)", done, total, pct);
-    println!("  🔄 Remaining tasks moved to backlog.");
+    println!("{} Sprint '{}' ended.", style::ok("✓"), name);
+    println!("  {} Completed: {}/{} ({}%)", style::ok("✅"), done, total, pct);
+    println!("  {} Remaining tasks moved to backlog.", style::warn("🔄"));
     Ok(())
 }

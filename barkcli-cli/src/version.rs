@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::Path;
+use barkcli_core::util::style;
 
 pub struct Release {
     pub tag_name: String,

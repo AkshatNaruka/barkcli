@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use comfy_table::Cell;
 
 use crate::storage::board_file::read_board;
-use crate::util::display::table;
+use crate::util::{display, style};
 
 pub fn run(name: &str, args: &[String]) -> Result<()> {
     let board = read_board(name).context(format!("board '{}' not found", name))?;
@@ -44,15 +44,15 @@ pub fn run(name: &str, args: &[String]) -> Result<()> {
         return Ok(());
     }
 
-    let mut t = table();
-    t.set_header(vec!["ID", "Title", "Column", "Priority", "Labels"]);
+    let mut t = display::table();
+    t.set_header(display::header(vec!["ID", "Title", "Column", "Priority", "Labels"]));
     for card in &cards {
         t.add_row(vec![
-            Cell::new(&card.id),
-            Cell::new(&card.title),
-            Cell::new(&card.column),
-            Cell::new(&card.priority),
-            Cell::new(&card.labels.join(", ")),
+            Cell::new(style::muted(&card.id)),
+            Cell::new(style::title(&card.title, card.pinned)),
+            Cell::new(style::column(&card.column)),
+            Cell::new(style::priority(&card.priority)),
+            Cell::new(style::muted(&card.labels.join(", "))),
         ]);
     }
     println!("{t}");

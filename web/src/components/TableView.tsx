@@ -1,5 +1,8 @@
 import React from "react";
 import type { Board as BoardType, Card } from "../lib/types";
+import { Avatar } from "./Avatar";
+import { PriorityBadge } from "./PriorityBadge";
+import { labelClasses } from "../lib/labels";
 
 interface Props {
   board: BoardType;
@@ -9,13 +12,11 @@ interface Props {
 }
 
 export function TableView({ board, onEditCard, onDeleteCard, onMoveCard }: Props) {
-  const priorityOrder = { high: 0, medium: 1, low: 2 };
-
   return (
     <div className="p-4 overflow-auto h-full">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-gray-800 text-left text-gray-400 text-xs">
+          <tr className="border-b border-border text-left text-muted text-xs">
             <th className="p-2 font-medium">ID</th>
             <th className="p-2 font-medium">Title</th>
             <th className="p-2 font-medium">Column</th>
@@ -27,10 +28,10 @@ export function TableView({ board, onEditCard, onDeleteCard, onMoveCard }: Props
         </thead>
         <tbody>
           {board.cards.map((card) => (
-            <tr key={card.id} className="border-b border-gray-800/50 hover:bg-gray-800/50">
-              <td className="p-2 text-gray-500 font-mono text-xs">{card.id}</td>
-              <td className="p-2 text-gray-200">
-                <button onClick={() => onEditCard(card)} className="hover:text-blue-400 text-left">
+            <tr key={card.id} className="border-b border-border/50 hover:bg-surface transition-colors">
+              <td className="p-2 text-muted font-mono text-xs">{card.id}</td>
+              <td className="p-2 text-text">
+                <button onClick={() => onEditCard(card)} className="hover:text-accent text-left transition-colors">
                   {card.title}
                 </button>
               </td>
@@ -38,28 +39,32 @@ export function TableView({ board, onEditCard, onDeleteCard, onMoveCard }: Props
                 <select
                   value={card.column}
                   onChange={(e) => onMoveCard(card.id, e.target.value)}
-                  className="bg-gray-800 text-gray-300 text-xs rounded px-2 py-1 border border-gray-700"
+                  className="bg-surface text-text text-xs rounded px-2 py-1 border border-border hover:border-border-strong focus:outline-none focus:ring-1 focus:ring-accent"
                 >
                   {board.columns.map((col) => (
                     <option key={col.id} value={col.id}>{col.name}</option>
                   ))}
                 </select>
               </td>
-              <td className="p-2">
-                <span className={`text-xs font-medium ${
-                  card.priority === "high" ? "text-red-400" : card.priority === "medium" ? "text-amber-400" : "text-gray-500"
-                }`}>{card.priority}</span>
-              </td>
+              <td className="p-2"><PriorityBadge priority={card.priority} /></td>
               <td className="p-2">
                 <div className="flex flex-wrap gap-1">
-                  {card.labels.map((l) => (
-                    <span key={l} className="text-xs px-1.5 py-0.5 rounded bg-blue-900/50 text-blue-300">{l}</span>
+                  {card.labels.slice(0, 3).map((l) => (
+                    <span key={l} className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${labelClasses(l)}`}>{l}</span>
                   ))}
                 </div>
               </td>
-              <td className="p-2 text-gray-400">{card.assignee || "-"}</td>
               <td className="p-2">
-                <button onClick={() => onDeleteCard(card.id)} className="text-gray-500 hover:text-red-400 text-xs">Del</button>
+                {card.assignee ? (
+                  <span className="flex items-center gap-1.5 text-muted">
+                    <Avatar name={card.assignee} /> {card.assignee}
+                  </span>
+                ) : (
+                  <span className="text-muted">-</span>
+                )}
+              </td>
+              <td className="p-2">
+                <button onClick={() => onDeleteCard(card.id)} className="text-muted hover:text-danger text-xs transition-colors">Del</button>
               </td>
             </tr>
           ))}

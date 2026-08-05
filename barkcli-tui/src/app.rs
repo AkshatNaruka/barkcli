@@ -354,4 +354,46 @@ impl App {
             Theme::Light => Color::Rgb(160, 160, 170),
         }
     }
+
+    pub fn theme_accent(&self) -> Color {
+        match self.theme {
+            Theme::Dark => Color::Rgb(96, 165, 250),
+            Theme::Light => Color::Rgb(37, 99, 235),
+        }
+    }
+
+    pub fn theme_selection(&self) -> Color {
+        match self.theme {
+            Theme::Dark => Color::Rgb(30, 41, 59),
+            Theme::Light => Color::Rgb(219, 234, 254),
+        }
+    }
+
+    pub fn theme_danger(&self) -> Color {
+        match self.theme {
+            Theme::Dark => Color::Rgb(248, 113, 113),
+            Theme::Light => Color::Rgb(220, 38, 38),
+        }
+    }
+
+    pub fn theme_success(&self) -> Color {
+        match self.theme {
+            Theme::Dark => Color::Rgb(52, 211, 153),
+            Theme::Light => Color::Rgb(5, 150, 105),
+        }
+    }
+
+    pub fn theme_warning(&self) -> Color {
+        match self.theme {
+            Theme::Dark => Color::Rgb(251, 191, 36),
+            Theme::Light => Color::Rgb(217, 119, 6),
+        }
+    }
+
+    pub fn theme_border(&self) -> Color {
+        match self.theme {
+            Theme::Dark => Color::Rgb(60, 60, 80),
+            Theme::Light => Color::Rgb(200, 200, 215),
+        }
+    }
 }

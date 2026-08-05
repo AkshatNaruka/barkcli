@@ -8,25 +8,26 @@ import { ListView } from "./components/ListView";
 import { CardForm } from "./components/CardForm";
 import { CommandPalette } from "./components/CommandPalette";
 import { Toast } from "./components/Toast";
+import { ThemeDropdown } from "./components/ThemeDropdown";
 
 function CardHistoryModal({ cardId, entries, onClose }: { cardId: string; entries: any[]; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-2xl max-w-md w-full mx-4 max-h-[400px] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
-          <h3 className="font-semibold text-gray-200">History: {cardId}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+      <div className="bg-card rounded-xl border border-border shadow-2xl max-w-md w-full mx-4 max-h-[400px] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <h3 className="font-semibold text-text font-mono text-sm">History: {cardId}</h3>
+          <button onClick={onClose} className="text-muted hover:text-text">✕</button>
         </div>
         <div className="p-4 space-y-2">
           {entries.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-4">No history entries</p>
+            <p className="text-sm text-muted text-center py-4">No history entries</p>
           ) : (
             entries.map((e: any, i: number) => (
-              <div key={i} className="flex items-start gap-2 text-xs border-b border-gray-700/50 pb-2 last:border-0">
-                <span className="text-gray-400 font-mono shrink-0 mt-0.5">{e.at?.slice(11, 19) || "?"}</span>
-                <span className="text-gray-500 bg-gray-700/50 px-1 rounded font-mono text-[10px]">{e.op}</span>
-                <span className="text-gray-300">
-                  {e.old_value && <span className="text-gray-500">{e.old_value} → </span>}
+              <div key={i} className="flex items-start gap-2 text-xs border-b border-border/50 pb-2 last:border-0">
+                <span className="text-muted font-mono shrink-0 mt-0.5">{e.at?.slice(11, 19) || "?"}</span>
+                <span className="text-muted-strong bg-surface px-1 rounded font-mono text-[10px]">{e.op}</span>
+                <span className="text-muted-strong">
+                  {e.old_value && <span className="text-muted">{e.old_value} → </span>}
                   {e.new_value || e.card || ""}
                 </span>
               </div>
@@ -43,7 +44,6 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<ViewMode>("board");
   const [loading, setLoading] = useState(true);
-  const [dark, setDark] = useState(() => localStorage.getItem("board-theme") !== "light");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [form, setForm] = useState<{ card?: Card; columnId?: string } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -68,11 +68,6 @@ export function App() {
   }, [loadBoard]);
 
   useEffect(() => { getGitInfo().then(setGitInfo).catch(() => {}); }, []);
-
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", dark);
-    localStorage.setItem("board-theme", dark ? "dark" : "light");
-  }, [dark]);
 
   const doSave = useCallback(async (b: BoardType) => {
     setBoard(b);
@@ -164,8 +159,8 @@ export function App() {
 
   if (error && !board) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-950">
-        <div className="text-red-400 bg-red-900/20 p-6 rounded-lg max-w-md text-center">
+      <div className="flex items-center justify-center h-screen bg-bg">
+        <div className="text-danger bg-danger-soft p-6 rounded-lg max-w-md text-center">
           <h2 className="font-bold text-lg mb-2">Error</h2>
           <p>{error}</p>
         </div>
@@ -175,15 +170,15 @@ export function App() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-950">
+      <div className="flex items-center justify-center h-screen bg-bg">
         <div className="space-y-4 w-80">
-          <div className="h-8 bg-gray-800 rounded animate-pulse" />
+          <div className="h-8 bg-surface rounded animate-pulse" />
           <div className="flex gap-3">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="flex-1 space-y-3">
-                <div className="h-6 bg-gray-800 rounded animate-pulse" />
-                <div className="h-20 bg-gray-800 rounded animate-pulse" />
-                <div className="h-16 bg-gray-800 rounded animate-pulse" />
+                <div className="h-6 bg-surface rounded animate-pulse" />
+                <div className="h-20 bg-surface rounded animate-pulse" />
+                <div className="h-16 bg-surface rounded animate-pulse" />
               </div>
             ))}
           </div>
@@ -193,44 +188,43 @@ export function App() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-950 dark:bg-gray-950">
+    <div className="h-screen flex flex-col bg-bg">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-bold text-gray-100">{board?.title || "Board"}</h1>
-          <span className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">
+      <header className="flex items-center justify-between px-4 py-2.5 border-b border-border shrink-0">
+        <div className="flex items-center gap-2.5 min-w-0">
+          {/* Breadcrumb */}
+          <span className="text-xs text-muted font-mono select-none">~/project</span>
+          <span className="text-muted select-none">/</span>
+          <h1 className="text-sm font-semibold text-text truncate">{board?.title || "Board"}</h1>
+          <span className="text-[10px] text-muted bg-surface border border-border px-1.5 py-0.5 rounded-full shrink-0">
             {board?.cards.length || 0} cards
           </span>
           {gitInfo && (
-            <span className="text-[10px] text-gray-600 font-mono border-l border-gray-700 pl-2">
+            <span className="hidden md:inline text-[10px] text-muted font-mono border-l border-border pl-2.5 ml-1 truncate max-w-[220px]">
               {gitInfo.branch} · {gitInfo.lastCommit}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {/* View tabs */}
-          <div className="flex bg-gray-800 rounded-md p-0.5 mr-2">
+          <div className="flex bg-surface rounded-md p-0.5 mr-1">
             {(["board", "table", "calendar", "list"] as ViewMode[]).map((v) => (
               <button
                 key={v}
                 onClick={() => setView(v)}
-                className={`px-3 py-1 text-xs rounded font-medium capitalize ${
-                  view === v ? "bg-gray-700 text-white" : "text-gray-400 hover:text-gray-200"
+                className={`px-2.5 py-1 text-xs rounded font-medium capitalize transition-colors ${
+                  view === v ? "bg-card text-text shadow-sm" : "text-muted hover:text-text"
                 }`}
               >
                 {v}
               </button>
             ))}
           </div>
-          <button
-            onClick={() => setDark(!dark)}
-            className="text-sm text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-gray-800"
-          >
-            {dark ? "☀" : "☾"}
-          </button>
+          <ThemeDropdown />
           <button
             onClick={() => setPaletteOpen(true)}
-            className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded border border-gray-700"
+            className="text-xs text-muted hover:text-text px-2 py-1.5 rounded border border-border hover:border-border-strong transition-colors"
+            title="Command palette (⌘K)"
           >
             ⌘K
           </button>

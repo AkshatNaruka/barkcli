@@ -4,11 +4,12 @@ use serde_yaml;
 use crate::models::Board;
 use crate::storage::board_file::{list_board_files, write_board};
 use crate::commands::validate::validate_board;
+use crate::util::style;
 
 pub fn run() -> Result<()> {
     let boards = list_board_files()?;
     if boards.is_empty() {
-        println!("No boards found.");
+        println!("{}", style::muted("No boards found."));
         return Ok(());
     }
 
@@ -17,7 +18,7 @@ pub fn run() -> Result<()> {
     for name in &boards {
         let errors = validate_board(name);
         if errors.is_empty() {
-            println!("OK  {}.board", name);
+            println!("{}  {}.board", style::ok("OK"), name);
             continue;
         }
 
@@ -35,9 +36,9 @@ pub fn run() -> Result<()> {
     }
 
     if fixed_any {
-        println!("Some files were fixed. Review changes with `git diff`.");
+        println!("{}", style::warn("Some files were fixed. Review changes with `git diff`."));
     } else {
-        println!("No files needed changes.");
+        println!("{}", style::ok("No files needed changes."));
     }
     Ok(())
 }
