@@ -2,7 +2,6 @@ import type { Board } from "./types";
 import { load as yamlParse, dump as yamlDump } from "js-yaml";
 
 let ws: WebSocket | null = null;
-let reloadCallback: (() => void) | null = null;
 
 // Detect VS Code environment
 const isVscode = typeof (window as any).acquireVsCodeApi === "function";
@@ -28,22 +27,25 @@ export async function saveBoard(board: Board): Promise<void> {
   return saveBoardHttp(board);
 }
 
+// ── Reload callback (for external file changes) ──
+
+let reloadCallback: (() => void) | null = null;
+
 export function connectWs(onReload: () => void): () => void {
   if (isVscode) {
-    // VS Code handles reloads via postMessage
-    window.addEventListener("message", (event) => {
-      if (event.data?.type === "load") onReload();
-    });
-    return () => {};
+    // VS Code: callback is invoked by the global message listener
+    // only for *subsequent* loads (external file changes, not initial)
+    reloadCallback = onReload;
+    return () => { reloadCallback = null; };
   }
-  reloadCallback = onReload;
+  // Browser mode: WebSocket-based reload
   const proto = location.protocol === "https:" ? "wss" : "ws";
   try {
     ws = new WebSocket(`${proto}://${location.host}/ws`);
     ws.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data);
-        if (msg?.type === "reload") reloadCallback?.();
+        if (msg?.type === "reload") onReload();
       } catch {}
     };
     ws.onclose = () => setTimeout(() => connectWs(onReload), 3000);
@@ -51,7 +53,8 @@ export function connectWs(onReload: () => void): () => void {
   return () => { ws?.close(); ws = null; };
 }
 
-// HTTP-based API
+// ── HTTP-based API (browser mode) ──
+
 async function fetchBoardHttp(): Promise<Board | null> {
   try {
     const res = await fetch("/api/board");
@@ -59,7 +62,7 @@ async function fetchBoardHttp(): Promise<Board | null> {
     const data = await res.json();
     return yamlParse(data.yaml) as Board;
   } catch (e) {
-    console.error("board: fetchBoard failed", e);
+    console.error("barkcli: fetchBoard failed", e);
     return null;
   }
 }
@@ -73,27 +76,47 @@ async function saveBoardHttp(board: Board): Promise<void> {
       body: JSON.stringify({ yaml }),
     });
   } catch (e) {
-    console.error("board: saveBoard failed", e);
+    console.error("barkcli: saveBoard failed", e);
   }
 }
 
-// VS Code API
+// ── VS Code API (postMessage bridge) ──
+
 let pendingBoardVsCode: Board | null = null;
+let initialLoadDone = false;
+
+// Single global listener: handles ALL 'load' messages from the extension.
+// On first load: just stores the parsed board.
+// On subsequent loads (external changes): also triggers the reload callback.
 window.addEventListener("message", (event) => {
   const msg = event.data;
   if (msg?.type === "load") {
     try { pendingBoardVsCode = yamlParse(msg.yaml) as Board; } catch {}
+    if (reloadCallback && initialLoadDone) {
+      reloadCallback();
+    }
+    initialLoadDone = true;
   }
 });
 
 async function fetchBoardVsCode(): Promise<Board | null> {
+  // If we already loaded (e.g. via external change), return cached
+  if (pendingBoardVsCode && initialLoadDone) return pendingBoardVsCode;
+
+  // Request initial data from the extension
   vscodeApi?.postMessage({ type: "ready" });
+
   return new Promise((resolve) => {
-    if (pendingBoardVsCode) { resolve(pendingBoardVsCode); return; }
-    const interval = setInterval(() => {
-      if (pendingBoardVsCode) { clearInterval(interval); resolve(pendingBoardVsCode); }
-    }, 100);
-    setTimeout(() => { clearInterval(interval); resolve(null); }, 5000);
+    const check = () => {
+      if (pendingBoardVsCode) {
+        resolve(pendingBoardVsCode);
+        return true;
+      }
+      return false;
+    };
+    if (check()) return;
+    const interval = setInterval(() => { if (check()) clearInterval(interval); }, 100);
+    setTimeout(() => { clearInterval(interval); if (!pendingBoardVsCode) resolve(null); }, 5000);
   });
 }
 
