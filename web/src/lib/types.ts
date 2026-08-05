@@ -14,6 +14,9 @@ export interface Card {
   checklist: ChecklistItem[];
   due_date?: string;
   comments: Comment[];
+  blocked_by?: string;
+  attachments: string[];
+  pinned: boolean;
   created_at: string;
   updated_at: string;
 }

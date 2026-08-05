@@ -73,6 +73,7 @@ export function App() {
       priority: data.priority || "medium",
       labels: data.labels || [], assignee: data.assignee,
       checklist: [], comments: [], due_date: data.due_date,
+      blocked_by: undefined, attachments: [], pinned: false,
       created_at: now, updated_at: now,
     };
     b.cards = [...b.cards, card];

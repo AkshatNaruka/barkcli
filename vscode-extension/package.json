@@ -40,7 +40,7 @@
     "build:webview:js": "esbuild ./src/webview/main.tsx --bundle --outfile=./dist/webview.js --jsx=automatic --loader:.css=empty --tsconfig=tsconfig.json",
     "build:webview:css": "tailwindcss -i ./src/webview/styles/globals.css -o ./dist/webview.css --minify",
     "build": "npm run build:extension && npm run build:webview:css && npm run build:webview:js",
-    "vscode:prepublish": "npm run build",
+    "vscode:prepublish": "npm run build:sync-web && npm run build:extension",
     "build:sync-web": "(cd ../web && npm run build) && cp ../web/dist/index.html dist/ && mkdir -p dist/assets && cp ../web/dist/assets/* dist/assets/ 2>/dev/null; echo 'Synced web build to dist' || true",
     "package": "npm run vscode:prepublish && npx @vscode/vsce package",
     "watch:extension": "esbuild ./src/extension.ts --bundle --outfile=./dist/extension.js --external:vscode --format=cjs --platform=node --watch",

@@ -1,4 +1,6 @@
 node_modules
+dist/webview.js
+dist/webview.css
 src
 tsconfig.json
 tailwind.config.js

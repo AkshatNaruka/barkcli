@@ -51,10 +51,10 @@ export class BoardEditorProvider implements vscode.CustomTextEditorProvider {
   private getHtml(webview: vscode.Webview): string {
     const nonce = getNonce();
     const jsUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.context.extensionUri, "dist", "webview.js")
+      vscode.Uri.joinPath(this.context.extensionUri, "dist", "assets", "index.js")
     );
     const cssUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.context.extensionUri, "dist", "webview.css")
+      vscode.Uri.joinPath(this.context.extensionUri, "dist", "assets", "index.css")
     );
 
     return `<!DOCTYPE html>
@@ -69,7 +69,7 @@ export class BoardEditorProvider implements vscode.CustomTextEditorProvider {
 </head>
 <body>
   <div id="root"></div>
-  <script nonce="${nonce}" src="${jsUri}"></script>
+  <script type="module" nonce="${nonce}" src="${jsUri}"></script>
 </body>
 </html>`;
   }

@@ -263,6 +263,7 @@ impl App {
             comments: Vec::new(),
             blocked_by: None,
             attachments: Vec::new(),
+            pinned: false,
             created_at: now,
             updated_at: now,
         };

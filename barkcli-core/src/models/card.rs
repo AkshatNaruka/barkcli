@@ -24,6 +24,8 @@ pub struct Card {
     pub blocked_by: Option<String>,
     #[serde(default)]
     pub attachments: Vec<String>,
+    #[serde(default)]
+    pub pinned: bool,
     #[serde(default = "default_now")]
     pub created_at: DateTime<Utc>,
     #[serde(default = "default_now")]
@@ -46,6 +48,7 @@ impl Card {
             comments: Vec::new(),
             blocked_by: None,
             attachments: Vec::new(),
+            pinned: false,
             created_at: now,
             updated_at: now,
         }

@@ -147,7 +147,7 @@ cards:
   - id: dark-light-mode
     title: Dark/light mode
     description: VS Code theme-aware styling
-    column: todo
+    column: doing
     priority: low
     labels:
       - extension
@@ -156,7 +156,7 @@ cards:
     comments: []
     attachments: []
     created_at: 2026-07-30T07:18:05.371Z
-    updated_at: 2026-07-30T07:18:05.371Z
+    updated_at: '2026-08-05T10:20:41.215Z'
   - id: integration-tests
     title: Integration tests
     description: 20 CLI integration tests covering full workflow

@@ -46,6 +46,8 @@ pub fn run() -> Result<()> {
 
         "comment" => handle_comment(cmd_args)?,
         "block" => handle_block(cmd_args)?,
+        "pin" => handle_pin(cmd_args)?,
+        "unpin" => handle_unpin(cmd_args)?,
 
         "boards" => handle_boards_cmd(cmd_args)?,
         "switch" => handle_switch(cmd_args)?,
@@ -217,6 +219,20 @@ fn handle_block(args: &[String]) -> Result<()> {
     Ok(())
 }
 
+fn handle_pin(args: &[String]) -> Result<()> {
+    let (board, rest) = parse_board_flag(args)?;
+    if rest.is_empty() { bail!("usage: barkcli pin <id>"); }
+    let board_name = resolve_board(board.as_deref())?;
+    commands::card::pin::run_pin(&board_name, &rest[0])
+}
+
+fn handle_unpin(args: &[String]) -> Result<()> {
+    let (board, rest) = parse_board_flag(args)?;
+    if rest.is_empty() { bail!("usage: barkcli unpin <id>"); }
+    let board_name = resolve_board(board.as_deref())?;
+    commands::card::pin::run_unpin(&board_name, &rest[0])
+}
+
 // ─── Boards ──────────────────────────────────────
 
 fn handle_boards_cmd(args: &[String]) -> Result<()> {
@@ -368,6 +384,8 @@ fn print_usage() {
     println!("  remove <id>         Delete a task");
     println!("  comment <id> <txt>  Add a comment");
     println!("  block <id> --on <x> Mark blocked by another task");
+    println!("  pin <id>           Pin a card to top of column");
+    println!("  unpin <id>         Unpin a card");
     println!("  snapshot <label>    Save a checkpoint");
     println!("  blame <id>          Who changed what, when");
     println!("  diff                What changed since last operation");
