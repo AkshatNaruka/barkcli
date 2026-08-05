@@ -13,13 +13,12 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "barkcli — git-native task management",
+  title: "barkcli — Git-native task management",
   description:
-    "barkcli is a single-binary CLI tool for task tracking. Tasks are YAML files committed to your repo. No cloud. No subscription.",
+    "A single binary. Tasks are YAML in your repo. No cloud. No subscription.",
   openGraph: {
-    title: "barkcli — git-native task management",
-    description:
-      "A single binary. Tasks are YAML in your repo. No cloud. No subscription.",
+    title: "barkcli — Git-native task management",
+    description: "Tasks in your repo. No cloud. No subscription.",
     url: "https://getbarkcli.dev",
     siteName: "barkcli",
     type: "website",
@@ -28,14 +27,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html
-      lang="en"
-      className={`${inter.variable} ${jetbrainsMono.variable} scroll-smooth`}
-    >
+    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body className="min-h-screen flex flex-col">{children}</body>
     </html>
   );
