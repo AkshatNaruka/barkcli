@@ -50,23 +50,28 @@ export class BoardEditorProvider implements vscode.CustomTextEditorProvider {
 
   private getHtml(webview: vscode.Webview): string {
     const nonce = getNonce();
-
-    // Use old esbuild webview — simpler, works reliably in webviews
     const jsUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.context.extensionUri, "dist", "webview.js")
     );
     const cssUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.context.extensionUri, "dist", "webview.css")
     );
-    const html = fs.readFileSync(
-      vscode.Uri.joinPath(this.context.extensionUri, "src", "webview", "index.html").fsPath,
-      "utf8"
-    );
-    return html
-      .replace(/\{\{nonce\}\}/g, nonce)
-      .replace(/\{\{cspSource\}\}/g, webview.cspSource)
-      .replace(/\{\{webviewJsUri\}\}/g, jsUri.toString())
-      .replace(/\{\{webviewCssUri\}\}/g, cssUri.toString());
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; style-src 'unsafe-inline' ${webview.cspSource}; script-src 'nonce-${nonce}';" />
+  <link rel="stylesheet" href="${cssUri}" />
+  <title>Board</title>
+</head>
+<body>
+  <div id="root"></div>
+  <script nonce="${nonce}" src="${jsUri}"></script>
+</body>
+</html>`;
   }
 }
 
