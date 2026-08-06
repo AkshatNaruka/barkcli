@@ -61,10 +61,13 @@ pub fn run() -> Result<()> {
 
         "snapshot" => handle_snapshot(cmd_args)?,
 
+        "session" => handle_session_cmd(cmd_args)?,
+        "checkpoint" => handle_checkpoint_cmd(cmd_args)?,
+        "hooks" => handle_hooks_cmd(cmd_args)?,
+
         // Interfaces / self-update — handled by barkcli-cli's main.rs
         "tui" | "serve" | "open" | "update" | "upgrade" => {}
         "--version" | "-V" | "version" => {}
-        "--version" | "-V" | "version" | "upgrade" => {}
         "help" | "--help" | "-h" => print_usage(),
 
         name => handle_legacy(name, cmd_args)?,
@@ -285,6 +288,66 @@ fn handle_import(args: &[String]) -> Result<()> {
     commands::import::run(&board_name, &file_args)
 }
 
+// ─── Session / Checkpoint / Hooks ────────────────
+
+fn handle_session_cmd(args: &[String]) -> Result<()> {
+    let Some(sub) = args.first() else {
+        bail!("usage: barkcli session <list|show|resume|log>");
+    };
+    match sub.as_str() {
+        "list" | "ls" => commands::session::run_list(&args[1..]),
+        "show" => commands::session::run_show(&args[1..]),
+        "resume" => commands::session::run_resume(&args[1..]),
+        "log" | "record" => commands::session::run_log(&args[1..]),
+        _ => bail!("unknown session subcommand '{}' (list | show | resume | log)", sub),
+    }
+}
+
+fn handle_checkpoint_cmd(args: &[String]) -> Result<()> {
+    let Some(sub) = args.first() else {
+        bail!("usage: barkcli checkpoint <list|save|show|restore>");
+    };
+    let rest = &args[1..];
+    match sub.as_str() {
+        "list" | "ls" => {
+            let (board, _) = parse_board_flag(rest)?;
+            commands::checkpoint::run_list(board.as_deref())
+        }
+        "save" => {
+            if rest.iter().any(|a| a == "--auto") {
+                commands::checkpoint::run_auto()
+            } else {
+                let (board, rest) = parse_board_flag(rest)?;
+                let label = rest.first().cloned().unwrap_or_else(|| "manual".into());
+                commands::checkpoint::run_save(board.as_deref(), &label)
+            }
+        }
+        "show" => {
+            let (board, rest) = parse_board_flag(rest)?;
+            if rest.is_empty() { bail!("usage: barkcli checkpoint show <id>"); }
+            commands::checkpoint::run_show(board.as_deref(), &rest[0])
+        }
+        "restore" => {
+            let (board, rest) = parse_board_flag(rest)?;
+            if rest.is_empty() { bail!("usage: barkcli checkpoint restore <id>"); }
+            commands::checkpoint::run_restore(board.as_deref(), &rest[0])
+        }
+        _ => bail!("unknown checkpoint subcommand '{}' (list | save | show | restore)", sub),
+    }
+}
+
+fn handle_hooks_cmd(args: &[String]) -> Result<()> {
+    let Some(sub) = args.first() else {
+        bail!("usage: barkcli hooks <install|remove|status>");
+    };
+    match sub.as_str() {
+        "install" => commands::hooks::run_install(&args[1..]),
+        "remove" | "uninstall" => commands::hooks::run_remove(&args[1..]),
+        "status" => commands::hooks::run_status(),
+        _ => bail!("unknown hooks subcommand '{}' (install | remove | status)", sub),
+    }
+}
+
 // ─── Legacy dispatch ─────────────────────────────
 
 fn handle_legacy(name: &str, args: &[String]) -> Result<()> {
@@ -389,6 +452,17 @@ fn print_usage() {
     println!("  snapshot <label>    Save a checkpoint");
     println!("  blame <id>          Who changed what, when");
     println!("  diff                What changed since last operation");
+    println!();
+    println!("Sessions & checkpoints (agent capture):");
+    println!("  session list        Show captured agent sessions");
+    println!("  session show <id>   Full session detail");
+    println!("  session resume <id> Print context to hand your agent");
+    println!("  session log         Record a session (used by agent hooks)");
+    println!("  checkpoint list     List manual + auto checkpoints");
+    println!("  checkpoint save     Save a manual checkpoint");
+    println!("  checkpoint restore <id>  Restore board from a checkpoint");
+    println!("  hooks install       Install agent hooks (opencode/claude-code)");
+    println!("  hooks status        Show installed agent hooks");
     println!();
     println!("Interfaces:");
     println!("  tui                 Terminal kanban");

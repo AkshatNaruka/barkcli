@@ -9,15 +9,18 @@
 ```
 project/
 ├── .board/              # Internal metadata (gitignored, auto-added)
-├── auth.board           # User-facing YAML board files (committed)
+├── *.board              # User-facing YAML board files (committed)
+├── barkcli-core/        # Library: models, storage, commands (src/)
+├── barkcli-cli/         # Binary: pro commands, TUI/serve dispatch
+├── barkcli-tui/         # ratatui terminal kanban
+├── barkcli-server/      # axum browser server
 ├── vscode-extension/    # VS Code Custom Editor extension
-├── Cargo.toml           # Rust CLI (src/)
-└── tests/cli.rs         # 20 integration tests
+└── barkcli-cli/tests/cli.rs  # integration tests (30+)
 ```
 
 ## CLI — `barkcli`
 
-Build + test: `cargo build && cargo test` (from repo root, 20 tests).
+Build + test: `cargo build && cargo test` (from repo root, 30 CLI tests + 9 unit).
 
 ### Project commands
 
@@ -50,7 +53,21 @@ barkcli <name> export [format]
 Auto-generated kebab-case slugs from title (e.g. `"JWT Login"` → `jwt-login`). Deduplicated with numeric suffix.
 
 ### History
-Every card operation logs to `.board/history/<board>.log` (JSONL). `read_history()` available for Phase 4 `barkcli log`.
+Every card operation logs to `.board/history/<board>.log` (JSONL). `read_history()` available for `barkcli log`.
+
+### Sessions, checkpoints & hooks
+
+| Command | Description |
+|---|---|
+| `barkcli session list` / `show <id>` / `resume <id>` | Agent session capture (`.board/sessions/<board>.jsonl`) |
+| `barkcli session log` | Record a session from JSON on stdin (hook contract) |
+| `barkcli checkpoint list` / `save [label]` / `show <id>` / `restore <id>` | Checkpoints at `.board/snapshots/` |
+| `barkcli hooks install/remove/status [--agent opencode\|claude-code]` | Agent hooks → `.opencode/plugins/barkcli.ts`, `.claude/settings.json` |
+
+- **Auto-checkpoints**: post-commit git hook runs `barkcli checkpoint save --auto`; saves `.board/snapshots/auto/<board>-<12-char-sha>.yaml` only when the commit touched `*.board` files.
+- **Redaction**: `util/redact.rs` — regex secret layers (`sk-…`, `ghp_…`, `Bearer …`, DB URLs, kv assignments); applied in `storage/history.rs::append` + `storage/sessions.rs::append` before writes.
+- **Sessions**: `models/session.rs` — `SessionEntry { id, agent, model, board, prompt, commit_sha, files_touched, summary, at, duration_ms }`; JSONL in `.board/sessions/`.
+- `clean` also prunes orphaned session logs + auto-checkpoints for deleted boards.
 
 ## VS Code Extension
 

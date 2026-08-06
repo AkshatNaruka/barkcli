@@ -75,6 +75,21 @@ fn install_git_hooks(root: &Path) -> Result<()> {
         println!("  {} .git/hooks/commit-msg", style::ok("Installed"));
     }
 
+    // Auto-checkpoint: after every commit, save a checkpoint for any board
+    // file that changed (commit-linked checkpoints).
+    let post_commit = hooks_dir.join("post-commit");
+    if !post_commit.exists() {
+        let content = "#!/bin/sh\nbarkcli checkpoint save --auto >/dev/null 2>&1 || exit 0\n";
+        std::fs::write(&post_commit, content).context("post-commit hook")?;
+        #[cfg(unix)] {
+            use std::os::unix::fs::PermissionsExt;
+            let mut p = std::fs::metadata(&post_commit)?.permissions();
+            p.set_mode(0o755);
+            std::fs::set_permissions(&post_commit, p).ok();
+        }
+        println!("  {} .git/hooks/post-commit (auto-checkpoints)", style::ok("Installed"));
+    }
+
     Ok(())
 }
 

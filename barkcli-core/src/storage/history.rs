@@ -5,6 +5,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
 use crate::storage::board_dir::find_board_dir;
+use crate::util::redact::redact_text;
 
 const HISTORY_DIR: &str = "history";
 
@@ -34,7 +35,20 @@ pub fn append(board_name: &str, entry: &HistoryEntry) -> Result<()> {
         .open(&path)
         .context(format!("failed to open history log {}", path.display()))?;
 
-    let json = serde_json::to_string(entry).context("failed to serialize history entry")?;
+    let redacted = HistoryEntry {
+        old_value: entry.old_value.as_deref().map(redact_text),
+        new_value: entry.new_value.as_deref().map(redact_text),
+        ..HistoryEntry {
+            op: entry.op.clone(),
+            board: entry.board.clone(),
+            card: entry.card.clone(),
+            old_value: None,
+            new_value: None,
+            field: entry.field.clone(),
+            at: entry.at.clone(),
+        }
+    };
+    let json = serde_json::to_string(&redacted).context("failed to serialize history entry")?;
     writeln!(file, "{}", json).context("failed to write history entry")?;
 
     Ok(())

@@ -1,14 +1,17 @@
 pub mod card;
 pub mod boards;
+pub mod checkpoint;
 pub mod clean;
 pub mod create;
 pub mod doctor;
 pub mod done;
 pub mod export;
 pub mod git_ops;
+pub mod hooks;
 pub mod import;
 pub mod init;
 pub mod list;
+pub mod session;
 pub mod status;
 pub mod undo;
 pub mod validate;

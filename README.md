@@ -72,6 +72,28 @@ barkcli serve --open                    # browser Kanban
 | `barkcli diff` | See what changed |
 | `barkcli blame <id>` | Who changed what, when |
 
+### Sessions & checkpoints
+
+Agent-session capture — sessions and auto-checkpoints are stored privately in
+`.board/` (never on your git branch).
+
+| Command | Description |
+|---|---|
+| `barkcli session list` | Show captured agent sessions |
+| `barkcli session show <id>` | Full session detail (prompt, files, commit) |
+| `barkcli session resume <id>` | Print context to hand to your agent |
+| `barkcli session log` | Record a session from JSON on stdin (used by hooks) |
+| `barkcli checkpoint list` | List manual + auto checkpoints |
+| `barkcli checkpoint save [label]` | Save a manual checkpoint |
+| `barkcli checkpoint show <id>` | Print a checkpoint |
+| `barkcli checkpoint restore <id>` | Restore a board from a checkpoint |
+| `barkcli hooks install [--agent opencode\|claude-code\|all]` | Install agent hooks |
+| `barkcli hooks status` | Show installed agent hooks |
+
+Secrets (API keys, tokens, credentials) are redacted to `[REDACTED]` before
+anything is written to history or session logs. Auto-checkpoints are created
+on every commit that touches a `.board` file.
+
 ### Interfaces
 
 | Command | Description |

@@ -362,3 +362,273 @@ fn test_history_logged_on_move() {
     assert!(content.contains("todo"));
     assert!(content.contains("done"));
 }
+
+#[test]
+fn test_session_log_via_stdin() {
+    use std::io::Write;
+
+    let dir = in_temp_dir();
+    run_board(&["init"], &dir);
+    run_board(&["create", "test"], &dir);
+
+    let mut child = Command::new(board_binary())
+        .args(["session", "log", "--agent", "opencode", "--board", "test"])
+        .current_dir(&dir)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .expect("failed to spawn session log");
+
+    let payload = r#"{"prompt":"Implement JWT login","commit":"abcdef1234567890","files":["src/auth.rs","src/main.rs"]}"#;
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin.write_all(payload.as_bytes()).unwrap();
+    }
+    let output = child.wait_with_output().expect("failed to wait");
+    assert!(output.status.success(), "session log failed: {}", String::from_utf8_lossy(&output.stderr));
+
+    let sessions_path = dir.join(".board").join("sessions").join("test.jsonl");
+    assert!(sessions_path.is_file(), "sessions log not created");
+    let content = std::fs::read_to_string(&sessions_path).unwrap();
+    assert!(content.contains("Implement JWT login"));
+    assert!(content.contains("abcdef1234567890"));
+    assert!(content.contains("opencode"));
+}
+
+#[test]
+fn test_session_list_and_resume() {
+    use std::io::Write;
+
+    let dir = in_temp_dir();
+    run_board(&["init"], &dir);
+    run_board(&["create", "test"], &dir);
+
+    let mut child = Command::new(board_binary())
+        .args(["session", "log", "--agent", "opencode", "--board", "test"])
+        .current_dir(&dir)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .expect("failed to spawn session log");
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin.write_all(br#"{"prompt":"Fix the flaky test"}"#).unwrap();
+    }
+    child.wait_with_output().expect("failed to wait");
+
+    let (out, err, ok) = run_board(&["session", "list", "--board", "test"], &dir);
+    assert!(ok, "session list failed: {}\n{}", err, out);
+    assert!(out.contains("Fix the flaky test"));
+    assert!(out.contains("opencode"));
+
+    let (out, err, ok) = run_board(&["session", "resume", "--board", "test"], &dir);
+    assert!(ok, "session resume failed: {}\n{}", err, out);
+    assert!(out.contains("Resume context"));
+    assert!(out.contains("Fix the flaky test"));
+}
+
+#[test]
+fn test_session_payload_redacted() {
+    use std::io::Write;
+
+    let dir = in_temp_dir();
+    run_board(&["init"], &dir);
+    run_board(&["create", "test"], &dir);
+
+    let mut child = Command::new(board_binary())
+        .args(["session", "log", "--board", "test"])
+        .current_dir(&dir)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .expect("failed to spawn session log");
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin.write_all(br#"{"prompt":"Use the key sk-abcdefghijklmnopqrstuvwxyz123456"}"#).unwrap();
+    }
+    child.wait_with_output().expect("failed to wait");
+
+    let content = std::fs::read_to_string(dir.join(".board").join("sessions").join("test.jsonl")).unwrap();
+    assert!(!content.contains("sk-abcdefghijklmnopqrstuvwxyz123456"), "secret leaked to sessions log");
+    assert!(content.contains("[REDACTED]"));
+}
+
+#[test]
+fn test_history_payload_redacted() {
+    let dir = in_temp_dir();
+    run_board(&["init"], &dir);
+    run_board(&["create", "test"], &dir);
+
+    // Title with a secret-shaped value flows through log_add -> history append.
+    // The card id is the slugified title (an identifier, stored unredacted);
+    // the new_value field is what must be redacted.
+    let secret = "sk-abcdefghijklmnopqrstuvwxyz123456";
+    run_board(&["test", "add", secret], &dir);
+
+    let history_path = dir.join(".board").join("history").join("test.log");
+    let content = std::fs::read_to_string(&history_path).unwrap();
+    assert!(!content.contains(&format!("\"new_value\":\"{}\"", secret)), "secret leaked into history new_value");
+    assert!(content.contains("\"new_value\":\"[REDACTED]\""), "history log missing redaction token");
+}
+
+#[test]
+fn test_checkpoint_save_list_restore() {
+    let dir = in_temp_dir();
+    run_board(&["init"], &dir);
+    run_board(&["create", "test"], &dir);
+    run_board(&["switch", "test"], &dir);
+    run_board(&["test", "add", "Card A"], &dir);
+
+    let (out, err, ok) = run_board(&["checkpoint", "save", "v1"], &dir);
+    assert!(ok, "checkpoint save failed: {}\n{}", err, out);
+    assert!(out.contains("v1"));
+
+    let snap = dir.join(".board").join("snapshots").join("v1.yaml");
+    assert!(snap.is_file(), "checkpoint file not created");
+
+    // Move the card, then restore from checkpoint
+    run_board(&["test", "move", "card-a", "done"], &dir);
+
+    let (out, err, ok) = run_board(&["checkpoint", "list"], &dir);
+    assert!(ok, "checkpoint list failed: {}\n{}", err, out);
+    assert!(out.contains("v1"));
+
+    let (out, err, ok) = run_board(&["checkpoint", "restore", "v1"], &dir);
+    assert!(ok, "checkpoint restore failed: {}\n{}", err, out);
+    assert!(out.contains("Restored"));
+
+    let (out, err, ok) = run_board(&["test", "show", "card-a"], &dir);
+    assert!(ok, "show failed: {}\n{}", err, out);
+    assert!(out.contains("todo"), "card not restored to original column: {}", out);
+}
+
+#[test]
+fn test_checkpoint_show() {
+    let dir = in_temp_dir();
+    run_board(&["init"], &dir);
+    run_board(&["create", "test"], &dir);
+    run_board(&["switch", "test"], &dir);
+    run_board(&["checkpoint", "save", "v1"], &dir);
+
+    let (out, err, ok) = run_board(&["checkpoint", "show", "v1"], &dir);
+    assert!(ok, "checkpoint show failed: {}\n{}", err, out);
+    assert!(out.contains("title: test"));
+}
+
+#[test]
+fn test_hooks_install_remove_status() {
+    let dir = in_temp_dir();
+    run_board(&["init"], &dir);
+
+    let (out, err, ok) = run_board(&["hooks", "install", "--agent", "opencode"], &dir);
+    assert!(ok, "hooks install failed: {}\n{}", err, out);
+
+    let plugin = dir.join(".opencode").join("plugins").join("barkcli.ts");
+    assert!(plugin.is_file(), "opencode plugin not installed");
+    let content = std::fs::read_to_string(&plugin).unwrap();
+    assert!(content.contains("session log"), "plugin missing session log call");
+
+    let (out, err, ok) = run_board(&["hooks", "install", "--agent", "claude-code"], &dir);
+    assert!(ok, "claude hooks install failed: {}\n{}", err, out);
+    let settings = dir.join(".claude").join("settings.json");
+    assert!(settings.is_file(), "claude settings not created");
+    let settings_content = std::fs::read_to_string(&settings).unwrap();
+    assert!(settings_content.contains("session log"), "claude hooks missing session log");
+
+    let (out, err, ok) = run_board(&["hooks", "status"], &dir);
+    assert!(ok, "hooks status failed: {}\n{}", err, out);
+    assert!(out.contains("installed"));
+
+    let (out, err, ok) = run_board(&["hooks", "remove", "--agent", "opencode"], &dir);
+    assert!(ok, "hooks remove failed: {}\n{}", err, out);
+    assert!(!plugin.exists(), "opencode plugin not removed");
+}
+
+#[test]
+fn test_init_installs_post_commit_hook() {
+    let dir = in_temp_dir();
+    std::fs::create_dir_all(dir.join(".git/hooks")).unwrap();
+    run_board(&["init"], &dir);
+
+    let hook = dir.join(".git").join("hooks").join("post-commit");
+    assert!(hook.is_file(), "post-commit hook not installed");
+    let content = std::fs::read_to_string(&hook).unwrap();
+    assert!(content.contains("checkpoint save --auto"), "post-commit hook missing auto-checkpoint");
+}
+
+#[test]
+fn test_clean_removes_orphaned_sessions() {
+    let dir = in_temp_dir();
+    run_board(&["init"], &dir);
+    run_board(&["create", "test"], &dir);
+
+    // Orphan a sessions log for a board that no longer exists
+    let sessions_dir = dir.join(".board").join("sessions");
+    std::fs::create_dir_all(&sessions_dir).unwrap();
+    std::fs::write(sessions_dir.join("ghost.jsonl"), "{}\n").unwrap();
+
+    let (out, err, ok) = run_board(&["clean"], &dir);
+    assert!(ok, "clean failed: {}\n{}", err, out);
+    assert!(out.contains("orphaned sessions") || out.contains("Removed"), "clean output: {}", out);
+    assert!(!sessions_dir.join("ghost.jsonl").exists(), "orphaned sessions log not removed");
+}
+
+#[test]
+fn test_auto_checkpoint_after_commit() {
+    let dir = in_temp_dir();
+    let git_ok = Command::new("git")
+        .args(["init", "-q"])
+        .current_dir(&dir)
+        .status()
+        .unwrap()
+        .success();
+    assert!(git_ok, "git init failed");
+
+    // .git must exist before init so the post-commit hook gets installed
+    run_board(&["init"], &dir);
+    run_board(&["create", "test"], &dir);
+    run_board(&["switch", "test"], &dir);
+    run_board(&["test", "add", "Card A"], &dir);
+
+    for cmd in [
+        vec!["config", "user.email", "test@test.test"],
+        vec!["config", "user.name", "test"],
+    ] {
+        Command::new("git").args(&cmd).current_dir(&dir).status().unwrap();
+    }
+
+    // Hooks invoke `barkcli` bare — put the built binary on PATH for git
+    let binding = board_binary();
+    let bin_dir = binding.parent().unwrap();
+    let path = format!("{}:{}", bin_dir.display(), std::env::var("PATH").unwrap_or_default());
+    let commit_ok = Command::new("git")
+        .args(["add", "-A"])
+        .current_dir(&dir)
+        .env("PATH", &path)
+        .status()
+        .unwrap()
+        .success()
+        && Command::new("git")
+            .args(["commit", "-q", "-m", "add cards"])
+            .current_dir(&dir)
+            .env("PATH", &path)
+            .status()
+            .unwrap()
+            .success();
+    assert!(commit_ok, "git commit failed");
+
+    let auto_dir = dir.join(".board").join("snapshots").join("auto");
+    assert!(auto_dir.is_dir(), "auto checkpoint dir not created");
+
+    let files: Vec<String> = std::fs::read_dir(&auto_dir)
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .map(|e| e.file_name().to_string_lossy().to_string())
+        .filter(|n| n.ends_with(".yaml"))
+        .collect();
+    assert!(files.iter().any(|f| f.starts_with("test-")), "auto checkpoint for test board missing: {:?}", files);
+
+    let (out, err, ok) = run_board(&["checkpoint", "list"], &dir);
+    assert!(ok, "checkpoint list failed: {}\n{}", err, out);
+    assert!(out.contains("auto"), "auto checkpoint not listed: {}", out);
+}
