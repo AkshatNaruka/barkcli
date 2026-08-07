@@ -46,7 +46,7 @@ pub fn activate(key: &str) -> Result<(), String> {
 
     if !VALID_LICENSES.contains(&h.as_str()) {
         return Err(format!(
-            "Invalid license key '{}'.\nGet a valid key at https://getbarkcli.dev",
+            "Invalid license key '{}'.\nGet a valid key at https://barkcli.vercel.app",
             key
         ));
     }
@@ -68,7 +68,7 @@ pub fn status() {
         println!("barkcli Pro — activated {}", style::ok("✓"));
     } else {
         println!("barkcli (free tier)");
-        println!("Upgrade to Pro at https://getbarkcli.dev");
+        println!("Upgrade to Pro at https://barkcli.vercel.app");
     }
 }
 
@@ -77,7 +77,7 @@ pub fn check_pro(cmd: &str) -> bool {
         return true;
     }
     eprintln!(
-        "{} requires barkcli Pro. Get a license at https://getbarkcli.dev",
+        "{} requires barkcli Pro. Get a license at https://barkcli.vercel.app",
         cmd
     );
     false

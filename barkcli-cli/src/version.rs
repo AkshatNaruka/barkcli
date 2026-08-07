@@ -2,6 +2,8 @@ use std::fs;
 use std::path::Path;
 use barkcli_core::util::style;
 
+pub const RELEASE_BASE: &str = "https://barkcli.vercel.app/downloads";
+
 pub struct Release {
     pub tag_name: String,
 }
@@ -28,8 +30,8 @@ pub fn do_update() {
     }
     println!("Updating to {}...", release.tag_name);
     let url = format!(
-        "https://github.com/anomalyco/barkcli/releases/download/{}/barkcli-{}.tar.gz",
-        release.tag_name, target
+        "{}/barkcli-{}.tar.gz",
+        RELEASE_BASE, target
     );
     match download_and_replace(&url, &exe) {
         Ok(()) => println!("Updated to {}. Restart to use it.", release.tag_name),
@@ -55,20 +57,15 @@ pub fn get_target_triple() -> String {
 }
 
 pub fn get_latest_release() -> Result<Release, String> {
-    let body = curl_get("https://api.github.com/repos/anomalyco/barkcli/releases/latest")?;
-
-    let tag_start = body
-        .find("\"tag_name\":")
-        .ok_or("invalid response from GitHub API")?;
-    let tag_slice = &body[tag_start..];
-    let tag_value_start = tag_slice.find('"').ok_or("invalid tag_name")? + 1;
-    let tag_slice = &tag_slice[tag_value_start..];
-    let tag_value_end = tag_slice.find('"').ok_or("invalid tag_name end")?;
-    let tag_name = &tag_slice[..tag_value_end];
-
-    Ok(Release {
-        tag_name: tag_name.to_string(),
-    })
+    let body = curl_get(&format!("{}/version", RELEASE_BASE))?;
+    let tag_name = body.trim().to_string();
+    if !tag_name.starts_with('v') || tag_name.contains('<') {
+        return Err(format!(
+            "invalid version file (got {:?}). No release published yet.",
+            tag_name.chars().take(32).collect::<String>()
+        ));
+    }
+    Ok(Release { tag_name })
 }
 
 pub fn download_and_replace(url: &str, target_exe: &Path) -> Result<(), String> {

@@ -1,16 +1,25 @@
 class Barkcli < Formula
   desc "Git-native Kanban board CLI — tasks as YAML in your repo"
-  homepage "https://getbarkcli.dev"
-  url "https://github.com/AkshatNaruka/barkcli/archive/refs/tags/v0.2.0.tar.gz"
-  sha256 "TBD"
-  license "Proprietary"
+  homepage "https://barkcli.vercel.app"
   version "0.2.0"
-  head "https://github.com/AkshatNaruka/barkcli.git", branch: "master"
 
-  depends_on "rust" => :build
+  if OS.mac?
+    if Hardware::CPU.arm?
+      url "https://barkcli.vercel.app/downloads/barkcli-aarch64-apple-darwin.tar.gz"
+      sha256 "TBD"
+    else
+      url "https://barkcli.vercel.app/downloads/barkcli-x86_64-apple-darwin.tar.gz"
+      sha256 "TBD"
+    end
+  elsif OS.linux?
+    url "https://barkcli.vercel.app/downloads/barkcli-x86_64-unknown-linux-gnu.tar.gz"
+    sha256 "TBD"
+  end
+
+  license "Proprietary"
 
   def install
-    system "cargo", "install", "--path", ".", "--root", prefix
+    bin.install "barkcli"
   end
 
   test do

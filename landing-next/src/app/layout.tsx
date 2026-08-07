@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "barkcli — Git-native task management",
     description: "Tasks in your repo. No cloud. No subscription.",
-    url: "https://getbarkcli.dev",
+    url: "https://barkcli.vercel.app",
     siteName: "barkcli",
     type: "website",
   },

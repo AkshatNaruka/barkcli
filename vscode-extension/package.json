@@ -10,7 +10,7 @@
     "type": "git",
     "url": "https://github.com/AkshatNaruka/barkcli.git"
   },
-  "homepage": "https://getbarkcli.dev",
+  "homepage": "https://barkcli.vercel.app",
   "bugs": {
     "url": "https://github.com/AkshatNaruka/barkcli/issues"
   },

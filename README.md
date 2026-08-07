@@ -5,7 +5,7 @@
 A single binary. No database. No cloud. Your tasks are YAML files committed to your repo — diff them, merge them, grep them.
 
 ```shell
-curl -fsSL https://getbarkcli.dev | sh
+curl -fsSL https://barkcli.vercel.app | sh
 ```
 
 ```shell
@@ -23,7 +23,7 @@ barkcli log                        # see what changed
 ## Install
 
 ```shell
-curl -fsSL https://getbarkcli.dev | sh
+curl -fsSL https://barkcli.vercel.app | sh
 
 # Or build from source
 cargo build --release

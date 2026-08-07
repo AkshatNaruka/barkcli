@@ -162,7 +162,7 @@ board template install saas-launch
 **Status: ✅ DONE**
 
 ### Acceptance
-Landing page at getbarkcli.dev shows pricing cards. Clicking "Buy Pro $49" opens Gumroad checkout. After purchase, user receives license key email.
+Landing page at barkcli.vercel.app shows pricing cards. Clicking "Buy Pro $49" opens Gumroad checkout. After purchase, user receives license key email.
 
 ---
 

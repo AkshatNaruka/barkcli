@@ -65,7 +65,7 @@ Tasks are `.board` YAML files in your repo. `git diff` shows what changed. `git 
 
 Free for personal use. Pro is $49 one-time — no subscription.
 
-Try it: curl -fsSL https://getbarkcli.dev | sh
+Try it: curl -fsSL https://barkcli.vercel.app | sh
 
 Happy to answer questions! What would make you switch from your current task tool?
 
@@ -126,7 +126,7 @@ Ask me anything!
 
 | Channel | URL | Action |
 |---|---|---|
-| Website | https://getbarkcli.dev | Deploy landing page |
+| Website | https://barkcli.vercel.app | Deploy landing page |
 | GitHub | https://github.com/AkshatNaruka/barkcli | Stars, watch |
 | VS Code | marketplace.visualstudio.com | `npx @vscode/vsce publish` |
 | Product Hunt | producthunt.com | Submit + schedule |
@@ -139,7 +139,7 @@ Ask me anything!
 
 1/7 I built a CLI kanban board that lives in your git repo.
     No cloud. No subscription. One binary.
-    curl -fsSL https://getbarkcli.dev | sh
+    curl -fsSL https://barkcli.vercel.app | sh
 
 2/7 Why? Because project management should be as simple as git.
     Tasks = YAML files. Committed alongside code. Diffable. Mergeable.
@@ -163,5 +163,5 @@ Ask me anything!
     No subscriptions. Your tasks stay in your repo. No lock-in.
 
 7/7 Built in Rust. Single binary. VS Code extension included.
-    Try it: curl -fsSL https://getbarkcli.dev | sh
+    Try it: curl -fsSL https://barkcli.vercel.app | sh
     ⭐ on GitHub: https://github.com/AkshatNaruka/barkcli

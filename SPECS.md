@@ -6,7 +6,7 @@
 
 ## Design Principles
 
-1. **Install in 10 seconds** — `curl getbarkcli.dev | sh` → single binary on `$PATH`
+1. **Install in 10 seconds** — `curl barkcli.vercel.app | sh` → single binary on `$PATH`
 2. **Works in any project** — `barkcli init` → done. No config wizard, no Docker, no DB.
 3. **Git-native** — `.board` YAML files committed to repo. PRs show card diffs. Merge = sync.
 4. **Work in any medium** — Same data, same tool in terminal, browser, IDE.

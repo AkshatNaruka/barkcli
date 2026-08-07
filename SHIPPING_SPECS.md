@@ -33,7 +33,7 @@
 
 ### B1: Install Script
 - [x] **B1.1**: Verify install.sh works end-to-end on macOS and Linux
-- [ ] **B1.2**: Test `curl -fsSL https://getbarkcli.dev | sh` flow (needs DNS + web server)
+- [ ] **B1.2**: Test `curl -fsSL https://barkcli.vercel.app | sh` flow (needs DNS + web server)
 
 ### B2: Homebrew Formula
 - [x] **B2.1**: Create formula at `homebrew/barkcli.rb`
@@ -49,12 +49,12 @@
 
 ### B4: Landing Page
 - [x] **B4.1**: Verify all binary references use `barkcli` (21 occurrences, 0 stale)
-- [ ] **B4.2**: Ensure `getbarkcli.dev` DNS resolves to Vercel deployment
+- [ ] **B4.2**: Ensure `barkcli.vercel.app` DNS resolves to Vercel deployment
 - [ ] **B4.3**: Test install CTA copy button works
 
 ### B5: Domain Setup
-- [ ] **B5.1**: Verify `getbarkcli.dev` DNS → Vercel
-- [ ] **B5.2**: Serve install.sh at `https://getbarkcli.dev/install.sh`
+- [ ] **B5.1**: Verify `barkcli.vercel.app` DNS → Vercel
+- [ ] **B5.2**: Serve install.sh at `https://barkcli.vercel.app/install.sh`
 
 ---
 

@@ -25,12 +25,12 @@
 
 ## 2. Domain & Landing Page
 
-- [ ] **2.1** Purchase `getbarkcli.dev` domain (if not already owned)
+- [ ] **2.1** Purchase `barkcli.vercel.app` domain (if not already owned)
   - Provider: Namecheap, Cloudflare, or Porkbun
 
 - [ ] **2.2** Point DNS to Vercel
-  - Add CNAME `getbarkcli.dev` → `cname.vercel-dns.com`
-  - Add CNAME `www.getbarkcli.dev` → `cname.vercel-dns.com`
+  - Add CNAME `barkcli.vercel.app` → `cname.vercel-dns.com`
+  - Add CNAME `www.barkcli.vercel.app` → `cname.vercel-dns.com`
 
 - [ ] **2.3** Deploy landing page to Vercel
   ```bash
@@ -38,8 +38,8 @@
   ```
 
 - [ ] **2.4** Configure Vercel project
-  - Domain: `getbarkcli.dev`
-  - Redirect `www.getbarkcli.dev` → `getbarkcli.dev`
+  - Domain: `barkcli.vercel.app`
+  - Redirect `www.barkcli.vercel.app` → `barkcli.vercel.app`
   - Enable HTTPS (automatic)
 
 - [ ] **2.5** Configure Vercel to serve `install.sh` at root
@@ -51,7 +51,7 @@
 
 - [ ] **2.6** Test the install flow
   ```bash
-  curl -fsSL https://getbarkcli.dev/install.sh | sh
+  curl -fsSL https://barkcli.vercel.app/install.sh | sh
   ```
   Verify `barkcli --version` outputs correctly.
 
@@ -189,8 +189,8 @@
 | Resource | URL |
 |---|---|
 | GitHub Repo | https://github.com/AkshatNaruka/barkcli |
-| Landing Page | https://getbarkcli.dev |
-| Install Script | https://getbarkcli.dev/install.sh |
+| Landing Page | https://barkcli.vercel.app |
+| Install Script | https://barkcli.vercel.app/install.sh |
 | VS Code Marketplace | https://marketplace.visualstudio.com/manage |
 | Product Hunt Submit | https://www.producthunt.com/posts/new |
 | HN Submit | https://news.ycombinator.com/submit |
