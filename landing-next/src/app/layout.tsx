@@ -35,7 +35,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem("barkcli-theme");if(t==="dark"||t==="light"){document.documentElement.classList.add(t);}}catch(e){document.documentElement.classList.add("dark");}})();`,
+            __html: `(function(){try{var t=localStorage.getItem("barkcli-theme");document.documentElement.classList.add(t==="light"?"light":"dark");}catch(e){document.documentElement.classList.add("dark");}})();`,
           }}
         />
       </head>
