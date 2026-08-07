@@ -74,15 +74,15 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+
       - uses: actions/download-artifact@v4
         with:
           pattern: barkcli-*
           path: artifacts
           merge-multiple: true
-
-      - uses: actions/checkout@v4
-        with:
-          ref: master
 
       - name: Stage tarballs for Vercel
         run: |
@@ -90,14 +90,6 @@ jobs:
           cp artifacts/*.tar.gz landing-next/public/downloads/
           echo "${{ github.ref_name }}" > landing-next/public/downloads/version
           ls -la landing-next/public/downloads/
-
-      - name: Commit and push
-        run: |
-          git config user.name "barkcli release bot"
-          git config user.email "release@barkcli.vercel.app"
-          git add landing-next/public/downloads/
-          git commit -m "release: publish ${{ github.ref_name }} binaries"
-          git push origin master
 
       - name: Deploy to Vercel
         if: env.VERCEL_TOKEN != ''

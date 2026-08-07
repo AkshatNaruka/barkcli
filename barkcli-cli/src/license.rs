@@ -7,6 +7,8 @@ use barkcli_core::util::style;
 /// Add new hashes when you sell more licenses.
 const VALID_LICENSES: &[&str] = &[
     "236981f7cedf48f73ae0360f9f546ee9840af3583447df463e30bd4823795a45",
+    // CI test key (plaintext lives in .github/workflows/ci.yml only)
+    "136c4755cf7635293c7b03d127719cbfc0c7f4539f69c25c4d3e47cbdc639e99",
 ];
 
 fn license_path() -> PathBuf {

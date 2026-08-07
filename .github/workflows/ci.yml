@@ -33,6 +33,11 @@ jobs:
       - name: Build
         run: cargo build --verbose
 
+      - name: Activate CI test license (Pro-gated tests)
+        run: |
+          mkdir -p "$HOME/.board"
+          echo "barkcli-ci-test-77f66b3ad1046344" > "$HOME/.board/license"
+
       - name: Run tests
         run: cargo test --verbose
 

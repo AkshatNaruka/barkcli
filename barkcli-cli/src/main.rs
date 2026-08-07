@@ -172,12 +172,9 @@ fn main() {
             }
 
             "agent" => {
-                if !license::check_pro("agent") { std::process::exit(1); }
                 match rest.get(1).map(|s| s.as_str()) {
-                    Some("propose") => {
-                        if let Err(e) = run_agent_cmd(&rest[1..]) { eprintln!("error: {}", e); std::process::exit(1); }
-                    }
-                    Some("watch") => {
+                    Some("propose") | Some("watch") => {
+                        if !license::check_pro("agent") { std::process::exit(1); }
                         if let Err(e) = run_agent_cmd(&rest[1..]) { eprintln!("error: {}", e); std::process::exit(1); }
                     }
                     Some("sync") => {
@@ -194,7 +191,8 @@ fn main() {
             "context" => {
                 match rest.get(1).map(|s| s.as_str()) {
                     Some("refresh") => {
-                        if !license::check_pro("agent") { std::process::exit(1); }
+                        // --dry-run prints the prompt without calling the LLM — free.
+                        if !rest.iter().any(|s| s == "--dry-run") && !license::check_pro("agent") { std::process::exit(1); }
                         if let Err(e) = barkcli_core::cli::run_dispatch("context", &rest[1..]) { eprintln!("error: {}", e); std::process::exit(1); }
                     }
                     _ => {
