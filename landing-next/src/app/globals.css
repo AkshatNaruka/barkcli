@@ -1,215 +1,41 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:is(.dark *));
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-green: var(--green);
-  --font-sans: var(--font-inter);
-  --font-mono: var(--font-jetbrains-mono);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
+@theme {
+  --font-sans: var(--font-manrope), "Manrope", sans-serif;
+  --font-italiana: var(--font-italiana), "Italiana", serif;
+  --font-marck: var(--font-marck), "Marck Script", cursive;
 }
 
-/* Light (default) */
-:root {
-  --background: #FFFFFF;
-  --foreground: #000000;
-  --card: #FAFAFA;
-  --card-foreground: #000000;
-  --primary: #000000;
-  --primary-foreground: #FFFFFF;
-  --secondary: #F5F5F5;
-  --secondary-foreground: #000000;
-  --muted: #F5F5F5;
-  --muted-foreground: #555555;
-  --accent: #F5F5F5;
-  --accent-foreground: #000000;
-  --destructive: #DC2626;
-  --destructive-foreground: #FFFFFF;
-  --border: #E5E5E5;
-  --input: #E5E5E5;
-  --ring: #000000;
-  --green: #059669;
-  --radius: 0.5rem;
+html,
+body {
+  height: 100%;
 }
 
-/* Dark — black-first, matches the product */
-.dark {
-  --background: #0A0A0A;
-  --foreground: #F5F5F5;
-  --card: #141414;
-  --card-foreground: #F5F5F5;
-  --primary: #FFFFFF;
-  --primary-foreground: #0A0A0A;
-  --secondary: #1A1A1A;
-  --secondary-foreground: #F5F5F5;
-  --muted: #1A1A1A;
-  --muted-foreground: #A1A1AA;
-  --accent: #1A1A1A;
-  --accent-foreground: #F5F5F5;
-  --destructive: #EF4444;
-  --destructive-foreground: #FFFFFF;
-  --border: #2A2A2A;
-  --input: #2A2A2A;
-  --ring: #FFFFFF;
-  --green: #10B981;
+body {
+  margin: 0;
+  background: #ff0000;
+  color: #ffffff;
+  -webkit-font-smoothing: antialiased;
 }
 
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground font-sans antialiased;
-  }
-}
-
-/* Subtle hero entrance — no framer-motion needed */
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.animate-fade-in {
-  animation: fade-in 0.6s ease-out both;
-}
-
-/* Pulsing border to hint clickable board file */
-@keyframes board-hint {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
-  50% { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
-}
-
-.board-file-hint {
-  animation: board-hint 2s ease-in-out 1.5s 3;
-}
-
-/* ── Landing: kanban demo + ambient background ────────────────── */
-
-/* Dotted grid floor (theme-aware) */
-:root {
-  --grid-dot: rgba(0, 0, 0, 0.06);
-}
-.dark {
-  --grid-dot: rgba(255, 255, 255, 0.055);
-}
-.bark-grid {
-  background-image: radial-gradient(circle, var(--grid-dot) 1px, transparent 1px);
-  background-size: 26px 26px;
-  animation: grid-pan 40s linear infinite;
-}
-@keyframes grid-pan {
-  from { background-position: 0 0; }
-  to   { background-position: 260px 260px; }
-}
-
-/* Soft glow behind the demo */
-.bark-glow {
-  background: radial-gradient(
-    ellipse 60% 55% at 50% 45%,
-    rgba(59, 130, 246, 0.16),
-    transparent 70%
+/* Fallback flow when the video asset is unavailable */
+.bark-flow {
+  background: linear-gradient(
+    115deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.06) 30%,
+    rgba(255, 255, 255, 0.12) 50%,
+    rgba(255, 255, 255, 0.06) 70%,
+    rgba(255, 255, 255, 0) 100%
   );
-  animation: glow-pulse 7s ease-in-out infinite;
+  background-size: 240% 100%;
+  animation: flow-sweep 9s ease-in-out infinite;
 }
-@keyframes glow-pulse {
-  0%, 100% { opacity: 0.7; }
-  50%      { opacity: 1; }
-}
-
-/* Floating YAML chips in the background */
-.bark-chip {
-  position: absolute;
-  font-family: var(--font-jetbrains-mono, monospace);
-  font-size: 10px;
-  line-height: 1.6;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--card) 78%, transparent);
-  color: var(--muted-foreground);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
-  opacity: 0;
-  pointer-events: none;
-  animation: chip-float 18s ease-in-out infinite;
-}
-@keyframes chip-float {
-  0%   { transform: translateY(24px) rotate(-1.5deg); opacity: 0; }
-  8%   { opacity: 0.5; }
-  45%  { transform: translateY(-14px) rotate(1deg); opacity: 0.5; }
-  80%  { opacity: 0.28; }
-  100% { transform: translateY(-56px) rotate(-0.5deg); opacity: 0; }
-}
-
-/* Kanban demo: card journey through todo → doing → done */
-@keyframes card-path {
-  0%    { opacity: 0; transform: translateX(0) scale(0.96); }
-  9%    { opacity: 1; transform: translateX(0) scale(1); }
-  9%    { background-color: var(--card); border-color: var(--border); }
-  36%   { transform: translateX(0); }
-  42%   { transform: translateX(110%); }
-  57%   { transform: translateX(110%); }
-  63%   { transform: translateX(221%); background-color: var(--card); border-color: var(--border); }
-  63.1% { background-color: color-mix(in srgb, var(--green) 14%, var(--card)); border-color: color-mix(in srgb, var(--green) 45%, var(--border)); }
-  88%   { transform: translateX(221%); opacity: 1; }
-  94%   { opacity: 0; }
-  100%  { opacity: 0; transform: translateX(221%); }
-}
-.bark-card-path {
-  animation: card-path 9s ease-in-out infinite;
-}
-
-/* Checkmark appears when the card lands in Done */
-@keyframes check-pop {
-  0%, 62.9% { opacity: 0; transform: scale(0.5); }
-  70%       { opacity: 1; transform: scale(1); }
-  90%       { opacity: 1; }
-  100%      { opacity: 0; }
-}
-.bark-check {
-  animation: check-pop 9s ease-in-out infinite;
-}
-
-/* Terminal caret */
-@keyframes caret-blink {
-  0%, 45% { opacity: 1; }
-  50%, 95% { opacity: 0; }
-  100% { opacity: 1; }
-}
-.bark-caret {
-  animation: caret-blink 1s step-end infinite;
-}
-
-/* Column pulse when a card is active in it */
-@keyframes col-active {
-  0%, 100% { box-shadow: inset 0 0 0 1px transparent; }
-  50%      { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--green) 35%, transparent); }
+@keyframes flow-sweep {
+  0% { background-position: 120% 0; }
+  100% { background-position: -120% 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bark-grid, .bark-glow, .bark-chip, .bark-card-path, .bark-check, .bark-caret {
-    animation: none !important;
-  }
-  .bark-chip { opacity: 0.4; }
-  .bark-card-path { opacity: 1; }
-  .bark-check { opacity: 1; }
+  .bark-flow { animation: none; }
 }
