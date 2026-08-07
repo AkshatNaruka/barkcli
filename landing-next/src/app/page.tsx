@@ -1,81 +1,92 @@
+"use client";
+
+import { useState } from "react";
+
 const INSTALL = "curl -fsSL https://barkcli.vercel.app/install.sh | sh";
 
-import { BottomVisual } from "@/components/BottomVisual";
+const VIDEO_URL =
+  "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260405_171521_25968ba2-b594-4b32-aab7-f6b69398a6fa.mp4";
 
 export default function Home() {
+  const [copied, setCopied] = useState(false);
   return (
-    <section className="relative min-h-screen w-full bg-[#FF0000] flex flex-col z-10">
-      {/* 1. Centered content */}
-      <div className="flex-1 flex flex-col items-center w-full pt-[100px] md:pt-[400px]">
-        <div className="flex flex-col items-center w-full px-8 text-center z-20 relative max-w-[900px] h-auto md:h-[620px] mx-auto">
-          {/* a) Logo — kanban mark */}
-          <svg
-            width="80"
-            height="80"
-            viewBox="0 0 120 120"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            className="mb-12"
-            aria-label="barkcli"
-          >
-            <rect x="8" y="16" width="30" height="88" rx="9" fill="white" />
-            <rect x="45" y="28" width="30" height="76" rx="9" fill="white" opacity="0.8" />
-            <rect x="82" y="16" width="30" height="88" rx="9" fill="white" opacity="0.6" />
-            <rect x="14" y="26" width="18" height="13" rx="3.5" fill="#FF0000" />
-            <rect x="51" y="38" width="18" height="13" rx="3.5" fill="#FF0000" />
-            <rect x="88" y="26" width="18" height="13" rx="3.5" fill="#FF0000" />
-          </svg>
+    <div className="relative min-h-screen w-full flex flex-col overflow-hidden bg-black">
+      {/* Background video */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="absolute inset-0 w-full h-full object-cover"
+      >
+        <source src={VIDEO_URL} type="video/mp4" />
+      </video>
+      {/* Readability overlay */}
+      <div className="absolute inset-0 bg-black/35 pointer-events-none" />
 
-          {/* b) Mission statement */}
-          <p className="text-white text-[16px] h-[100px] w-full max-w-[400px] leading-[1.6] mb-[40px] uppercase tracking-wider mx-auto">
-            We built barkcli with a single purpose — to eliminate
-            project-management chaos and restore balance to your daily build
-            routine
-          </p>
-
-          {/* c) Cursive signature */}
-          <div className="font-marck text-white text-[88px] md:text-[120px] leading-none mb-[32px]">
+      {/* Nav */}
+      <header className="relative z-10 flex items-center justify-between px-6 md:px-10 h-16 shrink-0">
+        <a href="#" className="flex items-center gap-2 no-underline">
+          <span className="text-lg">🐶</span>
+          <span className="text-sm font-bold tracking-tight font-mono text-white">
             barkcli
-          </div>
+          </span>
+        </a>
+        <a
+          href="https://github.com/AkshatNaruka/barkcli"
+          target="_blank"
+          rel="noreferrer"
+          className="text-xs text-white/80 hover:text-white transition-colors"
+        >
+          GitHub
+        </a>
+      </header>
 
-          {/* d) Two paragraphs */}
-          <div className="text-white leading-[1.6] mb-[56px] md:mb-16 w-full flex flex-col items-center font-light">
-            <p className="mb-[24px] text-[16px] w-[400px] max-w-full text-center">
-              I Was Exhausted By Task Tools That Demanded More Effort Than They
-              Actually Saved. That Is Why We Engineered A Git-Native Board That
-              Lives Quietly Inside Your Repo.
-            </p>
-            <p className="text-[16px] w-[400px] max-w-full text-center">
-              Your Projects Should Live Where Your Code Does — Not In Another
-              Cloud Tab. Let The Board Handle The Heavy Lifting, So You Can
-              Focus On What You Ship.
-            </p>
-          </div>
-
-          {/* Install */}
-          <div className="flex flex-col items-center gap-2 mb-[60px] md:mb-24">
-            <code className="text-[13px] font-light tracking-wide text-white border border-white/30 rounded-full px-5 py-2.5 bg-white/5 backdrop-blur-sm">
-              <span className="opacity-60 select-none">$ </span>
-              {INSTALL}
-            </code>
-            <div className="text-[11px] text-white/70 font-light tracking-wider">
-              macOS · Linux · Windows ·{" "}
-              <a
-                href="https://github.com/AkshatNaruka/barkcli"
-                target="_blank"
-                rel="noreferrer"
-                className="underline underline-offset-4 hover:text-white transition-colors"
-              >
-                GitHub
-              </a>{" "}
-              · MIT
-            </div>
-          </div>
+      {/* Center */}
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6">
+        <h1 className="text-white text-5xl md:text-7xl font-bold tracking-tight leading-[1.05] mb-5">
+          Tasks in your repo.
+        </h1>
+        <p className="text-white/85 text-base md:text-lg font-light max-w-md mb-10 leading-relaxed">
+          Git-native kanban board — CLI, terminal UI, web app and VS Code
+          extension. No cloud required.
+        </p>
+        <div className="flex items-center gap-1 border border-white/40 rounded-full pl-5 pr-2 py-2.5 bg-black/25 backdrop-blur-sm">
+          <code className="text-white text-sm font-mono">
+            <span className="text-white/50 select-none">$ </span>
+            {INSTALL}
+          </code>
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(INSTALL);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            }}
+            className="ml-3 text-xs font-mono rounded-full border border-white/40 px-3 py-1.5 text-white/90 hover:bg-white/10 transition-colors cursor-pointer"
+          >
+            {copied ? "Copied" : "Copy"}
+          </button>
         </div>
-      </div>
+        <p className="text-white/60 text-[11px] font-mono mt-4 tracking-wider">
+          macOS · Linux · Windows · MIT
+        </p>
+      </main>
 
-      {/* 2. Bottom video with red gradient blend */}
-      <BottomVisual />
-    </section>
+      {/* Footer */}
+      <footer className="relative z-10 flex items-center justify-center gap-4 h-12 shrink-0 text-[11px] text-white/70 font-mono">
+        <span>barkcli</span>
+        <span className="opacity-40">·</span>
+        <a
+          href="https://github.com/AkshatNaruka/barkcli"
+          target="_blank"
+          rel="noreferrer"
+          className="underline underline-offset-4 hover:text-white transition-colors"
+        >
+          GitHub
+        </a>
+        <span className="opacity-40">·</span>
+        <span>MIT License</span>
+      </footer>
+    </div>
   );
 }

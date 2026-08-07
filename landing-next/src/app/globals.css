@@ -13,29 +13,7 @@ body {
 
 body {
   margin: 0;
-  background: #ff0000;
+  background: #000000;
   color: #ffffff;
   -webkit-font-smoothing: antialiased;
-}
-
-/* Fallback flow when the video asset is unavailable */
-.bark-flow {
-  background: linear-gradient(
-    115deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.06) 30%,
-    rgba(255, 255, 255, 0.12) 50%,
-    rgba(255, 255, 255, 0.06) 70%,
-    rgba(255, 255, 255, 0) 100%
-  );
-  background-size: 240% 100%;
-  animation: flow-sweep 9s ease-in-out infinite;
-}
-@keyframes flow-sweep {
-  0% { background-position: 120% 0; }
-  100% { background-position: -120% 0; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .bark-flow { animation: none; }
 }
