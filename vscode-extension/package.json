@@ -1,0 +1,71 @@
+{
+  "name": "barkcli-vscode",
+  "displayName": "barkcli — Project Kanban",
+  "description": "Git-like Kanban boards inside VS Code. Edit .board files with a visual editor.",
+  "version": "0.1.0",
+  "publisher": "barkcli",
+  "license": "MIT",
+  "icon": "icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AkshatNaruka/barkcli.git"
+  },
+  "homepage": "https://barkcli.vercel.app",
+  "bugs": {
+    "url": "https://github.com/AkshatNaruka/barkcli/issues"
+  },
+  "keywords": ["kanban", "board", "task", "project-management", "yaml", "barkcli"],
+  "engines": {
+    "vscode": "^1.92.0"
+  },
+  "categories": ["Visualization", "Other"],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "iconThemes": [
+      {
+        "id": "barkcli-file-icons",
+        "label": "barkcli file icons",
+        "path": "./icons/icon-theme.json"
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "barkcli.boardEditor",
+        "displayName": "barkcli Editor",
+        "selector": [
+          {
+            "filenamePattern": "*.board"
+          }
+        ],
+        "priority": "default"
+      }
+    ]
+  },
+  "scripts": {
+    "build:extension": "esbuild ./src/extension.ts --bundle --outfile=./dist/extension.js --external:vscode --format=cjs --platform=node --tsconfig=tsconfig.json",
+    "build:webview:js": "esbuild ./src/webview/main.tsx --bundle --outfile=./dist/webview.js --jsx=automatic --loader:.css=empty --tsconfig=tsconfig.json",
+    "build:webview:css": "tailwindcss -i ./src/webview/styles/globals.css -o ./dist/webview.css --minify",
+    "build": "npm run build:extension && npm run build:webview:css && npm run build:webview:js",
+    "vscode:prepublish": "npm run build:sync-web && npm run build:extension",
+    "build:sync-web": "(cd ../web && npm run build) && cp ../web/dist/index.html dist/ && mkdir -p dist/assets && cp ../web/dist/assets/* dist/assets/ 2>/dev/null; echo 'Synced web build to dist' || true",
+    "package": "npm run vscode:prepublish && npx @vscode/vsce package",
+    "watch:extension": "esbuild ./src/extension.ts --bundle --outfile=./dist/extension.js --external:vscode --format=cjs --platform=node --watch",
+    "watch:webview": "esbuild ./src/webview/main.tsx --bundle --outfile=./dist/webview.js --jsx=automatic --watch",
+    "watch": "npm run build:webview:css && concurrently \"npm run watch:extension\" \"npm run watch:webview\""
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@types/vscode": "^1.92.0",
+    "concurrently": "^8.2.0",
+    "esbuild": "^0.24.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.5.0"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  }
+}

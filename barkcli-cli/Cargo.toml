@@ -1,0 +1,33 @@
+[package]
+name = "barkcli-cli"
+license = "MIT"
+authors = ["Akshat Naruka <narukaakshat@gmail.com>"]
+version = "0.2.0"
+edition = "2021"
+
+[[bin]]
+name = "barkcli"
+path = "src/main.rs"
+
+[dependencies]
+barkcli-core = { path = "../barkcli-core" }
+barkcli-tui = { path = "../barkcli-tui", optional = true }
+barkcli-server = { path = "../barkcli-server", optional = true }
+tokio = { version = "1", features = ["rt", "macros"] }
+atty = "0.2"
+sha2 = "0.10"
+hex = "0.4"
+ureq = { version = "2", features = ["json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+chrono = "0.4"
+anyhow = "1"
+
+[dev-dependencies]
+serde_json = "1"
+
+[features]
+default = ["tui", "serve"]
+tui = ["barkcli-tui"]
+serve = ["barkcli-server"]

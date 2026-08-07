@@ -1,0 +1,8 @@
+{
+  "workbench.editorAssociations": {
+    "*.board": "barkcli.boardEditor"
+  },
+  "files.associations": {
+    "*.board": "yaml"
+  }
+}

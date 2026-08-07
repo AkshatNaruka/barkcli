@@ -1,0 +1,466 @@
+import type {
+  Board,
+  CardContext,
+  HistoryEntry,
+  SessionEntry,
+  Sprint,
+} from "./types";
+import { load as yamlParse, dump as yamlDump } from "js-yaml";
+
+// js-yaml parses ISO timestamps (due_date, created_at, ...) into Date objects.
+// Convert them back to ISO strings so the UI can treat them as strings.
+function reviveDates(obj: any): any {
+  if (obj instanceof Date) return obj.toISOString();
+  if (Array.isArray(obj)) return obj.map(reviveDates);
+  if (obj && typeof obj === "object") {
+    for (const k of Object.keys(obj)) obj[k] = reviveDates(obj[k]);
+    return obj;
+  }
+  return obj;
+}
+
+function parseBoardYaml(yaml: string): Board {
+  const board = reviveDates(yamlParse(yaml)) as Board;
+  // Normalize fields that older board files don't carry.
+  if (board.cards) {
+    for (const c of board.cards) {
+      c.links = c.links || [];
+      c.acceptance_criteria = c.acceptance_criteria || [];
+      c.checklist = c.checklist || [];
+      c.comments = c.comments || [];
+      c.attachments = c.attachments || [];
+      c.labels = c.labels || [];
+    }
+  }
+  return board;
+}
+
+// ── Access token ──
+// The server may require a token (barkcli serve --token X). The CLI opens the
+// browser with ?token=...; we persist it for the tab's lifetime.
+function resolveToken(): string {
+  try {
+    const fromUrl = new URLSearchParams(window.location.search).get("token") || "";
+    if (fromUrl) sessionStorage.setItem("barkcli-token", fromUrl);
+    return fromUrl || sessionStorage.getItem("barkcli-token") || "";
+  } catch {
+    return "";
+  }
+}
+
+const TOKEN = resolveToken();
+
+function withToken(url: string): string {
+  if (!TOKEN) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}token=${encodeURIComponent(TOKEN)}`;
+}
+
+let ws: WebSocket | null = null;
+
+// Detect VS Code environment
+const isVscode = typeof (window as any).acquireVsCodeApi === "function";
+let vscodeApi: any = null;
+if (isVscode) {
+  vscodeApi = (window as any).acquireVsCodeApi();
+}
+
+//
+// Public API
+//
+export async function fetchBoard(name?: string): Promise<Board | null> {
+  if (isVscode && vscodeApi) {
+    return fetchBoardVsCode();
+  }
+  return fetchBoardHttp(name);
+}
+
+export async function fetchBoards(): Promise<string[]> {
+  if (isVscode && vscodeApi) return [];
+  try {
+    const res = await fetch(withToken("/api/boards"));
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.boards) ? data.boards : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function saveBoard(board: Board, name?: string): Promise<void> {
+  if (isVscode && vscodeApi) {
+    return saveBoardVsCode(board);
+  }
+  return saveBoardHttp(board, name);
+}
+
+export async function fetchSprints(name?: string): Promise<Sprint[]> {
+  if (isVscode && vscodeApi) {
+    return fetchSprintsVsCode();
+  }
+  try {
+    const q = name ? `?name=${encodeURIComponent(name)}` : "";
+    const res = await fetch(withToken(`/api/sprints${q}`));
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.sprints) ? data.sprints : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function startSprint(sprintName: string, end?: string): Promise<boolean> {
+  if (isVscode && vscodeApi) return false;
+  try {
+    const res = await fetch(withToken("/api/sprints"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: sprintName, end: end || null }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function endSprint(sprintName?: string): Promise<boolean> {
+  if (isVscode && vscodeApi) return false;
+  try {
+    const res = await fetch(withToken("/api/sprints/end"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: sprintName || null }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export interface BoardConfig {
+  ai: { base_url: string; model: string };
+}
+
+export async function fetchConfig(): Promise<BoardConfig | null> {
+  if (isVscode && vscodeApi) return null;
+  try {
+    const res = await fetch(withToken("/api/config"));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchCardContext(cardId: string): Promise<CardContext | null> {
+  if (isVscode && vscodeApi) {
+    return fetchCardContextVsCode(cardId);
+  }
+  try {
+    const res = await fetch(withToken("/api/context"));
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.cards?.[cardId] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchContext(): Promise<{ cards: Record<string, CardContext> } | null> {
+  if (isVscode && vscodeApi) return null;
+  try {
+    const res = await fetch(withToken("/api/context"));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchHistory(cardId?: string, limit?: number): Promise<HistoryEntry[]> {
+  if (isVscode && vscodeApi) {
+    return fetchHistoryVsCode(cardId);
+  }
+  try {
+    const params = new URLSearchParams();
+    if (cardId) params.set("card", cardId);
+    if (limit) params.set("limit", String(limit));
+    const qs = params.toString();
+    const res = await fetch(withToken(`/api/history${qs ? `?${qs}` : ""}`));
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.entries) ? data.entries : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchSessions(limit?: number): Promise<SessionEntry[]> {
+  if (isVscode && vscodeApi) {
+    return fetchSessionsVsCode();
+  }
+  try {
+    const qs = limit ? `?limit=${limit}` : "";
+    const res = await fetch(withToken(`/api/sessions${qs}`));
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.sessions) ? data.sessions : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function syncContext(): Promise<boolean> {
+  if (isVscode && vscodeApi) {
+    vscodeApi?.postMessage({ type: "syncContext" });
+    return true;
+  }
+  try {
+    const res = await fetch(withToken("/api/context/sync"), { method: "POST" });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function clearContext(): Promise<boolean> {
+  if (isVscode && vscodeApi) return false;
+  try {
+    const res = await fetch(withToken("/api/context/clear"), { method: "POST" });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function codeSearch(query: string): Promise<
+  { path: string; symbols: string[]; cards: string[] }[]
+> {
+  try {
+    const res = await fetch(withToken(`/api/code?q=${encodeURIComponent(query)}`));
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.results) ? data.results : [];
+  } catch {
+    return [];
+  }
+}
+
+// ── Reload callback (for external file changes) ──
+
+let reloadCallback: ((version: number) => void) | null = null;
+
+export function connectWs(onReload: (version: number) => void): () => void {
+  if (isVscode) {
+    // VS Code: callback is invoked by the global message listener
+    // only for *subsequent* loads (external file changes, not initial)
+    reloadCallback = onReload;
+    return () => { reloadCallback = null; };
+  }
+  // Browser mode: WebSocket-based reload
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  try {
+    ws = new WebSocket(withToken(`${proto}://${location.host}/ws`));
+    ws.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg?.type === "reload") onReload(Number(msg.version) || 0);
+      } catch {}
+    };
+    ws.onclose = () => setTimeout(() => connectWs(onReload), 3000);
+  } catch {}
+  return () => { ws?.close(); ws = null; };
+}
+
+// ── HTTP-based API (browser mode) ──
+
+async function fetchBoardHttp(name?: string): Promise<Board | null> {
+  try {
+    const qs = name ? `?name=${encodeURIComponent(name)}` : "";
+    const res = await fetch(withToken(`/api/board${qs}`));
+    if (!res.ok) throw new Error("Failed to load board");
+    const data = await res.json();
+    return parseBoardYaml(data.yaml);
+  } catch (e) {
+    console.error("barkcli: fetchBoard failed", e);
+    return null;
+  }
+}
+
+async function saveBoardHttp(board: Board, name?: string): Promise<void> {
+  try {
+    const yaml = yamlDump(board, { indent: 2, lineWidth: -1 });
+    await fetch(withToken("/api/board"), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ yaml, name: name || null }),
+    });
+  } catch (e) {
+    console.error("barkcli: saveBoard failed", e);
+  }
+}
+
+// ── VS Code API (postMessage bridge) ──
+
+let pendingBoardVsCode: Board | null = null;
+let initialLoadDone = false;
+
+// Single global listener: handles ALL 'load' messages from the extension.
+// On first load: just stores the parsed board.
+// On subsequent loads (external changes): also triggers the reload callback.
+window.addEventListener("message", (event) => {
+  const msg = event.data;
+  if (msg?.type === "load") {
+    try { pendingBoardVsCode = parseBoardYaml(msg.yaml); } catch {}
+    if (reloadCallback && initialLoadDone) {
+      reloadCallback(Date.now());
+    }
+    initialLoadDone = true;
+  }
+  if (msg?.type === "gitInfo" && gitInfoResolve) {
+    gitInfoResolve({ branch: msg.branch, lastCommit: msg.lastCommit, authors: msg.authors });
+    gitInfoResolve = null;
+  }
+  if (msg?.type === "cardHistory") {
+    const resolve = historyResolves.get(msg.cardId);
+    if (resolve) {
+      resolve(msg.entries || []);
+      historyResolves.delete(msg.cardId);
+    }
+  }
+  if (msg?.type === "sprints" && sprintsResolve) {
+    sprintsResolve(Array.isArray(msg.sprints) ? msg.sprints : []);
+    sprintsResolve = null;
+  }
+  if (msg?.type === "cardContext") {
+    const resolve = contextResolves.get(msg.cardId);
+    if (resolve) {
+      resolve(msg.context || null);
+      contextResolves.delete(msg.cardId);
+    }
+  }
+  if (msg?.type === "history" && historyResolve) {
+    historyResolve(Array.isArray(msg.entries) ? msg.entries : []);
+    historyResolve = null;
+  }
+  if (msg?.type === "sessions" && sessionsResolve) {
+    sessionsResolve(Array.isArray(msg.sessions) ? msg.sessions : []);
+    sessionsResolve = null;
+  }
+});
+
+async function fetchBoardVsCode(): Promise<Board | null> {
+  // If we already loaded (e.g. via external change), return cached
+  if (pendingBoardVsCode && initialLoadDone) return pendingBoardVsCode;
+
+  // Request initial data from the extension
+  vscodeApi?.postMessage({ type: "ready" });
+
+  return new Promise((resolve) => {
+    const check = () => {
+      if (pendingBoardVsCode) {
+        resolve(pendingBoardVsCode);
+        return true;
+      }
+      return false;
+    };
+    if (check()) return;
+    const interval = setInterval(() => { if (check()) clearInterval(interval); }, 100);
+    setTimeout(() => { clearInterval(interval); if (!pendingBoardVsCode) resolve(null); }, 5000);
+  });
+}
+
+async function saveBoardVsCode(board: Board): Promise<void> {
+  const yaml = yamlDump(board, { indent: 2, lineWidth: -1 });
+  vscodeApi?.postMessage({ type: "save", yaml });
+}
+
+// ── Git info + Card history (VS Code mode) ──
+
+export interface GitInfo { branch: string; lastCommit: string; authors: string[] }
+
+export function requestGitInfo() { vscodeApi?.postMessage({ type: "getGitInfo" }); }
+export function requestCardHistory(cardId: string) { vscodeApi?.postMessage({ type: "getCardHistory", cardId }); }
+
+let gitInfoResolve: ((v: GitInfo) => void) | null = null;
+const historyResolves = new Map<string, (entries: any[]) => void>();
+
+export function getGitInfo(): Promise<GitInfo> {
+  return new Promise((resolve) => {
+    requestGitInfo();
+    gitInfoResolve = resolve;
+  });
+}
+
+export function getCardHistory(cardId: string): Promise<any[]> {
+  return new Promise((resolve) => {
+    requestCardHistory(cardId);
+    historyResolves.set(cardId, resolve);
+  });
+}
+
+// ── Sprints (VS Code mode) ──
+
+let sprintsResolve: ((s: Sprint[]) => void) | null = null;
+
+function fetchSprintsVsCode(): Promise<Sprint[]> {
+  vscodeApi?.postMessage({ type: "getSprints" });
+  return new Promise((resolve) => {
+    sprintsResolve = resolve;
+    setTimeout(() => {
+      if (sprintsResolve) {
+        sprintsResolve([]);
+        sprintsResolve = null;
+      }
+    }, 3000);
+  });
+}
+
+// ── Context / History / Sessions (VS Code mode) ──
+
+const contextResolves = new Map<string, (c: CardContext | null) => void>();
+let historyResolve: ((h: HistoryEntry[]) => void) | null = null;
+let sessionsResolve: ((s: SessionEntry[]) => void) | null = null;
+
+function fetchCardContextVsCode(cardId: string): Promise<CardContext | null> {
+  vscodeApi?.postMessage({ type: "getCardContext", cardId });
+  return new Promise((resolve) => {
+    contextResolves.set(cardId, resolve);
+    setTimeout(() => {
+      if (contextResolves.has(cardId)) {
+        contextResolves.delete(cardId);
+        resolve(null);
+      }
+    }, 3000);
+  });
+}
+
+function fetchHistoryVsCode(cardId?: string): Promise<HistoryEntry[]> {
+  vscodeApi?.postMessage({ type: "getHistory", cardId });
+  return new Promise((resolve) => {
+    historyResolve = resolve;
+    setTimeout(() => {
+      if (historyResolve) {
+        historyResolve([]);
+        historyResolve = null;
+      }
+    }, 3000);
+  });
+}
+
+function fetchSessionsVsCode(): Promise<SessionEntry[]> {
+  vscodeApi?.postMessage({ type: "getSessions" });
+  return new Promise((resolve) => {
+    sessionsResolve = resolve;
+    setTimeout(() => {
+      if (sessionsResolve) {
+        sessionsResolve([]);
+        sessionsResolve = null;
+      }
+    }, 3000);
+  });
+}
+
+export function openFileInEditor(path: string, line?: number) {
+  vscodeApi?.postMessage({ type: "openFile", path, line: line ?? 0 });
+}

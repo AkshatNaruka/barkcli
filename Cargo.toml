@@ -1,0 +1,8 @@
+[workspace]
+resolver = "2"
+members = [
+    "barkcli-core",
+    "barkcli-cli",
+    "barkcli-tui",
+    "barkcli-server",
+]

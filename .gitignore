@@ -1,0 +1,9 @@
+/target
+.board/
+.vercel
+.claude/
+.agents/
+web/dist/
+*.log
+.DS_Store
+skills-lock.json
