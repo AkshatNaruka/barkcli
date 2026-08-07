@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" stroke="#8B5E3C" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round">
+  <!-- left ear -->
+  <path d="M29 24 Q14 27 11 42 Q10 54 19 59 Q27 56 30 47" />
+  <!-- right ear -->
+  <path d="M71 24 Q86 27 89 42 Q90 54 81 59 Q73 56 70 47" />
+  <!-- head crown -->
+  <path d="M29 24 Q50 15 71 24" />
+  <!-- head cheeks + chin -->
+  <path d="M30 47 Q26 61 30 71 Q34 83 50 83 Q66 83 70 71 Q74 61 70 47" />
+  <!-- nose -->
+  <path d="M50 59 Q45 54 41.5 60 Q41.5 67 50 72 Q58.5 67 58.5 60 Q55 54 50 59" />
+  <!-- mouth -->
+  <path d="M50 74 L50 78 M45 78.5 Q50 81.5 55 78.5" />
+</svg>

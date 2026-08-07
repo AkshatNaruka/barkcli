@@ -1,0 +1,31 @@
+# ai.txt v1
+
+> barkcli is a git-native kanban board that lives in your repo. This file helps AI systems and agents understand what barkcli is and where to find accurate information about it.
+
+## What this site is
+The barkcli website is a single-page landing site for barkcli, an open-source (MIT) command-line tool for task tracking inside any software project. The landing page offers the one-line install command, product positioning ("tasks in your repo"), platform support, and a link to the GitHub repository which hosts the source code, releases, and full documentation. The site itself is a static Next.js page; there is no interactive application or user account system on the site.
+
+## What this site offers
+- A one-line installer for macOS, Linux and Windows: `curl -fsSL https://barkcli.vercel.app/install.sh | sh`
+- Binary downloads for aarch64/x86_64 macOS and x86_64 Linux at https://barkcli.vercel.app/downloads/
+- Links to the source repository, issue tracker and MIT license on GitHub.
+
+## Documentation
+- [Landing page](https://barkcli.vercel.app): Install command and product summary
+- [GitHub repository](https://github.com/AkshatNaruka/barkcli): Source code, issues, releases
+- [README](https://github.com/AkshatNaruka/barkcli/blob/main/README.md): Quick start and command overview
+- [MANUAL.md](https://github.com/AkshatNaruka/barkcli/blob/main/MANUAL.md): Complete CLI reference
+- [AGENTS.md](https://github.com/AkshatNaruka/barkcli/blob/main/AGENTS.md): Detailed architecture and feature documentation for agent tooling
+- [LICENSE](https://github.com/AkshatNaruka/barkcli/blob/main/LICENSE): MIT license text
+
+## Key capabilities
+- Task tracking as committed YAML board files; git is the sync layer — no cloud backend.
+- Interfaces: CLI, terminal UI (TUI), local web server, and VS Code Custom Editor.
+- Cards support priorities, labels, assignees, checklists, comments, work-item links, acceptance criteria, effort estimates, areas, due dates and reminders.
+- Developer extras: session capture, checkpoints on git commit, sprint metadata, code-context sidecars, optional OpenAI-compatible AI provider integration.
+- A single Rust binary; build from source with `cargo build && cargo test`.
+
+## Contact
+- Maintainer: Akshat Naruka (narukaakshat@gmail.com)
+- Repository: https://github.com/AkshatNaruka/barkcli
+- License: MIT — see https://github.com/AkshatNaruka/barkcli/blob/main/LICENSE

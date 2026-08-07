@@ -1,0 +1,25 @@
+# barkcli
+> Git-native kanban board that lives in your repo. Tasks are YAML files committed alongside code — diff them, merge them, grep them. CLI, terminal UI, web app and VS Code extension from one binary. No cloud, no accounts, no subscription. Open source (MIT).
+
+## What is barkcli
+barkcli is a task-tracking tool for developers that works like `.git` but for Kanban boards. A single binary (`barkcli`) provides four interfaces over the same local data: a command-line interface, a terminal UI (TUI), a browser-based web app, and a VS Code Custom Editor extension. Board state is plain YAML in `.board` files committed to your repository, so every task change is a diff you can review, merge and roll back with git. There is no server, no account and no data leaves your machine unless you push your repo.
+
+## Main sections
+- [barkcli landing page](https://barkcli.vercel.app): Install command and product overview
+- [GitHub repository](https://github.com/AkshatNaruka/barkcli): Source code, issues, releases and all documentation
+- [README](https://github.com/AkshatNaruka/barkcli#readme): Quick start, install and command reference
+- [Manual](https://github.com/AkshatNaruka/barkcli/blob/main/MANUAL.md): Full command reference (init, create, list, status, sessions, sprints, code context, agent)
+- [Install script](https://barkcli.vercel.app/install.sh): One-line installer for macOS, Linux and Windows
+
+## Key facts
+- Single static binary written in Rust. macOS (Apple Silicon + Intel), Linux and Windows builds.
+- Free and open source under the MIT license. No cloud, no accounts, no subscription fees.
+- Boards are YAML files (`<name>.board`) committed to the repo; internal metadata lives in a gitignored `.board/` directory.
+- Four interfaces over one data source: CLI, ratatui terminal UI, axum web server, and a VS Code Custom Editor.
+- Card fields: title, description, column, priority, labels, assignee, checklist, comments, links (parent/child/related/blocked-by), acceptance criteria, effort, area, due date, reminder time.
+- Extras: agent session capture, git post-commit auto-checkpoints, sprint metadata, per-card code context sidecars, OpenAI-compatible AI provider integration (agent propose, context refresh, watch).
+- Install with: `curl -fsSL https://barkcli.vercel.app/install.sh | sh`
+
+## Contact
+- GitHub: https://github.com/AkshatNaruka/barkcli
+- License: MIT — see https://github.com/AkshatNaruka/barkcli/blob/main/LICENSE

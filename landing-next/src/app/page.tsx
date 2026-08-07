@@ -27,7 +27,23 @@ export default function Home() {
       {/* Nav */}
       <header className="relative z-10 flex items-center justify-between px-6 md:px-10 h-16 shrink-0">
         <a href="#" className="flex items-center gap-2 no-underline">
-          <span className="text-lg">🐶</span>
+          <svg
+            viewBox="0 0 100 100"
+            className="w-5 h-5"
+            fill="none"
+            stroke="#B8845C"
+            strokeWidth="5.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M29 24 Q14 27 11 42 Q10 54 19 59 Q27 56 30 47" />
+            <path d="M71 24 Q86 27 89 42 Q90 54 81 59 Q73 56 70 47" />
+            <path d="M29 24 Q50 15 71 24" />
+            <path d="M30 47 Q26 61 30 71 Q34 83 50 83 Q66 83 70 71 Q74 61 70 47" />
+            <path d="M50 59 Q45 54 41.5 60 Q41.5 67 50 72 Q58.5 67 58.5 60 Q55 54 50 59" />
+            <path d="M50 74 L50 78 M45 78.5 Q50 81.5 55 78.5" />
+          </svg>
           <span className="text-sm font-bold tracking-tight font-mono text-white">
             barkcli
           </span>
