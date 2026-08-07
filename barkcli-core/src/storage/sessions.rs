@@ -119,8 +119,12 @@ mod tests {
     use crate::storage::context::write_context;
     use crate::storage::board_dir::find_board_dir;
     use std::sync::atomic::{AtomicU32, Ordering};
+    use std::sync::Mutex;
 
     static COUNTER: AtomicU32 = AtomicU32::new(0);
+    // These tests mutate the process-wide CWD (set_current_dir) — serialize
+    // them so parallel test threads can't hijack each other's project dir.
+    static CWD_LOCK: Mutex<()> = Mutex::new(());
 
     fn tmp_project() -> std::path::PathBuf {
         let n = COUNTER.fetch_add(1, Ordering::SeqCst);
@@ -133,6 +137,7 @@ mod tests {
 
     #[test]
     fn matches_files_to_context_cards() {
+        let _guard = CWD_LOCK.lock().unwrap();
         let root = tmp_project();
         let mut ctx = BoardContext::new();
         let entry = ctx.card_mut("auth-pbi");
@@ -155,6 +160,7 @@ mod tests {
 
     #[test]
     fn append_links_session_to_card_context() {
+        let _guard = CWD_LOCK.lock().unwrap();
         let root = tmp_project();
         let mut ctx = BoardContext::new();
         let entry = ctx.card_mut("card-crud");
