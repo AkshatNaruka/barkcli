@@ -1,0 +1,1601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>barkcli — Tasks in your repo</title>
+    <meta name="description" content="Git-native task management. CLI, terminal UI, web app, and VS Code extension. No cloud required.">
+    <meta name="keywords" content="kanban, git, task management, CLI, terminal, developer tools, rust">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="barkcli — Tasks in your repo">
+    <meta property="og:description" content="Git-native task management. CLI, terminal UI, web app, and VS Code extension.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://barkcli.github.io/barkcli/">
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="barkcli — Tasks in your repo">
+    <meta name="twitter:description" content="Git-native task management. No cloud required.">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <style>
+        /* ===== CSS Reset & Variables ===== */
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            /* Colors */
+            --bg-primary: #000000;
+            --bg-surface: #0A0A0A;
+            --bg-elevated: #111111;
+            --border: #222222;
+            --border-subtle: #1A1A1A;
+            
+            --text-primary: #EDEDED;
+            --text-body: #A1A1A1;
+            --text-muted: #666666;
+            
+            --accent: #8B5E3C;
+            --accent-hover: #B8845C;
+            --accent-dark: #6B4226;
+            
+            --green: #059669;
+            --red: #DC2626;
+            
+            /* Typography */
+            --font-display: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+            
+            /* Spacing */
+            --section-padding: 96px;
+            --container-max: 1200px;
+            --content-max: 800px;
+            
+            /* Border Radius */
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+            --radius-xl: 16px;
+        }
+        
+        /* ===== Base Styles ===== */
+        html {
+            scroll-behavior: smooth;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        body {
+            font-family: var(--font-body);
+            background: var(--bg-primary);
+            color: var(--text-body);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+        
+        a {
+            color: var(--accent-hover);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        
+        a:hover {
+            color: var(--accent);
+        }
+        
+        code {
+            font-family: var(--font-mono);
+            font-size: 0.9em;
+            background: var(--bg-elevated);
+            padding: 0.2em 0.4em;
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+        }
+        
+        /* ===== Layout ===== */
+        .container {
+            max-width: var(--container-max);
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+        
+        .content {
+            max-width: var(--content-max);
+            margin: 0 auto;
+        }
+        
+        section {
+            padding: var(--section-padding) 0;
+        }
+        
+        /* ===== Navbar ===== */
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 64px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-subtle);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+        }
+        
+        .navbar .container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+        }
+        
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+            font-size: 18px;
+            color: var(--text-primary);
+        }
+        
+        .navbar-brand svg {
+            width: 28px;
+            height: 28px;
+        }
+        
+        .navbar-links {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+        }
+        
+        .navbar-links a {
+            color: var(--text-muted);
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        
+        .navbar-links a:hover {
+            color: var(--text-primary);
+        }
+        
+        .navbar-cta {
+            background: var(--accent);
+            color: white !important;
+            padding: 8px 16px;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        
+        .navbar-cta:hover {
+            background: var(--accent-hover);
+        }
+        
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            font-size: 24px;
+            cursor: pointer;
+            padding: 8px;
+        }
+        
+        /* ===== Hero ===== */
+        .hero {
+            padding-top: 160px;
+            padding-bottom: 80px;
+            text-align: center;
+        }
+        
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            padding: 6px 16px;
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 32px;
+        }
+        
+        .hero-badge span {
+            color: var(--accent);
+        }
+        
+        .hero h1 {
+            font-family: var(--font-display);
+            font-size: clamp(48px, 8vw, 80px);
+            font-weight: 800;
+            line-height: 1.1;
+            color: var(--text-primary);
+            margin-bottom: 24px;
+            letter-spacing: -0.03em;
+        }
+        
+        .hero p {
+            font-size: clamp(16px, 2vw, 20px);
+            color: var(--text-body);
+            max-width: 600px;
+            margin: 0 auto 40px;
+            line-height: 1.6;
+        }
+        
+        .install-box {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 16px 24px;
+            max-width: 500px;
+            margin: 0 auto 24px;
+        }
+        
+        .install-box code {
+            flex: 1;
+            text-align: left;
+            font-size: 14px;
+            background: transparent;
+            padding: 0;
+            color: var(--green);
+        }
+        
+        .copy-btn {
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-muted);
+            padding: 6px 12px;
+            font-size: 12px;
+            font-family: var(--font-mono);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .copy-btn:hover {
+            border-color: var(--text-muted);
+            color: var(--text-primary);
+        }
+        
+        .copy-btn.copied {
+            border-color: var(--green);
+            color: var(--green);
+        }
+        
+        .hero-platforms {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        
+        .hero-platforms span {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .hero-platforms .dot {
+            width: 4px;
+            height: 4px;
+            background: var(--border);
+            border-radius: 50%;
+        }
+        
+        /* ===== Terminal Demo ===== */
+        .terminal-section {
+            padding: 40px 0 96px;
+        }
+        
+        .terminal {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            overflow: hidden;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        
+        .terminal-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        
+        .terminal-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--border);
+        }
+        
+        .terminal-dot:nth-child(1) { background: #FF5F56; }
+        .terminal-dot:nth-child(2) { background: #FFBD2E; }
+        .terminal-dot:nth-child(3) { background: #27C93F; }
+        
+        .terminal-title {
+            flex: 1;
+            text-align: center;
+            font-size: 13px;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+        }
+        
+        .terminal-body {
+            padding: 24px;
+            font-family: var(--font-mono);
+            font-size: 14px;
+            line-height: 1.8;
+            min-height: 280px;
+        }
+        
+        .terminal-line {
+            opacity: 0;
+            transform: translateY(4px);
+            transition: opacity 0.3s, transform 0.3s;
+        }
+        
+        .terminal-line.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .terminal-prompt {
+            color: var(--accent);
+        }
+        
+        .terminal-command {
+            color: var(--text-primary);
+        }
+        
+        .terminal-output {
+            color: var(--text-muted);
+        }
+        
+        .terminal-success {
+            color: var(--green);
+        }
+        
+        .terminal-cursor {
+            display: inline-block;
+            width: 8px;
+            height: 16px;
+            background: var(--green);
+            animation: blink 1.4s step-end infinite;
+            vertical-align: middle;
+            margin-left: 2px;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        
+        /* ===== Features Grid ===== */
+        .features-section {
+            background: var(--bg-surface);
+            border-top: 1px solid var(--border-subtle);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        
+        .section-header {
+            text-align: center;
+            margin-bottom: 64px;
+        }
+        
+        .section-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 16px;
+        }
+        
+        .section-title {
+            font-family: var(--font-display);
+            font-size: clamp(32px, 5vw, 48px);
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.2;
+            letter-spacing: -0.02em;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 24px;
+        }
+        
+        .feature-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 32px;
+            transition: border-color 0.2s;
+        }
+        
+        .feature-card:hover {
+            border-color: var(--accent-dark);
+        }
+        
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        
+        .feature-card h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+        }
+        
+        .feature-card p {
+            font-size: 15px;
+            color: var(--text-body);
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+        
+        .feature-code {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            color: var(--text-muted);
+            background: var(--bg-elevated);
+            padding: 12px 16px;
+            border-radius: var(--radius-sm);
+            overflow-x: auto;
+        }
+        
+        /* ===== How It Works ===== */
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 32px;
+            margin-top: 64px;
+        }
+        
+        .step {
+            text-align: center;
+            padding: 32px;
+        }
+        
+        .step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 48px;
+            height: 48px;
+            background: var(--accent);
+            color: white;
+            font-weight: 700;
+            font-size: 20px;
+            border-radius: 50%;
+            margin-bottom: 24px;
+        }
+        
+        .step h3 {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+        }
+        
+        .step p {
+            font-size: 15px;
+            color: var(--text-body);
+            line-height: 1.6;
+        }
+        
+        .step code {
+            display: block;
+            margin-top: 16px;
+            text-align: left;
+            font-size: 13px;
+            padding: 12px 16px;
+        }
+        
+        /* ===== Interfaces ===== */
+        .interfaces-section {
+            background: var(--bg-surface);
+            border-top: 1px solid var(--border-subtle);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        
+        .interfaces-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 48px;
+            flex-wrap: wrap;
+        }
+        
+        .interface-tab {
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: var(--font-body);
+        }
+        
+        .interface-tab:hover {
+            border-color: var(--text-muted);
+            color: var(--text-primary);
+        }
+        
+        .interface-tab.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+        
+        .interface-content {
+            display: none;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 48px;
+            text-align: center;
+        }
+        
+        .interface-content.active {
+            display: block;
+        }
+        
+        .interface-content h3 {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+        
+        .interface-content p {
+            font-size: 16px;
+            color: var(--text-body);
+            max-width: 500px;
+            margin: 0 auto 24px;
+            line-height: 1.6;
+        }
+        
+        .interface-demo {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 24px;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            text-align: left;
+            max-width: 600px;
+            margin: 0 auto;
+            overflow-x: auto;
+        }
+        
+        /* ===== Code Context ===== */
+        .code-context-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 24px;
+            margin-top: 48px;
+        }
+        
+        .context-card {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+        }
+        
+        .context-card h4 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .context-card p {
+            font-size: 14px;
+            color: var(--text-body);
+            line-height: 1.6;
+        }
+        
+        .context-card .metric {
+            font-family: var(--font-mono);
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+        
+        /* ===== Management Layer ===== */
+        .management-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-top: 48px;
+        }
+        
+        .management-card {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 32px;
+        }
+        
+        .management-card h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+        }
+        
+        .management-card p {
+            font-size: 15px;
+            color: var(--text-body);
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+        
+        .role-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .role-tag {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            padding: 4px 12px;
+            font-size: 12px;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+        }
+        
+        /* ===== Installation ===== */
+        .install-methods {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            margin-top: 48px;
+        }
+        
+        .install-method {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+        }
+        
+        .install-method h4 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+        }
+        
+        .install-method code {
+            display: block;
+            font-size: 13px;
+            padding: 12px 16px;
+            margin-top: 12px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        
+        /* ===== FAQ ===== */
+        .faq-list {
+            max-width: var(--content-max);
+            margin: 48px auto 0;
+        }
+        
+        .faq-item {
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .faq-question {
+            width: 100%;
+            background: none;
+            border: none;
+            padding: 24px 0;
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-primary);
+            text-align: left;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: var(--font-body);
+        }
+        
+        .faq-question:hover {
+            color: var(--accent-hover);
+        }
+        
+        .faq-icon {
+            font-size: 20px;
+            color: var(--text-muted);
+            transition: transform 0.2s;
+        }
+        
+        .faq-item.open .faq-icon {
+            transform: rotate(45deg);
+        }
+        
+        .faq-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        
+        .faq-item.open .faq-answer {
+            max-height: 200px;
+        }
+        
+        .faq-answer p {
+            padding-bottom: 24px;
+            font-size: 15px;
+            color: var(--text-body);
+            line-height: 1.6;
+        }
+        
+        /* ===== CTA ===== */
+        .cta-section {
+            text-align: center;
+            padding: 120px 0;
+        }
+        
+        .cta-section h2 {
+            font-family: var(--font-display);
+            font-size: clamp(32px, 5vw, 48px);
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 24px;
+            letter-spacing: -0.02em;
+        }
+        
+        .cta-section p {
+            font-size: 18px;
+            color: var(--text-body);
+            margin-bottom: 40px;
+        }
+        
+        .cta-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 28px;
+            border-radius: var(--radius-md);
+            font-size: 15px;
+            font-weight: 500;
+            font-family: var(--font-body);
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+        
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+        
+        .btn-secondary:hover {
+            border-color: var(--text-muted);
+            color: var(--text-primary);
+        }
+        
+        /* ===== Footer ===== */
+        .footer {
+            border-top: 1px solid var(--border-subtle);
+            padding: 40px 0;
+        }
+        
+        .footer .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 24px;
+        }
+        
+        .footer-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .footer-left svg {
+            width: 24px;
+            height: 24px;
+        }
+        
+        .footer-left span {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+        
+        .footer-links {
+            display: flex;
+            gap: 24px;
+        }
+        
+        .footer-links a {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+        
+        .footer-links a:hover {
+            color: var(--text-primary);
+        }
+        
+        /* ===== Mobile Responsive ===== */
+        @media (max-width: 768px) {
+            .navbar-links {
+                display: none;
+                position: absolute;
+                top: 64px;
+                left: 0;
+                right: 0;
+                background: var(--bg-primary);
+                border-bottom: 1px solid var(--border);
+                flex-direction: column;
+                padding: 24px;
+                gap: 16px;
+            }
+            
+            .navbar-links.open {
+                display: flex;
+            }
+            
+            .mobile-menu-btn {
+                display: block;
+            }
+            
+            .hero {
+                padding-top: 120px;
+            }
+            
+            .hero h1 {
+                font-size: 40px;
+            }
+            
+            .install-box {
+                flex-direction: column;
+                gap: 12px;
+            }
+            
+            .hero-platforms {
+                flex-wrap: wrap;
+                gap: 12px;
+            }
+            
+            .terminal-body {
+                font-size: 12px;
+                padding: 16px;
+            }
+            
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .interface-content {
+                padding: 24px;
+            }
+            
+            .footer .container {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+        
+        /* ===== Scroll Animations ===== */
+        .fade-in {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+        
+        .fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="#" class="navbar-brand">
+                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="16" cy="16" r="14" fill="#8B5E3C"/>
+                    <ellipse cx="8" cy="8" rx="4" ry="6" fill="#6B4226" transform="rotate(-15 8 8)"/>
+                    <ellipse cx="24" cy="8" rx="4" ry="6" fill="#6B4226" transform="rotate(15 24 8)"/>
+                    <circle cx="16" cy="17" r="9" fill="#B8845C"/>
+                    <circle cx="12" cy="14" r="2" fill="#1A1816"/>
+                    <circle cx="12.5" cy="13.5" r="0.7" fill="#FFF"/>
+                    <circle cx="20" cy="14" r="2" fill="#1A1816"/>
+                    <circle cx="20.5" cy="13.5" r="0.7" fill="#FFF"/>
+                    <ellipse cx="16" cy="19" rx="2.5" ry="2" fill="#1A1816"/>
+                    <ellipse cx="16" cy="18.5" rx="1" ry="0.5" fill="#333"/>
+                    <path d="M14 21 Q16 23 18 21" stroke="#1A1816" stroke-width="1" fill="none" stroke-linecap="round"/>
+                </svg>
+                barkcli
+            </a>
+            <div class="navbar-links" id="navLinks">
+                <a href="#features">Features</a>
+                <a href="#interfaces">Interfaces</a>
+                <a href="#docs">Docs</a>
+                <a href="https://github.com/akshatnaruka/barkcli" target="_blank">GitHub</a>
+                <a href="#install" class="navbar-cta">Install</a>
+            </div>
+            <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle menu">☰</button>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-badge">
+                <span>v0.2.0</span> · MIT License · Open Source
+            </div>
+            <h1>Tasks in your repo.</h1>
+            <p>Git-native kanban board. CLI, terminal UI, web app, and VS Code extension. No cloud required.</p>
+            <div class="install-box">
+                <code>curl -fsSL https://barkcli.vercel.app/install.sh | sh</code>
+                <button class="copy-btn" id="copyInstall">Copy</button>
+            </div>
+            <div class="hero-platforms">
+                <span>macOS</span>
+                <span class="dot"></span>
+                <span>Linux</span>
+                <span class="dot"></span>
+                <span>Windows</span>
+                <span class="dot"></span>
+                <span>MIT</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Terminal Demo -->
+    <section class="terminal-section">
+        <div class="container">
+            <div class="terminal">
+                <div class="terminal-header">
+                    <div class="terminal-dot"></div>
+                    <div class="terminal-dot"></div>
+                    <div class="terminal-dot"></div>
+                    <div class="terminal-title">~/my-project</div>
+                </div>
+                <div class="terminal-body" id="terminalBody">
+                    <div class="terminal-line" data-delay="0">
+                        <span class="terminal-prompt">$</span>
+                        <span class="terminal-command"> barkcli init</span>
+                    </div>
+                    <div class="terminal-line" data-delay="500">
+                        <span class="terminal-output">Created .board/ directory</span>
+                    </div>
+                    <div class="terminal-line" data-delay="1000">
+                        <span class="terminal-prompt">$</span>
+                        <span class="terminal-command"> barkcli add "Implement JWT auth" -p high -l backend</span>
+                    </div>
+                    <div class="terminal-line" data-delay="1500">
+                        <span class="terminal-success">✓</span>
+                        <span class="terminal-output"> Added card implement-jwt-auth</span>
+                    </div>
+                    <div class="terminal-line" data-delay="2000">
+                        <span class="terminal-prompt">$</span>
+                        <span class="terminal-command"> barkcli add "Write tests" -p medium -l testing</span>
+                    </div>
+                    <div class="terminal-line" data-delay="2500">
+                        <span class="terminal-success">✓</span>
+                        <span class="terminal-output"> Added card write-tests</span>
+                    </div>
+                    <div class="terminal-line" data-delay="3000">
+                        <span class="terminal-prompt">$</span>
+                        <span class="terminal-command"> barkcli list</span>
+                    </div>
+                    <div class="terminal-line" data-delay="3500">
+                        <span class="terminal-output">  ID                  PRIO   TITLE</span>
+                    </div>
+                    <div class="terminal-line" data-delay="3800">
+                        <span class="terminal-output">  implement-jwt-auth  HI     Implement JWT auth</span>
+                    </div>
+                    <div class="terminal-line" data-delay="4100">
+                        <span class="terminal-output">  write-tests         MD     Write tests</span>
+                    </div>
+                    <div class="terminal-line" data-delay="4500">
+                        <span class="terminal-prompt">$</span>
+                        <span class="terminal-command"> barkcli move implement-jwt-auth doing</span>
+                    </div>
+                    <div class="terminal-line" data-delay="5000">
+                        <span class="terminal-success">✓</span>
+                        <span class="terminal-output"> Moved to doing</span>
+                    </div>
+                    <div class="terminal-line" data-delay="5500">
+                        <span class="terminal-prompt">$</span>
+                        <span class="terminal-command"> barkcli tui</span>
+                    </div>
+                    <div class="terminal-line" data-delay="6000">
+                        <span class="terminal-output">  ┌─────────────────────────────────────┐</span>
+                    </div>
+                    <div class="terminal-line" data-delay="6200">
+                        <span class="terminal-output">  │ Todo          Doing         Done    │</span>
+                    </div>
+                    <div class="terminal-line" data-delay="6400">
+                        <span class="terminal-output">  │ ● Write tests ● JWT auth    ✓ Fix #1│</span>
+                    </div>
+                    <div class="terminal-line" data-delay="6600">
+                        <span class="terminal-output">  └─────────────────────────────────────┘</span>
+                    </div>
+                    <div class="terminal-line" data-delay="7000">
+                        <span class="terminal-prompt">$</span>
+                        <span class="terminal-cursor"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features -->
+    <section class="features-section" id="features">
+        <div class="container">
+            <div class="section-header fade-in">
+                <div class="section-label">Features</div>
+                <h2 class="section-title">Everything you need.<br>Nothing you don't.</h2>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card fade-in">
+                    <div class="feature-icon">📁</div>
+                    <h3>Git-Native</h3>
+                    <p>Tasks are YAML files in your repo. Diff them, merge them, grep them. Version control for your project management.</p>
+                    <div class="feature-code">$ git diff main..feature -- *.board</div>
+                </div>
+                <div class="feature-card fade-in">
+                    <div class="feature-icon">☁️</div>
+                    <h3>No Cloud</h3>
+                    <p>Works offline. No accounts, no subscriptions, no vendor lock-in. Your data stays in your repo.</p>
+                    <div class="feature-code">$ barkcli list  # Works without internet</div>
+                </div>
+                <div class="feature-card fade-in">
+                    <div class="feature-icon">🖥️</div>
+                    <h3>Multi-Interface</h3>
+                    <p>CLI, terminal UI, web app, and VS Code extension. Same data, same commands, your choice of interface.</p>
+                    <div class="feature-code">$ barkcli tui    # Terminal UI
+$ barkcli serve  # Web app</div>
+                </div>
+                <div class="feature-card fade-in">
+                    <div class="feature-icon">🔍</div>
+                    <h3>Code Context</h3>
+                    <p>Automatic code analysis with call graphs, test coverage mapping, and complexity metrics.</p>
+                    <div class="feature-code">$ barkcli context scan</div>
+                </div>
+                <div class="feature-card fade-in">
+                    <div class="feature-icon">🤖</div>
+                    <h3>AI-Ready</h3>
+                    <p>MCP server for coding agent integration. Orchestrate task decomposition and agent coordination.</p>
+                    <div class="feature-code">$ barkcli mcp  # Start MCP server</div>
+                </div>
+                <div class="feature-card fade-in">
+                    <div class="feature-icon">📖</div>
+                    <h3>Open Source</h3>
+                    <p>MIT licensed. Built in Rust. Fast, reliable, and transparent. Contribute or self-host.</p>
+                    <div class="feature-code">$ cargo install barkcli</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section id="docs">
+        <div class="container">
+            <div class="section-header fade-in">
+                <div class="section-label">How It Works</div>
+                <h2 class="section-title">Three commands to start.</h2>
+            </div>
+            <div class="steps">
+                <div class="step fade-in">
+                    <div class="step-number">1</div>
+                    <h3>Initialize</h3>
+                    <p>Add barkcli to any project. Creates a .board directory with your configuration.</p>
+                    <code>$ barkcli init</code>
+                </div>
+                <div class="step fade-in">
+                    <div class="step-number">2</div>
+                    <h3>Add Tasks</h3>
+                    <p>Create cards with priorities, labels, and acceptance criteria.</p>
+                    <code>$ barkcli add "Build login page" -p high -l frontend</code>
+                </div>
+                <div class="step fade-in">
+                    <div class="step-number">3</div>
+                    <h3>Work</h3>
+                    <p>Move cards across columns. Track progress. Commit changes with your code.</p>
+                    <code>$ barkcli move build-login-page doing</code>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Interfaces -->
+    <section class="interfaces-section" id="interfaces">
+        <div class="container">
+            <div class="section-header fade-in">
+                <div class="section-label">Interfaces</div>
+                <h2 class="section-title">Your workflow. Your way.</h2>
+            </div>
+            <div class="interfaces-tabs fade-in">
+                <button class="interface-tab active" data-tab="cli">CLI</button>
+                <button class="interface-tab" data-tab="tui">Terminal UI</button>
+                <button class="interface-tab" data-tab="web">Web App</button>
+                <button class="interface-tab" data-tab="vscode">VS Code</button>
+            </div>
+            <div class="interface-content active" id="cli">
+                <h3>Command Line</h3>
+                <p>Full-featured CLI for scripts, automation, and power users. Every action available from your terminal.</p>
+                <div class="interface-demo">
+<span class="terminal-prompt">$</span> barkcli add "Deploy to production" -p critical --due 2024-12-15
+<span class="terminal-success">✓</span> Added card deploy-to-production
+
+<span class="terminal-prompt">$</span> barkcli show deploy-to-production
+ID:       deploy-to-production
+Title:    Deploy to production
+Priority: critical
+Due:      2024-12-15
+Column:   todo
+
+<span class="terminal-prompt">$</span> barkcli status deploy-to-production done
+<span class="terminal-success">✓</span> Moved to done</div>
+            </div>
+            <div class="interface-content" id="tui">
+                <h3>Terminal UI</h3>
+                <p>Interactive kanban board right in your terminal. Navigate with vim keys, filter, sort, and manage tasks visually.</p>
+                <div class="interface-demo">
+┌─────────────────────────────────────────────────────────┐
+│ Todo              Doing               Done              │
+├─────────────────────────────────────────────────────────┤
+│ ● Fix login bug   ● Implement API    ✓ Setup CI/CD     │
+│ ● Write docs      ● Add auth         ✓ Init project    │
+│                   ● Refactor DB                        │
+└─────────────────────────────────────────────────────────┘
+<span class="terminal-output">  ↑↓/jk sel · ←→/hl col · a add · e edit · d delete</span></div>
+            </div>
+            <div class="interface-content" id="web">
+                <h3>Web App</h3>
+                <p>Beautiful kanban board in your browser. Drag-and-drop, calendar view, reports, and real-time updates via WebSocket.</p>
+                <div class="interface-demo">
+<span class="terminal-output">  Dashboard · Board · Calendar · Reports · Code</span>
+
+  ┌──────────┬──────────┬──────────┬──────────┐
+  │ Todo     │ Doing    │ Review   │ Done     │
+  │          │          │          │          │
+  │ ┌──────┐ │ ┌──────┐ │ ┌──────┐ │ ┌──────┐ │
+  │ │Auth  │ │ │API   │ │ │Tests │ │ │Setup │ │
+  │ │UI     │ │ │DB    │ │ │      │ │ │CI/CD │ │
+  │ └──────┘ │ └──────┘ │ └──────┘ │ └──────┘ │
+  └──────────┴──────────┴──────────┴──────────┘</div>
+            </div>
+            <div class="interface-content" id="vscode">
+                <h3>VS Code Extension</h3>
+                <p>Manage tasks without leaving your editor. Custom editor for .board files with inline editing.</p>
+                <div class="interface-demo">
+<span class="terminal-output">  VS Code — barkcli Project Kanban</span>
+
+  ┌─ Explorer ──────────────────────────────┐
+  │ 📁 src                                  │
+  │ 📁 tests                                │
+  │ 📋 main.board  ← barkcli custom editor  │
+  └─────────────────────────────────────────┘
+
+  <span class="terminal-output">Open .board files to see your kanban board</span>
+  <span class="terminal-output">Edit cards directly in VS Code</span></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Code Context -->
+    <section>
+        <div class="container">
+            <div class="section-header fade-in">
+                <div class="section-label">Code Intelligence</div>
+                <h2 class="section-title">Your codebase. Understood.</h2>
+            </div>
+            <div class="content fade-in">
+                <p style="text-align: center; font-size: 18px; color: var(--text-body); margin-bottom: 48px;">
+                    barkcli analyzes your code to provide rich context for every task. See how changes impact your codebase.
+                </p>
+            </div>
+            <div class="code-context-grid">
+                <div class="context-card fade-in">
+                    <h4>📊 Call Graphs</h4>
+                    <div class="metric">→</div>
+                    <p>Map function calls across files. Understand impact before you change.</p>
+                </div>
+                <div class="context-card fade-in">
+                    <h4>🧪 Test Coverage</h4>
+                    <div class="metric">87%</div>
+                    <p>See which tests cover which code. Identify gaps automatically.</p>
+                </div>
+                <div class="context-card fade-in">
+                    <h4>⚡ Complexity</h4>
+                    <div class="metric">C-12</div>
+                    <p>Cyclomatic and cognitive complexity scores. Find risky code early.</p>
+                </div>
+                <div class="context-card fade-in">
+                    <h4>📈 Risk Score</h4>
+                    <div class="metric">0.3</div>
+                    <p>Combined risk assessment. Prioritize refactoring where it matters.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Management Layer -->
+    <section class="features-section">
+        <div class="container">
+            <div class="section-header fade-in">
+                <div class="section-label">Management Layer</div>
+                <h2 class="section-title">Orchestrate coding agents.</h2>
+            </div>
+            <div class="content fade-in">
+                <p style="text-align: center; font-size: 18px; color: var(--text-body); margin-bottom: 48px;">
+                    barkcli acts as a management layer above coding agents. Decompose tasks, assign roles, and track progress.
+                </p>
+            </div>
+            <div class="management-grid">
+                <div class="management-card fade-in">
+                    <h3>MCP Integration</h3>
+                    <p>Connect coding agents via the Model Context Protocol. Standard JSON-RPC 2.0 over stdio.</p>
+                    <div class="role-tags">
+                        <span class="role-tag">opencode</span>
+                        <span class="role-tag">claude-code</span>
+                        <span class="role-tag">cursor</span>
+                    </div>
+                </div>
+                <div class="management-card fade-in">
+                    <h3>Agent Roles</h3>
+                    <p>Assign specialized roles for better task decomposition and execution.</p>
+                    <div class="role-tags">
+                        <span class="role-tag">tech-lead</span>
+                        <span class="role-tag">scrum-master</span>
+                        <span class="role-tag">product-owner</span>
+                        <span class="role-tag">project-manager</span>
+                    </div>
+                </div>
+                <div class="management-card fade-in">
+                    <h3>Task Lifecycle</h3>
+                    <p>Full task lifecycle management with automatic assignment and progress tracking.</p>
+                    <div class="role-tags">
+                        <span class="role-tag">pending</span>
+                        <span class="role-tag">assigned</span>
+                        <span class="role-tag">in_progress</span>
+                        <span class="role-tag">completed</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Installation -->
+    <section id="install">
+        <div class="container">
+            <div class="section-header fade-in">
+                <div class="section-label">Install</div>
+                <h2 class="section-title">Get started in 10 seconds.</h2>
+            </div>
+            <div class="install-methods">
+                <div class="install-method fade-in">
+                    <h4>macOS / Linux</h4>
+                    <code>curl -fsSL https://barkcli.vercel.app/install.sh | sh</code>
+                </div>
+                <div class="install-method fade-in">
+                    <h4>Homebrew</h4>
+                    <code>brew install barkcli</code>
+                </div>
+                <div class="install-method fade-in">
+                    <h4>Cargo (from source)</h4>
+                    <code>cargo install barkcli</code>
+                </div>
+                <div class="install-method fade-in">
+                    <h4>GitHub Releases</h4>
+                    <code>Download from github.com/akshatnaruka/barkcli/releases</code>
+                </div>
+                <div class="install-method fade-in">
+                    <h4>VS Code Extension</h4>
+                    <code>Search "barkcli" in VS Code Marketplace</code>
+                </div>
+                <div class="install-method fade-in">
+                    <h4>Windows</h4>
+                    <code>Download .exe from GitHub Releases</code>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section>
+        <div class="container">
+            <div class="section-header fade-in">
+                <div class="section-label">FAQ</div>
+                <h2 class="section-title">Common questions.</h2>
+            </div>
+            <div class="faq-list">
+                <div class="faq-item fade-in">
+                    <button class="faq-question">
+                        What makes barkcli different from Jira or Linear?
+                        <span class="faq-icon">+</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>barkcli is git-native. Tasks are YAML files in your repo, not in someone else's cloud. No accounts, no subscriptions, no vendor lock-in. Diff tasks like code, merge them with git, and keep everything version-controlled.</p>
+                    </div>
+                </div>
+                <div class="faq-item fade-in">
+                    <button class="faq-question">
+                        Does it work offline?
+                        <span class="faq-icon">+</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Yes. barkcli is a single binary with no network dependencies. All data is stored locally in your repo. Sync via git push/pull — no special sync service needed.</p>
+                    </div>
+                </div>
+                <div class="faq-item fade-in">
+                    <button class="faq-question">
+                        Can I use it with my team?
+                        <span class="faq-icon">+</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Absolutely. Commit the .board directory to your repo. Team members pull changes and see the same board. No server required — git handles the sync.</p>
+                    </div>
+                </div>
+                <div class="faq-item fade-in">
+                    <button class="faq-question">
+                        What about the AI features?
+                        <span class="faq-icon">+</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>barkcli includes an MCP server for coding agent integration. It can decompose tasks, analyze code complexity, and orchestrate multiple agents. The AI features are optional — the core tool works without them.</p>
+                    </div>
+                </div>
+                <div class="faq-item fade-in">
+                    <button class="faq-question">
+                        Is it free?
+                        <span class="faq-icon">+</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Yes. barkcli is MIT licensed and completely free. Some advanced features (AI integration, sprint planning) are available as Pro features, but the core tool is fully open source.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta-section">
+        <div class="container">
+            <h2 class="fade-in">Get started in 10 seconds.</h2>
+            <p class="fade-in">Install barkcli and add tasks to your repo today.</p>
+            <div class="cta-buttons fade-in">
+                <a href="#install" class="btn btn-primary">Install Now</a>
+                <a href="https://github.com/akshatnaruka/barkcli" target="_blank" class="btn btn-secondary">View on GitHub</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-left">
+                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="16" cy="16" r="14" fill="#8B5E3C"/>
+                    <ellipse cx="8" cy="8" rx="4" ry="6" fill="#6B4226" transform="rotate(-15 8 8)"/>
+                    <ellipse cx="24" cy="8" rx="4" ry="6" fill="#6B4226" transform="rotate(15 24 8)"/>
+                    <circle cx="16" cy="17" r="9" fill="#B8845C"/>
+                    <circle cx="12" cy="14" r="2" fill="#1A1816"/>
+                    <circle cx="12.5" cy="13.5" r="0.7" fill="#FFF"/>
+                    <circle cx="20" cy="14" r="2" fill="#1A1816"/>
+                    <circle cx="20.5" cy="13.5" r="0.7" fill="#FFF"/>
+                    <ellipse cx="16" cy="19" rx="2.5" ry="2" fill="#1A1816"/>
+                    <ellipse cx="16" cy="18.5" rx="1" ry="0.5" fill="#333"/>
+                    <path d="M14 21 Q16 23 18 21" stroke="#1A1816" stroke-width="1" fill="none" stroke-linecap="round"/>
+                </svg>
+                <span>© 2024 barkcli · MIT License</span>
+            </div>
+            <div class="footer-links">
+                <a href="https://github.com/akshatnaruka/barkcli" target="_blank">GitHub</a>
+                <a href="https://twitter.com/barkcli" target="_blank">Twitter</a>
+                <a href="https://marketplace.visualstudio.com/items?itemName=barkcli.barkcli" target="_blank">VS Code</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // ===== Mobile Menu Toggle =====
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const navLinks = document.getElementById('navLinks');
+        
+        mobileMenuBtn.addEventListener('click', () => {
+            navLinks.classList.toggle('open');
+        });
+        
+        // Close menu when clicking a link
+        navLinks.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => {
+                navLinks.classList.remove('open');
+            });
+        });
+
+        // ===== Copy Install Command =====
+        const copyBtn = document.getElementById('copyInstall');
+        const installCommand = 'curl -fsSL https://barkcli.vercel.app/install.sh | sh';
+        
+        copyBtn.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(installCommand);
+                copyBtn.textContent = 'Copied!';
+                copyBtn.classList.add('copied');
+                setTimeout(() => {
+                    copyBtn.textContent = 'Copy';
+                    copyBtn.classList.remove('copied');
+                }, 2000);
+            } catch (err) {
+                copyBtn.textContent = 'Failed';
+                setTimeout(() => {
+                    copyBtn.textContent = 'Copy';
+                }, 2000);
+            }
+        });
+
+        // ===== Terminal Animation =====
+        const terminalBody = document.getElementById('terminalBody');
+        const terminalLines = terminalBody.querySelectorAll('.terminal-line');
+        
+        function animateTerminal() {
+            terminalLines.forEach((line, index) => {
+                const delay = parseInt(line.dataset.delay) || index * 300;
+                setTimeout(() => {
+                    line.classList.add('visible');
+                }, delay);
+            });
+        }
+        
+        // Start animation when terminal is in view
+        const terminalObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    animateTerminal();
+                    terminalObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.3 });
+        
+        terminalObserver.observe(terminalBody);
+
+        // ===== Interface Tabs =====
+        const interfaceTabs = document.querySelectorAll('.interface-tab');
+        const interfaceContents = document.querySelectorAll('.interface-content');
+        
+        interfaceTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const target = tab.dataset.tab;
+                
+                // Update tabs
+                interfaceTabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                // Update content
+                interfaceContents.forEach(content => {
+                    content.classList.remove('active');
+                    if (content.id === target) {
+                        content.classList.add('active');
+                    }
+                });
+            });
+        });
+
+        // ===== FAQ Accordion =====
+        const faqItems = document.querySelectorAll('.faq-item');
+        
+        faqItems.forEach(item => {
+            const question = item.querySelector('.faq-question');
+            question.addEventListener('click', () => {
+                const isOpen = item.classList.contains('open');
+                
+                // Close all items
+                faqItems.forEach(i => i.classList.remove('open'));
+                
+                // Toggle current item
+                if (!isOpen) {
+                    item.classList.add('open');
+                }
+            });
+        });
+
+        // ===== Scroll Animations =====
+        const fadeElements = document.querySelectorAll('.fade-in');
+        
+        const fadeObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    fadeObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.1 });
+        
+        fadeElements.forEach(el => fadeObserver.observe(el));
+
+        // ===== Smooth Scroll for Anchor Links =====
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
