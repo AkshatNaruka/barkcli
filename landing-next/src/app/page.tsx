@@ -1,6 +1,30 @@
 "use client";
 
 import { useState } from "react";
+import {
+  FolderOpen,
+  CloudOff,
+  Monitor,
+  Search,
+  Bot,
+  BookOpen,
+  GitBranch,
+  TestTube,
+  Zap,
+  TrendingUp,
+  Terminal,
+  Globe,
+  Code,
+  ChevronDown,
+  ChevronRight,
+  Check,
+  Copy,
+  FileCode,
+  LayoutDashboard,
+  Calendar,
+  BarChart3,
+  Settings,
+} from "lucide-react";
 
 const INSTALL = "curl -fsSL https://barkcli.vercel.app/install.sh | sh";
 
@@ -9,37 +33,37 @@ const VIDEO_URL =
 
 const FEATURES = [
   {
-    icon: "📁",
+    icon: FolderOpen,
     title: "Git-Native",
     description: "Tasks are YAML files in your repo. Diff them, merge them, grep them. Version control for your project management.",
     code: "$ git diff main..feature -- *.board",
   },
   {
-    icon: "☁️",
+    icon: CloudOff,
     title: "No Cloud",
     description: "Works offline. No accounts, no subscriptions, no vendor lock-in. Your data stays in your repo.",
     code: "$ barkcli list  # Works without internet",
   },
   {
-    icon: "🖥️",
+    icon: Monitor,
     title: "Multi-Interface",
     description: "CLI, terminal UI, web app, and VS Code extension. Same data, same commands, your choice.",
     code: "$ barkcli tui    # Terminal UI\n$ barkcli serve  # Web app",
   },
   {
-    icon: "🔍",
+    icon: Search,
     title: "Code Context",
     description: "Automatic code analysis with call graphs, test coverage mapping, and complexity metrics.",
     code: "$ barkcli context scan",
   },
   {
-    icon: "🤖",
+    icon: Bot,
     title: "AI-Ready",
     description: "MCP server for coding agent integration. Orchestrate task decomposition and agent coordination.",
     code: "$ barkcli mcp  # Start MCP server",
   },
   {
-    icon: "📖",
+    icon: BookOpen,
     title: "Open Source",
     description: "MIT licensed. Built in Rust. Fast, reliable, and transparent. Contribute or self-host.",
     code: "$ cargo install barkcli",
@@ -130,6 +154,13 @@ Edit cards directly in VS Code`,
   },
 ];
 
+const CODE_FEATURES = [
+  { icon: GitBranch, title: "Call Graphs", metric: "→", desc: "Map function calls across files. Understand impact before you change." },
+  { icon: TestTube, title: "Test Coverage", metric: "87%", desc: "See which tests cover which code. Identify gaps automatically." },
+  { icon: Zap, title: "Complexity", metric: "C-12", desc: "Cyclomatic and cognitive complexity scores. Find risky code early." },
+  { icon: TrendingUp, title: "Risk Score", metric: "0.3", desc: "Combined risk assessment. Prioritize refactoring where it matters." },
+];
+
 const FAQ = [
   {
     question: "What makes barkcli different from Jira or Linear?",
@@ -160,9 +191,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen w-full bg-black text-white">
-      {/* Hero Section - Keeping original style */}
+      {/* Hero Section */}
       <section className="relative min-h-screen flex flex-col overflow-hidden">
-        {/* Background video */}
         <video
           autoPlay
           loop
@@ -172,7 +202,6 @@ export default function Home() {
         >
           <source src={VIDEO_URL} type="video/mp4" />
         </video>
-        {/* Readability overlay */}
         <div className="absolute inset-0 bg-black/35 pointer-events-none" />
 
         {/* Nav */}
@@ -249,9 +278,19 @@ export default function Home() {
                 setCopied(true);
                 setTimeout(() => setCopied(false), 1500);
               }}
-              className="ml-3 text-xs font-mono rounded-full border border-white/40 px-3 py-1.5 text-white/90 hover:bg-white/10 transition-colors cursor-pointer"
+              className="ml-3 text-xs font-mono rounded-full border border-white/40 px-3 py-1.5 text-white/90 hover:bg-white/10 transition-colors cursor-pointer flex items-center gap-1.5"
             >
-              {copied ? "Copied" : "Copy"}
+              {copied ? (
+                <>
+                  <Check className="w-3 h-3" />
+                  Copied
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3 h-3" />
+                  Copy
+                </>
+              )}
             </button>
           </div>
           <p className="text-white/60 text-[11px] font-mono mt-4 tracking-wider">
@@ -259,7 +298,7 @@ export default function Home() {
           </p>
         </main>
 
-        {/* Footer - Updated */}
+        {/* Footer */}
         <footer className="relative z-10 flex items-center justify-center gap-4 h-12 shrink-0 text-[11px] text-white/70 font-mono">
           <span>barkcli</span>
           <span className="opacity-40">·</span>
@@ -290,21 +329,26 @@ export default function Home() {
             </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {FEATURES.map((feature, i) => (
-              <div
-                key={i}
-                className="border border-white/10 rounded-xl p-6 hover:border-white/20 transition-colors"
-              >
-                <div className="text-3xl mb-4">{feature.icon}</div>
-                <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
-                <p className="text-white/60 text-sm leading-relaxed mb-4">
-                  {feature.description}
-                </p>
-                <code className="text-[#059669] text-xs font-mono block bg-white/5 rounded-lg px-3 py-2">
-                  {feature.code}
-                </code>
-              </div>
-            ))}
+            {FEATURES.map((feature, i) => {
+              const Icon = feature.icon;
+              return (
+                <div
+                  key={i}
+                  className="border border-white/10 rounded-xl p-6 hover:border-white/20 transition-colors"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-[#B8845C]/10 flex items-center justify-center mb-4">
+                    <Icon className="w-5 h-5 text-[#B8845C]" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
+                  <p className="text-white/60 text-sm leading-relaxed mb-4">
+                    {feature.description}
+                  </p>
+                  <code className="text-[#059669] text-xs font-mono block bg-white/5 rounded-lg px-3 py-2">
+                    {feature.code}
+                  </code>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -351,19 +395,23 @@ export default function Home() {
             </h2>
           </div>
           <div className="flex justify-center gap-2 mb-8 flex-wrap">
-            {INTERFACES.map((iface) => (
-              <button
-                key={iface.id}
-                onClick={() => setActiveTab(iface.id)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                  activeTab === iface.id
-                    ? "bg-[#B8845C] text-white"
-                    : "border border-white/20 text-white/60 hover:text-white hover:border-white/40"
-                }`}
-              >
-                {iface.title}
-              </button>
-            ))}
+            {INTERFACES.map((iface) => {
+              const Icon = iface.id === "cli" ? Terminal : iface.id === "tui" ? Monitor : iface.id === "web" ? Globe : Code;
+              return (
+                <button
+                  key={iface.id}
+                  onClick={() => setActiveTab(iface.id)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer flex items-center gap-2 ${
+                    activeTab === iface.id
+                      ? "bg-[#B8845C] text-white"
+                      : "border border-white/20 text-white/60 hover:text-white hover:border-white/40"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {iface.title}
+                </button>
+              );
+            })}
           </div>
           <div className="border border-white/10 rounded-xl p-8 md:p-12 bg-white/[0.02]">
             {INTERFACES.map((iface) => (
@@ -401,25 +449,26 @@ export default function Home() {
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              { icon: "📊", title: "Call Graphs", metric: "→", desc: "Map function calls across files. Understand impact before you change." },
-              { icon: "🧪", title: "Test Coverage", metric: "87%", desc: "See which tests cover which code. Identify gaps automatically." },
-              { icon: "⚡", title: "Complexity", metric: "C-12", desc: "Cyclomatic and cognitive complexity scores. Find risky code early." },
-              { icon: "📈", title: "Risk Score", metric: "0.3", desc: "Combined risk assessment. Prioritize refactoring where it matters." },
-            ].map((item, i) => (
-              <div
-                key={i}
-                className="bg-white/[0.02] border border-white/10 rounded-xl p-6"
-              >
-                <h4 className="text-base font-semibold mb-2">{item.icon} {item.title}</h4>
-                <div className="text-3xl font-bold text-[#B8845C] mb-3 font-mono">
-                  {item.metric}
+            {CODE_FEATURES.map((item, i) => {
+              const Icon = item.icon;
+              return (
+                <div
+                  key={i}
+                  className="bg-white/[0.02] border border-white/10 rounded-xl p-6"
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <Icon className="w-4 h-4 text-[#B8845C]" />
+                    <h4 className="text-base font-semibold">{item.title}</h4>
+                  </div>
+                  <div className="text-3xl font-bold text-[#B8845C] mb-3 font-mono">
+                    {item.metric}
+                  </div>
+                  <p className="text-white/60 text-sm leading-relaxed">
+                    {item.desc}
+                  </p>
                 </div>
-                <p className="text-white/60 text-sm leading-relaxed">
-                  {item.desc}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
@@ -440,6 +489,9 @@ export default function Home() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="border border-white/10 rounded-xl p-6">
+              <div className="w-10 h-10 rounded-lg bg-[#B8845C]/10 flex items-center justify-center mb-4">
+                <Bot className="w-5 h-5 text-[#B8845C]" />
+              </div>
               <h3 className="text-lg font-semibold mb-3">MCP Integration</h3>
               <p className="text-white/60 text-sm leading-relaxed mb-4">
                 Connect coding agents via the Model Context Protocol. Standard JSON-RPC 2.0 over stdio.
@@ -453,6 +505,9 @@ export default function Home() {
               </div>
             </div>
             <div className="border border-white/10 rounded-xl p-6">
+              <div className="w-10 h-10 rounded-lg bg-[#B8845C]/10 flex items-center justify-center mb-4">
+                <Settings className="w-5 h-5 text-[#B8845C]" />
+              </div>
               <h3 className="text-lg font-semibold mb-3">Agent Roles</h3>
               <p className="text-white/60 text-sm leading-relaxed mb-4">
                 Assign specialized roles for better task decomposition and execution.
@@ -466,6 +521,9 @@ export default function Home() {
               </div>
             </div>
             <div className="border border-white/10 rounded-xl p-6">
+              <div className="w-10 h-10 rounded-lg bg-[#B8845C]/10 flex items-center justify-center mb-4">
+                <BarChart3 className="w-5 h-5 text-[#B8845C]" />
+              </div>
               <h3 className="text-lg font-semibold mb-3">Task Lifecycle</h3>
               <p className="text-white/60 text-sm leading-relaxed mb-4">
                 Full task lifecycle management with automatic assignment and progress tracking.
@@ -534,9 +592,11 @@ export default function Home() {
                   <span className="text-white font-medium group-hover:text-[#B8845C] transition-colors">
                     {item.question}
                   </span>
-                  <span className={`text-white/40 text-xl transition-transform ${openFaq === i ? "rotate-45" : ""}`}>
-                    +
-                  </span>
+                  <ChevronDown
+                    className={`w-5 h-5 text-white/40 transition-transform ${
+                      openFaq === i ? "rotate-180" : ""
+                    }`}
+                  />
                 </button>
                 <div
                   className={`overflow-hidden transition-all duration-300 ${

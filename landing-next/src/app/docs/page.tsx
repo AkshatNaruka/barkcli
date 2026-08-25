@@ -1,44 +1,46 @@
-import Link from "next/link";
-import type { Metadata } from "next";
-import { generatePageMetadata, softwareApplicationJsonLd, faqJsonLd } from "@/lib/seo";
+"use client";
 
-export const metadata: Metadata = generatePageMetadata({
-  title: "Documentation — barkcli",
-  description:
-    "Complete documentation for barkcli. Learn commands, interfaces, code context, and advanced features.",
-  path: "/docs",
-});
+import Link from "next/link";
+import {
+  Rocket,
+  Terminal,
+  Monitor,
+  Search,
+  Zap,
+  ChevronRight,
+  HelpCircle,
+} from "lucide-react";
 
 const sections = [
   {
     title: "Getting Started",
     description: "Install barkcli and create your first task in 10 seconds.",
     href: "/docs/getting-started",
-    icon: "🚀",
+    icon: Rocket,
   },
   {
     title: "Commands",
     description: "Complete reference for all barkcli commands with examples.",
     href: "/docs/commands",
-    icon: "⌨️",
+    icon: Terminal,
   },
   {
     title: "Interfaces",
     description: "CLI, Terminal UI, Web App, and VS Code extension guides.",
     href: "/docs/interfaces",
-    icon: "🖥️",
+    icon: Monitor,
   },
   {
     title: "Code Context",
     description: "Link code to tasks with automatic analysis and AI features.",
     href: "/docs/code-context",
-    icon: "🔍",
+    icon: Search,
   },
   {
     title: "Advanced",
     description: "Sessions, checkpoints, sprints, and Pro features.",
     href: "/docs/advanced",
-    icon: "⚡",
+    icon: Zap,
   },
 ];
 
@@ -70,11 +72,20 @@ export default function DocsPage() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={softwareApplicationJsonLd()}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={faqJsonLd(faqs)}
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            mainEntity: faqs.map((faq) => ({
+              "@type": "Question",
+              name: faq.question,
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: faq.answer,
+              },
+            })),
+          }),
+        }}
       />
 
       <h1 className="mb-4 text-4xl font-bold tracking-tight">Documentation</h1>
@@ -83,19 +94,25 @@ export default function DocsPage() {
       </p>
 
       <div className="mb-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {sections.map((section) => (
-          <Link
-            key={section.href}
-            href={section.href}
-            className="group rounded-xl border border-white/10 bg-white/5 p-6 transition-colors hover:border-white/20 hover:bg-white/10"
-          >
-            <div className="mb-3 text-2xl">{section.icon}</div>
-            <h2 className="mb-2 text-lg font-semibold text-white group-hover:text-white/90">
-              {section.title}
-            </h2>
-            <p className="text-sm text-white/50">{section.description}</p>
-          </Link>
-        ))}
+        {sections.map((section) => {
+          const Icon = section.icon;
+          return (
+            <Link
+              key={section.href}
+              href={section.href}
+              className="group rounded-xl border border-white/10 bg-white/5 p-6 transition-colors hover:border-white/20 hover:bg-white/10"
+            >
+              <div className="w-10 h-10 rounded-lg bg-[#B8845C]/10 flex items-center justify-center mb-4">
+                <Icon className="w-5 h-5 text-[#B8845C]" />
+              </div>
+              <h2 className="mb-2 text-lg font-semibold text-white group-hover:text-white/90 flex items-center gap-2">
+                {section.title}
+                <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </h2>
+              <p className="text-sm text-white/50">{section.description}</p>
+            </Link>
+          );
+        })}
       </div>
 
       <h2 className="mb-6 text-2xl font-bold">Frequently Asked Questions</h2>
@@ -105,7 +122,10 @@ export default function DocsPage() {
             key={faq.question}
             className="rounded-xl border border-white/10 bg-white/5 p-6"
           >
-            <h3 className="mb-2 text-lg font-semibold">{faq.question}</h3>
+            <h3 className="mb-2 text-lg font-semibold flex items-center gap-2">
+              <HelpCircle className="w-5 h-5 text-[#B8845C]" />
+              {faq.question}
+            </h3>
             <p className="text-white/60">{faq.answer}</p>
           </div>
         ))}
