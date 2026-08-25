@@ -7,6 +7,7 @@ mod stats;
 mod templates;
 mod sprint;
 mod sync;
+mod listener;
 
 const VERSION: &str = "0.2.0";
 const GIT_HASH: &str = env!("GIT_HASH");
@@ -210,6 +211,30 @@ fn main() {
                 #[cfg(feature = "serve")] run_serve(&rest[1..]);
                 return;
             }
+            "mcp" => {
+                if let Err(e) = barkcli_core::mcp::run_mcp_server() {
+                    eprintln!("error: {}", e);
+                    std::process::exit(1);
+                }
+                return;
+            }
+            "listener" => {
+                let matches = listener::command().get_matches_from(
+                    std::iter::once("listener".to_string()).chain(rest[1..].iter().cloned()),
+                );
+                if let Err(e) = listener::run(&matches) {
+                    eprintln!("error: {}", e);
+                    std::process::exit(1);
+                }
+                return;
+            }
+            "orchestrate" => {
+                if let Err(e) = run_orchestrate_cmd(&rest[1..]) {
+                    eprintln!("error: {}", e);
+                    std::process::exit(1);
+                }
+                return;
+            }
             "open" => {
                 let board_name = rest.get(1).map(|s| s.as_str());
                 if atty::is(atty::Stream::Stdout) {
@@ -231,6 +256,84 @@ struct AiArgs { dry_run: bool, model: String }
 
 fn run_agent_cmd(args: &[String]) -> anyhow::Result<()> {
     barkcli_core::cli::run_dispatch("agent", args)
+}
+
+fn run_orchestrate_cmd(args: &[String]) -> anyhow::Result<()> {
+    match args.first().map(|s| s.as_str()) {
+        Some("start") => {
+            let board_name = args.get(1).map(|s| s.as_str()).unwrap_or("default");
+            let role_str = args.get(2).cloned().unwrap_or_else(|| "scrum-master".to_string());
+            let role = barkcli_core::agent::AgentRole::from_str(&role_str)
+                .ok_or_else(|| anyhow::anyhow!("Invalid role: {}", role_str))?;
+            
+            let board = barkcli_core::storage::board_file::read_board(board_name)?;
+            let mut engine = barkcli_core::agent::OrchestrationEngine::new(board_name, role.clone(), board)?;
+            
+            println!("Starting orchestration for board '{}' with role '{}'", board_name, role);
+            println!("Press Ctrl+C to stop");
+            
+            loop {
+                match engine.run_cycle() {
+                    Ok(result) => {
+                        println!("\n--- Cycle {} ---", result.cycle_number);
+                        println!("Tasks created: {}", result.tasks_created);
+                        println!("Tasks dispatched: {}", result.tasks_dispatched);
+                        println!("Tasks completed: {}", result.tasks_completed);
+                        println!("Tasks failed: {}", result.tasks_failed);
+                        for insight in &result.insights {
+                            println!("  - {}", insight);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Cycle failed: {}", e);
+                    }
+                }
+                
+                std::thread::sleep(std::time::Duration::from_secs(30));
+            }
+        }
+        Some("cycle") => {
+            let board_name = args.get(1).map(|s| s.as_str()).unwrap_or("default");
+            let role_str = args.get(2).cloned().unwrap_or_else(|| "scrum-master".to_string());
+            let role = barkcli_core::agent::AgentRole::from_str(&role_str)
+                .ok_or_else(|| anyhow::anyhow!("Invalid role: {}", role_str))?;
+            
+            let board = barkcli_core::storage::board_file::read_board(board_name)?;
+            let mut engine = barkcli_core::agent::OrchestrationEngine::new(board_name, role, board)?;
+            
+            let result = engine.run_cycle()?;
+            println!("Cycle {} completed", result.cycle_number);
+            println!("Tasks created: {}", result.tasks_created);
+            println!("Tasks dispatched: {}", result.tasks_dispatched);
+            for insight in &result.insights {
+                println!("  - {}", insight);
+            }
+        }
+        Some("status") => {
+            let board_name = args.get(1).map(|s| s.as_str()).unwrap_or("default");
+            match barkcli_core::agent::OrchestrationEngine::load_state(board_name)? {
+                Some(state) => {
+                    println!("Orchestration Status: {}", state.status.display_name());
+                    println!("Cycle count: {}", state.cycle_count);
+                    println!("Tasks dispatched: {}", state.tasks_dispatched);
+                    println!("Tasks completed: {}", state.tasks_completed);
+                    println!("Tasks failed: {}", state.tasks_failed);
+                }
+                None => {
+                    println!("No orchestration state found for board '{}'", board_name);
+                }
+            }
+        }
+        _ => {
+            eprintln!("usage: barkcli orchestrate <start|cycle|status> [board-name] [role]");
+            eprintln!("  start   - Start continuous orchestration loop");
+            eprintln!("  cycle   - Run single orchestration cycle");
+            eprintln!("  status  - Show orchestration status");
+            eprintln!("  Roles: scrum-master, product-owner, tech-lead, project-manager");
+            std::process::exit(1);
+        }
+    }
+    Ok(())
 }
 
 fn parse_ai_args(args: &[String]) -> (AiArgs, Vec<String>) {
