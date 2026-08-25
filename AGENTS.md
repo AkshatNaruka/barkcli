@@ -4,6 +4,72 @@
 
 `barkcli` is a CLI (+ VS Code extension) for task tracking inside any project. Like `.git` but for Kanban boards.
 
+## Management Layer
+
+barkcli now includes a **management layer** that allows coding agents to integrate with the task management system via MCP (Model Context Protocol).
+
+### Quick Start for Coding Agents
+
+1. **Configure your agent** (e.g., Claude Code):
+   ```json
+   {
+     "mcpServers": {
+       "barkcli": {
+         "command": "barkcli",
+         "args": ["mcp"]
+       }
+     }
+   }
+   ```
+
+2. **Register as an agent**:
+   ```json
+   {"name": "agent_register", "arguments": {"agent_id": "my-agent", "name": "My Agent", "role": "tech-lead"}}
+   ```
+
+3. **Get next task**:
+   ```json
+   {"name": "orchestrate_next", "arguments": {}}
+   ```
+
+4. **Complete task**:
+   ```json
+   {"name": "task_complete", "arguments": {"task_id": "task-abc", "summary": "Implemented feature", "files_changed": ["src/main.rs"]}}
+   ```
+
+For complete documentation, see [MCP_AGENTS.md](MCP_AGENTS.md).
+
+### CLI Commands for Management
+
+| Command | Description |
+|---|---|
+| `barkcli mcp` | Start MCP server for coding agents |
+| `barkcli listener` | Start a coding agent listener |
+| `barkcli orchestrate start` | Start orchestration loop |
+| `barkcli orchestrate cycle` | Run single orchestration cycle |
+| `barkcli orchestrate status` | Show orchestration status |
+
+### TUI Management Tabs
+
+The TUI now includes two new tabs for managing agents and orchestration:
+
+| Tab | Key | Description |
+|---|---|---|
+| 7 Agents | `7` | View registered agents, their status, and capacity |
+| 8 Orchestrate | `8` | View task queue, run orchestration cycles, claim tasks |
+
+**Keyboard shortcuts in Agents tab:**
+- `↑↓/jk` - Navigate agent list
+- `Enter` - View agent detail
+- `q` - Back to board
+
+**Keyboard shortcuts in Orchestrate tab:**
+- `↑↓/jk` - Navigate task queue
+- `r` - Run orchestration cycle
+- `c` - Claim selected task
+- `Enter` - View task detail
+- `q` - Back to board
+
 ## Repository layout
 
 ```
