@@ -7,101 +7,629 @@ const INSTALL = "curl -fsSL https://barkcli.vercel.app/install.sh | sh";
 const VIDEO_URL =
   "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260405_171521_25968ba2-b594-4b32-aab7-f6b69398a6fa.mp4";
 
+const FEATURES = [
+  {
+    icon: "📁",
+    title: "Git-Native",
+    description: "Tasks are YAML files in your repo. Diff them, merge them, grep them. Version control for your project management.",
+    code: "$ git diff main..feature -- *.board",
+  },
+  {
+    icon: "☁️",
+    title: "No Cloud",
+    description: "Works offline. No accounts, no subscriptions, no vendor lock-in. Your data stays in your repo.",
+    code: "$ barkcli list  # Works without internet",
+  },
+  {
+    icon: "🖥️",
+    title: "Multi-Interface",
+    description: "CLI, terminal UI, web app, and VS Code extension. Same data, same commands, your choice.",
+    code: "$ barkcli tui    # Terminal UI\n$ barkcli serve  # Web app",
+  },
+  {
+    icon: "🔍",
+    title: "Code Context",
+    description: "Automatic code analysis with call graphs, test coverage mapping, and complexity metrics.",
+    code: "$ barkcli context scan",
+  },
+  {
+    icon: "🤖",
+    title: "AI-Ready",
+    description: "MCP server for coding agent integration. Orchestrate task decomposition and agent coordination.",
+    code: "$ barkcli mcp  # Start MCP server",
+  },
+  {
+    icon: "📖",
+    title: "Open Source",
+    description: "MIT licensed. Built in Rust. Fast, reliable, and transparent. Contribute or self-host.",
+    code: "$ cargo install barkcli",
+  },
+];
+
+const STEPS = [
+  {
+    number: "1",
+    title: "Initialize",
+    description: "Add barkcli to any project. Creates a .board directory with your configuration.",
+    command: "$ barkcli init",
+  },
+  {
+    number: "2",
+    title: "Add Tasks",
+    description: "Create cards with priorities, labels, and acceptance criteria.",
+    command: '$ barkcli add "Build login page" -p high -l frontend',
+  },
+  {
+    number: "3",
+    title: "Work",
+    description: "Move cards across columns. Track progress. Commit changes with your code.",
+    command: "$ barkcli move build-login-page doing",
+  },
+];
+
+const INTERFACES = [
+  {
+    id: "cli",
+    title: "Command Line",
+    description: "Full-featured CLI for scripts, automation, and power users. Every action available from your terminal.",
+    demo: `$ barkcli add "Deploy to production" -p critical --due 2024-12-15
+✓ Added card deploy-to-production
+
+$ barkcli show deploy-to-production
+ID:       deploy-to-production
+Title:    Deploy to production
+Priority: critical
+Due:      2024-12-15
+Column:   todo
+
+$ barkcli status deploy-to-production done
+✓ Moved to done`,
+  },
+  {
+    id: "tui",
+    title: "Terminal UI",
+    description: "Interactive kanban board right in your terminal. Navigate with vim keys, filter, sort, and manage tasks visually.",
+    demo: `┌─────────────────────────────────────────────────────────┐
+│ Todo              Doing               Done              │
+├─────────────────────────────────────────────────────────┤
+│ ● Fix login bug   ● Implement API    ✓ Setup CI/CD     │
+│ ● Write docs      ● Add auth         ✓ Init project    │
+│                   ● Refactor DB                        │
+└─────────────────────────────────────────────────────────┘
+↑↓/jk sel · ←→/hl col · a add · e edit · d delete`,
+  },
+  {
+    id: "web",
+    title: "Web App",
+    description: "Beautiful kanban board in your browser. Drag-and-drop, calendar view, reports, and real-time updates via WebSocket.",
+    demo: `Dashboard · Board · Calendar · Reports · Code
+
+┌──────────┬──────────┬──────────┬──────────┐
+│ Todo     │ Doing    │ Review   │ Done     │
+│          │          │          │          │
+│ ┌──────┐ │ ┌──────┐ │ ┌──────┐ │ ┌──────┐ │
+│ │Auth  │ │ │API   │ │ │Tests │ │ │Setup │ │
+│ │UI    │ │ │DB    │ │ │      │ │ │CI/CD │ │
+│ └──────┘ │ └──────┘ │ └──────┘ │ └──────┘ │
+└──────────┴──────────┴──────────┴──────────┘`,
+  },
+  {
+    id: "vscode",
+    title: "VS Code Extension",
+    description: "Manage tasks without leaving your editor. Custom editor for .board files with inline editing.",
+    demo: `VS Code — barkcli Project Kanban
+
+┌─ Explorer ──────────────────────────────┐
+│ 📁 src                                  │
+│ 📁 tests                                │
+│ 📋 main.board  ← barkcli custom editor  │
+└─────────────────────────────────────────┘
+
+Open .board files to see your kanban board
+Edit cards directly in VS Code`,
+  },
+];
+
+const FAQ = [
+  {
+    question: "What makes barkcli different from Jira or Linear?",
+    answer: "barkcli is git-native. Tasks are YAML files in your repo, not in someone else's cloud. No accounts, no subscriptions, no vendor lock-in. Diff tasks like code, merge them with git, and keep everything version-controlled.",
+  },
+  {
+    question: "Does it work offline?",
+    answer: "Yes. barkcli is a single binary with no network dependencies. All data is stored locally in your repo. Sync via git push/pull — no special sync service needed.",
+  },
+  {
+    question: "Can I use it with my team?",
+    answer: "Absolutely. Commit the .board directory to your repo. Team members pull changes and see the same board. No server required — git handles the sync.",
+  },
+  {
+    question: "What about the AI features?",
+    answer: "barkcli includes an MCP server for coding agent integration. It can decompose tasks, analyze code complexity, and orchestrate multiple agents. The AI features are optional — the core tool works without them.",
+  },
+  {
+    question: "Is it free?",
+    answer: "Yes. barkcli is MIT licensed and completely free. Some advanced features (AI integration, sprint planning) are available as Pro features, but the core tool is fully open source.",
+  },
+];
+
 export default function Home() {
   const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState("cli");
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
   return (
-    <div className="relative min-h-screen w-full flex flex-col overflow-hidden bg-black">
-      {/* Background video */}
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
-        className="absolute inset-0 w-full h-full object-cover"
-      >
-        <source src={VIDEO_URL} type="video/mp4" />
-      </video>
-      {/* Readability overlay */}
-      <div className="absolute inset-0 bg-black/35 pointer-events-none" />
-
-      {/* Nav */}
-      <header className="relative z-10 flex items-center justify-between px-6 md:px-10 h-16 shrink-0">
-        <a href="#" className="flex items-center gap-2 no-underline">
-          <svg
-            viewBox="0 0 100 100"
-            className="w-5 h-5"
-            fill="none"
-            stroke="#B8845C"
-            strokeWidth="5.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M29 24 Q14 27 11 42 Q10 54 19 59 Q27 56 30 47" />
-            <path d="M71 24 Q86 27 89 42 Q90 54 81 59 Q73 56 70 47" />
-            <path d="M29 24 Q50 15 71 24" />
-            <path d="M30 47 Q26 61 30 71 Q34 83 50 83 Q66 83 70 71 Q74 61 70 47" />
-            <path d="M50 59 Q45 54 41.5 60 Q41.5 67 50 72 Q58.5 67 58.5 60 Q55 54 50 59" />
-            <path d="M50 74 L50 78 M45 78.5 Q50 81.5 55 78.5" />
-          </svg>
-          <span className="text-sm font-bold tracking-tight font-mono text-white">
-            barkcli
-          </span>
-        </a>
-        <a
-          href="https://github.com/AkshatNaruka/barkcli"
-          target="_blank"
-          rel="noreferrer"
-          className="text-xs text-white/80 hover:text-white transition-colors"
+    <div className="min-h-screen w-full bg-black text-white">
+      {/* Hero Section - Keeping original style */}
+      <section className="relative min-h-screen flex flex-col overflow-hidden">
+        {/* Background video */}
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
         >
-          GitHub
-        </a>
-      </header>
+          <source src={VIDEO_URL} type="video/mp4" />
+        </video>
+        {/* Readability overlay */}
+        <div className="absolute inset-0 bg-black/35 pointer-events-none" />
 
-      {/* Center */}
-      <main className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6">
-        <h1 className="text-white text-5xl md:text-7xl font-bold tracking-tight leading-[1.05] mb-5">
-          Tasks in your repo.
-        </h1>
-        <p className="text-white/85 text-base md:text-lg font-light max-w-md mb-10 leading-relaxed">
-          Git-native kanban board — CLI, terminal UI, web app and VS Code
-          extension. No cloud required.
-        </p>
-        <div className="flex items-center gap-1 border border-white/40 rounded-full pl-5 pr-2 py-2.5 bg-black/25 backdrop-blur-sm">
-          <code className="text-white text-sm font-mono">
-            <span className="text-white/50 select-none">$ </span>
-            {INSTALL}
-          </code>
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(INSTALL);
-              setCopied(true);
-              setTimeout(() => setCopied(false), 1500);
-            }}
-            className="ml-3 text-xs font-mono rounded-full border border-white/40 px-3 py-1.5 text-white/90 hover:bg-white/10 transition-colors cursor-pointer"
+        {/* Nav */}
+        <header className="relative z-10 flex items-center justify-between px-6 md:px-10 h-16 shrink-0">
+          <a href="#" className="flex items-center gap-2 no-underline">
+            <svg
+              viewBox="0 0 100 100"
+              className="w-5 h-5"
+              fill="none"
+              stroke="#B8845C"
+              strokeWidth="5.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M29 24 Q14 27 11 42 Q10 54 19 59 Q27 56 30 47" />
+              <path d="M71 24 Q86 27 89 42 Q90 54 81 59 Q73 56 70 47" />
+              <path d="M29 24 Q50 15 71 24" />
+              <path d="M30 47 Q26 61 30 71 Q34 83 50 83 Q66 83 70 71 Q74 61 70 47" />
+              <path d="M50 59 Q45 54 41.5 60 Q41.5 67 50 72 Q58.5 67 58.5 60 Q55 54 50 59" />
+              <path d="M50 74 L50 78 M45 78.5 Q50 81.5 55 78.5" />
+            </svg>
+            <span className="text-sm font-bold tracking-tight font-mono text-white">
+              barkcli
+            </span>
+          </a>
+          <div className="flex items-center gap-6">
+            <a
+              href="#features"
+              className="text-xs text-white/80 hover:text-white transition-colors hidden md:block"
+            >
+              Features
+            </a>
+            <a
+              href="#interfaces"
+              className="text-xs text-white/80 hover:text-white transition-colors hidden md:block"
+            >
+              Interfaces
+            </a>
+            <a
+              href="#install"
+              className="text-xs text-white/80 hover:text-white transition-colors hidden md:block"
+            >
+              Install
+            </a>
+            <a
+              href="https://github.com/AkshatNaruka/barkcli"
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-white/80 hover:text-white transition-colors"
+            >
+              GitHub
+            </a>
+          </div>
+        </header>
+
+        {/* Center */}
+        <main className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6">
+          <h1 className="text-white text-5xl md:text-7xl font-bold tracking-tight leading-[1.05] mb-5">
+            Tasks in your repo.
+          </h1>
+          <p className="text-white/85 text-base md:text-lg font-light max-w-md mb-10 leading-relaxed">
+            Git-native kanban board — CLI, terminal UI, web app and VS Code
+            extension. No cloud required.
+          </p>
+          <div className="flex items-center gap-1 border border-white/40 rounded-full pl-5 pr-2 py-2.5 bg-black/25 backdrop-blur-sm">
+            <code className="text-white text-sm font-mono">
+              <span className="text-white/50 select-none">$ </span>
+              {INSTALL}
+            </code>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(INSTALL);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              }}
+              className="ml-3 text-xs font-mono rounded-full border border-white/40 px-3 py-1.5 text-white/90 hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              {copied ? "Copied" : "Copy"}
+            </button>
+          </div>
+          <p className="text-white/60 text-[11px] font-mono mt-4 tracking-wider">
+            macOS · Linux · Windows · MIT
+          </p>
+        </main>
+
+        {/* Footer - Updated */}
+        <footer className="relative z-10 flex items-center justify-center gap-4 h-12 shrink-0 text-[11px] text-white/70 font-mono">
+          <span>barkcli</span>
+          <span className="opacity-40">·</span>
+          <a
+            href="https://github.com/AkshatNaruka/barkcli"
+            target="_blank"
+            rel="noreferrer"
+            className="underline underline-offset-4 hover:text-white transition-colors"
           >
-            {copied ? "Copied" : "Copy"}
-          </button>
+            GitHub
+          </a>
+          <span className="opacity-40">·</span>
+          <span>MIT License</span>
+        </footer>
+      </section>
+
+      {/* Features Section */}
+      <section id="features" className="py-24 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
+              Features
+            </p>
+            <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
+              Everything you need.
+              <br />
+              Nothing you don&apos;t.
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {FEATURES.map((feature, i) => (
+              <div
+                key={i}
+                className="border border-white/10 rounded-xl p-6 hover:border-white/20 transition-colors"
+              >
+                <div className="text-3xl mb-4">{feature.icon}</div>
+                <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
+                <p className="text-white/60 text-sm leading-relaxed mb-4">
+                  {feature.description}
+                </p>
+                <code className="text-[#059669] text-xs font-mono block bg-white/5 rounded-lg px-3 py-2">
+                  {feature.code}
+                </code>
+              </div>
+            ))}
+          </div>
         </div>
-        <p className="text-white/60 text-[11px] font-mono mt-4 tracking-wider">
-          macOS · Linux · Windows · MIT
-        </p>
-      </main>
+      </section>
 
-      {/* Footer */}
-      <footer className="relative z-10 flex items-center justify-center gap-4 h-12 shrink-0 text-[11px] text-white/70 font-mono">
-        <span>barkcli</span>
-        <span className="opacity-40">·</span>
-        <a
-          href="https://github.com/AkshatNaruka/barkcli"
-          target="_blank"
-          rel="noreferrer"
-          className="underline underline-offset-4 hover:text-white transition-colors"
-        >
-          GitHub
-        </a>
-        <span className="opacity-40">·</span>
-        <span>MIT License</span>
+      {/* How It Works Section */}
+      <section className="py-24 px-6 bg-white/[0.02]">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
+              How It Works
+            </p>
+            <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
+              Three commands to start.
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {STEPS.map((step, i) => (
+              <div key={i} className="text-center">
+                <div className="w-12 h-12 rounded-full bg-[#B8845C] text-white font-bold text-xl flex items-center justify-center mx-auto mb-6">
+                  {step.number}
+                </div>
+                <h3 className="text-xl font-semibold mb-3">{step.title}</h3>
+                <p className="text-white/60 text-sm leading-relaxed mb-4">
+                  {step.description}
+                </p>
+                <code className="text-[#059669] text-xs font-mono block bg-white/5 rounded-lg px-3 py-2 max-w-xs mx-auto">
+                  {step.command}
+                </code>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Interfaces Section */}
+      <section id="interfaces" className="py-24 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
+              Interfaces
+            </p>
+            <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
+              Your workflow. Your way.
+            </h2>
+          </div>
+          <div className="flex justify-center gap-2 mb-8 flex-wrap">
+            {INTERFACES.map((iface) => (
+              <button
+                key={iface.id}
+                onClick={() => setActiveTab(iface.id)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                  activeTab === iface.id
+                    ? "bg-[#B8845C] text-white"
+                    : "border border-white/20 text-white/60 hover:text-white hover:border-white/40"
+                }`}
+              >
+                {iface.title}
+              </button>
+            ))}
+          </div>
+          <div className="border border-white/10 rounded-xl p-8 md:p-12 bg-white/[0.02]">
+            {INTERFACES.map((iface) => (
+              <div
+                key={iface.id}
+                className={`text-center ${activeTab === iface.id ? "block" : "hidden"}`}
+              >
+                <h3 className="text-2xl font-semibold mb-3">{iface.title}</h3>
+                <p className="text-white/60 max-w-lg mx-auto mb-8 leading-relaxed">
+                  {iface.description}
+                </p>
+                <div className="bg-[#0A0A0A] border border-white/10 rounded-lg p-6 text-left max-w-2xl mx-auto overflow-x-auto">
+                  <pre className="text-white/70 text-sm font-mono whitespace-pre">
+                    {iface.demo}
+                  </pre>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Code Context Section */}
+      <section className="py-24 px-6 bg-white/[0.02]">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
+              Code Intelligence
+            </p>
+            <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
+              Your codebase. Understood.
+            </h2>
+            <p className="text-white/60 max-w-lg mx-auto">
+              barkcli analyzes your code to provide rich context for every task. See how changes impact your codebase.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              { icon: "📊", title: "Call Graphs", metric: "→", desc: "Map function calls across files. Understand impact before you change." },
+              { icon: "🧪", title: "Test Coverage", metric: "87%", desc: "See which tests cover which code. Identify gaps automatically." },
+              { icon: "⚡", title: "Complexity", metric: "C-12", desc: "Cyclomatic and cognitive complexity scores. Find risky code early." },
+              { icon: "📈", title: "Risk Score", metric: "0.3", desc: "Combined risk assessment. Prioritize refactoring where it matters." },
+            ].map((item, i) => (
+              <div
+                key={i}
+                className="bg-white/[0.02] border border-white/10 rounded-xl p-6"
+              >
+                <h4 className="text-base font-semibold mb-2">{item.icon} {item.title}</h4>
+                <div className="text-3xl font-bold text-[#B8845C] mb-3 font-mono">
+                  {item.metric}
+                </div>
+                <p className="text-white/60 text-sm leading-relaxed">
+                  {item.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Management Layer Section */}
+      <section className="py-24 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
+              Management Layer
+            </p>
+            <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
+              Orchestrate coding agents.
+            </h2>
+            <p className="text-white/60 max-w-lg mx-auto">
+              barkcli acts as a management layer above coding agents. Decompose tasks, assign roles, and track progress.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="border border-white/10 rounded-xl p-6">
+              <h3 className="text-lg font-semibold mb-3">MCP Integration</h3>
+              <p className="text-white/60 text-sm leading-relaxed mb-4">
+                Connect coding agents via the Model Context Protocol. Standard JSON-RPC 2.0 over stdio.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {["opencode", "claude-code", "cursor"].map((tag) => (
+                  <span key={tag} className="text-[10px] font-mono bg-white/5 border border-white/10 rounded-full px-2 py-1 text-white/50">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="border border-white/10 rounded-xl p-6">
+              <h3 className="text-lg font-semibold mb-3">Agent Roles</h3>
+              <p className="text-white/60 text-sm leading-relaxed mb-4">
+                Assign specialized roles for better task decomposition and execution.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {["tech-lead", "scrum-master", "product-owner", "project-manager"].map((tag) => (
+                  <span key={tag} className="text-[10px] font-mono bg-white/5 border border-white/10 rounded-full px-2 py-1 text-white/50">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="border border-white/10 rounded-xl p-6">
+              <h3 className="text-lg font-semibold mb-3">Task Lifecycle</h3>
+              <p className="text-white/60 text-sm leading-relaxed mb-4">
+                Full task lifecycle management with automatic assignment and progress tracking.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {["pending", "assigned", "in_progress", "completed"].map((tag) => (
+                  <span key={tag} className="text-[10px] font-mono bg-white/5 border border-white/10 rounded-full px-2 py-1 text-white/50">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Installation Section */}
+      <section id="install" className="py-24 px-6 bg-white/[0.02]">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
+              Install
+            </p>
+            <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
+              Get started in 10 seconds.
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[
+              { title: "macOS / Linux", cmd: "curl -fsSL https://barkcli.vercel.app/install.sh | sh" },
+              { title: "Homebrew", cmd: "brew install barkcli" },
+              { title: "Cargo (from source)", cmd: "cargo install barkcli" },
+              { title: "GitHub Releases", cmd: "Download from github.com/akshatnaruka/barkcli/releases" },
+              { title: "VS Code Extension", cmd: 'Search "barkcli" in VS Code Marketplace' },
+              { title: "Windows", cmd: "Download .exe from GitHub Releases" },
+            ].map((method, i) => (
+              <div key={i} className="border border-white/10 rounded-xl p-4">
+                <h4 className="text-sm font-semibold mb-2">{method.title}</h4>
+                <code className="text-[#059669] text-xs font-mono block bg-white/5 rounded-lg px-3 py-2">
+                  {method.cmd}
+                </code>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="py-24 px-6">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-16">
+            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
+              FAQ
+            </p>
+            <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
+              Common questions.
+            </h2>
+          </div>
+          <div className="space-y-0">
+            {FAQ.map((item, i) => (
+              <div key={i} className="border-b border-white/10">
+                <button
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  className="w-full text-left py-5 flex justify-between items-center cursor-pointer group"
+                >
+                  <span className="text-white font-medium group-hover:text-[#B8845C] transition-colors">
+                    {item.question}
+                  </span>
+                  <span className={`text-white/40 text-xl transition-transform ${openFaq === i ? "rotate-45" : ""}`}>
+                    +
+                  </span>
+                </button>
+                <div
+                  className={`overflow-hidden transition-all duration-300 ${
+                    openFaq === i ? "max-h-40 pb-5" : "max-h-0"
+                  }`}
+                >
+                  <p className="text-white/60 text-sm leading-relaxed">
+                    {item.answer}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-24 px-6">
+        <div className="max-w-3xl mx-auto text-center">
+          <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-6">
+            Get started in 10 seconds.
+          </h2>
+          <p className="text-white/60 text-lg mb-10">
+            Install barkcli and add tasks to your repo today.
+          </p>
+          <div className="flex justify-center gap-4 flex-wrap">
+            <a
+              href="#install"
+              className="px-6 py-3 bg-[#B8845C] text-white font-medium rounded-lg hover:bg-[#B8845C]/80 transition-colors"
+            >
+              Install Now
+            </a>
+            <a
+              href="https://github.com/AkshatNaruka/barkcli"
+              target="_blank"
+              rel="noreferrer"
+              className="px-6 py-3 border border-white/20 text-white font-medium rounded-lg hover:bg-white/5 transition-colors"
+            >
+              View on GitHub
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* Final Footer */}
+      <footer className="py-8 px-6 border-t border-white/10">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <svg
+              viewBox="0 0 100 100"
+              className="w-4 h-4"
+              fill="none"
+              stroke="#B8845C"
+              strokeWidth="5.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M29 24 Q14 27 11 42 Q10 54 19 59 Q27 56 30 47" />
+              <path d="M71 24 Q86 27 89 42 Q90 54 81 59 Q73 56 70 47" />
+              <path d="M29 24 Q50 15 71 24" />
+              <path d="M30 47 Q26 61 30 71 Q34 83 50 83 Q66 83 70 71 Q74 61 70 47" />
+              <path d="M50 59 Q45 54 41.5 60 Q41.5 67 50 72 Q58.5 67 58.5 60 Q55 54 50 59" />
+              <path d="M50 74 L50 78 M45 78.5 Q50 81.5 55 78.5" />
+            </svg>
+            <span className="text-sm text-white/50 font-mono">© 2024 barkcli · MIT License</span>
+          </div>
+          <div className="flex items-center gap-6 text-sm text-white/50">
+            <a
+              href="https://github.com/AkshatNaruka/barkcli"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-white transition-colors"
+            >
+              GitHub
+            </a>
+            <a
+              href="https://twitter.com/AkshatNaruka"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-white transition-colors"
+            >
+              Twitter
+            </a>
+            <a
+              href="https://marketplace.visualstudio.com/items?itemName=barkcli.barkcli"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-white transition-colors"
+            >
+              VS Code
+            </a>
+          </div>
+        </div>
       </footer>
     </div>
   );
