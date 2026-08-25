@@ -6,7 +6,7 @@ import { generatePageMetadata } from "@/lib/seo";
 export const metadata: Metadata = generatePageMetadata({
   title: "Interfaces — barkcli",
   description:
-    "CLI, Terminal UI, Web App, and VS Code extension. Choose the interface that fits your workflow.",
+    "CLI, Terminal UI, and Web App. Choose the interface that fits your workflow.",
   path: "/docs/interfaces",
 });
 
@@ -31,13 +31,6 @@ const interfaces = [
     description: "Browser-based kanban with drag-and-drop, calendar, and reports.",
     icon: "🌐",
     command: "barkcli serve --open",
-  },
-  {
-    slug: "vscode",
-    title: "VS Code Extension",
-    description: "Custom editor for .board files with visual kanban view.",
-    icon: "📝",
-    code: "code --install-extension barkcli.barkcli",
   },
 ];
 
@@ -69,7 +62,7 @@ export default function InterfacesPage() {
             </h2>
             <p className="mb-4 text-sm text-white/50">{iface.description}</p>
             <pre className="overflow-x-auto rounded border border-white/10 bg-black/50 p-3 text-xs text-white/70">
-              <code>{iface.command || iface.code}</code>
+              <code>{iface.command}</code>
             </pre>
           </Link>
         ))}

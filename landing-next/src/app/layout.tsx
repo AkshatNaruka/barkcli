@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     template: "%s · barkcli",
   },
   description:
-    "A git-native kanban board that lives in your repo. CLI, terminal UI, web app and VS Code extension — one binary, no cloud, no accounts. Free and open source (MIT).",
+    "A git-native kanban board that lives in your repo. CLI, terminal UI, and web app — one binary, no cloud, no accounts. Free and open source (MIT).",
   keywords: [
     "git kanban",
     "git-native task management",
@@ -38,7 +38,6 @@ export const metadata: Metadata = {
     "project management git",
     "offline kanban",
     "open source project management",
-    "vs code kanban extension",
     "barkcli",
   ],
   applicationName: "barkcli",
@@ -56,14 +55,14 @@ export const metadata: Metadata = {
     siteName: "barkcli",
     title: "barkcli — Tasks in your repo",
     description:
-      "Git-native kanban board that lives in your repo. CLI, terminal UI, web app and VS Code extension — one binary, no cloud required.",
+      "Git-native kanban board that lives in your repo. CLI, terminal UI, and web app — one binary, no cloud required.",
   },
   twitter: {
     card: "summary_large_image",
     title: "barkcli — Tasks in your repo",
     description:
-      "Git-native kanban board that lives in your repo. CLI, terminal UI, web app and VS Code extension — one binary, no cloud required.",
-    creator: "@AkshatNaruka",
+      "Git-native kanban board that lives in your repo. CLI, terminal UI, and web app — one binary, no cloud required.",
+    creator: "@probiex007",
   },
   robots: {
     index: true,
@@ -106,7 +105,7 @@ const structuredData = {
       operatingSystem: "macOS, Linux, Windows",
       url: SITE_URL,
       description:
-        "Git-native kanban board that lives in your repo. CLI, terminal UI, web app and VS Code extension — one binary, no cloud.",
+        "Git-native kanban board that lives in your repo. CLI, terminal UI, and web app — one binary, no cloud.",
       offers: {
         "@type": "Offer",
         price: "0",
@@ -125,7 +124,7 @@ const structuredData = {
       name: "barkcli",
       url: SITE_URL,
       description:
-        "Git-native kanban board that lives in your repo. CLI, terminal UI, web app and VS Code extension — one binary, no cloud.",
+        "Git-native kanban board that lives in your repo. CLI, terminal UI, and web app — one binary, no cloud.",
       inLanguage: "en",
       publisher: {
         "@type": "Organization",

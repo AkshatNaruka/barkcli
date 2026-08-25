@@ -4,9 +4,13 @@
 
 **Open source (MIT). Built in Rust.**
 
-## What is barkcli?
+## Why barkcli?
 
-barkcli is a CLI + web app for task tracking inside any project. Tasks are YAML files in your repo — diff them, merge them, grep them. No cloud, no accounts, no vendor lock-in.
+- **No cloud** — Tasks are YAML files in your repo. Work offline, commit with your code.
+- **No accounts** — No sign-ups, no per-seat pricing, no vendor lock-in.
+- **Git-native** — Diff tasks like code, merge with teammates, version control your project management.
+- **Multi-interface** — CLI, terminal UI, web app. Same data, your choice.
+- **AI-ready** — MCP server for coding agent integration (Claude, GPT, opencode).
 
 ## Install
 
@@ -37,7 +41,15 @@ barkcli move build-login-page doing    # Move to column
 | CLI | `barkcli <command>` | Full-featured command line |
 | Terminal UI | `barkcli tui` | Interactive kanban in your terminal |
 | Web App | `barkcli serve` | Beautiful browser UI with drag-and-drop |
-| VS Code | Extension | Manage tasks inside your editor |
+
+## Features
+
+- **Git-native** — Tasks are YAML files. Diff, merge, and version control them.
+- **No cloud** — Works offline. No accounts, no subscriptions.
+- **Multi-interface** — CLI, terminal UI, web app.
+- **Code context** — Automatic call graphs, test coverage, complexity metrics.
+- **AI-ready** — MCP server for coding agent integration.
+- **Open source** — MIT licensed. Built in Rust.
 
 ## Documentation
 

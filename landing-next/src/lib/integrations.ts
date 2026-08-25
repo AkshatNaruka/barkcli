@@ -29,25 +29,6 @@ export const integrations: Integration[] = [
     configExample: '# .github/workflows/barkcli.yml\nname: Barkcli Sync\non:\n  push:\n    paths:\n      - ".board/**"\njobs:\n  sync:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - run: barkcli sync --push',
   },
   {
-    slug: "vscode",
-    name: "VS Code",
-    description: "Custom editor for .board files. Visualize and manage tasks without leaving your editor.",
-    icon: "💻",
-    setupSteps: [
-      "Open VS Code",
-      "Go to Extensions (Cmd+Shift+X)",
-      "Search for 'barkcli'",
-      "Click Install",
-    ],
-    features: [
-      "Custom kanban editor for .board files",
-      "Drag and drop cards",
-      "Inline editing",
-      "Git diff support",
-    ],
-    configExample: '// Install via CLI\ncode --install-extension barkcli.barkcli\n\n// Or search "barkcli" in VS Code extensions',
-  },
-  {
     slug: "gitlab",
     name: "GitLab",
     description: "Use barkcli with GitLab repos. Tasks live in your repo, independent of the git host.",

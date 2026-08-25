@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const alt =
-  "barkcli — Tasks in your repo. Git-native kanban board: CLI, TUI, web and VS Code.";
+  "barkcli — Tasks in your repo. Git-native kanban board: CLI, TUI, and web app.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 

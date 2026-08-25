@@ -127,38 +127,6 @@ barkcli serve --token mysecret   # require auth`,
       },
     ],
   },
-  {
-    slug: "vscode",
-    title: "VS Code Extension",
-    description: "Custom editor for .board files with visual kanban view.",
-    sections: [
-      {
-        title: "Installation",
-        content: "Install from the VS Code marketplace or CLI.",
-        code: `code --install-extension barkcli.barkcli
-
-# Or search "barkcli" in VS Code extensions`,
-      },
-      {
-        title: "Usage",
-        content: "Open .board files to see the kanban view.",
-        code: `1. Open a project with barkcli init
-2. Double-click any .board file
-3. The kanban view opens automatically
-4. Drag and drop cards between columns
-5. Click cards to edit details`,
-      },
-      {
-        title: "Features",
-        content: "Custom editor with real-time sync.",
-        code: `- Custom kanban editor for .board files
-- Drag and drop cards
-- Inline editing
-- Git diff support
-- Real-time sync with barkcli`,
-      },
-    ],
-  },
 ];
 
 interface PageProps {

@@ -38,7 +38,7 @@ const sections = [
   },
   {
     title: "Advanced",
-    description: "Sessions, checkpoints, sprints, and Pro features.",
+    description: "Sessions, checkpoints, sprints, and hooks.",
     href: "/docs/advanced",
     icon: Zap,
   },

@@ -100,7 +100,7 @@ export const comparisons: Comparison[] = [
       { feature: "Cost", barkcli: "Free", competitor: "$8-12/seat/month" },
       { feature: "Collaboration", barkcli: "Git-based", competitor: "Real-time multiplayer" },
       { feature: "Offline", barkcli: "Full", competitor: "Limited" },
-      { feature: "Views", barkcli: "CLI, TUI, Web, VS Code", competitor: "List, Board, Gantt, Calendar" },
+      { feature: "Views", barkcli: "CLI, TUI, Web", competitor: "List, Board, Gantt, Calendar" },
       { feature: "Automation", barkcli: "Git hooks + scripts", competitor: "AI auto-triage" },
     ],
     verdict: "Choose barkcli if you want tasks in your repo with AI flexibility. Choose Height if you want AI-managed project management with real-time collaboration.",

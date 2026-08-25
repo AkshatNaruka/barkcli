@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "barkcli — Git-native task management",
     short_name: "barkcli",
     description:
-      "Git-native kanban board that lives in your repo. CLI, terminal UI, web app and VS Code extension — one binary, no cloud.",
+      "Git-native kanban board that lives in your repo. CLI, terminal UI, and web app — one binary, no cloud.",
     start_url: "/",
     display: "standalone",
     background_color: "#0A0A0A",

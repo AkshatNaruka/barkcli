@@ -7,7 +7,7 @@ import { integrations } from "@/lib/integrations";
 export const metadata: Metadata = generatePageMetadata({
   title: "Integrations — barkcli",
   description:
-    "Connect barkcli with GitHub, VS Code, GitLab, Neovim, tmux, OpenCode, Claude Code, and Cursor.",
+    "Connect barkcli with GitHub, GitLab, Neovim, tmux, OpenCode, Claude Code, and Cursor.",
   path: "/integrations",
 });
 

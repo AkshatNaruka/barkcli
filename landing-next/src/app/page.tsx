@@ -47,7 +47,7 @@ const FEATURES = [
   {
     icon: Monitor,
     title: "Multi-Interface",
-    description: "CLI, terminal UI, web app, and VS Code extension. Same data, same commands, your choice.",
+    description: "CLI, terminal UI, and web app. Same data, same commands, your choice.",
     code: "$ barkcli tui    # Terminal UI\n$ barkcli serve  # Web app",
   },
   {
@@ -137,21 +137,6 @@ $ barkcli status deploy-to-production done
 │ └──────┘ │ └──────┘ │ └──────┘ │ └──────┘ │
 └──────────┴──────────┴──────────┴──────────┘`,
   },
-  {
-    id: "vscode",
-    title: "VS Code Extension",
-    description: "Manage tasks without leaving your editor. Custom editor for .board files with inline editing.",
-    demo: `VS Code — barkcli Project Kanban
-
-┌─ Explorer ──────────────────────────────┐
-│ 📁 src                                  │
-│ 📁 tests                                │
-│ 📋 main.board  ← barkcli custom editor  │
-└─────────────────────────────────────────┘
-
-Open .board files to see your kanban board
-Edit cards directly in VS Code`,
-  },
 ];
 
 const CODE_FEATURES = [
@@ -180,7 +165,7 @@ const FAQ = [
   },
   {
     question: "Is it free?",
-    answer: "Yes. barkcli is MIT licensed and completely free. Some advanced features (AI integration, sprint planning) are available as Pro features, but the core tool is fully open source.",
+    answer: "Yes. barkcli is MIT licensed and completely free. All features are open source — no Pro tiers, no paywalls.",
   },
 ];
 
@@ -264,7 +249,7 @@ export default function Home() {
             Tasks in your repo.
           </h1>
           <p className="text-white/85 text-base md:text-lg font-light max-w-md mb-10 leading-relaxed">
-            Git-native kanban board — CLI, terminal UI, web app and VS Code
+            Git-native kanban board — CLI, terminal UI, and web app
             extension. No cloud required.
           </p>
           <div className="flex items-center gap-1 border border-white/40 rounded-full pl-5 pr-2 py-2.5 bg-black/25 backdrop-blur-sm">
@@ -557,7 +542,6 @@ export default function Home() {
               { title: "Homebrew", cmd: "brew install barkcli" },
               { title: "Cargo (from source)", cmd: "cargo install barkcli" },
               { title: "GitHub Releases", cmd: "Download from github.com/akshatnaruka/barkcli/releases" },
-              { title: "VS Code Extension", cmd: 'Search "barkcli" in VS Code Marketplace' },
               { title: "Windows", cmd: "Download .exe from GitHub Releases" },
             ].map((method, i) => (
               <div key={i} className="border border-white/10 rounded-xl p-4">
@@ -673,20 +657,12 @@ export default function Home() {
               GitHub
             </a>
             <a
-              href="https://twitter.com/AkshatNaruka"
+              href="https://x.com/probiex007"
               target="_blank"
               rel="noreferrer"
               className="hover:text-white transition-colors"
             >
-              Twitter
-            </a>
-            <a
-              href="https://marketplace.visualstudio.com/items?itemName=barkcli.barkcli"
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-white transition-colors"
-            >
-              VS Code
+              X
             </a>
           </div>
         </div>

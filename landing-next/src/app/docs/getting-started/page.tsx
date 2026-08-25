@@ -88,7 +88,7 @@ export default function GettingStartedPage() {
             <Link href="/docs/interfaces" className="text-white hover:underline">
               Interfaces
             </Link>{" "}
-            — TUI, Web App, and VS Code
+            — TUI, Web App, and CLI
           </li>
           <li>
             <Link href="/docs/code-context" className="text-white hover:underline">

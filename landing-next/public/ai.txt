@@ -20,7 +20,7 @@ The barkcli website is a single-page landing site for barkcli, an open-source (M
 
 ## Key capabilities
 - Task tracking as committed YAML board files; git is the sync layer — no cloud backend.
-- Interfaces: CLI, terminal UI (TUI), local web server, and VS Code Custom Editor.
+- Interfaces: CLI, terminal UI (TUI), local web server.
 - Cards support priorities, labels, assignees, checklists, comments, work-item links, acceptance criteria, effort estimates, areas, due dates and reminders.
 - Developer extras: session capture, checkpoints on git commit, sprint metadata, code-context sidecars, optional OpenAI-compatible AI provider integration.
 - A single Rust binary; build from source with `cargo build && cargo test`.

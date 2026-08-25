@@ -63,7 +63,7 @@ export function softwareApplicationJsonLd() {
     operatingSystem: "macOS, Linux, Windows",
     url: SITE_URL,
     description:
-      "Git-native kanban board that lives in your repo. CLI, terminal UI, web app and VS Code extension — one binary, no cloud.",
+      "Git-native kanban board that lives in your repo. CLI, terminal UI, and web app — one binary, no cloud.",
     offers: {
       "@type": "Offer",
       price: "0",

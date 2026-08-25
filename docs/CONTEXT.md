@@ -228,4 +228,4 @@ Code context works with:
 
 ## Privacy
 
-All code context analysis runs locally. No code is sent to external services unless you explicitly configure an AI provider (Pro feature).
+All code context analysis runs locally. No code is sent to external services unless you explicitly configure an AI provider.

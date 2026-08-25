@@ -157,7 +157,7 @@ barkcli context autosync off      # disable`}</code>
         <h2 className="mb-4 text-xl font-semibold">Privacy</h2>
         <p className="text-white/60">
           All code context analysis runs locally. No code is sent to external
-          services unless you explicitly configure an AI provider (Pro feature).
+          services unless you explicitly configure an AI provider.
         </p>
       </div>
     </>

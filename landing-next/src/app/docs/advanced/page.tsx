@@ -6,7 +6,7 @@ import { generatePageMetadata } from "@/lib/seo";
 export const metadata: Metadata = generatePageMetadata({
   title: "Advanced Features — barkcli",
   description:
-    "Sessions, checkpoints, sprints, hooks, and Pro features. Advanced workflow automation for barkcli.",
+    "Sessions, checkpoints, sprints, hooks, and workflow automation for barkcli.",
   path: "/docs/advanced",
 });
 
@@ -22,7 +22,7 @@ export default function AdvancedPage() {
 
       <h1 className="mb-4 text-4xl font-bold tracking-tight">Advanced Features</h1>
       <p className="mb-12 text-lg text-white/60">
-        Sessions, checkpoints, sprints, and Pro features.
+        Sessions, checkpoints, sprints, and hooks.
       </p>
 
       <div className="space-y-16">

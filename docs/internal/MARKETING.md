@@ -1,183 +1,288 @@
-# Marketing Plan — barkcli
+# Marketing Materials — barkcli
 
-> Positioning, messaging, competitive landscape, audience, and go-to-market strategy.
+## One-Liner
 
----
+**For bios/profiles:**
+> barkcli — git-native project management. Tasks live in your repo. No cloud. No accounts. Open source. MIT. Rust.
 
-## Positioning
+**For social media:**
+> barkcli is git-native project management. Tasks are YAML files in your repo — diff them, merge them, grep them. No cloud, no accounts. Open source. MIT. Built in Rust.
 
-**One-liner:**
-> **Git for tasks** — CLI-native Kanban that lives in your repo.
+## X (Twitter) Posts
 
-**Elevator pitch:**
-barkcli turns your git repo into a project board. Tasks are YAML files committed alongside code — diff them, merge them, grep them. Terminal, browser, VS Code — same data, same commands. No cloud, no accounts, no subscription.
+### Launch Post (Thread)
 
-**Category:**
-Developer Tools → Project Management → Git-Native Task Tracking
+**Post 1:**
+> Introducing barkcli — git-native project management.
+> 
+> Tasks are YAML files in your repo. Diff them. Merge them. Grep them.
+> 
+> No cloud. No accounts. No vendor lock-in.
+> 
+> Open source. MIT licensed. Built in Rust.
+> 
+> 🧵 Thread ↓
 
-**Distribution:** Compiled binaries (Homebrew, GitHub Releases), VS Code Marketplace. Open source (MIT).
+**Post 2:**
+> Why barkcli?
+> 
+> • Tasks live in your repo (not someone else's cloud)
+> • Work offline, commit with your code
+> • No sign-ups, no per-seat pricing
+> • Git-native: diff, merge, version control your tasks
+> • Multi-interface: CLI, terminal UI, web app
 
----
+**Post 3:**
+> Install in 10 seconds:
+> 
+> curl -fsSL https://barkcli.vercel.app/install.sh | sh
+> 
+> Then:
+> barkcli init
+> barkcli add "Build login page" -p high
+> barkcli list
 
-## Value Proposition
+**Post 4:**
+> Features:
+> 
+> • Git-native tasks (YAML files)
+> • No cloud required
+> • CLI, terminal UI, web app
+> • Code context (call graphs, test coverage)
+> • AI-ready (MCP server for coding agents)
+> • Open source (MIT)
 
-| Pain Point | barkcli Solution |
-|---|---|
-| Jira/Linear require accounts, cloud, subscriptions | Single binary. Offline. No sign-up. |
-| Tasks siloed from code in separate tools | `.board` YAML in the repo. `git diff` shows task changes. |
-| Can't work without internet | All data local. Sync via `git push/pull`. |
-| Vendor lock-in | Plain YAML. Works with any text editor. No export needed. |
-| Too many tools (CLI + browser + IDE) | One data source, four interfaces: CLI, TUI, web, VS Code. |
-| Expensive per-seat pricing for teams | Free and open source (MIT). No recurring fees. |
+**Post 5:**
+> Try it now:
+> 
+> barkcli.vercel.app
+> 
+> GitHub: github.com/akshatnaruka/barkcli
 
----
+### Short Posts
 
-## Target Audience
+**Post 1 (Concise):**
+> barkcli — git-native project management.
+> 
+> Tasks are YAML files in your repo. No cloud. No accounts.
+> 
+> Install: curl -fsSL https://barkcli.vercel.app/install.sh | sh
+> 
+> Open source. MIT. Built in Rust.
 
-### Primary: Solo Developers & Indie Hackers
-- Build side projects, SaaS MVPs, and open-source tools
-- Work in the terminal all day
-- Value simplicity over feature bloat
-- Price-sensitive — prefer one-time over subscriptions
-- Use VS Code as primary editor
+**Post 2 (Feature-focused):**
+> What if your project management was just files in your repo?
+> 
+> barkcli makes tasks YAML files you can diff, merge, and version control.
+> 
+> No cloud. No accounts. Just git.
+> 
+> barkcli.vercel.app
 
-**Reach them on:** Hacker News, Twitter/X, r/rust, r/commandline, Indie Hackers
+**Post 3 (Pain point):**
+> Tired of:
+> • Per-seat pricing
+> • Vendor lock-in
+> • Cloud dependencies
+> • Account requirements
+> 
+> barkcli is git-native project management. Tasks live in your repo.
+> 
+> Open source. Free forever.
 
-### Secondary: Small Engineering Teams (2-10)
-- Want project management that lives in git
-- Tired of Jira's complexity
-- Evaluate tools by developer experience
-- Will pay for useful features (AI, GitHub sync, sprints)
+### Use Case Posts
 
-**Reach them on:** Product Hunt, Hacker News, dev.to, engineering blogs
+**For Developers:**
+> As a developer, I want my tasks to live in my repo, not someone else's cloud.
+> 
+> barkcli makes that possible. YAML files, git-native, no cloud.
+> 
+> barkcli.vercel.app
 
-### Tertiary: Open Source Maintainers
-- Track issues and roadmap in the same repo as code
-- Contributors can see task board without signing up for a service
-- `.board` files are mergeable — PRs can include task updates
+**For Teams:**
+> Small teams: collaborate on tasks via git. No server, no admin.
+> 
+> Commit .board to your repo. Team members pull changes.
+> 
+> barkcli.vercel.app
 
-**Reach them on:** GitHub, r/opensource, twitter developer circles
+**For AI Users:**
+> Give coding agents context about what to build.
+> 
+> barkcli's MCP server exposes tasks to Claude, GPT, and local models.
+> 
+> barkcli.vercel.app
 
----
+## LinkedIn Post
 
-## Competitive Landscape
+> **Introducing barkcli — Git-Native Project Management**
+> 
+> I've been working on a new tool that rethinks how we manage software projects.
+> 
+> The problem: Most project management tools are cloud-first. Your tasks live on someone else's server. You need accounts, subscriptions, and internet access.
+> 
+> The solution: barkcli keeps tasks as YAML files in your repo. They're just like code — you can diff them, merge them, and version control them.
+> 
+> **Key features:**
+> - Git-native: Tasks are YAML files in your repo
+> - No cloud: Works offline, no accounts required
+> - Multi-interface: CLI, terminal UI, web app
+> - AI-ready: MCP server for coding agent integration
+> - Open source: MIT licensed, built in Rust
+> 
+> **Try it:**
+> ```bash
+> curl -fsSL https://barkcli.vercel.app/install.sh | sh
+> ```
+> 
+> **Links:**
+> - Website: barkcli.vercel.app
+> - GitHub: github.com/akshatnaruka/barkcli
+> 
+> #OpenSource #Rust #DevTools #ProjectManagement #Git
 
-### Direct Competitors (partial overlap)
+## Hacker News Post
 
-| Tool | Overlap | Why Barkcli Wins |
-|---|---|---|
-| **Linear** | Kanban board, CLI | No cloud, no subscription, git-native, offline |
-| **Jira** | Project management | 10x simpler, CLI-first, $0 vs $8/user/mo |
-| **Taskwarrior** | CLI tasks | Kanban board, VS Code, web UI, git integration |
-| **git-bug** | Git-embedded | Kanban columns, card CRUD, VS Code, AI features |
-| **Notion** | Task database | Purpose-built, terminal-first, zero setup |
-| **VSCode Kanban** | VS Code kanban | Actively maintained, CLI companion, web UI |
+**Title:** barkcli — Git-native project management (tasks as YAML files)
 
-### Indirect Competitors
+**URL:** https://barkcli.vercel.app
 
-| Tool | What They Do | Why They're Not a Threat |
-|---|---|---|
-| GitHub Projects | GitHub-native projects | Cloud-only, no CLI, no offline |
-| Obsidian Kanban | Markdown kanban | Not developer-focused, no CLI, no git integration |
-| Todoist CLI | Personal tasks | No kanban, no boards, not for software projects |
+**Comment:**
+> I built barkcli because I wanted project management that lives in my repo, not on someone else's server.
+> 
+> Tasks are YAML files you can diff, merge, and version control. No cloud, no accounts, no vendor lock-in.
+> 
+> Features:
+> - CLI, terminal UI, web app
+> - Code context (call graphs, test coverage)
+> - MCP server for AI coding agents
+> - Open source (MIT)
+> 
+> Install: `curl -fsSL https://barkcli.vercel.app/install.sh | sh`
+> 
+> Would love feedback!
 
-### Defensible Moat
-1. **Data format**: `.board` YAML is dead simple. No one owns this format.
-2. **Multi-interface**: CLI + TUI + web + VS Code from one binary. Competitors do 1-2.
-3. **Git integration depth**: Undo, diff, blame, pre-commit hooks, changelog. Not surface-level.
-4. **Rust codebase**: One compiled binary, fast startup, small footprint — plus an open source community can build on it.
+## Reddit Posts
 
----
+**r/rust:**
+> **[Showcase] barkcli — Git-native project management (tasks as YAML files)**
+> 
+> I built a CLI tool for task tracking that keeps tasks as YAML files in your repo. No cloud, no accounts.
+> 
+> **Why?**
+> - Tasks are just files you can diff, merge, and version control
+> - Works offline
+> - No per-seat pricing
+> 
+> **Features:**
+> - CLI, terminal UI, web app
+> - Code context (call graphs, test coverage)
+> - MCP server for AI agents
+> 
+> Built in Rust. MIT licensed.
+> 
+> **Install:**
+> ```bash
+> curl -fsSL https://barkcli.vercel.app/install.sh | sh
+> ```
+> 
+> **GitHub:** https://github.com/akshatnaruka/barkcli
+> 
+> Would love feedback!
 
-## Monetization Strategy (future, not launched)
+**r/commandline:**
+> **barkcli — Git-native project management**
+> 
+> A CLI tool that keeps tasks as YAML files in your repo. No cloud, no accounts.
+> 
+> ```bash
+> barkcli init
+> barkcli add "Build login page" -p high
+> barkcli list
+> ```
+> 
+> Also includes terminal UI and web app.
+> 
+> Install: `curl -fsSL https://barkcli.vercel.app/install.sh | sh`
 
-Pricing is intentionally **not set yet** — the tool ships free and open source
-(MIT). When monetization is introduced it will be additive (e.g. hosted cloud
-sync), never taking away from the local, MIT-licensed core.
+**r/selfhosted:**
+> **barkcli — Self-hosted project management (tasks in your repo)**
+> 
+> No server needed. Tasks are YAML files in your git repo.
+> 
+> - No cloud dependencies
+> - No accounts required
+> - Works offline
+> - Git-native: diff, merge, version control
+> 
+> Install: `curl -fsSL https://barkcli.vercel.app/install.sh | sh`
 
-- Open source builds trust — no lock-in
-- Cloud sync is the likely recurring revenue play later, once adoption exists
+## Product Hunt
 
----
+**Tagline:** Git-native project management. Tasks live in your repo.
 
-## Messaging
+**Description:**
+> barkcli is a CLI + web app for task tracking inside any project. Tasks are YAML files in your repo — diff them, merge them, grep them. No cloud, no accounts, no vendor lock-in.
+> 
+> Open source. MIT licensed. Built in Rust.
 
-### Taglines (by context)
+**Topics:** Developer Tools, Open Source, Productivity
 
-| Context | Tagline |
-|---|---|
-| Hero (landing page) | Tasks in your repo. No cloud. No subscription. |
-| GitHub description | Git-native Kanban board. CLI + TUI + web + VS Code. |
-| Product Hunt | Git for tasks — CLI-native Kanban that lives in your repo. |
-| Hacker News | A Kanban board that lives in your git repo. |
-| Twitter bio | Git-native task management. One binary. Zero lock-in. |
-| Elevator pitch | Like `.gitignore` but for your todo list. |
+## Dev.to Article
 
-### Key Messages (repeat everywhere)
-1. **No cloud** — your data stays in your repo
-2. **One binary** — `curl \| sh`, ready in 10 seconds
-3. **Four interfaces** — CLI, TUI, web, VS Code — same data
-4. **Git-native** — diff, merge, blame, undo
-5. **Open source** — MIT licensed, no subscription
+**Title:** barkcli: Git-native project management (tasks as YAML files)
 
-### Voice & Tone
-- Direct, not clever. Say what it does.
-- Warm, not corporate. Like a good README.
-- Confident, not loud. Let the terminal demo do the selling.
-- Developer-native. Use `$` prompts, real code, real flags.
+**Introduction:**
+> Most project management tools are cloud-first. Your tasks live on someone else's server. You need accounts, subscriptions, and internet access.
+> 
+> barkcli is different. Tasks are YAML files in your repo. They're just like code — you can diff them, merge them, and version control them.
 
----
+**Key Points:**
+1. Git-native tasks (YAML files)
+2. No cloud required
+3. Multi-interface (CLI, terminal UI, web app)
+4. Code context (call graphs, test coverage)
+5. AI-ready (MCP server)
+6. Open source (MIT)
 
-## Distribution Channels
+**Conclusion:**
+> Try barkcli today:
+> ```bash
+> curl -fsSL https://barkcli.vercel.app/install.sh | sh
+> ```
+> 
+> Website: barkcli.vercel.app
+> GitHub: github.com/akshatnaruka/barkcli
 
-| Channel | Audience | Strategy | Target |
-|---|---|---|---|
-| **VS Code Marketplace** | 20M+ developers | Capture 42k installs from deprecated VSCode Kanban | 1,000 installs in month 1 |
-| **Homebrew** | macOS developers | `brew install barkcli` | 500 downloads |
-| **Product Hunt** | Early adopters, indie hackers | Launch on a Tuesday, 12 AM PST | Top 5 product of the day |
-| **Hacker News** | Developers, founders | Show HN, weekday morning Pacific | Front page, 100+ points |
-| **GitHub** | Developer community | Stars, search ranking | 500 stars in month 1 |
-| **Twitter/X** | Dev community | Regular posts, launch thread | 200 followers |
-| **Reddit** | r/rust, r/commandline, r/vscode | Share launches, respond to questions | 50 upvotes per post |
-| **Dev.to / Hashnode** | Developer blogs | Technical deep-dives, "how we built" | 2-3 articles |
+## Email Template
 
----
+**Subject:** barkcli — Git-native project management
 
-## Launch Timeline
-
-```
-Day -7:  Repo renamed, domain live, install flow tested
-Day -3:  VS Code extension published
-Day -2:  Product Hunt scheduled
-Day -1:  Homebrew formula live, release binaries verified
-Day  0:  Product Hunt + HN launch (Tue, 12 AM + 8 AM Pacific)
-Day +1:  Awesome list PRs submitted
-Day +2:  Reddit posts (r/rust, r/commandline)
-Day +7:  Launch recap blog post
-```
-
----
-
-## Success Metrics (30-Day)
-
-| Metric | Target | Stretch |
-|---|---|---|
-| GitHub Stars | 500 | 1,000 |
-| VS Code Installs | 1,000 | 2,500 |
-| CLI Downloads | 500 | 1,000 |
-| Product Hunt Upvotes | 200 | 500 |
-| HN Points | 100 | 300 |
-| Pro Licenses Sold | 10 | 25 |
-| Twitter Followers | 200 | 500 |
-| GitHub Issues | <10 open | Active discussion |
-
----
-
-## Swipe File
-
-See `LAUNCH.md` for ready-to-post copy:
-- Product Hunt: tagline, description, first comment
-- Hacker News: Show HN title, first comment
-- Awesome lists: submission blurbs for 4 lists
-- Twitter/X: 7-tweet launch thread
-- VS Code Marketplace: short + full description
+**Body:**
+> Hi [Name],
+> 
+> I built barkcli — a CLI tool for task tracking that keeps tasks as YAML files in your repo.
+> 
+> **Why?**
+> - Tasks are just files you can diff, merge, and version control
+> - Works offline, no accounts required
+> - No per-seat pricing
+> 
+> **Features:**
+> - CLI, terminal UI, web app
+> - Code context (call graphs, test coverage)
+> - MCP server for AI coding agents
+> 
+> **Install:**
+> ```bash
+> curl -fsSL https://barkcli.vercel.app/install.sh | sh
+> ```
+> 
+> **Links:**
+> - Website: barkcli.vercel.app
+> - GitHub: github.com/akshatnaruka/barkcli
+> 
+> Would love your feedback!
+> 
+> Best,
+> [Your Name]
