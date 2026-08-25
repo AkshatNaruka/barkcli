@@ -7,6 +7,8 @@ use ratatui::{
 };
 
 use crate::app::{App, AppMode, EditField, SortKey, Tab};
+use barkcli_core::agent::identity::AgentStatus;
+use barkcli_core::agent::queue::TaskStatus;
 use barkcli_core::models::card::LinkType;
 use barkcli_core::models::Card;
 
@@ -91,7 +93,7 @@ fn draw_header(f: &mut Frame, app: &App, area: Rect) {
 }
 
 fn draw_tabbar(f: &mut Frame, app: &App, area: Rect) {
-    let tabs: Vec<Tab> = vec![Tab::Board, Tab::List, Tab::Tree, Tab::Agenda, Tab::Reports, Tab::Code];
+    let tabs: Vec<Tab> = vec![Tab::Board, Tab::List, Tab::Tree, Tab::Agenda, Tab::Reports, Tab::Code, Tab::Agents, Tab::Orchestrate];
     let mut spans: Vec<Span> = Vec::new();
     spans.push(Span::styled(" ", Style::new().fg(app.theme_muted())));
     for tab in tabs {
@@ -117,6 +119,8 @@ fn draw_content(f: &mut Frame, app: &App, area: Rect) {
         Tab::Agenda => draw_agenda(f, app, area),
         Tab::Reports => draw_reports(f, app, area),
         Tab::Code => draw_code(f, app, area),
+        Tab::Agents => draw_agents(f, app, area),
+        Tab::Orchestrate => draw_orchestrate(f, app, area),
     }
 }
 
@@ -476,6 +480,141 @@ fn draw_code(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(Paragraph::new(Text::from(lines)), inner);
 }
 
+// ── Agents ──
+
+fn draw_agents(f: &mut Frame, app: &App, area: Rect) {
+    let block = Block::bordered()
+        .border_style(Style::new().fg(app.theme_border()))
+        .title(" Agents ");
+    let inner = block.inner(area);
+
+    let mut lines: Vec<Line> = Vec::new();
+
+    // Header
+    lines.push(Line::from(vec![
+        Span::styled(" ID ", Style::new().fg(app.theme_muted()).add_modifier(Modifier::BOLD)),
+        Span::styled("NAME           ", Style::new().fg(app.theme_muted()).add_modifier(Modifier::BOLD)),
+        Span::styled("ROLE       ", Style::new().fg(app.theme_muted()).add_modifier(Modifier::BOLD)),
+        Span::styled("STATUS   ", Style::new().fg(app.theme_muted()).add_modifier(Modifier::BOLD)),
+        Span::styled("TASKS", Style::new().fg(app.theme_muted()).add_modifier(Modifier::BOLD)),
+    ]));
+    lines.push(Line::from(Span::styled(
+        " ".repeat(area.width.min(80) as usize),
+        Style::new().fg(app.theme_border()),
+    )));
+
+    if app.agents.is_empty() {
+        lines.push(Line::from(Span::styled(
+            "  No agents registered. Run: barkcli mcp",
+            Style::new().fg(app.theme_muted()),
+        )));
+    } else {
+        for (i, agent) in app.agents.iter().enumerate() {
+            let sel = i == app.agent_cursor;
+            let marker = if sel { "▸" } else { " " };
+            let status_style = match agent.status {
+                AgentStatus::Idle => Style::new().fg(app.theme_success()),
+                AgentStatus::Working => Style::new().fg(app.theme_warning()),
+                AgentStatus::Paused => Style::new().fg(app.theme_muted()),
+                AgentStatus::Error => Style::new().fg(app.theme_danger()),
+            };
+            let status_label = match agent.status {
+                AgentStatus::Idle => "idle",
+                AgentStatus::Working => "working",
+                AgentStatus::Paused => "paused",
+                AgentStatus::Error => "error",
+            };
+            let title_s = Style::default()
+                .fg(app.theme_text())
+                .add_modifier(if sel { Modifier::REVERSED } else { Modifier::empty() });
+            lines.push(Line::from(vec![
+                Span::styled(format!(" {} {}", marker, agent.id), title_s),
+                Span::styled(format!("  {:<14}", agent.name), title_s),
+                Span::styled(format!("  {:<10}", agent.role), title_s),
+                Span::styled(format!("  {:<8}", status_label), status_style),
+                Span::styled(format!("  {}", agent.completed_tasks.len()), Style::new().fg(app.theme_muted())),
+            ]));
+        }
+    }
+
+    f.render_widget(block, area);
+    f.render_widget(Paragraph::new(Text::from(lines)), inner);
+}
+
+// ── Orchestrate ──
+
+fn draw_orchestrate(f: &mut Frame, app: &App, area: Rect) {
+    let block = Block::bordered()
+        .border_style(Style::new().fg(app.theme_border()))
+        .title(" Orchestrate ");
+    let inner = block.inner(area);
+
+    let mut lines: Vec<Line> = Vec::new();
+
+    // Status bar
+    if let Some(ref status) = app.orchestration_status {
+        lines.push(Line::from(vec![
+            Span::styled("Status: ", Style::new().bold()),
+            Span::styled(status.clone(), Style::new().fg(app.theme_success())),
+        ]));
+        lines.push(Line::from(Span::raw("")));
+    }
+
+    // Task queue header
+    lines.push(Line::from(vec![
+        Span::styled(" ID ", Style::new().fg(app.theme_muted()).add_modifier(Modifier::BOLD)),
+        Span::styled("CARD           ", Style::new().fg(app.theme_muted()).add_modifier(Modifier::BOLD)),
+        Span::styled("PRIO  ", Style::new().fg(app.theme_muted()).add_modifier(Modifier::BOLD)),
+        Span::styled("STATUS      ", Style::new().fg(app.theme_muted()).add_modifier(Modifier::BOLD)),
+        Span::styled("ASSIGNED", Style::new().fg(app.theme_muted()).add_modifier(Modifier::BOLD)),
+    ]));
+    lines.push(Line::from(Span::styled(
+        " ".repeat(area.width.min(80) as usize),
+        Style::new().fg(app.theme_border()),
+    )));
+
+    if app.task_queue.is_empty() {
+        lines.push(Line::from(Span::styled(
+            "  No tasks in queue. Run: barkcli orchestrate cycle <board> <role>",
+            Style::new().fg(app.theme_muted()),
+        )));
+    } else {
+        for (i, task) in app.task_queue.iter().enumerate() {
+            let sel = i == app.task_cursor;
+            let marker = if sel { "▸" } else { " " };
+            let status_style = match task.status {
+                TaskStatus::Pending => Style::new().fg(app.theme_muted()),
+                TaskStatus::Assigned => Style::new().fg(app.theme_warning()),
+                TaskStatus::InProgress => Style::new().fg(app.theme_accent()),
+                TaskStatus::Completed => Style::new().fg(app.theme_success()),
+                TaskStatus::Failed => Style::new().fg(app.theme_danger()),
+                TaskStatus::Cancelled => Style::new().fg(app.theme_muted()),
+            };
+            let status_label = match task.status {
+                TaskStatus::Pending => "pending",
+                TaskStatus::Assigned => "assigned",
+                TaskStatus::InProgress => "in_progress",
+                TaskStatus::Completed => "completed",
+                TaskStatus::Failed => "failed",
+                TaskStatus::Cancelled => "cancelled",
+            };
+            let title_s = Style::default()
+                .fg(app.theme_text())
+                .add_modifier(if sel { Modifier::REVERSED } else { Modifier::empty() });
+            lines.push(Line::from(vec![
+                Span::styled(format!(" {} {}", marker, task.id), title_s),
+                Span::styled(format!("  {:<14}", task.card_id), title_s),
+                Span::styled(format!("  {:<5}", task.priority), title_s),
+                Span::styled(format!("  {:<10}", status_label), status_style),
+                Span::styled(format!("  {}", task.assigned_agent.clone().unwrap_or_default()), Style::new().fg(app.theme_muted())),
+            ]));
+        }
+    }
+
+    f.render_widget(block, area);
+    f.render_widget(Paragraph::new(Text::from(lines)), inner);
+}
+
 // ── Status bar ──
 
 fn draw_status(f: &mut Frame, app: &App, area: Rect) {
@@ -492,6 +631,8 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
         AppMode::LinkTarget => "LINK",
         AppMode::LinkKind => "LINK",
         AppMode::UnlinkTarget => "UNLINK",
+        AppMode::AgentDetail => "AGENT",
+        AppMode::OrchestrateTask => "TASK",
     };
 
     let (hint, filter_info): (String, String) = match app.mode {
@@ -503,6 +644,8 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
                 Tab::Agenda => "↑↓/jk sel · Enter detail",
                 Tab::Reports => "read-only · q quit",
                 Tab::Code => "↑↓/jk sel · / search · Enter open linked card",
+                Tab::Agents => "↑↓/jk sel · Enter detail",
+                Tab::Orchestrate => "↑↓/jk sel · r run cycle · c claim · Enter detail",
             };
             let filter = if app.filter.is_empty() { String::new() } else { format!(" │ filter:{}", app.filter) };
             (format!("{}", tab_hint), filter)
@@ -529,6 +672,10 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
             (format!("type [child|parent|related|blocked-by]: {}█ (Enter confirm)", app.edit_buffer), String::new()),
         AppMode::UnlinkTarget =>
             (format!("target id: {}█ (Enter confirm, Esc cancel)", app.edit_buffer), String::new()),
+        AppMode::AgentDetail =>
+            (format!("Esc close"), String::new()),
+        AppMode::OrchestrateTask =>
+            (format!("Esc close"), String::new()),
     };
 
     let status_msg = app.status_msg.clone().unwrap_or_default();

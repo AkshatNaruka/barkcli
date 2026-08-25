@@ -20,6 +20,8 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Result<()> {
         AppMode::LinkTarget => handle_link_target(app, key),
         AppMode::LinkKind => handle_link_kind(app, key),
         AppMode::UnlinkTarget => handle_unlink_target(app, key),
+        AppMode::AgentDetail => handle_agent_detail(app, key),
+        AppMode::OrchestrateTask => handle_task_detail(app, key),
     }
 }
 
@@ -66,14 +68,7 @@ fn handle_normal(app: &mut App, key: KeyEvent) -> Result<()> {
         }
     }
     if key.code == KeyCode::Tab {
-        let next = match app.tab {
-            Tab::Board => Tab::List,
-            Tab::List => Tab::Tree,
-            Tab::Tree => Tab::Agenda,
-            Tab::Agenda => Tab::Reports,
-            Tab::Reports => Tab::Code,
-            Tab::Code => Tab::Board,
-        };
+        let next = app.tab.next();
         switch_tab(app, next);
         return Ok(());
     }
@@ -85,6 +80,8 @@ fn handle_normal(app: &mut App, key: KeyEvent) -> Result<()> {
         Tab::Agenda => handle_agenda_keys(app, key),
         Tab::Reports => handle_reports_keys(app, key),
         Tab::Code => handle_code_keys(app, key),
+        Tab::Agents => handle_agents_keys(app, key),
+        Tab::Orchestrate => handle_orchestrate_keys(app, key),
     }
 }
 
@@ -712,6 +709,86 @@ fn handle_confirm(app: &mut App, key: KeyEvent) -> Result<()> {
             app.mode = AppMode::Normal;
         }
         KeyCode::Char('n') | KeyCode::Esc => { app.mode = AppMode::Normal; }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn handle_agents_keys(app: &mut App, key: KeyEvent) -> Result<()> {
+    match key.code {
+        KeyCode::Up | KeyCode::Char('k') => {
+            if app.agent_cursor > 0 { app.agent_cursor -= 1; }
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            if app.agent_cursor < app.agents.len().saturating_sub(1) {
+                app.agent_cursor += 1;
+            }
+        }
+        KeyCode::Enter => {
+            if app.agent_cursor < app.agents.len() {
+                app.mode = AppMode::AgentDetail;
+            }
+        }
+        KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
+        KeyCode::Char('T') => {
+            app.theme = match app.theme {
+                Theme::Dark => Theme::Light,
+                Theme::Light => Theme::Dark,
+            };
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn handle_orchestrate_keys(app: &mut App, key: KeyEvent) -> Result<()> {
+    match key.code {
+        KeyCode::Up | KeyCode::Char('k') => {
+            if app.task_cursor > 0 { app.task_cursor -= 1; }
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            if app.task_cursor < app.task_queue.len().saturating_sub(1) {
+                app.task_cursor += 1;
+            }
+        }
+        KeyCode::Char('r') => {
+            let _ = app.run_orchestration_cycle();
+        }
+        KeyCode::Char('c') => {
+            let _ = app.claim_selected_task();
+        }
+        KeyCode::Enter => {
+            if app.task_cursor < app.task_queue.len() {
+                app.mode = AppMode::OrchestrateTask;
+            }
+        }
+        KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
+        KeyCode::Char('T') => {
+            app.theme = match app.theme {
+                Theme::Dark => Theme::Light,
+                Theme::Light => Theme::Dark,
+            };
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn handle_agent_detail(app: &mut App, key: KeyEvent) -> Result<()> {
+    match key.code {
+        KeyCode::Esc | KeyCode::Char('q') => {
+            app.mode = AppMode::Normal;
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn handle_task_detail(app: &mut App, key: KeyEvent) -> Result<()> {
+    match key.code {
+        KeyCode::Esc | KeyCode::Char('q') => {
+            app.mode = AppMode::Normal;
+        }
         _ => {}
     }
     Ok(())

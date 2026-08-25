@@ -1,4 +1,6 @@
 use anyhow::{Context, Result};
+use barkcli_core::agent::identity::{AgentIdentity, AgentRegistry, AgentStatus};
+use barkcli_core::agent::queue::{TaskQueue, TaskRequest, TaskStatus};
 use barkcli_core::code::index::ScoredFile;
 use barkcli_core::code::SymbolIndex;
 use barkcli_core::models::card::LinkType;
@@ -31,6 +33,8 @@ pub enum AppMode {
     LinkTarget,
     LinkKind,
     UnlinkTarget,
+    AgentDetail,
+    OrchestrateTask,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -41,6 +45,8 @@ pub enum Tab {
     Agenda,
     Reports,
     Code,
+    Agents,
+    Orchestrate,
 }
 
 impl Tab {
@@ -52,6 +58,8 @@ impl Tab {
             '4' => Some(Tab::Agenda),
             '5' => Some(Tab::Reports),
             '6' => Some(Tab::Code),
+            '7' => Some(Tab::Agents),
+            '8' => Some(Tab::Orchestrate),
             _ => None,
         }
     }
@@ -63,6 +71,32 @@ impl Tab {
             Tab::Agenda => "4 Agenda",
             Tab::Reports => "5 Reports",
             Tab::Code => "6 Code",
+            Tab::Agents => "7 Agents",
+            Tab::Orchestrate => "8 Orchestrate",
+        }
+    }
+    pub fn next(&self) -> Tab {
+        match self {
+            Tab::Board => Tab::List,
+            Tab::List => Tab::Tree,
+            Tab::Tree => Tab::Agenda,
+            Tab::Agenda => Tab::Reports,
+            Tab::Reports => Tab::Code,
+            Tab::Code => Tab::Agents,
+            Tab::Agents => Tab::Orchestrate,
+            Tab::Orchestrate => Tab::Board,
+        }
+    }
+    pub fn prev(&self) -> Tab {
+        match self {
+            Tab::Board => Tab::Orchestrate,
+            Tab::List => Tab::Board,
+            Tab::Tree => Tab::List,
+            Tab::Agenda => Tab::Tree,
+            Tab::Reports => Tab::Agenda,
+            Tab::Code => Tab::Reports,
+            Tab::Agents => Tab::Code,
+            Tab::Orchestrate => Tab::Agents,
         }
     }
 }
@@ -137,6 +171,13 @@ pub struct App {
     pub code_results: Vec<ScoredFile>,
     pub status_msg: Option<String>,
     pub link_state: LinkState,
+
+    // Agent & orchestration state
+    pub agents: Vec<AgentIdentity>,
+    pub agent_cursor: usize,
+    pub task_queue: Vec<TaskRequest>,
+    pub task_cursor: usize,
+    pub orchestration_status: Option<String>,
 }
 
 pub enum LinkState {
@@ -162,7 +203,7 @@ pub struct ParsedQuery {
 impl App {
     pub fn from_board_name(name: &str) -> Result<Self> {
         let board = read_board(name).context(format!("board '{}' not found", name))?;
-        Ok(Self {
+        let mut app = Self {
             board,
             board_name: name.to_string(),
             all_boards: Vec::new(),
@@ -186,7 +227,15 @@ impl App {
             code_results: Vec::new(),
             status_msg: None,
             link_state: LinkState::None,
-        })
+            agents: Vec::new(),
+            agent_cursor: 0,
+            task_queue: Vec::new(),
+            task_cursor: 0,
+            orchestration_status: None,
+        };
+        app.load_agents();
+        app.load_task_queue();
+        Ok(app)
     }
 
     pub fn for_picker(boards: Vec<String>) -> Self {
@@ -214,6 +263,11 @@ impl App {
             code_results: Vec::new(),
             status_msg: None,
             link_state: LinkState::None,
+            agents: Vec::new(),
+            agent_cursor: 0,
+            task_queue: Vec::new(),
+            task_cursor: 0,
+            orchestration_status: None,
         }
     }
 
@@ -300,7 +354,7 @@ impl App {
             Tab::List => self.sorted_cards(),
             Tab::Tree => self.tree_flat(),
             Tab::Agenda => self.agenda_flat(),
-            Tab::Reports | Tab::Code => Vec::new(),
+            Tab::Reports | Tab::Code | Tab::Agents | Tab::Orchestrate => Vec::new(),
         }
     }
 
@@ -815,6 +869,54 @@ impl App {
             Theme::Dark => Color::Rgb(60, 60, 80),
             Theme::Light => Color::Rgb(200, 200, 215),
         }
+    }
+
+    // ── Agent & Orchestration ──
+
+    pub fn load_agents(&mut self) {
+        if let Ok(root) = find_project_root() {
+            let path = root.join(".board").join("agents").join("registry.json");
+            if let Ok(registry) = AgentRegistry::load(&path) {
+                self.agents = registry.agents;
+            }
+        }
+    }
+
+    pub fn load_task_queue(&mut self) {
+        if let Ok(root) = find_project_root() {
+            let path = root.join(".board").join("tasks").join(format!("{}.json", self.board_name));
+            if let Ok(queue) = TaskQueue::load(&path) {
+                self.task_queue = queue.tasks;
+            }
+        }
+    }
+
+    pub fn run_orchestration_cycle(&mut self) -> Result<()> {
+        // Simplified orchestration: find unassigned pending tasks and assign to available agents
+        let available_agent = self.agents.iter().find(|a| a.status == AgentStatus::Idle && a.can_accept_task());
+        if let Some(agent) = available_agent {
+            let agent_id = agent.id.clone();
+            if let Some(task) = self.task_queue.iter_mut().find(|t| t.status == TaskStatus::Pending) {
+                task.status = TaskStatus::Assigned;
+                task.assigned_agent = Some(agent_id.clone());
+                self.orchestration_status = Some(format!("Assigned task {} to {}", task.id, agent_id));
+            } else {
+                self.orchestration_status = Some("No pending tasks".to_string());
+            }
+        } else {
+            self.orchestration_status = Some("No available agents".to_string());
+        }
+        Ok(())
+    }
+
+    pub fn claim_selected_task(&mut self) -> Result<()> {
+        if let Some(task) = self.task_queue.get_mut(self.task_cursor) {
+            if task.status == TaskStatus::Pending || task.status == TaskStatus::Assigned {
+                task.status = TaskStatus::InProgress;
+                self.status_msg = Some(format!("Claimed task: {}", task.id));
+            }
+        }
+        Ok(())
     }
 }
 
