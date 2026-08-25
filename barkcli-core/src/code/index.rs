@@ -2,17 +2,18 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use anyhow::{Context, Result};
+use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
 use super::symbols::{extract_symbols, tokens_of};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileSymbols {
     pub path: String,
     pub symbols: Vec<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScoredFile {
     pub path: String,
     pub score: u32,
