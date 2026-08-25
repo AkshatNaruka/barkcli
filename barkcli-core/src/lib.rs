@@ -1,7 +1,9 @@
+pub mod agent;
 pub mod ai;
 pub mod cli;
 pub mod code;
 pub mod commands;
+pub mod mcp;
 pub mod models;
 pub mod storage;
 pub mod util;
