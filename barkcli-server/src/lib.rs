@@ -6,12 +6,12 @@ use anyhow::{Context, Result};
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
-        Query, Request, State,
+        Path, Query, Request, State,
     },
     http::{header, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Json, Response},
-    routing::{get, post},
+    routing::{get, post, put},
     Router,
 };
 use chrono::{DateTime, Local, Utc};
@@ -20,6 +20,10 @@ use serde::Deserialize;
 use tokio::sync::{broadcast, Mutex};
 use tower_http::services::ServeDir;
 
+use barkcli_core::agent::{
+    AgentIdentity, AgentRegistry, AgentRole, TaskQueue, TaskRequest, TaskResult, TaskStatus,
+    VelocityTracker,
+};
 use barkcli_core::code::SymbolIndex;
 use barkcli_core::models::{Board, Sprint};
 use barkcli_core::storage::board_file;
@@ -78,6 +82,26 @@ pub async fn run(
         .route("/api/context/clear", post(clear_context_handler))
         .route("/api/code", get(code_handler))
         .route("/api/config", get(config_handler))
+        // Management layer endpoints
+        .route("/api/tasks", get(list_tasks_handler).post(create_task_handler))
+        .route(
+            "/api/tasks/:task_id",
+            get(get_task_handler)
+                .put(update_task_handler)
+                .delete(delete_task_handler),
+        )
+        .route("/api/tasks/:task_id/claim", post(claim_task_handler))
+        .route("/api/tasks/:task_id/complete", post(complete_task_handler))
+        .route("/api/tasks/:task_id/fail", post(fail_task_handler))
+        .route("/api/agents", get(list_agents_handler).post(register_agent_handler))
+        .route(
+            "/api/agents/:agent_id",
+            get(get_agent_handler).delete(delete_agent_handler),
+        )
+        .route("/api/agents/:agent_id/status", get(agent_status_handler))
+        .route("/api/orchestrate/next", post(orchestrate_next_handler))
+        .route("/api/orchestrate/cycle", post(orchestrate_cycle_handler))
+        .route("/api/orchestrate/status", get(orchestrate_status_handler))
         .route("/ws", get(ws_handler))
         .fallback_service(ServeDir::new("web/dist").fallback(
             ServeDir::new("vscode-extension/dist") // fallback to old VS Code extension assets
@@ -789,6 +813,549 @@ async fn watch_board_files(tx: broadcast::Sender<String>, board_name: Option<Str
             Err(_) => break,
             _ => {}
         }
+    }
+}
+
+// ── Management Layer Handlers ──
+
+#[derive(Deserialize)]
+struct TaskQuery {
+    status: Option<String>,
+    card_id: Option<String>,
+    agent_id: Option<String>,
+}
+
+#[derive(serde::Serialize)]
+struct TaskListResponse {
+    tasks: Vec<TaskRequest>,
+}
+
+async fn list_tasks_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<TaskQuery>,
+) -> Result<Json<TaskListResponse>, ServerError> {
+    let board_name = resolve_board_name(&state, None)?;
+    let tasks_path = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .join("tasks")
+        .join(format!("{}.json", board_name));
+
+    let queue = if tasks_path.exists() {
+        TaskQueue::load(&tasks_path).map_err(|e| ServerError::internal(e.to_string()))?
+    } else {
+        TaskQueue::new()
+    };
+
+    let mut tasks: Vec<TaskRequest> = queue.tasks;
+
+    // Filter by status
+    if let Some(status_str) = &query.status {
+        if let Ok(status) = serde_json::from_str::<TaskStatus>(&format!("\"{}\"", status_str)) {
+            tasks.retain(|t| t.status == status);
+        }
+    }
+
+    // Filter by card_id
+    if let Some(card_id) = &query.card_id {
+        tasks.retain(|t| &t.card_id == card_id);
+    }
+
+    // Filter by agent_id
+    if let Some(agent_id) = &query.agent_id {
+        tasks.retain(|t| t.assigned_agent.as_deref() == Some(agent_id));
+    }
+
+    Ok(Json(TaskListResponse { tasks }))
+}
+
+#[derive(Deserialize)]
+struct CreateTaskRequest {
+    card_id: String,
+    title: String,
+    description: Option<String>,
+    acceptance_criteria: Option<Vec<String>>,
+    priority: Option<String>,
+}
+
+async fn create_task_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<CreateTaskRequest>,
+) -> Result<Json<TaskRequest>, ServerError> {
+    let board_name = resolve_board_name(&state, None)?;
+    let tasks_dir = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .join("tasks");
+
+    std::fs::create_dir_all(&tasks_dir).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let tasks_path = tasks_dir.join(format!("{}.json", board_name));
+
+    let mut queue = if tasks_path.exists() {
+        TaskQueue::load(&tasks_path).map_err(|e| ServerError::internal(e.to_string()))?
+    } else {
+        TaskQueue::new()
+    };
+
+    let task = barkcli_core::agent::queue::create_task(
+        &req.card_id,
+        &req.title,
+        &req.description.unwrap_or_default(),
+        req.acceptance_criteria.unwrap_or_default(),
+        Vec::new(),
+        &req.priority.unwrap_or_else(|| "medium".to_string()),
+    );
+
+    queue.add(task.clone());
+
+    queue.save(&tasks_path).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    // Broadcast reload
+    let _ = state.tx.send("reload".to_string());
+
+    Ok(Json(task))
+}
+
+async fn get_task_handler(
+    State(state): State<Arc<AppState>>,
+    Path(task_id): Path<String>,
+) -> Result<Json<TaskRequest>, ServerError> {
+    let board_name = resolve_board_name(&state, None)?;
+    let tasks_path = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .join("tasks")
+        .join(format!("{}.json", board_name));
+
+    let queue = TaskQueue::load(&tasks_path).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    queue
+        .get(&task_id)
+        .cloned()
+        .map(Json)
+        .ok_or_else(|| ServerError::bad("Task not found"))
+}
+
+#[derive(Deserialize)]
+struct UpdateTaskRequest {
+    status: Option<String>,
+    assigned_agent: Option<String>,
+}
+
+async fn update_task_handler(
+    State(state): State<Arc<AppState>>,
+    Path(task_id): Path<String>,
+    Json(req): Json<UpdateTaskRequest>,
+) -> Result<Json<TaskRequest>, ServerError> {
+    let board_name = resolve_board_name(&state, None)?;
+    let tasks_path = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .join("tasks")
+        .join(format!("{}.json", board_name));
+
+    let mut queue = TaskQueue::load(&tasks_path).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    if let Some(status_str) = &req.status {
+        if let Ok(status) = serde_json::from_str::<TaskStatus>(&format!("\"{}\"", status_str)) {
+            queue
+                .update_status(&task_id, status)
+                .map_err(|e| ServerError::bad(e.to_string()))?;
+        }
+    }
+
+    if let Some(agent_id) = &req.assigned_agent {
+        if let Some(task) = queue.get_mut(&task_id) {
+            task.assigned_agent = Some(agent_id.clone());
+        }
+    }
+
+    queue.save(&tasks_path).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let _ = state.tx.send("reload".to_string());
+
+    queue
+        .get(&task_id)
+        .cloned()
+        .map(Json)
+        .ok_or_else(|| ServerError::bad("Task not found"))
+}
+
+async fn delete_task_handler(
+    State(state): State<Arc<AppState>>,
+    Path(task_id): Path<String>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, None)?;
+    let tasks_path = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .join("tasks")
+        .join(format!("{}.json", board_name));
+
+    let mut queue = TaskQueue::load(&tasks_path).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    queue.tasks.retain(|t| t.id != task_id);
+
+    queue.save(&tasks_path).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let _ = state.tx.send("reload".to_string());
+
+    Ok(Json(serde_json::json!({"deleted": true})))
+}
+
+async fn claim_task_handler(
+    State(state): State<Arc<AppState>>,
+    Path(task_id): Path<String>,
+    Query(query): Query<std::collections::HashMap<String, String>>,
+) -> Result<Json<TaskRequest>, ServerError> {
+    let agent_id = query
+        .get("agent_id")
+        .ok_or_else(|| ServerError::bad("agent_id query parameter required"))?;
+
+    let board_name = resolve_board_name(&state, None)?;
+    let tasks_path = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .join("tasks")
+        .join(format!("{}.json", board_name));
+
+    let mut queue = TaskQueue::load(&tasks_path).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    queue
+        .claim(&task_id, agent_id)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+
+    queue.save(&tasks_path).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let _ = state.tx.send("reload".to_string());
+
+    queue
+        .get(&task_id)
+        .cloned()
+        .map(Json)
+        .ok_or_else(|| ServerError::bad("Task not found"))
+}
+
+#[derive(Deserialize)]
+struct CompleteTaskRequest {
+    files_changed: Option<Vec<String>>,
+    commit_sha: Option<String>,
+    summary: Option<String>,
+    tests_passed: Option<bool>,
+}
+
+async fn complete_task_handler(
+    State(state): State<Arc<AppState>>,
+    Path(task_id): Path<String>,
+    Json(req): Json<CompleteTaskRequest>,
+) -> Result<Json<TaskRequest>, ServerError> {
+    let board_name = resolve_board_name(&state, None)?;
+    let tasks_path = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .join("tasks")
+        .join(format!("{}.json", board_name));
+
+    let mut queue = TaskQueue::load(&tasks_path).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    queue
+        .complete(&task_id)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+
+    // Update task with result details
+    if let Some(task) = queue.get_mut(&task_id) {
+        if let Some(files) = &req.files_changed {
+            // We could store these in a separate results store
+        }
+        if let Some(summary) = &req.summary {
+            // Store summary if needed
+        }
+    }
+
+    queue.save(&tasks_path).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let _ = state.tx.send("reload".to_string());
+
+    queue
+        .get(&task_id)
+        .cloned()
+        .map(Json)
+        .ok_or_else(|| ServerError::bad("Task not found"))
+}
+
+async fn fail_task_handler(
+    State(state): State<Arc<AppState>>,
+    Path(task_id): Path<String>,
+) -> Result<Json<TaskRequest>, ServerError> {
+    let board_name = resolve_board_name(&state, None)?;
+    let tasks_path = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .join("tasks")
+        .join(format!("{}.json", board_name));
+
+    let mut queue = TaskQueue::load(&tasks_path).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    queue
+        .fail(&task_id)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+
+    queue.save(&tasks_path).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let _ = state.tx.send("reload".to_string());
+
+    queue
+        .get(&task_id)
+        .cloned()
+        .map(Json)
+        .ok_or_else(|| ServerError::bad("Task not found"))
+}
+
+// ── Agent Handlers ──
+
+#[derive(serde::Serialize)]
+struct AgentListResponse {
+    agents: Vec<AgentIdentity>,
+}
+
+async fn list_agents_handler(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<AgentListResponse>, ServerError> {
+    let agents_path = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .join("agents");
+
+    let registry = if agents_path.exists() {
+        let registry_path = agents_path.join("registry.json");
+        if registry_path.exists() {
+            AgentRegistry::load(&registry_path).map_err(|e| ServerError::internal(e.to_string()))?
+        } else {
+            AgentRegistry::new()
+        }
+    } else {
+        AgentRegistry::new()
+    };
+
+    Ok(Json(AgentListResponse {
+        agents: registry.agents,
+    }))
+}
+
+#[derive(Deserialize)]
+struct RegisterAgentRequest {
+    id: String,
+    name: String,
+    role: String,
+}
+
+async fn register_agent_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<RegisterAgentRequest>,
+) -> Result<Json<AgentIdentity>, ServerError> {
+    let agents_dir = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .join("agents");
+
+    std::fs::create_dir_all(&agents_dir).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let registry_path = agents_dir.join("registry.json");
+
+    let mut registry = if registry_path.exists() {
+        AgentRegistry::load(&registry_path).map_err(|e| ServerError::internal(e.to_string()))?
+    } else {
+        AgentRegistry::new()
+    };
+
+    let role = AgentRole::from_str(&req.role)
+        .ok_or_else(|| ServerError::bad(format!("Invalid role: {}", req.role)))?;
+
+    let agent = AgentIdentity::new(&req.id, &req.name, role);
+    registry.register(agent.clone());
+
+    registry
+        .save(&registry_path)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let _ = state.tx.send("reload".to_string());
+
+    Ok(Json(agent))
+}
+
+async fn get_agent_handler(
+    State(state): State<Arc<AppState>>,
+    Path(agent_id): Path<String>,
+) -> Result<Json<AgentIdentity>, ServerError> {
+    let agents_path = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .join("agents")
+        .join("registry.json");
+
+    let registry = AgentRegistry::load(&agents_path).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    registry
+        .get(&agent_id)
+        .cloned()
+        .map(Json)
+        .ok_or_else(|| ServerError::bad("Agent not found"))
+}
+
+async fn delete_agent_handler(
+    State(state): State<Arc<AppState>>,
+    Path(agent_id): Path<String>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let agents_dir = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .join("agents");
+
+    let registry_path = agents_dir.join("registry.json");
+
+    let mut registry = AgentRegistry::load(&registry_path).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    registry.remove(&agent_id);
+
+    registry
+        .save(&registry_path)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let _ = state.tx.send("reload".to_string());
+
+    Ok(Json(serde_json::json!({"deleted": true})))
+}
+
+#[derive(serde::Serialize)]
+struct AgentStatusResponse {
+    agent: AgentIdentity,
+    active_tasks: usize,
+    completed_tasks: usize,
+    failed_tasks: usize,
+    success_rate: f32,
+}
+
+async fn agent_status_handler(
+    State(state): State<Arc<AppState>>,
+    Path(agent_id): Path<String>,
+) -> Result<Json<AgentStatusResponse>, ServerError> {
+    let agents_path = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .join("agents")
+        .join("registry.json");
+
+    let registry = AgentRegistry::load(&agents_path).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let agent = registry
+        .get(&agent_id)
+        .cloned()
+        .ok_or_else(|| ServerError::bad("Agent not found"))?;
+
+    Ok(Json(AgentStatusResponse {
+        active_tasks: agent.active_tasks.len(),
+        completed_tasks: agent.completed_tasks.len(),
+        failed_tasks: agent.failed_tasks.len(),
+        success_rate: agent.success_rate(),
+        agent,
+    }))
+}
+
+// ── Orchestration Handlers ──
+
+#[derive(serde::Serialize)]
+struct OrchestrateNextResponse {
+    task: Option<TaskRequest>,
+    insights: Vec<String>,
+}
+
+async fn orchestrate_next_handler(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<OrchestrateNextResponse>, ServerError> {
+    let board_name = resolve_board_name(&state, None)?;
+    let tasks_path = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .join("tasks")
+        .join(format!("{}.json", board_name));
+
+    let queue = if tasks_path.exists() {
+        TaskQueue::load(&tasks_path).map_err(|e| ServerError::internal(e.to_string()))?
+    } else {
+        TaskQueue::new()
+    };
+
+    let task = queue.next_pending().cloned();
+    let mut insights = Vec::new();
+
+    if task.is_none() {
+        insights.push("No pending tasks available".to_string());
+    }
+
+    Ok(Json(OrchestrateNextResponse { task, insights }))
+}
+
+#[derive(serde::Serialize)]
+struct OrchestrateCycleResponse {
+    cycle_number: usize,
+    tasks_created: usize,
+    tasks_dispatched: usize,
+    tasks_completed: usize,
+    tasks_failed: usize,
+    insights: Vec<String>,
+}
+
+async fn orchestrate_cycle_handler(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<OrchestrateCycleResponse>, ServerError> {
+    let board_name = resolve_board_name(&state, None)?;
+
+    // Load board
+    let board = read_board(&board_name).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    // Create orchestration engine
+    let mut engine = barkcli_core::agent::orchestrate::OrchestrationEngine::new(
+        &board_name,
+        barkcli_core::agent::roles::AgentRole::ScrumMaster,
+        board,
+    )
+    .map_err(|e| ServerError::internal(e.to_string()))?;
+
+    // Run cycle
+    let result = engine
+        .run_cycle()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+
+    Ok(Json(OrchestrateCycleResponse {
+        cycle_number: result.cycle_number,
+        tasks_created: result.tasks_created,
+        tasks_dispatched: result.tasks_dispatched,
+        tasks_completed: result.tasks_completed,
+        tasks_failed: result.tasks_failed,
+        insights: result.insights,
+    }))
+}
+
+#[derive(serde::Serialize)]
+struct OrchestrateStatusResponse {
+    status: String,
+    cycle_count: usize,
+    tasks_dispatched: usize,
+    tasks_completed: usize,
+    tasks_failed: usize,
+}
+
+async fn orchestrate_status_handler(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<OrchestrateStatusResponse>, ServerError> {
+    let board_name = resolve_board_name(&state, None)?;
+
+    let status =
+        barkcli_core::agent::orchestrate::OrchestrationEngine::load_state(&board_name)
+            .map_err(|e| ServerError::internal(e.to_string()))?;
+
+    match status {
+        Some(state) => Ok(Json(OrchestrateStatusResponse {
+            status: state.status.display_name().to_string(),
+            cycle_count: state.cycle_count,
+            tasks_dispatched: state.tasks_dispatched,
+            tasks_completed: state.tasks_completed,
+            tasks_failed: state.tasks_failed,
+        })),
+        None => Ok(Json(OrchestrateStatusResponse {
+            status: "Not started".to_string(),
+            cycle_count: 0,
+            tasks_dispatched: 0,
+            tasks_completed: 0,
+            tasks_failed: 0,
+        })),
     }
 }
 
