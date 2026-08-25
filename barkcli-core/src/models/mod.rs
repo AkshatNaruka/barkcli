@@ -8,7 +8,8 @@ pub mod sprint;
 
 pub use board::Board;
 pub use card::Card;
+pub use column::Column;
 pub use config::Config;
+pub use context::{AiSummary, BoardContext, CardContext, CoverageInfo, FileRef};
 pub use session::SessionEntry;
 pub use sprint::Sprint;
-pub use context::{AiSummary, BoardContext, CardContext, FileRef};

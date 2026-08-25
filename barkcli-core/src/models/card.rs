@@ -47,6 +47,33 @@ pub struct Card {
     pub updated_at: DateTime<Utc>,
 }
 
+impl Default for Card {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            title: String::new(),
+            description: None,
+            column: "todo".to_string(),
+            priority: "medium".to_string(),
+            labels: Vec::new(),
+            assignee: None,
+            checklist: Vec::new(),
+            due_date: None,
+            remind_at: None,
+            comments: Vec::new(),
+            blocked_by: None,
+            attachments: Vec::new(),
+            links: Vec::new(),
+            acceptance_criteria: Vec::new(),
+            effort: None,
+            area: None,
+            pinned: false,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        }
+    }
+}
+
 impl Card {
     pub fn new(id: impl Into<String>, title: impl Into<String>, column: impl Into<String>) -> Self {
         let now = Utc::now();
