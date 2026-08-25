@@ -4,6 +4,6 @@ pub mod config_store;
 pub mod context;
 pub mod history;
 pub mod sessions;
+pub mod specs;
 pub mod sprints;
-
 

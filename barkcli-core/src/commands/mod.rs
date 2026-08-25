@@ -17,6 +17,7 @@ pub mod init;
 pub mod link;
 pub mod list;
 pub mod session;
+pub mod spec;
 pub mod status;
 pub mod undo;
 pub mod validate;

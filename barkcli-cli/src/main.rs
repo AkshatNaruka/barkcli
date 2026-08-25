@@ -203,6 +203,13 @@ fn main() {
                 }
                 return;
             }
+            "spec" => {
+                if let Err(e) = run_spec_cmd(&rest[1..]) {
+                    eprintln!("error: {}", e);
+                    std::process::exit(1);
+                }
+                return;
+            }
             "tui" => {
                 #[cfg(feature = "tui")] run_tui(&rest[1..]);
                 return;
@@ -251,6 +258,124 @@ fn main() {
             _ => {}
         }
     }
+
+fn run_spec_cmd(args: &[String]) -> anyhow::Result<()> {
+    match args.first().map(|s| s.as_str()) {
+        Some("list") | Some("ls") => {
+            let board = args.iter().position(|s| s == "-b" || s == "--board")
+                .and_then(|i| args.get(i + 1)).map(|s| s.as_str());
+            barkcli_core::commands::spec::list(board)
+        }
+        Some("show") => {
+            let board = args.iter().position(|s| s == "-b" || s == "--board")
+                .and_then(|i| args.get(i + 1)).map(|s| s.as_str());
+            let spec_id = args.get(2).ok_or_else(|| anyhow::anyhow!("usage: barkcli spec show <id>"))?;
+            barkcli_core::commands::spec::show(board, spec_id)
+        }
+        Some("create") | Some("new") => {
+            let board = args.iter().position(|s| s == "-b" || s == "--board")
+                .and_then(|i| args.get(i + 1)).map(|s| s.as_str());
+            let title = args.get(2).ok_or_else(|| anyhow::anyhow!("usage: barkcli spec create <title>"))?;
+            let mut description = None;
+            let mut priority = None;
+            let mut i = 3;
+            while i < args.len() {
+                match args[i].as_str() {
+                    "-d" | "--description" => { i += 1; description = args.get(i).map(|s| s.as_str()); }
+                    "-p" | "--priority" => { i += 1; priority = args.get(i).map(|s| s.as_str()); }
+                    _ => {}
+                }
+                i += 1;
+            }
+            barkcli_core::commands::spec::create(board, title, description, priority)
+        }
+        Some("update") => {
+            let board = args.iter().position(|s| s == "-b" || s == "--board")
+                .and_then(|i| args.get(i + 1)).map(|s| s.as_str());
+            let spec_id = args.get(2).ok_or_else(|| anyhow::anyhow!("usage: barkcli spec update <id> [options]"))?;
+            let mut status = None;
+            let mut priority = None;
+            let mut description = None;
+            let mut i = 3;
+            while i < args.len() {
+                match args[i].as_str() {
+                    "-s" | "--status" => { i += 1; status = args.get(i).map(|s| s.as_str()); }
+                    "-p" | "--priority" => { i += 1; priority = args.get(i).map(|s| s.as_str()); }
+                    "-d" | "--description" => { i += 1; description = args.get(i).map(|s| s.as_str()); }
+                    _ => {}
+                }
+                i += 1;
+            }
+            barkcli_core::commands::spec::update(board, spec_id, status, priority, description)
+        }
+        Some("delete") | Some("rm") => {
+            let board = args.iter().position(|s| s == "-b" || s == "--board")
+                .and_then(|i| args.get(i + 1)).map(|s| s.as_str());
+            let spec_id = args.get(2).ok_or_else(|| anyhow::anyhow!("usage: barkcli spec delete <id>"))?;
+            barkcli_core::commands::spec::delete(board, spec_id)
+        }
+        Some("add-req") => {
+            let board = args.iter().position(|s| s == "-b" || s == "--board")
+                .and_then(|i| args.get(i + 1)).map(|s| s.as_str());
+            let spec_id = args.get(2).ok_or_else(|| anyhow::anyhow!("usage: barkcli spec add-req <spec-id> <title>"))?;
+            let title = args.get(3).ok_or_else(|| anyhow::anyhow!("usage: barkcli spec add-req <spec-id> <title>"))?;
+            barkcli_core::commands::spec::add_requirement(board, spec_id, title)
+        }
+        Some("link-code") => {
+            let board = args.iter().position(|s| s == "-b" || s == "--board")
+                .and_then(|i| args.get(i + 1)).map(|s| s.as_str());
+            let spec_id = args.get(2).ok_or_else(|| anyhow::anyhow!("usage: barkcli spec link-code <spec-id> <req-id> <path>"))?;
+            let req_id = args.get(3).ok_or_else(|| anyhow::anyhow!("usage: barkcli spec link-code <spec-id> <req-id> <path>"))?;
+            let path = args.get(4).ok_or_else(|| anyhow::anyhow!("usage: barkcli spec link-code <spec-id> <req-id> <path>"))?;
+            barkcli_core::commands::spec::link_code(board, spec_id, req_id, path)
+        }
+        Some("link-task") => {
+            let board = args.iter().position(|s| s == "-b" || s == "--board")
+                .and_then(|i| args.get(i + 1)).map(|s| s.as_str());
+            let spec_id = args.get(2).ok_or_else(|| anyhow::anyhow!("usage: barkcli spec link-task <spec-id> <req-id> <task-id>"))?;
+            let req_id = args.get(3).ok_or_else(|| anyhow::anyhow!("usage: barkcli spec link-task <spec-id> <req-id> <task-id>"))?;
+            let task_id = args.get(4).ok_or_else(|| anyhow::anyhow!("usage: barkcli spec link-task <spec-id> <req-id> <task-id>"))?;
+            barkcli_core::commands::spec::link_task(board, spec_id, req_id, task_id)
+        }
+        Some("trace") => {
+            let board = args.iter().position(|s| s == "-b" || s == "--board")
+                .and_then(|i| args.get(i + 1)).map(|s| s.as_str());
+            let spec_id = args.get(2).ok_or_else(|| anyhow::anyhow!("usage: barkcli spec trace <id>"))?;
+            barkcli_core::commands::spec::trace(board, spec_id)
+        }
+        Some("coverage") => {
+            let board = args.iter().position(|s| s == "-b" || s == "--board")
+                .and_then(|i| args.get(i + 1)).map(|s| s.as_str());
+            barkcli_core::commands::spec::coverage(board)
+        }
+        Some("scan-stale") => {
+            let board = args.iter().position(|s| s == "-b" || s == "--board")
+                .and_then(|i| args.get(i + 1)).map(|s| s.as_str());
+            let files: Vec<String> = args[2..].iter()
+                .filter(|s| !s.starts_with('-'))
+                .cloned()
+                .collect();
+            barkcli_core::commands::spec::scan_stale(board, &files)
+        }
+        _ => {
+            eprintln!("usage: barkcli spec <list|show|create|update|delete|add-req|link-code|link-task|trace|coverage|scan-stale>");
+            eprintln!();
+            eprintln!("Commands:");
+            eprintln!("  list              List all specs");
+            eprintln!("  show <id>         Show spec details");
+            eprintln!("  create <title>    Create a new spec");
+            eprintln!("  update <id>       Update a spec");
+            eprintln!("  delete <id>       Delete a spec");
+            eprintln!("  add-req <spec> <title>  Add a requirement");
+            eprintln!("  link-code <spec> <req> <path>   Link code to requirement");
+            eprintln!("  link-task <spec> <req> <task>   Link task to requirement");
+            eprintln!("  trace <id>        Show full traceability");
+            eprintln!("  coverage          Show coverage stats");
+            eprintln!("  scan-stale <files...>  Scan for stale requirements");
+            std::process::exit(1);
+        }
+    }
+}
 
 struct AiArgs { dry_run: bool, model: String }
 
