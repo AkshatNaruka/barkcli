@@ -462,11 +462,31 @@ fn handle_checkpoint_cmd(args: &[String]) -> Result<()> {
 
 fn handle_hooks_cmd(args: &[String]) -> Result<()> {
     let Some(sub) = args.first() else {
-        bail!("usage: barkcli hooks <install|remove|status>");
+        bail!("usage: barkcli hooks <install|remove|status> [--spec-sync]");
     };
     match sub.as_str() {
-        "install" => commands::hooks::run_install(&args[1..]),
-        "remove" | "uninstall" => commands::hooks::run_remove(&args[1..]),
+        "install" => {
+            let install_spec_sync = args.iter().any(|s| s == "--spec-sync" || s == "-s");
+            if install_spec_sync {
+                let board_dir = crate::storage::board_dir::find_board_dir()?;
+                let root = board_dir.parent().unwrap_or(&std::path::Path::new(".")).to_path_buf();
+                commands::hooks::install_spec_sync(&root)?;
+            } else {
+                commands::hooks::run_install(&args[1..])?;
+            }
+            Ok(())
+        }
+        "remove" | "uninstall" => {
+            let remove_spec_sync = args.iter().any(|s| s == "--spec-sync" || s == "-s");
+            if remove_spec_sync {
+                let board_dir = crate::storage::board_dir::find_board_dir()?;
+                let root = board_dir.parent().unwrap_or(&std::path::Path::new(".")).to_path_buf();
+                commands::hooks::remove_spec_sync(&root)?;
+            } else {
+                commands::hooks::run_remove(&args[1..])?;
+            }
+            Ok(())
+        }
         "status" => commands::hooks::run_status(),
         _ => bail!("unknown hooks subcommand '{}' (install | remove | status)", sub),
     }

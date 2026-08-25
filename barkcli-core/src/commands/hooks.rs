@@ -66,12 +66,98 @@ pub fn run_status() -> Result<()> {
 
     let opencode = root.join(".opencode/plugins/barkcli.ts").exists();
     let claude = claude_hooks_installed(&root.join(".claude/settings.json"));
+    let spec_sync = root.join(".git/hooks/post-commit").exists() && git_hook_contains_spec_sync(&root)?;
 
     println!("{}", style::strong("Agent hooks:"));
     println!("  opencode:   {}", if opencode { style::ok("installed") } else { style::muted("not installed") });
     println!("  claude-code:{}", if claude { style::ok("installed") } else { style::muted("not installed") });
+    println!("  spec-sync:  {}", if spec_sync { style::ok("installed") } else { style::muted("not installed") });
     Ok(())
 }
+
+/// Check if the post-commit hook contains spec sync logic.
+fn git_hook_contains_spec_sync(root: &PathBuf) -> Result<bool> {
+    let hook_path = root.join(".git/hooks/post-commit");
+    if !hook_path.exists() {
+        return Ok(false);
+    }
+    let content = std::fs::read_to_string(&hook_path).unwrap_or_default();
+    Ok(content.contains("barkcli spec scan-stale"))
+}
+
+/// Install spec sync post-commit hook.
+pub fn install_spec_sync(root: &PathBuf) -> Result<()> {
+    let hooks_dir = root.join(".git/hooks");
+    if !hooks_dir.exists() {
+        anyhow::bail!("Not a git repository (no .git/hooks directory)");
+    }
+
+    let hook_path = hooks_dir.join("post-commit");
+    let hook_content = if hook_path.exists() {
+        let existing = std::fs::read_to_string(&hook_path).unwrap_or_default();
+        if existing.contains("barkcli spec scan-stale") {
+            println!("{} spec sync hook already installed", style::muted("Skipped"));
+            return Ok(());
+        }
+        format!("{}\n{}", existing, SPEC_SYNC_HOOK)
+    } else {
+        format!("#!/bin/sh\n{}", SPEC_SYNC_HOOK)
+    };
+
+    std::fs::write(&hook_path, hook_content).context("write post-commit hook")?;
+
+    // Make executable on Unix
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = std::fs::metadata(&hook_path)?.permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&hook_path, perms)?;
+    }
+
+    println!("{} spec sync hook installed", style::ok("Installed"));
+    Ok(())
+}
+
+/// Remove spec sync from post-commit hook.
+pub fn remove_spec_sync(root: &PathBuf) -> Result<()> {
+    let hook_path = root.join(".git/hooks/post-commit");
+    if !hook_path.exists() {
+        println!("{} no post-commit hook found", style::muted("Skipped"));
+        return Ok(());
+    }
+
+    let content = std::fs::read_to_string(&hook_path).unwrap_or_default();
+    if !content.contains("barkcli spec scan-stale") {
+        println!("{} spec sync hook not installed", style::muted("Skipped"));
+        return Ok(());
+    }
+
+    let new_content = content
+        .lines()
+        .filter(|line| !line.contains("barkcli spec scan-stale") && !line.contains("# barkcli spec sync"))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    std::fs::write(&hook_path, new_content).context("write post-commit hook")?;
+    println!("{} spec sync hook removed", style::ok("Removed"));
+    Ok(())
+}
+
+const SPEC_SYNC_HOOK: &str = r#"
+# barkcli spec sync — detect stale requirements on code changes
+if command -v barkcli >/dev/null 2>&1; then
+  # Get files changed in this commit
+  CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+  if [ -n "$CHANGED_FILES" ]; then
+    # Filter to only non-board files (code changes)
+    CODE_FILES=$(echo "$CHANGED_FILES" | grep -v '\.board$' | grep -v '\.board/' || true)
+    if [ -n "$CODE_FILES" ]; then
+      barkcli spec scan-stale $CODE_FILES 2>/dev/null || true
+    fi
+  fi
+fi
+"#;
 
 // ─── Helpers ─────────────────────────────────────
 
