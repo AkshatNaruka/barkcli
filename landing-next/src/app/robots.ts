@@ -6,46 +6,12 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
+        disallow: ["/api/", "/admin/"],
       },
       {
-        userAgent: "GPTBot",
+        userAgent: ["GPTBot", "Claude-Bot", "CCBot"],
         allow: "/",
-      },
-      {
-        userAgent: "OAI-SearchBot",
-        allow: "/",
-      },
-      {
-        userAgent: "ChatGPT-User",
-        allow: "/",
-      },
-      {
-        userAgent: "ClaudeBot",
-        allow: "/",
-      },
-      {
-        userAgent: "anthropic-ai",
-        allow: "/",
-      },
-      {
-        userAgent: "PerplexityBot",
-        allow: "/",
-      },
-      {
-        userAgent: "Google-Extended",
-        allow: "/",
-      },
-      {
-        userAgent: "Applebot",
-        allow: "/",
-      },
-      {
-        userAgent: "cohere-ai",
-        allow: "/",
-      },
-      {
-        userAgent: "Bytespider",
-        allow: "/",
+        disallow: ["/api/", "/admin/"],
       },
     ],
     sitemap: "https://barkcli.vercel.app/sitemap.xml",
