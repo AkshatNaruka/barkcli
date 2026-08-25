@@ -1,15 +1,6 @@
-web/
-barkcli-core/
-barkcli-cli/
-barkcli-tui/
-barkcli-server/
-vscode-extension/
-target/
-node_modules/
-.git/
-.board/
-Cargo.toml
-Cargo.lock
-AGENTS.md
-SPECS.md
-PRODUCT_SPECS.md
+# Ignore everything except landing-next
+*
+!landing-next/
+!landing-next/**
+!package.json
+!vercel.json

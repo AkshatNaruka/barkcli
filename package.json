@@ -1,0 +1,10 @@
+{
+  "name": "barkcli",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "dev": "cd landing-next && npm run dev",
+    "build": "cd landing-next && npm run build",
+    "start": "cd landing-next && npm run start"
+  }
+}
