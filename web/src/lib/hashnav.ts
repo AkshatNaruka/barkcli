@@ -8,7 +8,8 @@ export type Route =
   | "code"
   | "activity"
   | "sprints"
-  | "settings";
+  | "settings"
+  | "agent-prompt";
 
 const ROUTES: Route[] = [
   "dashboard",
@@ -19,6 +20,7 @@ const ROUTES: Route[] = [
   "activity",
   "sprints",
   "settings",
+  "agent-prompt",
 ];
 
 export function parseRoute(hash: string): Route {

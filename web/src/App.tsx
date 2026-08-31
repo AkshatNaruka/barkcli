@@ -37,6 +37,7 @@ import { CodeView } from "./components/CodeView";
 import { ActivityView } from "./components/ActivityView";
 import { SprintView } from "./components/SprintView";
 import { SettingsView } from "./components/SettingsView";
+import { AgentPromptView } from "./components/AgentPromptView";
 
 const NAV_ITEMS: { route: Route; label: string }[] = [
   { route: "dashboard", label: "Dashboard" },
@@ -47,6 +48,7 @@ const NAV_ITEMS: { route: Route; label: string }[] = [
   { route: "activity", label: "Activity" },
   { route: "sprints", label: "Sprints" },
   { route: "settings", label: "Settings" },
+  { route: "agent-prompt", label: "AI Agent" },
 ];
 
 function CardHistoryModal({ cardId, entries, onClose }: { cardId: string; entries: any[]; onClose: () => void }) {
@@ -477,6 +479,9 @@ export function App() {
             board={board}
             onSaveBoard={doSave}
           />
+        )}
+        {route === "agent-prompt" && (
+          <AgentPromptView />
         )}
       </main>
 
