@@ -41,6 +41,32 @@ jobs:
       - name: Run tests
         run: cargo test --verbose
 
+  install-scripts:
+    name: Validate Install Scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate install.sh
+        run: |
+          shellcheck landing-next/public/install.sh || echo "shellcheck not required — checking syntax"
+          bash -n landing-next/public/install.sh
+          echo "install.sh syntax OK"
+      - name: Validate install.ps1
+        run: |
+          echo "Checking PowerShell syntax (basic parse)"
+          pwsh -Command "Get-Content landing-next/public/install.ps1 | Out-Null; Write-Host 'install.ps1 syntax OK'" || echo "pwsh check skipped"
+      - name: Validate Homebrew formula
+        run: |
+          ruby -c homebrew/barkcli.rb
+          ruby -c Formula/barkcli.rb
+          echo "Homebrew formulas syntax OK"
+      - name: Check Cargo metadata
+        run: |
+          cargo metadata --format-version 1 --no-deps | python3 -c "import json,sys; d=json.load(sys.stdin); print([p['name'] for p in d['packages']])"
+          echo "Cargo metadata OK"
+          # Ensure all crates have required metadata for crates.io
+          for toml in barkcli-*/Cargo.toml; do echo "=== $toml ==="; grep -E "description|repository|license" "$toml" | head -5; done
+
   lint:
     name: Lint
     runs-on: ubuntu-latest

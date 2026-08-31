@@ -1,12 +1,18 @@
 [package]
 name = "barkcli-server"
+description = "Web server for barkcli — browser Kanban with Axum"
 license = "MIT"
 authors = ["Akshat Naruka <narukaakshat@gmail.com>"]
 version = "0.2.0"
 edition = "2021"
+repository = "https://github.com/AkshatNaruka/barkcli"
+homepage = "https://barkcli.vercel.app"
+readme = "../README.md"
+keywords = ["kanban", "web", "axum"]
+categories = ["command-line-utilities"]
 
 [dependencies]
-barkcli-core = { path = "../barkcli-core" }
+barkcli-core = { path = "../barkcli-core", version = "0.2.0" }
 anyhow = "1"
 axum = { version = "0.8", features = ["ws"] }
 tokio = { version = "1", features = ["full"] }

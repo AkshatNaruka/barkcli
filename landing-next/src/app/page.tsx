@@ -539,19 +539,22 @@ export default function Home() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
               { title: "macOS / Linux", cmd: "curl -fsSL https://barkcli.vercel.app/install.sh | sh" },
-              { title: "Homebrew", cmd: "brew install barkcli" },
+              { title: "Homebrew", cmd: "brew tap AkshatNaruka/barkcli && brew install barkcli" },
               { title: "Cargo (from source)", cmd: "cargo install barkcli" },
-              { title: "GitHub Releases", cmd: "Download from github.com/akshatnaruka/barkcli/releases" },
-              { title: "Windows", cmd: "Download .exe from GitHub Releases" },
+              { title: "GitHub Releases", cmd: "https://github.com/AkshatNaruka/barkcli/releases" },
+              { title: "Windows", cmd: "irm https://barkcli.vercel.app/install.ps1 | iex  # or .exe from Releases" },
             ].map((method, i) => (
               <div key={i} className="border border-white/10 rounded-xl p-4">
                 <h4 className="text-sm font-semibold mb-2">{method.title}</h4>
-                <code className="text-[#059669] text-xs font-mono block bg-white/5 rounded-lg px-3 py-2">
+                <code className="text-[#059669] text-xs font-mono block bg-white/5 rounded-lg px-3 py-2 break-all">
                   {method.cmd}
                 </code>
               </div>
             ))}
           </div>
+          <p className="text-center text-white/40 text-xs font-mono mt-6">
+            All 5 targets + SHA256SUMS published together on every <code className="text-white/60">v*</code> tag — same binaries on GitHub Releases & Vercel mirror. Windows zip contains <code className="text-white/60">barkcli.exe</code>.
+          </p>
         </div>
       </section>
 

@@ -1,18 +1,24 @@
 [package]
-name = "barkcli-cli"
+name = "barkcli"
+description = "Git-native Kanban board CLI — tasks as YAML in your repo"
 license = "MIT"
 authors = ["Akshat Naruka <narukaakshat@gmail.com>"]
 version = "0.2.0"
 edition = "2021"
+repository = "https://github.com/AkshatNaruka/barkcli"
+homepage = "https://barkcli.vercel.app"
+readme = "../README.md"
+keywords = ["kanban", "cli", "git", "task", "project-management"]
+categories = ["command-line-utilities"]
 
 [[bin]]
 name = "barkcli"
 path = "src/main.rs"
 
 [dependencies]
-barkcli-core = { path = "../barkcli-core" }
-barkcli-tui = { path = "../barkcli-tui", optional = true }
-barkcli-server = { path = "../barkcli-server", optional = true }
+barkcli-core = { path = "../barkcli-core", version = "0.2.0" }
+barkcli-tui = { path = "../barkcli-tui", version = "0.2.0", optional = true }
+barkcli-server = { path = "../barkcli-server", version = "0.2.0", optional = true }
 tokio = { version = "1", features = ["rt", "macros"] }
 atty = "0.2"
 sha2 = "0.10"

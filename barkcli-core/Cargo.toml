@@ -1,9 +1,15 @@
 [package]
 name = "barkcli-core"
+description = "Core library for barkcli — Git-native task tracking"
 license = "MIT"
 authors = ["Akshat Naruka <narukaakshat@gmail.com>"]
 version = "0.2.0"
 edition = "2021"
+repository = "https://github.com/AkshatNaruka/barkcli"
+homepage = "https://barkcli.vercel.app"
+readme = "../README.md"
+keywords = ["kanban", "git", "task", "project-management"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g. v0.2.1). Leave empty to use tag or 0.2.0'
+        required: false
+        type: string
 
 env:
   CARGO_TERM_COLOR: always
@@ -18,39 +24,122 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-          - os: macos-latest
+            archive: tar.gz
+            bin: barkcli
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            archive: tar.gz
+            bin: barkcli
+          - os: macos-13
             target: x86_64-apple-darwin
+            archive: tar.gz
+            bin: barkcli
           - os: macos-latest
             target: aarch64-apple-darwin
+            archive: tar.gz
+            bin: barkcli
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive: zip
+            bin: barkcli.exe
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Bump version from tag
+        shell: bash
+        run: |
+          VERSION="${{ github.ref_name }}"
+          if [ -n "${{ inputs.version }}" ]; then VERSION="${{ inputs.version }}"; fi
+          VERSION="${VERSION#v}"
+          if [ -z "$VERSION" ] || [ "$VERSION" = "v" ]; then
+            echo "No version from tag, keeping Cargo.toml version"
+            exit 0
+          fi
+          echo "Bumping Cargo.toml versions to $VERSION"
+          python3 <<PY
+          import re, pathlib
+          ver = "$VERSION"
+          for toml in ["barkcli-core/Cargo.toml","barkcli-tui/Cargo.toml","barkcli-server/Cargo.toml","barkcli-cli/Cargo.toml"]:
+              p = pathlib.Path(toml)
+              txt = p.read_text()
+              txt = re.sub(r'^version = ".*"', f'version = "{ver}"', txt, flags=re.MULTILINE)
+              # Update path dependency versions too
+              txt = re.sub(r'version = "0\.2\.0"', f'version = "{ver}"', txt)
+              p.write_text(txt)
+              print(f"Updated {toml}")
+          PY
+          grep -H "^version" barkcli-*/Cargo.toml
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
 
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.target }}-cargo-
+            ${{ runner.os }}-cargo-
+
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Package
+      - name: Package (Unix)
+        if: matrix.archive == 'tar.gz'
+        shell: bash
         run: |
-          cd target/${{ matrix.target }}/release
-          tar -czf barkcli-${{ matrix.target }}.tar.gz barkcli
+          set -e
+          BIN="target/${{ matrix.target }}/release/${{ matrix.bin }}"
+          ls -lh "$BIN"
+          "$BIN" --version || true
+          # Strip binary on unix to reduce size (macOS/Linux)
+          if command -v strip >/dev/null 2>&1; then strip "$BIN" || true; fi
+          tar -czf "barkcli-${{ matrix.target }}.tar.gz" -C "target/${{ matrix.target }}/release" "${{ matrix.bin }}"
+          shasum -a 256 "barkcli-${{ matrix.target }}.tar.gz" | tee "barkcli-${{ matrix.target }}.tar.gz.sha256"
+          ls -lh barkcli-*.tar.gz*
+
+      - name: Package (Windows)
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          $Bin = "target/${{ matrix.target }}/release/${{ matrix.bin }}"
+          Get-ChildItem $Bin
+          & $Bin --version
+          # Create zip containing exe
+          Compress-Archive -Path $Bin -DestinationPath "barkcli-${{ matrix.target }}.zip" -Force
+          # Also copy exe as standalone artifact for direct .exe download
+          Copy-Item $Bin "barkcli-${{ matrix.target }}.exe" -Force
+          $hashZip = (Get-FileHash "barkcli-${{ matrix.target }}.zip" -Algorithm SHA256).Hash.ToLower()
+          "$hashZip  barkcli-${{ matrix.target }}.zip" | Out-File -Encoding ascii "barkcli-${{ matrix.target }}.zip.sha256"
+          $hashExe = (Get-FileHash "barkcli-${{ matrix.target }}.exe" -Algorithm SHA256).Hash.ToLower()
+          "$hashExe  barkcli-${{ matrix.target }}.exe" | Out-File -Encoding ascii "barkcli-${{ matrix.target }}.exe.sha256"
+          Get-ChildItem barkcli-*
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: barkcli-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/barkcli-${{ matrix.target }}.tar.gz
+          path: |
+            barkcli-${{ matrix.target }}.tar.gz
+            barkcli-${{ matrix.target }}.tar.gz.sha256
+            barkcli-${{ matrix.target }}.zip
+            barkcli-${{ matrix.target }}.zip.sha256
+            barkcli-${{ matrix.target }}.exe
+            barkcli-${{ matrix.target }}.exe.sha256
+          if-no-files-found: ignore
+          retention-days: 7
 
-  release:
-    name: Create Release
+  checksums:
+    name: Generate SHA256SUMS
     needs: build
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -59,20 +148,199 @@ jobs:
           merge-multiple: true
 
       - name: List artifacts
-        run: ls -la artifacts/
+        run: ls -lh artifacts/
+
+      - name: Create SHA256SUMS
+        run: |
+          cd artifacts
+          cat *.sha256 > SHA256SUMS || true
+          # Also generate unified sums if .sha256 missing
+          for f in *.tar.gz *.zip *.exe; do
+            [ -f "$f" ] || continue
+            if ! grep -q "$f" SHA256SUMS 2>/dev/null; then
+              sha256sum "$f" >> SHA256SUMS
+            fi
+          done
+          cat SHA256SUMS
+          ls -lh
+
+      - name: Upload checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: barkcli-checksums
+          path: artifacts/SHA256SUMS
+          retention-days: 7
+
+  release:
+    name: Create GitHub Release
+    needs: [build, checksums]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: barkcli-*
+          path: artifacts
+          merge-multiple: true
+
+      - name: List all artifacts
+        run: |
+          ls -lh artifacts/
+          cat artifacts/SHA256SUMS || true
+
+      - name: Stage install scripts
+        run: |
+          mkdir -p artifacts
+          cp landing-next/public/install.sh artifacts/install.sh || true
+          cp landing-next/public/install.ps1 artifacts/install.ps1 || true
+          ls -lh artifacts/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/*
+          files: |
+            artifacts/*.tar.gz
+            artifacts/*.zip
+            artifacts/*.exe
+            artifacts/*.sha256
+            artifacts/SHA256SUMS
+            artifacts/install.sh
+            artifacts/install.ps1
           generate_release_notes: true
+          fail_on_unmatched_files: false
 
-  publish:
-    name: Publish to barkcli.vercel.app
-    needs: build
+  update-homebrew:
+    name: Update Homebrew Formula
+    needs: [build, checksums]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: barkcli-*
+          path: artifacts
+          merge-multiple: true
+
+      - name: Update Formula
+        run: |
+          set -e
+          VERSION="${{ github.ref_name }}"
+          # workflow_dispatch version override
+          if [ -n "${{ inputs.version }}" ]; then VERSION="${{ inputs.version }}"; fi
+          VERSION="${VERSION#v}"
+          echo "Updating Homebrew formula to $VERSION"
+          cat artifacts/SHA256SUMS || true
+
+          # Extract sha256 for each target (strip filename)
+          SHA_DARWIN_ARM=$(grep "aarch64-apple-darwin" artifacts/SHA256SUMS | awk '{print $1}' | head -1)
+          SHA_DARWIN_X86=$(grep "x86_64-apple-darwin" artifacts/SHA256SUMS | awk '{print $1}' | head -1)
+          SHA_LINUX_X86=$(grep "x86_64-unknown-linux-gnu" artifacts/SHA256SUMS | awk '{print $1}' | head -1)
+          SHA_LINUX_ARM=$(grep "aarch64-unknown-linux-gnu" artifacts/SHA256SUMS | awk '{print $1}' | head -1)
+
+          # Fallback to individual .sha256 files if needed
+          [ -z "$SHA_DARWIN_ARM" ] && SHA_DARWIN_ARM=$(cat artifacts/barkcli-aarch64-apple-darwin.tar.gz.sha256 2>/dev/null | awk '{print $1}')
+          [ -z "$SHA_DARWIN_X86" ] && SHA_DARWIN_X86=$(cat artifacts/barkcli-x86_64-apple-darwin.tar.gz.sha256 2>/dev/null | awk '{print $1}')
+          [ -z "$SHA_LINUX_X86" ] && SHA_LINUX_X86=$(cat artifacts/barkcli-x86_64-unknown-linux-gnu.tar.gz.sha256 2>/dev/null | awk '{print $1}')
+          [ -z "$SHA_LINUX_ARM" ] && SHA_LINUX_ARM=$(cat artifacts/barkcli-aarch64-unknown-linux-gnu.tar.gz.sha256 2>/dev/null | awk '{print $1}')
+
+          echo "SHA darwin arm: $SHA_DARWIN_ARM"
+          echo "SHA darwin x86: $SHA_DARWIN_X86"
+          echo "SHA linux x86: $SHA_LINUX_X86"
+          echo "SHA linux arm: $SHA_LINUX_ARM"
+
+          # Update homebrew/barkcli.rb
+          mkdir -p homebrew Formula
+
+          # Generate new formula file
+          cat > /tmp/update.rb <<'RUBY'
+          version = ARGV[0]
+          sha_arm = ARGV[1]
+          sha_intel = ARGV[2]
+          sha_linux_x86 = ARGV[3]
+          sha_linux_arm = ARGV[4]
+          path = ARGV[5]
+          content = File.read(path)
+          content.gsub!(/version\s+"[^"]+"/, "version \"#{version}\"")
+          # Update sha256 - try to replace each occurrence
+          # For simplicity rewrite entire file template if needed
+          template = <<~FORMULA
+            class Barkcli < Formula
+              desc "Git-native Kanban board CLI — tasks as YAML in your repo"
+              homepage "https://github.com/AkshatNaruka/barkcli"
+              version "#{version}"
+              license "MIT"
+
+              on_macos do
+                if Hardware::CPU.arm?
+                  url "https://github.com/AkshatNaruka/barkcli/releases/download/v#{version}/barkcli-aarch64-apple-darwin.tar.gz"
+                  sha256 "#{sha_arm.empty? ? 'PLACEHOLDER' : sha_arm}"
+                else
+                  url "https://github.com/AkshatNaruka/barkcli/releases/download/v#{version}/barkcli-x86_64-apple-darwin.tar.gz"
+                  sha256 "#{sha_intel.empty? ? 'PLACEHOLDER' : sha_intel}"
+                end
+              end
+
+              on_linux do
+                if Hardware::CPU.arm?
+                  url "https://github.com/AkshatNaruka/barkcli/releases/download/v#{version}/barkcli-aarch64-unknown-linux-gnu.tar.gz"
+                  sha256 "#{sha_linux_arm.empty? ? 'PLACEHOLDER' : sha_linux_arm}"
+                else
+                  url "https://github.com/AkshatNaruka/barkcli/releases/download/v#{version}/barkcli-x86_64-unknown-linux-gnu.tar.gz"
+                  sha256 "#{sha_linux_x86.empty? ? 'PLACEHOLDER' : sha_linux_x86}"
+                end
+              end
+
+              def install
+                bin.install "barkcli"
+              end
+
+              test do
+                system "#{bin}/barkcli", "--version"
+              end
+            end
+          FORMULA
+          # If placeholders missing, use template when shas present
+          if !sha_arm.empty? && !sha_intel.empty? && !sha_linux_x86.empty?
+            content = template
+          end
+          File.write(path, content)
+          RUBY
+          ruby /tmp/update.rb "$VERSION" "$SHA_DARWIN_ARM" "$SHA_DARWIN_X86" "$SHA_LINUX_X86" "$SHA_LINUX_ARM" "homebrew/barkcli.rb"
+          # Also copy to Formula/ for tap compatibility
+          cp homebrew/barkcli.rb Formula/barkcli.rb 2>/dev/null || cp homebrew/barkcli.rb Formula/barkcli.rb
+
+          cat homebrew/barkcli.rb
+          echo "--- Formula updated ---"
+
+      - name: Commit Homebrew formula
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add homebrew/barkcli.rb Formula/barkcli.rb 2>/dev/null || git add homebrew/barkcli.rb
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          VERSION="${{ github.ref_name }}"
+          if [ -n "${{ inputs.version }}" ]; then VERSION="${{ inputs.version }}"; fi
+          git commit -m "chore: update Homebrew formula for ${VERSION} [skip ci]"
+          git push origin HEAD:master
+
+  publish-vercel:
+    name: Publish to barkcli.vercel.app (mirror)
+    needs: [build, checksums]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -87,9 +355,12 @@ jobs:
       - name: Stage tarballs for Vercel
         run: |
           mkdir -p landing-next/public/downloads
-          cp artifacts/*.tar.gz landing-next/public/downloads/
+          cp artifacts/*.tar.gz artifacts/*.zip artifacts/*.exe artifacts/SHA256SUMS artifacts/*.sha256 landing-next/public/downloads/ 2>/dev/null || true
+          cp landing-next/public/install.sh landing-next/public/downloads/ 2>/dev/null || true
+          cp landing-next/public/install.ps1 landing-next/public/downloads/ 2>/dev/null || true
           echo "${{ github.ref_name }}" > landing-next/public/downloads/version
-          ls -la landing-next/public/downloads/
+          echo "${{ github.ref_name }}" | sed 's/^v//' > landing-next/public/downloads/VERSION
+          ls -lh landing-next/public/downloads/
 
       - name: Deploy to Vercel
         if: env.VERCEL_TOKEN != ''
@@ -97,3 +368,63 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           npx vercel@latest deploy --prod --token "$VERCEL_TOKEN" --yes --cwd landing-next
+
+  publish-crates:
+    name: Publish to crates.io
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bump version from tag
+        run: |
+          VERSION="${{ github.ref_name }}"
+          if [ -n "${{ inputs.version }}" ]; then VERSION="${{ inputs.version }}"; fi
+          VERSION="${VERSION#v}"
+          if [ -z "$VERSION" ] || [ "$VERSION" = "v" ]; then exit 0; fi
+          echo "Bumping to $VERSION"
+          python3 <<PY
+          import re, pathlib
+          ver = "$VERSION"
+          for toml in ["barkcli-core/Cargo.toml","barkcli-tui/Cargo.toml","barkcli-server/Cargo.toml","barkcli-cli/Cargo.toml"]:
+              p = pathlib.Path(toml)
+              txt = p.read_text()
+              txt = re.sub(r'^version = ".*"', f'version = "{ver}"', txt, flags=re.MULTILINE)
+              txt = re.sub(r'version = "0\.2\.0"', f'version = "{ver}"', txt)
+              p.write_text(txt)
+          PY
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Publish barkcli-core
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        if: env.CARGO_REGISTRY_TOKEN != ''
+        run: |
+          cargo publish -p barkcli-core --allow-dirty || echo "barkcli-core publish failed or already exists"
+          sleep 10
+
+      - name: Publish barkcli-tui
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        if: env.CARGO_REGISTRY_TOKEN != ''
+        run: |
+          cargo publish -p barkcli-tui --allow-dirty || echo "barkcli-tui publish failed or already exists"
+          sleep 10
+
+      - name: Publish barkcli-server
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        if: env.CARGO_REGISTRY_TOKEN != ''
+        run: |
+          cargo publish -p barkcli-server --allow-dirty || echo "barkcli-server publish failed or already exists"
+          sleep 10
+
+      - name: Publish barkcli
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        if: env.CARGO_REGISTRY_TOKEN != ''
+        run: |
+          cargo publish -p barkcli --allow-dirty || echo "barkcli publish failed or already exists"
