@@ -87,6 +87,8 @@ barkcli move build-login-page doing    # Move to column
 
 | Doc | Description |
 |-----|-------------|
+| [AI Agent Prompt](docs/AI_AGENT_PROMPT.md) | Copy into your AI agent's context to teach it barkcli |
+| [Usage Manual](docs/USAGE_MANUAL.md) | Complete how-to guide |
 | [Commands](docs/COMMANDS.md) | All CLI commands with examples |
 | [Interfaces](docs/INTERFACES.md) | Setup guides for each interface |
 | [Code Context](docs/CONTEXT.md) | Link code to tasks automatically |

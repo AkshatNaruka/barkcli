@@ -67,6 +67,15 @@ barkcli listener     # Start coding agent listener
 
 ## Documentation
 
+### For AI Agents
+
+| Doc | Description |
+|-----|-------------|
+| [AI Agent Prompt](docs/AI_AGENT_PROMPT.md) | **Start here** — Copy this into your agent's context to teach it barkcli |
+| [Usage Manual](docs/USAGE_MANUAL.md) | Complete how-to guide for using barkcli |
+
+### Reference Documentation
+
 - [Commands](docs/COMMANDS.md) — Full CLI reference
 - [Interfaces](docs/INTERFACES.md) — Setup guides
 - [Code Context](docs/CONTEXT.md) — Link code to tasks

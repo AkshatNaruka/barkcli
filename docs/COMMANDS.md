@@ -6,12 +6,15 @@ Complete reference for all barkcli commands.
 
 - [Core Commands](#core-commands)
 - [Task Management](#task-management)
+- [Linking](#linking)
 - [Board Management](#board-management)
 - [Code Context](#code-context)
 - [Sessions & Checkpoints](#sessions--checkpoints)
 - [Interfaces](#interfaces)
 - [Pro Commands](#pro-commands)
 - [Housekeeping](#housekeeping)
+- [Orchestration](#orchestration)
+- [Spec Management](#spec-management)
 - [Flags](#flags)
 
 ---
@@ -147,6 +150,31 @@ Mark a task as blocked by another task.
 
 ```shell
 barkcli block write-tests --on jwt-login
+```
+
+### `barkcli pin <id>`
+
+Pin a task to the top of its column.
+
+```shell
+barkcli pin jwt-login
+```
+
+### `barkcli unpin <id>`
+
+Unpin a task from the top of its column.
+
+```shell
+barkcli unpin jwt-login
+```
+
+### `barkcli remind [--hours N]`
+
+Show cards with reminders due in the next N hours (default: 24).
+
+```shell
+barkcli remind
+barkcli remind --hours 48
 ```
 
 ---
@@ -326,6 +354,174 @@ barkcli export main json           # export as JSON
 barkcli import backend tasks.yaml  # import from file
 barkcli update                     # self-update
 barkcli --version                  # print version
+```
+
+### `barkcli snapshot <label>`
+
+Save a named checkpoint of the current board state.
+
+```shell
+barkcli snapshot "before-refactor"
+barkcli snapshot "pre-deploy-v1.2"
+```
+
+### `barkcli blame <id>`
+
+Show who changed a task and when.
+
+```shell
+barkcli blame jwt-login
+```
+
+### `barkcli diff`
+
+Show what changed since the last operation.
+
+```shell
+barkcli diff
+```
+
+### `barkcli clean`
+
+Prune orphaned context entries.
+
+```shell
+barkcli clean
+```
+
+---
+
+## Orchestration
+
+Commands for multi-agent workflows and task queues.
+
+### `barkcli orchestrate start [board] [role]`
+
+Start a continuous orchestration loop.
+
+```shell
+barkcli orchestrate start
+barkcli orchestrate start main tech-lead
+```
+
+### `barkcli orchestrate cycle [board] [role]`
+
+Run a single orchestration cycle (decompose, dispatch, monitor).
+
+```shell
+barkcli orchestrate cycle
+barkcli orchestrate cycle main tech-lead
+```
+
+### `barkcli orchestrate status [board]`
+
+Show orchestration status.
+
+```shell
+barkcli orchestrate status
+```
+
+### `barkcli listener`
+
+Start a coding agent listener that waits for tasks.
+
+```shell
+barkcli listener
+```
+
+---
+
+## Spec Management
+
+Requirements traceability and specification management.
+
+### `barkcli spec list`
+
+List all specs.
+
+```shell
+barkcli spec list
+barkcli spec list -b main  # filter by board
+```
+
+### `barkcli spec show <id>`
+
+Show spec details.
+
+```shell
+barkcli spec show auth-spec
+```
+
+### `barkcli spec create <title>`
+
+Create a new spec.
+
+```shell
+barkcli spec create "Authentication System" -d "JWT-based auth" -p high
+```
+
+### `barkcli spec update <id>`
+
+Update a spec.
+
+```shell
+barkcli spec update auth-spec -s in-progress -p critical
+```
+
+### `barkcli spec delete <id>`
+
+Delete a spec.
+
+```shell
+barkcli spec delete auth-spec
+```
+
+### `barkcli spec add-req <spec> <title>`
+
+Add a requirement to a spec.
+
+```shell
+barkcli spec add-req auth-spec "User login"
+```
+
+### `barkcli spec link-code <spec> <req> <path>`
+
+Link code to a requirement.
+
+```shell
+barkcli spec link-code auth-spec user-login src/auth/login.rs
+```
+
+### `barkcli spec link-task <spec> <req> <task>`
+
+Link a task to a requirement.
+
+```shell
+barkcli spec link-task auth-spec user-login jwt-login
+```
+
+### `barkcli spec trace <id>`
+
+Show full traceability for a spec.
+
+```shell
+barkcli spec trace auth-spec
+```
+
+### `barkcli spec coverage`
+
+Show coverage statistics.
+
+```shell
+barkcli spec coverage
+```
+
+### `barkcli spec scan-stale <files...>`
+
+Scan files for stale requirements.
+
+```shell
+barkcli spec scan-stale src/auth/*.rs
 ```
 
 ---
