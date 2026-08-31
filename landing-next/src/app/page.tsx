@@ -32,6 +32,13 @@ import {
   GitMerge,
   Boxes,
   Wand2,
+  Download,
+  Rocket,
+  ClipboardList,
+  Plug,
+  Brain,
+  Layers,
+  Braces,
 } from "lucide-react";
 
 const INSTALL = "curl -fsSL https://barkcli.vercel.app/install.sh | sh";
@@ -447,19 +454,19 @@ export default function Home() {
         {/* Center */}
         <main className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6">
           <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 mb-6">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-xs text-white/60 font-mono">MIT Licensed · Open Source</span>
+            <Sparkles className="w-3 h-3 text-[#B8845C]" />
+            <span className="text-xs text-white/60 font-mono">Now with MCP server for AI agents</span>
           </div>
           <h1 className="text-white text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.05] mb-6">
-            Tasks in your{" "}
+            Git for{" "}
             <span className="bg-gradient-to-r from-[#B8845C] via-[#D4A574] to-[#B8845C] bg-clip-text text-transparent">
-              repo
+              tasks
             </span>
             .
           </h1>
           <p className="text-white/60 text-base md:text-lg font-light max-w-xl mb-10 leading-relaxed">
-            Git-native kanban board — CLI, terminal UI, and web app.
-            No cloud. No accounts. Just your code.
+            Project management that lives in your repo, not someone else&apos;s cloud.
+            Diff tasks like code. Let AI agents read and write them.
           </p>
           <div className="flex flex-col sm:flex-row items-center gap-3">
             <div className="flex items-center gap-1 border border-white/20 rounded-xl pl-5 pr-2 py-2.5 bg-white/5 backdrop-blur-xl">
@@ -499,13 +506,13 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-4 mt-6 text-[11px] font-mono text-white/40">
             <span className="flex items-center gap-1">
-              <Check className="w-3 h-3 text-green-500" /> macOS
+              <Check className="w-3 h-3 text-green-500" /> No cloud
             </span>
             <span className="flex items-center gap-1">
-              <Check className="w-3 h-3 text-green-500" /> Linux
+              <Check className="w-3 h-3 text-green-500" /> No accounts
             </span>
             <span className="flex items-center gap-1">
-              <Check className="w-3 h-3 text-green-500" /> Windows
+              <Check className="w-3 h-3 text-green-500" /> MIT licensed
             </span>
           </div>
         </main>
@@ -532,12 +539,12 @@ export default function Home() {
         <div className="max-w-6xl mx-auto">
           <AnimatedSection className="text-center mb-16">
             <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
-              Features
+              Why barkcli
             </p>
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
-              Everything you need.
+              Your tasks should live
               <br />
-              <span className="text-white/40">Nothing you don&apos;t.</span>
+              <span className="text-white/40">where your code lives.</span>
             </h2>
           </AnimatedSection>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -575,7 +582,9 @@ export default function Home() {
               How It Works
             </p>
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
-              Three commands to start.
+              Three commands.
+              <br />
+              <span className="text-white/40">That&apos;s it.</span>
             </h2>
           </AnimatedSection>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative">
@@ -711,10 +720,12 @@ export default function Home() {
               Management Layer
             </p>
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
-              Orchestrate coding agents.
+              Your AI agent&apos;s
+              <br />
+              <span className="bg-gradient-to-r from-[#B8845C] to-[#D4A574] bg-clip-text text-transparent">project manager.</span>
             </h2>
             <p className="text-white/50 max-w-lg mx-auto">
-              barkcli acts as a management layer above coding agents. Decompose tasks, assign roles, and track progress.
+              Claude, GPT, and OpenCode can now read tasks, claim work, and update progress. barkcli is the missing piece in the AI-native dev stack.
             </p>
           </AnimatedSection>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -767,16 +778,17 @@ export default function Home() {
           <AnimatedSection className="text-center mb-16">
             <div className="inline-flex items-center gap-2 bg-[#B8845C]/10 border border-[#B8845C]/20 rounded-full px-4 py-1.5 mb-6">
               <Sparkles className="w-3 h-3 text-[#B8845C]" />
-              <span className="text-xs text-[#B8845C] font-mono">AI-Powered Setup</span>
+              <span className="text-xs text-[#B8845C] font-mono">Works with Claude, OpenCode, Cursor</span>
             </div>
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
-              One prompt.{" "}
+              One prompt.
+              <br />
               <span className="bg-gradient-to-r from-[#B8845C] to-[#D4A574] bg-clip-text text-transparent">
-                Full setup.
+                Your agent is ready.
               </span>
             </h2>
             <p className="text-white/50 max-w-lg mx-auto">
-              Copy this prompt into Claude, OpenCode, Cursor, or any AI agent. It installs barkcli, initializes your project, and configures everything automatically.
+              Copy this into your AI agent. It installs barkcli, sets up your board, and connects via MCP. Your agent can now manage tasks autonomously.
             </p>
           </AnimatedSection>
 
@@ -852,13 +864,15 @@ export default function Home() {
             {/* What This Does */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
               {[
-                { icon: "📦", title: "Install", desc: "Downloads barkcli" },
-                { icon: "🚀", title: "Init", desc: "Sets up project" },
-                { icon: "📋", title: "Create", desc: "Makes a board" },
-                { icon: "🔌", title: "Connect", desc: "Configures MCP" },
+                { icon: Download, title: "Install", desc: "Downloads barkcli" },
+                { icon: Rocket, title: "Init", desc: "Sets up project" },
+                { icon: ClipboardList, title: "Create", desc: "Makes a board" },
+                { icon: Plug, title: "Connect", desc: "Configures MCP" },
               ].map((item, i) => (
-                <div key={i} className="bg-white/[0.02] border border-white/10 rounded-xl p-3 text-center">
-                  <div className="text-xl mb-1">{item.icon}</div>
+                <div key={i} className="bg-white/[0.02] border border-white/10 rounded-xl p-3 text-center group hover:border-[#B8845C]/30 transition-colors">
+                  <div className="w-8 h-8 rounded-lg bg-[#B8845C]/10 flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
+                    <item.icon className="w-4 h-4 text-[#B8845C]" />
+                  </div>
                   <h4 className="text-xs font-semibold">{item.title}</h4>
                   <p className="text-[10px] text-white/40">{item.desc}</p>
                 </div>
@@ -990,13 +1004,14 @@ export default function Home() {
               <div className="absolute inset-0 bg-[#B8845C]/5 blur-[100px] rounded-full" />
               <div className="relative border border-white/10 rounded-3xl p-12 bg-gradient-to-b from-white/[0.02] to-transparent">
                 <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
-                  Get started in{" "}
+                  Stop managing tasks
+                  <br />
                   <span className="bg-gradient-to-r from-[#B8845C] to-[#D4A574] bg-clip-text text-transparent">
-                    10 seconds
+                    in someone else&apos;s cloud.
                   </span>
                 </h2>
                 <p className="text-white/50 text-lg mb-8">
-                  Install barkcli and add tasks to your repo today.
+                  Install barkcli. Add tasks to your repo. Let your AI agent handle the rest.
                 </p>
                 <div className="flex justify-center gap-4 flex-wrap">
                   <a
