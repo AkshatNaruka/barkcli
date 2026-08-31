@@ -604,6 +604,7 @@ impl App {
             effort: None,
             area: None,
             pinned: false,
+            version: 1,
             created_at: now,
             updated_at: now,
         };

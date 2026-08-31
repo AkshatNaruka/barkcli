@@ -26,3 +26,4 @@ once_cell = "1"
 ureq = { version = "2", features = ["json"] }
 similar = "2"  # For diff-based analysis in code metrics
 uuid = { version = "1", features = ["v4"] }  # For unique task IDs
+md5 = "0.7"  # For file content hashing (conflict detection)

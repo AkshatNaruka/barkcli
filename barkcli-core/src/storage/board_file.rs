@@ -1,11 +1,17 @@
 use anyhow::{Context, Result};
+use std::path::PathBuf;
 
 use crate::models::Board;
 use crate::storage::board_dir::find_project_root;
 
-pub fn board_path(name: &str) -> Result<std::path::PathBuf> {
+pub fn board_path(name: &str) -> Result<PathBuf> {
     let root = find_project_root()?;
     Ok(root.join(format!("{}.board", name)))
+}
+
+pub fn board_dir() -> Result<PathBuf> {
+    let root = find_project_root()?;
+    Ok(root.join(".board"))
 }
 
 pub fn list_board_files() -> Result<Vec<String>> {
@@ -36,12 +42,67 @@ pub fn read_board(name: &str) -> Result<Board> {
     Ok(board)
 }
 
+/// Read board and return (board, file_content_hash) for conflict detection.
+pub fn read_board_with_hash(name: &str) -> Result<(Board, String)> {
+    let path = board_path(name)?;
+    let content =
+        std::fs::read_to_string(&path).context(format!("failed to read {}", path.display()))?;
+    let board: Board =
+        serde_yaml::from_str(&content).context(format!("failed to parse {}", path.display()))?;
+    let hash = format!("{:x}", md5::compute(content.as_bytes()));
+    Ok((board, hash))
+}
+
+/// Atomically write a board file using temp-file-then-rename.
+/// This prevents data corruption from partial writes or crashes.
 pub fn write_board(name: &str, board: &Board) -> Result<()> {
     let path = board_path(name)?;
     let content =
         serde_yaml::to_string(board).context("failed to serialize board to YAML")?;
-    std::fs::write(&path, &content).context(format!("failed to write {}", path.display()))?;
+
+    let dir = path
+        .parent()
+        .context("board path has no parent directory")?;
+
+    // Create .board dir if it doesn't exist
+    std::fs::create_dir_all(dir)
+        .context(format!("failed to create directory {}", dir.display()))?;
+
+    // Write to a temp file in the same directory (for atomic rename)
+    let temp_name = format!(
+        ".boardtmp.{}.{}",
+        name,
+        std::process::id()
+    );
+    let temp_path = dir.join(&temp_name);
+
+    std::fs::write(&temp_path, &content)
+        .context(format!("failed to write temp file {}", temp_path.display()))?;
+
+    // Atomic rename (same filesystem)
+    std::fs::rename(&temp_path, &path).context(format!(
+        "failed to rename {} -> {}",
+        temp_path.display(),
+        path.display()
+    ))?;
+
     Ok(())
+}
+
+/// Write board only if the file hasn't changed since `expected_hash`.
+/// Returns Ok(true) on success, Ok(false) if conflict detected, Err on I/O failure.
+pub fn write_board_if_unchanged(
+    name: &str,
+    board: &Board,
+    expected_hash: &str,
+) -> Result<bool> {
+    // Re-read to check if file changed
+    let (_, current_hash) = read_board_with_hash(name)?;
+    if current_hash != *expected_hash {
+        return Ok(false); // Conflict: file changed since we read it
+    }
+    write_board(name, board)?;
+    Ok(true)
 }
 
 pub fn board_exists(name: &str) -> bool {

@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 
-use crate::storage::board_file::{read_board, write_board};
+use crate::storage::board_file::{read_board_with_hash, write_board_if_unchanged};
 use crate::storage::history;
 
 pub fn run(name: &str, args: &[String]) -> Result<()> {
@@ -11,7 +11,8 @@ pub fn run(name: &str, args: &[String]) -> Result<()> {
         .get(1)
         .ok_or_else(|| anyhow::anyhow!("missing target column"))?;
 
-    let mut board = read_board(name).context(format!("board '{}' not found", name))?;
+    let (mut board, hash) =
+        read_board_with_hash(name).context(format!("board '{}' not found", name))?;
 
     let valid_column = board.columns.iter().any(|c| c.id == *column);
     if !valid_column {
@@ -31,10 +32,22 @@ pub fn run(name: &str, args: &[String]) -> Result<()> {
 
     let old_column = card.column.clone();
     card.column = column.clone();
+    card.touch();
 
-    write_board(name, &board).context("failed to write board")?;
+    match write_board_if_unchanged(name, &board, &hash)? {
+        true => {}
+        false => {
+            anyhow::bail!(
+                "conflict: '{}' was modified since you read it. Re-run the command to retry.",
+                id
+            );
+        }
+    }
 
     history::log_move(name, id, &old_column, column)?;
-    println!("Moved '{}' from '{}' to '{}'", id, old_column, column);
+    println!(
+        "Moved '{}' from '{}' to '{}' (v{})",
+        id, old_column, column, board.cards.iter().find(|c| c.id == *id).unwrap().version
+    );
     Ok(())
 }

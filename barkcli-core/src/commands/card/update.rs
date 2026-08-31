@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 
-use crate::storage::board_file::{read_board, write_board};
+use crate::storage::board_file::{read_board_with_hash, write_board_if_unchanged};
 use crate::storage::history;
 
 pub fn run(name: &str, args: &[String]) -> Result<()> {
@@ -8,7 +8,8 @@ pub fn run(name: &str, args: &[String]) -> Result<()> {
         .first()
         .ok_or_else(|| anyhow::anyhow!("missing card id"))?;
 
-    let mut board = read_board(name).context(format!("board '{}' not found", name))?;
+    let (mut board, hash) =
+        read_board_with_hash(name).context(format!("board '{}' not found", name))?;
 
     let card = board
         .cards
@@ -134,7 +135,21 @@ pub fn run(name: &str, args: &[String]) -> Result<()> {
         i += 1;
     }
 
-    write_board(name, &board).context("failed to write board")?;
+    if changed.is_empty() {
+        anyhow::bail!("no changes specified for card '{}'", id);
+    }
+
+    card.touch();
+
+    match write_board_if_unchanged(name, &board, &hash)? {
+        true => {}
+        false => {
+            anyhow::bail!(
+                "conflict: '{}' was modified since you read it. Re-run the command to retry.",
+                id
+            );
+        }
+    }
 
     for (field, from, to) in &changed {
         let _ = history::log_update(name, id, field, from, to);

@@ -431,6 +431,7 @@ mod tests {
             effort: Some(5),
             area: None,
             pinned: false,
+            version: 1,
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
         }

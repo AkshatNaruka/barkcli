@@ -1189,7 +1189,7 @@ impl McpServer {
             card.acceptance_criteria = ac.iter().filter_map(|v| v.as_str().map(String::from)).collect();
         }
 
-        card.updated_at = chrono::Utc::now();
+        card.touch();
         write_board(&board_name, &board)?;
 
         Ok(serde_json::json!({ "updated": true }))
@@ -1210,7 +1210,7 @@ impl McpServer {
             .ok_or_else(|| anyhow::anyhow!("Card not found: {}", card_id))?;
 
         card.column = column.to_string();
-        card.updated_at = chrono::Utc::now();
+        card.touch();
         write_board(&board_name, &board)?;
 
         Ok(serde_json::json!({ "moved": true, "column": column }))
@@ -1238,7 +1238,7 @@ impl McpServer {
             text: text.to_string(),
             at: chrono::Utc::now(),
         });
-        card.updated_at = chrono::Utc::now();
+        card.touch();
         write_board(&board_name, &board)?;
 
         Ok(serde_json::json!({ "commented": true }))

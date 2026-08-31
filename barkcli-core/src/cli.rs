@@ -109,6 +109,8 @@ fn dispatch(cmd: &str, cmd_args: &[String]) -> Result<()> {
         "export" => handle_export(cmd_args)?,
         "import" => handle_import(cmd_args)?,
 
+        "merge" => commands::merge::run(cmd_args)?,
+
         "snapshot" => handle_snapshot(cmd_args)?,
 
         "session" => handle_session_cmd(cmd_args)?,

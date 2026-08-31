@@ -41,6 +41,9 @@ pub struct Card {
     pub area: Option<String>,
     #[serde(default)]
     pub pinned: bool,
+    /// Optimistic concurrency token — incremented on every mutation.
+    #[serde(default = "default_version")]
+    pub version: u64,
     #[serde(default = "default_now")]
     pub created_at: DateTime<Utc>,
     #[serde(default = "default_now")]
@@ -68,6 +71,7 @@ impl Default for Card {
             effort: None,
             area: None,
             pinned: false,
+            version: 1,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         }
@@ -96,9 +100,16 @@ impl Card {
             effort: None,
             area: None,
             pinned: false,
+            version: 1,
             created_at: now,
             updated_at: now,
         }
+    }
+
+    /// Bump version and updated_at — call before every mutation.
+    pub fn touch(&mut self) {
+        self.version += 1;
+        self.updated_at = Utc::now();
     }
 
     /// Add a link, rejecting self-links and exact duplicates.
@@ -154,7 +165,7 @@ impl LinkType {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CardLink {
     pub ty: LinkType,
     pub target: String,
@@ -176,6 +187,10 @@ pub struct Comment {
 
 fn default_priority() -> String {
     "medium".into()
+}
+
+fn default_version() -> u64 {
+    1
 }
 
 fn default_now() -> DateTime<Utc> {

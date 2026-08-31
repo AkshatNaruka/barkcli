@@ -16,6 +16,7 @@ pub mod import;
 pub mod init;
 pub mod link;
 pub mod list;
+pub mod merge;
 pub mod session;
 pub mod spec;
 pub mod status;
