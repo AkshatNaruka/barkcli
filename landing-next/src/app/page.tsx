@@ -535,19 +535,20 @@ export default function Home() {
               AI Agent Integration
             </p>
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
-              Teach AI agents barkcli.
+              One prompt. Full setup.
             </h2>
             <p className="text-white/60 max-w-lg mx-auto">
-              Copy this prompt into your AI agent's context window. It will learn how to manage tasks, write code, and keep your board up to date.
+              Copy this prompt into Claude, OpenCode, Cursor, or any AI agent. It installs barkcli, initializes your project, and configures everything automatically.
             </p>
           </div>
 
           {/* Agent Config Tabs */}
           <div className="flex justify-center gap-2 mb-8">
             {[
-              { id: "claude", label: "Claude Code" },
-              { id: "opencode", label: "OpenCode" },
-              { id: "cursor", label: "Cursor" },
+              { id: "claude", label: "Claude Code", file: ".claude/settings.json" },
+              { id: "opencode", label: "OpenCode", file: ".opencode/config.json" },
+              { id: "cursor", label: "Cursor", file: ".cursor/mcp.json" },
+              { id: "generic", label: "Any Agent", file: "Terminal" },
             ].map((agent) => (
               <button
                 key={agent.id}
@@ -563,164 +564,36 @@ export default function Home() {
             ))}
           </div>
 
-          {/* Agent Config Card */}
-          <div className="border border-white/10 rounded-xl overflow-hidden mb-8">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-white/[0.02]">
-              <span className="text-xs font-mono text-white/50">
-                {activeAgentTab === "claude"
-                  ? ".claude/settings.json"
-                  : activeAgentTab === "opencode"
-                  ? ".opencode/config.json"
-                  : ".cursor/mcp.json"}
-              </span>
+          {/* Main Setup Prompt Card */}
+          <div className="border border-[#B8845C]/30 rounded-xl overflow-hidden mb-8 bg-[#B8845C]/5">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-[#B8845C]/10">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#B8845C] animate-pulse" />
+                <span className="text-xs font-mono text-white/70">
+                  {activeAgentTab === "claude"
+                    ? "Paste in Claude Code"
+                    : activeAgentTab === "opencode"
+                    ? "Paste in OpenCode"
+                    : activeAgentTab === "cursor"
+                    ? "Paste in Cursor Chat"
+                    : "Paste in any AI agent terminal"}
+                </span>
+              </div>
               <button
                 onClick={() => {
-                  const config = JSON.stringify(
-                    {
-                      mcpServers: {
-                        barkcli: {
-                          command: "barkcli",
-                          args: ["mcp"],
-                        },
-                      },
-                    },
-                    null,
-                    2
-                  );
-                  navigator.clipboard.writeText(config);
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 1500);
-                }}
-                className="text-xs text-white/40 hover:text-white flex items-center gap-1 transition-colors"
-              >
-                {copied ? (
-                  <>
-                    <Check className="w-3 h-3" /> Copied
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3 h-3" /> Copy
-                  </>
-                )}
-              </button>
-            </div>
-            <pre className="p-4 text-xs font-mono text-[#059669] overflow-x-auto">
-              <code>
-                {JSON.stringify(
-                  {
-                    mcpServers: {
-                      barkcli: {
-                        command: "barkcli",
-                        args: ["mcp"],
-                      },
-                    },
-                  },
-                  null,
-                  2
-                )}
-              </code>
-            </pre>
-          </div>
+                  const prompts: Record<string, string> = {
+                    claude: `Please run the following commands to install and set up barkcli (git-native project management) in this project:
 
-          {/* Copy Prompt Button */}
-          <div className="text-center mb-8">
-            <button
-              onClick={() => {
-                const prompt = `# AI Agent Prompt for barkcli
-
-> Copy this entire document into your AI agent's context to teach it how to use barkcli.
-
-## System Prompt
-
-You are an AI coding agent working on a project that uses **barkcli** — a git-native project management tool. Tasks are stored as YAML files in the repository. Your job is to help manage tasks, write code, and keep the project board up to date.
-
-## What is barkcli?
-
-barkcli is a CLI tool for task tracking inside any project. Like \`.git\` but for Kanban boards.
-
-- **No cloud** — Tasks are YAML files in \`.board/\` directory
-- **No accounts** — Works offline, no sign-ups
-- **Git-native** — Diff tasks like code, merge with teammates
-- **AI-ready** — MCP server for agent integration
-
-## Installation
-
-\`\`\`bash
-# macOS / Linux
+1. First, install barkcli:
 curl -fsSL https://barkcli.vercel.app/install.sh | sh
 
-# Homebrew
-brew tap AkshatNaruka/barkcli && brew install barkcli
-
-# Cargo
-cargo install barkcli
-\`\`\`
-
-## Project Setup
-
-When starting work on a new project, always check if barkcli is initialized:
-
-\`\`\`bash
-# Check if barkcli is initialized
-ls -la .board/
-
-# If not initialized, initialize it
+2. Initialize barkcli in this project:
 barkcli init
 
-# Create a board (optional - init creates a default)
-barkcli create <board-name>
-\`\`\`
+3. Create a default board:
+barkcli create main
 
-## Core Commands Reference
-
-### Project Commands
-
-| Command | Description | Usage |
-|---------|-------------|-------|
-| \`barkcli init\` | Initialize barkcli | Creates \`.board/\` directory |
-| \`barkcli create <name>\` | Create a new board | \`barkcli create backend\` |
-| \`barkcli list\` / \`ls\` | List all tasks | \`barkcli list\`, \`barkcli list -c doing\` |
-| \`barkcli status\` | Cross-board summary | \`barkcli status\` |
-| \`barkcli validate\` | Validate board files | \`barkcli validate\` |
-
-### Card Operations
-
-| Command | Description | Usage |
-|---------|-------------|-------|
-| \`barkcli add <title>\` | Add a task | \`barkcli add "Fix bug" -p high\` |
-| \`barkcli show <id>\` | Show task details | \`barkcli show fix-bug\` |
-| \`barkcli move <id> <col>\` | Move task | \`barkcli move fix-bug doing\` |
-| \`barkcli done <id>\` | Mark as done | \`barkcli done fix-bug\` |
-| \`barkcli update <id>\` | Update task | \`barkcli update fix-bug -t "New title"\` |
-| \`barkcli remove <id>\` | Delete task | \`barkcli remove fix-bug\` |
-| \`barkcli comment <id> <text>\` | Add comment | \`barkcli comment fix-bug "Started work"\` |
-
-### Add Task Flags
-
-| Flag | Description | Example |
-|------|-------------|---------|
-| \`-p, --priority\` | Priority (high/medium/low) | \`-p high\` |
-| \`-l, --label\` | Labels (repeatable) | \`-l backend,auth\` |
-| \`-a, --assignee\` | Assigned to | \`-a alice\` |
-| \`-c, --column\` | Target column | \`-c doing\` |
-| \`-d, --description\` | Description | \`-d "Add JWT auth"\` |
-| \`--due\` | Due date | \`--due 2024-12-15\` |
-| \`--effort\` | Story points | \`--effort 5\` |
-| \`--ac\` | Acceptance criteria | \`--ac "Login works"\` |
-
-## MCP Server Integration
-
-### Start MCP Server
-
-\`\`\`bash
-barkcli mcp
-\`\`\`
-
-### Configure in Your Agent
-
-Add to \`.claude/settings.json\`, \`.opencode/config.json\`, or \`.cursor/mcp.json\`:
-
-\`\`\`json
+4. Add the MCP server configuration to .claude/settings.json:
 {
   "mcpServers": {
     "barkcli": {
@@ -729,88 +602,349 @@ Add to \`.claude/settings.json\`, \`.opencode/config.json\`, or \`.cursor/mcp.js
     }
   }
 }
-\`\`\`
 
-## Agent Workflow
+5. Verify the installation:
+barkcli status
+barkcli list
 
-1. **Check project state**: \`barkcli status\`
-2. **Get task details**: \`barkcli show <task-id>\`
-3. **Move task to doing**: \`barkcli move <task-id> doing\`
-4. **Write code** (implement the feature/fix)
-5. **Run tests**
-6. **Update task**: \`barkcli done <task-id>\`
-7. **Sync context**: \`barkcli context sync\`
+6. Add a sample task to confirm everything works:
+barkcli add "Welcome to barkcli" -p low -d "barkcli is now set up and ready to use"
 
-## Quick Reference
+After running these commands, barkcli will be fully configured. You can now:
+- Use "barkcli add <title>" to create tasks
+- Use "barkcli list" to see all tasks
+- Use "barkcli move <id> doing" to start working on a task
+- Use "barkcli done <id>" to mark tasks complete
+- Use "barkcli tui" for a terminal kanban board
+- Use "barkcli serve" for a web interface
 
-\`\`\`bash
-barkcli list                    # All tasks
-barkcli list -c todo            # Todo tasks
-barkcli add "Title" -p high     # Add task
-barkcli move <id> doing         # Move task
-barkcli done <id>               # Complete task
-barkcli status                  # Board summary
-\`\`\`
+For the full AI agent prompt with all commands, run: barkcli --help`,
+                    opencode: `Please run the following commands to install and set up barkcli (git-native project management) in this project:
 
-Full documentation: https://github.com/AkshatNaruka/barkcli/tree/master/docs`;
-                navigator.clipboard.writeText(prompt);
-                setCopiedPrompt(true);
-                setTimeout(() => setCopiedPrompt(false), 2000);
-              }}
-              className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-                copiedPrompt
-                  ? "bg-green-600 text-white"
-                  : "bg-[#B8845C] text-white hover:bg-[#B8845C]/80"
-              }`}
-            >
-              {copiedPrompt ? "Copied to Clipboard!" : "Copy Full AI Agent Prompt"}
-            </button>
-            <p className="text-white/40 text-xs mt-3">
-              Paste this into your AI agent's context window to teach it barkcli
-            </p>
+1. First, install barkcli:
+curl -fsSL https://barkcli.vercel.app/install.sh | sh
+
+2. Initialize barkcli in this project:
+barkcli init
+
+3. Create a default board:
+barkcli create main
+
+4. Add the MCP server configuration to .opencode/config.json:
+{
+  "mcpServers": {
+    "barkcli": {
+      "command": "barkcli",
+      "args": ["mcp"]
+    }
+  }
+}
+
+5. Verify the installation:
+barkcli status
+barkcli list
+
+6. Add a sample task to confirm everything works:
+barkcli add "Welcome to barkcli" -p low -d "barkcli is now set up and ready to use"
+
+After running these commands, barkcli will be fully configured. You can now:
+- Use "barkcli add <title>" to create tasks
+- Use "barkcli list" to see all tasks
+- Use "barkcli move <id> doing" to start working on a task
+- Use "barkcli done <id>" to mark tasks complete
+- Use "barkcli tui" for a terminal kanban board
+- Use "barkcli serve" for a web interface
+
+For the full AI agent prompt with all commands, run: barkcli --help`,
+                    cursor: `Please run the following commands to install and set up barkcli (git-native project management) in this project:
+
+1. First, install barkcli:
+curl -fsSL https://barkcli.vercel.app/install.sh | sh
+
+2. Initialize barkcli in this project:
+barkcli init
+
+3. Create a default board:
+barkcli create main
+
+4. Add the MCP server configuration to .cursor/mcp.json:
+{
+  "mcpServers": {
+    "barkcli": {
+      "command": "barkcli",
+      "args": ["mcp"]
+    }
+  }
+}
+
+5. Verify the installation:
+barkcli status
+barkcli list
+
+6. Add a sample task to confirm everything works:
+barkcli add "Welcome to barkcli" -p low -d "barkcli is now set up and ready to use"
+
+After running these commands, barkcli will be fully configured. You can now:
+- Use "barkcli add <title>" to create tasks
+- Use "barkcli list" to see all tasks
+- Use "barkcli move <id> doing" to start working on a task
+- Use "barkcli done <id>" to mark tasks complete
+- Use "barkcli tui" for a terminal kanban board
+- Use "barkcli serve" for a web interface
+
+For the full AI agent prompt with all commands, run: barkcli --help`,
+                    generic: `Please run the following commands to install and set up barkcli (git-native project management) in this project:
+
+1. First, install barkcli:
+curl -fsSL https://barkcli.vercel.app/install.sh | sh
+
+2. Initialize barkcli in this project:
+barkcli init
+
+3. Create a default board:
+barkcli create main
+
+4. Verify the installation:
+barkcli status
+barkcli list
+
+5. Add a sample task to confirm everything works:
+barkcli add "Welcome to barkcli" -p low -d "barkcli is now set up and ready to use"
+
+After running these commands, barkcli will be fully configured. You can now:
+- Use "barkcli add <title>" to create tasks
+- Use "barkcli list" to see all tasks
+- Use "barkcli move <id> doing" to start working on a task
+- Use "barkcli done <id>" to mark tasks complete
+- Use "barkcli tui" for a terminal kanban board
+- Use "barkcli serve" for a web interface
+
+For the full AI agent prompt with all commands, run: barkcli --help`,
+                  };
+                  navigator.clipboard.writeText(prompts[activeAgentTab]);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+                className={`text-xs font-mono px-3 py-1.5 rounded flex items-center gap-1.5 transition-colors ${
+                  copied
+                    ? "bg-green-600 text-white"
+                    : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
+                }`}
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3 h-3" /> Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3" /> Copy Prompt
+                  </>
+                )}
+              </button>
+            </div>
+            <div className="p-4 overflow-x-auto">
+              <pre className="text-xs font-mono text-white/80 leading-relaxed whitespace-pre-wrap">
+                <code>
+                  {activeAgentTab === "claude"
+                    ? `Please run the following commands to install and set up barkcli (git-native project management) in this project:
+
+1. First, install barkcli:
+curl -fsSL https://barkcli.vercel.app/install.sh | sh
+
+2. Initialize barkcli in this project:
+barkcli init
+
+3. Create a default board:
+barkcli create main
+
+4. Add the MCP server configuration to .claude/settings.json:
+{
+  "mcpServers": {
+    "barkcli": {
+      "command": "barkcli",
+      "args": ["mcp"]
+    }
+  }
+}
+
+5. Verify the installation:
+barkcli status
+barkcli list
+
+6. Add a sample task to confirm everything works:
+barkcli add "Welcome to barkcli" -p low -d "barkcli is now set up and ready to use"
+
+After running these commands, barkcli will be fully configured. You can now:
+• Use "barkcli add <title>" to create tasks
+• Use "barkcli list" to see all tasks
+• Use "barkcli move <id> doing" to start working on a task
+• Use "barkcli done <id>" to mark tasks complete
+• Use "barkcli tui" for a terminal kanban board
+• Use "barkcli serve" for a web interface
+
+For the full AI agent prompt with all commands, run: barkcli --help`
+                    : activeAgentTab === "opencode"
+                    ? `Please run the following commands to install and set up barkcli (git-native project management) in this project:
+
+1. First, install barkcli:
+curl -fsSL https://barkcli.vercel.app/install.sh | sh
+
+2. Initialize barkcli in this project:
+barkcli init
+
+3. Create a default board:
+barkcli create main
+
+4. Add the MCP server configuration to .opencode/config.json:
+{
+  "mcpServers": {
+    "barkcli": {
+      "command": "barkcli",
+      "args": ["mcp"]
+    }
+  }
+}
+
+5. Verify the installation:
+barkcli status
+barkcli list
+
+6. Add a sample task to confirm everything works:
+barkcli add "Welcome to barkcli" -p low -d "barkcli is now set up and ready to use"
+
+After running these commands, barkcli will be fully configured. You can now:
+• Use "barkcli add <title>" to create tasks
+• Use "barkcli list" to see all tasks
+• Use "barkcli move <id> doing" to start working on a task
+• Use "barkcli done <id>" to mark tasks complete
+• Use "barkcli tui" for a terminal kanban board
+• Use "barkcli serve" for a web interface
+
+For the full AI agent prompt with all commands, run: barkcli --help`
+                    : activeAgentTab === "cursor"
+                    ? `Please run the following commands to install and set up barkcli (git-native project management) in this project:
+
+1. First, install barkcli:
+curl -fsSL https://barkcli.vercel.app/install.sh | sh
+
+2. Initialize barkcli in this project:
+barkcli init
+
+3. Create a default board:
+barkcli create main
+
+4. Add the MCP server configuration to .cursor/mcp.json:
+{
+  "mcpServers": {
+    "barkcli": {
+      "command": "barkcli",
+      "args": ["mcp"]
+    }
+  }
+}
+
+5. Verify the installation:
+barkcli status
+barkcli list
+
+6. Add a sample task to confirm everything works:
+barkcli add "Welcome to barkcli" -p low -d "barkcli is now set up and ready to use"
+
+After running these commands, barkcli will be fully configured. You can now:
+• Use "barkcli add <title>" to create tasks
+• Use "barkcli list" to see all tasks
+• Use "barkcli move <id> doing" to start working on a task
+• Use "barkcli done <id>" to mark tasks complete
+• Use "barkcli tui" for a terminal kanban board
+• Use "barkcli serve" for a web interface
+
+For the full AI agent prompt with all commands, run: barkcli --help`
+                    : `Please run the following commands to install and set up barkcli (git-native project management) in this project:
+
+1. First, install barkcli:
+curl -fsSL https://barkcli.vercel.app/install.sh | sh
+
+2. Initialize barkcli in this project:
+barkcli init
+
+3. Create a default board:
+barkcli create main
+
+4. Verify the installation:
+barkcli status
+barkcli list
+
+5. Add a sample task to confirm everything works:
+barkcli add "Welcome to barkcli" -p low -d "barkcli is now set up and ready to use"
+
+After running these commands, barkcli will be fully configured. You can now:
+• Use "barkcli add <title>" to create tasks
+• Use "barkcli list" to see all tasks
+• Use "barkcli move <id> doing" to start working on a task
+• Use "barkcli done <id>" to mark tasks complete
+• Use "barkcli tui" for a terminal kanban board
+• Use "barkcli serve" for a web interface
+
+For the full AI agent prompt with all commands, run: barkcli --help`}
+                </code>
+              </pre>
+            </div>
           </div>
 
-          {/* Steps */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* What This Does */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             {[
               {
-                step: "1",
-                title: "Install barkcli",
-                desc: "Add barkcli to your project with a single command.",
-                code: "curl -fsSL https://barkcli.vercel.app/install.sh | sh",
+                icon: "📦",
+                title: "Installs barkcli",
+                desc: "Downloads and installs the barkcli binary",
               },
               {
-                step: "2",
-                title: "Configure your agent",
-                desc: "Add the MCP server config to your AI agent's settings.",
-                code: 'barkcli mcp  # Start the MCP server',
+                icon: "🚀",
+                title: "Initializes project",
+                desc: "Creates .board/ directory with config",
               },
               {
-                step: "3",
-                title: "Paste the prompt",
-                desc: "Copy the AI agent prompt into your agent's context window.",
-                code: "# Your agent now knows barkcli!",
+                icon: "📋",
+                title: "Creates a board",
+                desc: "Sets up your first kanban board",
+              },
+              {
+                icon: "🔌",
+                title: "Configures MCP",
+                desc: "Connects your AI agent via MCP server",
               },
             ].map((item, i) => (
-              <div key={i} className="border border-white/10 rounded-xl p-6">
-                <div className="w-8 h-8 rounded-full bg-[#B8845C]/10 flex items-center justify-center mb-4">
-                  <span className="text-[#B8845C] text-sm font-mono font-bold">
-                    {item.step}
-                  </span>
-                </div>
-                <h3 className="text-lg font-semibold mb-2">{item.title}</h3>
-                <p className="text-white/60 text-sm leading-relaxed mb-4">
-                  {item.desc}
-                </p>
-                <code className="text-[#059669] text-xs font-mono block bg-white/5 rounded-lg px-3 py-2">
-                  {item.code}
-                </code>
+              <div key={i} className="border border-white/10 rounded-lg p-4 text-center">
+                <div className="text-2xl mb-2">{item.icon}</div>
+                <h4 className="text-sm font-semibold mb-1">{item.title}</h4>
+                <p className="text-xs text-white/50">{item.desc}</p>
               </div>
             ))}
           </div>
 
-          {/* Learn More Link */}
-          <div className="text-center mt-12">
+          {/* Quick Commands Reference */}
+          <div className="border border-white/10 rounded-xl p-6">
+            <h3 className="text-sm font-semibold mb-4 text-white/70">Quick Commands After Setup</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {[
+                { cmd: "barkcli add \"Fix login bug\" -p high", desc: "Create a task" },
+                { cmd: "barkcli list", desc: "View all tasks" },
+                { cmd: "barkcli move fix-login-bug doing", desc: "Start working" },
+                { cmd: "barkcli done fix-login-bug", desc: "Mark complete" },
+                { cmd: "barkcli tui", desc: "Open terminal board" },
+                { cmd: "barkcli serve", desc: "Open web interface" },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-3 bg-white/5 rounded-lg px-3 py-2">
+                  <code className="text-xs font-mono text-[#059669] flex-1">{item.cmd}</code>
+                  <span className="text-xs text-white/40">{item.desc}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Learn More */}
+          <div className="text-center mt-8">
             <a
               href="/docs/getting-started"
               className="inline-flex items-center gap-2 text-[#B8845C] text-sm font-medium hover:underline"
