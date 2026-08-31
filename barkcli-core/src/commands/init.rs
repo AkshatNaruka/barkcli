@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::process::Command;
 
 use anyhow::{Context, Result};
 
@@ -40,6 +41,10 @@ pub fn run() -> Result<()> {
     println!("  barkcli add \"Fix auth bug\" -p high");
     println!("  barkcli list");
     println!("  barkcli move <id> doing");
+
+    // Hint about VS Code extension
+    hint_vscode_extension();
+
     Ok(())
 }
 
@@ -91,6 +96,40 @@ fn install_git_hooks(root: &Path) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn hint_vscode_extension() {
+    // Check if VS Code CLI is available
+    let vscode_cmd = if Command::new("code").arg("--version").output().is_ok() {
+        "code"
+    } else if Command::new("code-insiders").arg("--version").output().is_ok() {
+        "code-insiders"
+    } else {
+        return; // No VS Code CLI found, skip hint
+    };
+
+    // Check if extension is already installed
+    let extension_id = "barkcli.barkcli-vscode";
+    let installed = Command::new(vscode_cmd)
+        .args(["--list-extensions"])
+        .output()
+        .map(|o| {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            stdout.lines().any(|l| l.eq_ignore_ascii_case(extension_id))
+        })
+        .unwrap_or(false);
+
+    if !installed {
+        println!();
+        println!(
+            "{} VS Code extension not detected.",
+            style::warn("Note:")
+        );
+        println!(
+            "  Run {} to install the kanban editor for .board files:",
+            style::accent("barkcli vscode-install")
+        );
+    }
 }
 
 fn append_gitignore_entry(path: &Path, entry: &str) -> Result<()> {

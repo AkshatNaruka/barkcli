@@ -133,7 +133,13 @@ A custom editor for `.board` files in VS Code.
 Or install from terminal:
 
 ```shell
-code --install-extension barkcli.barkcli
+code --install-extension barkcli.barkcli-vscode
+```
+
+Or use the barkcli CLI:
+
+```shell
+barkcli vscode-install
 ```
 
 ### Features

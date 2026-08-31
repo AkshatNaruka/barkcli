@@ -191,6 +191,23 @@ jobs:
           ls -lh artifacts/
           cat artifacts/SHA256SUMS || true
 
+      - name: Build VS Code extension (VSIX)
+        run: |
+          cd vscode-extension
+          npm ci
+          # Sync web app assets into extension dist
+          mkdir -p dist/assets
+          cd ../web && npm ci && npm run build && cd ..
+          cp web/dist/index.html vscode-extension/dist/
+          cp web/dist/assets/* vscode-extension/dist/assets/
+          # Build extension TypeScript
+          cd vscode-extension
+          npx esbuild ./src/extension.ts --bundle --outfile=./dist/extension.js --external:vscode --format=cjs --platform=node --tsconfig=tsconfig.json
+          # Package VSIX
+          npx @vscode/vsce package --allow-missing-repository
+          ls -lh *.vsix
+          cp *.vsix ../artifacts/
+
       - name: Stage install scripts
         run: |
           mkdir -p artifacts
@@ -205,6 +222,7 @@ jobs:
             artifacts/*.tar.gz
             artifacts/*.zip
             artifacts/*.exe
+            artifacts/*.vsix
             artifacts/*.sha256
             artifacts/SHA256SUMS
             artifacts/install.sh
@@ -355,7 +373,7 @@ jobs:
       - name: Stage tarballs for Vercel
         run: |
           mkdir -p landing-next/public/downloads
-          cp artifacts/*.tar.gz artifacts/*.zip artifacts/*.exe artifacts/SHA256SUMS artifacts/*.sha256 landing-next/public/downloads/ 2>/dev/null || true
+          cp artifacts/*.tar.gz artifacts/*.zip artifacts/*.exe artifacts/*.vsix artifacts/SHA256SUMS artifacts/*.sha256 landing-next/public/downloads/ 2>/dev/null || true
           cp landing-next/public/install.sh landing-next/public/downloads/ 2>/dev/null || true
           cp landing-next/public/install.ps1 landing-next/public/downloads/ 2>/dev/null || true
           echo "${{ github.ref_name }}" > landing-next/public/downloads/version

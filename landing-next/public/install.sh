@@ -159,6 +159,8 @@ esac
 if "$INSTALL_DIR/barkcli" --version 2>/dev/null; then
   echo ""
   echo "Done. Run 'barkcli init' in any project to get started."
+  echo ""
+  echo "For VS Code users: run 'barkcli vscode-install' to install the kanban editor."
 else
   echo "Install completed but binary check failed." >&2
   exit 1

@@ -22,3 +22,4 @@ pub mod spec;
 pub mod status;
 pub mod undo;
 pub mod validate;
+pub mod vscode;

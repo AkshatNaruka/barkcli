@@ -113,6 +113,8 @@ fn dispatch(cmd: &str, cmd_args: &[String]) -> Result<()> {
 
         "snapshot" => handle_snapshot(cmd_args)?,
 
+        "vscode-install" | "vscode" => commands::vscode::run(cmd_args)?,
+
         "session" => handle_session_cmd(cmd_args)?,
         "checkpoint" => handle_checkpoint_cmd(cmd_args)?,
         "hooks" => handle_hooks_cmd(cmd_args)?,
@@ -684,6 +686,7 @@ fn print_usage() {
     println!("  tui                 Terminal kanban");
     println!("  serve               Browser kanban");
     println!("  open                TUI if terminal, browser otherwise");
+    println!("  vscode-install      Install VS Code extension for .board files");
     println!();
     println!("Multiple boards (optional):");
     println!("  boards              List boards");
