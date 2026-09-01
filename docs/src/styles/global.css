@@ -12,7 +12,7 @@
   --primary-foreground: hsl(0 0% 9%);
   --secondary: hsl(0 0% 14.9%);
   --secondary-foreground: hsl(0 0% 98%);
-  --accent: hsl(217 91% 60%);
+  --accent: hsl(28 60% 50%);
   --accent-foreground: hsl(0 0% 100%);
 }
 
@@ -22,7 +22,6 @@ body {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
-/* Code blocks */
 pre {
   background: hsl(0 0% 7%) !important;
   border: 1px solid var(--border);
@@ -43,16 +42,6 @@ code {
   font-size: 0.8rem;
 }
 
-/* Sidebar */
-nav::-webkit-scrollbar {
-  width: 4px;
-}
-
-nav::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-nav::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 2px;
-}
+nav::-webkit-scrollbar { width: 4px; }
+nav::-webkit-scrollbar-track { background: transparent; }
+nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }

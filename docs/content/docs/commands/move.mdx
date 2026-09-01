@@ -1,0 +1,52 @@
+---
+title: move
+description: Move a card to another column
+---
+
+# barkcli move
+
+Move a card to a different column.
+
+## Usage
+
+```bash
+barkcli <board> move <id> <column>
+```
+
+## Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `id` | Card ID |
+| `column` | Target column name |
+
+## Examples
+
+```bash
+# Move to doing
+barkcli my-project move implement-oauth doing
+
+# Move to review
+barkcli my-project move implement-oauth review
+
+# Move to done
+barkcli my-project move implement-oauth done
+```
+
+## Output
+
+```
+Moved implement-oauth from todo to doing
+```
+
+## Aliases
+
+```bash
+# shorthand
+barkcli <board> mv <id> <column>
+```
+
+## Related
+
+- [done](/docs/commands/done) — Quick move to done
+- [list](/docs/commands/list) — List cards

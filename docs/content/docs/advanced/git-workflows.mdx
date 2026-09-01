@@ -1,0 +1,124 @@
+---
+title: Git Workflows
+description: Advanced git integration patterns
+---
+
+# Git Workflows
+
+Advanced patterns for using barkcli with git.
+
+## Feature Branches
+
+```bash
+# Create feature branch
+git checkout -b feature/auth
+
+# Work on tasks
+barkcli my-project add "Auth feature" -p high
+barkcli my-project move auth-feature doing
+
+# Commit
+git add .board
+git commit -m "[auth-feature] Start authentication work"
+
+# Push
+git push -u origin feature/auth
+
+# Merge to main
+git checkout main
+git merge feature/auth
+```
+
+## Multi-Board Branches
+
+Different boards for different contexts:
+
+```bash
+# Main board on main branch
+git checkout main
+barkcli create main-board
+
+# Feature board on feature branch
+git checkout -b feature/auth
+barkcli create auth-board
+
+# Each branch has its own board
+```
+
+## Conflict Resolution
+
+When board files conflict:
+
+```bash
+# Git shows conflict in .board/my-project.board
+# Resolve by choosing correct YAML content
+
+# Option 1: Keep yours
+git checkout --ours .board/my-project.board
+
+# Option 2: Keep theirs
+git checkout --theirs .board/my-project.board
+
+# Option 3: Manual merge
+vim .board/my-project.board
+
+# Commit resolution
+git add .board
+git commit -m "Resolve board merge conflict"
+```
+
+## Parallel Work
+
+Multiple people can work on different boards:
+
+```bash
+# Person A works on frontend board
+barkcli frontend add "Fix CSS" -p high
+
+# Person B works on backend board
+barkcli backend add "Optimize DB" -p high
+
+# No conflicts since different files
+git add .board
+git commit -m "Update frontend board"
+git push
+```
+
+## Release Workflow
+
+```bash
+# 1. Create release branch
+git checkout -b release/v1.0
+
+# 2. Finalize tasks
+barkcli my-project list -c review
+barkcli my-project done <task-id>
+
+# 3. Generate changelog
+barkcli changelog > CHANGELOG.md
+
+# 4. Commit
+git add .board CHANGELOG.md
+git commit -m "Release v1.0"
+
+# 5. Tag
+git tag v1.0
+
+# 6. Merge to main
+git checkout main
+git merge release/v1.0
+git push --tags
+```
+
+## Backup Strategy
+
+```bash
+# Regular checkpoints
+barkcli checkpoint save "daily-$(date +%Y-%m-%d)"
+
+# Before risky operations
+barkcli checkpoint save "pre-import-$(date +%Y-%m-%d)"
+
+# Export for external backup
+barkcli my-project export json > backup-$(date +%Y-%m-%d).json
+```

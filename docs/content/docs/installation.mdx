@@ -7,32 +7,22 @@ import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 
 # Installation
 
-Choose your preferred installation method:
-
 <Tabs items={["npm", "cargo", "binary"]}>
-<Tab value="npm">
-```bash
-npm install -g barkcli
-```
-</Tab>
-
-<Tab value="cargo">
-```bash
-cargo install barkcli
-```
-</Tab>
-
-<Tab value="binary">
-Download the latest binary from GitHub Releases:
-
-```bash
-# macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/AkshatNaruka/barkcli/master/install.sh | sh
-
-# Or download manually from:
-# https://github.com/AkshatNaruka/barkcli/releases
-```
-</Tab>
+  <Tab value="npm">
+    ```bash
+    npm install -g barkcli
+    ```
+  </Tab>
+  <Tab value="cargo">
+    ```bash
+    cargo install barkcli
+    ```
+  </Tab>
+  <Tab value="binary">
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/AkshatNaruka/barkcli/main/install.sh | sh
+    ```
+  </Tab>
 </Tabs>
 
 ## Verify Installation
@@ -46,14 +36,23 @@ barkcli --version
 
 - **Node.js** 18+ (for npm install)
 - **Rust** 1.70+ (for cargo install)
-- **Git** 2.30+ (recommended for full functionality)
+- **Git** 2.30+ (for git integration features)
 
-## Updating
+## Update
 
 ```bash
 barkcli update
 ```
 
+## Uninstall
+
+```bash
+npm uninstall -g barkcli
+# or
+cargo uninstall barkcli
+```
+
 ## Next Steps
 
-Once installed, head to the [Quick Start](/docs/quick-start) guide to set up your first project.
+- [Quick Start](/docs/quick-start) — Get running in 30 seconds
+- [Configuration](/docs/configuration) — Customize barkcli

@@ -1,0 +1,121 @@
+---
+title: Web App
+description: Browser-based board interface
+---
+
+# Web App
+
+The web app provides a full-featured browser interface for managing boards.
+
+## Start
+
+```bash
+barkcli serve --open
+```
+
+Opens `http://localhost:4321` in your browser.
+
+## Options
+
+| Flag | Description |
+|------|-------------|
+| `--open`, `-o` | Open browser automatically |
+| `--port`, `-p` | Port number (default: 4321) |
+| `--host` | Host address (default: 127.0.0.1) |
+| `--token` | Authentication token |
+| `--board`, `-b` | Open specific board |
+| `--daemon`, `-d` | Run as background daemon |
+| `--stop` | Stop daemon |
+| `--status` | Check daemon status |
+
+## Navigation
+
+| Tab | Description |
+|-----|-------------|
+| Dashboard | Overview with stats and activity |
+| Board | Kanban board with drag-and-drop |
+| Table | Spreadsheet view |
+| Calendar | Tasks by due date |
+| Reports | Velocity and statistics |
+| Code | Symbol search and context |
+| Activity | History and sessions |
+| Sprints | Sprint management |
+| Memory | Cross-session knowledge |
+| Specs | Specifications and requirements |
+| Orchestrate | Agent registry and task queue |
+| Settings | Board configuration |
+
+## Board Features
+
+### View Modes
+
+- **Board** — Drag-and-drop kanban columns
+- **Table** — Spreadsheet with filters
+- **List** — Compact priority-sorted list
+
+### Card Operations
+
+- Click card to view details
+- Drag card between columns
+- Click `+` button to add card
+- Right-click for context menu
+
+### Card Form Tabs
+
+- **Details** — Title, description, priority, labels
+- **Checklist** — Subtasks with completion
+- **Links** — Parent/child/related/blocked-by
+- **Comments** — Discussion thread
+- **Code** — Linked files and AI summary
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Cmd/Ctrl + K` | Command palette |
+| `Cmd/Ctrl + Z` | Undo last change |
+| `N` | New card |
+| `?` | Show shortcuts |
+
+## Authentication
+
+Start with a token:
+
+```bash
+barkcli serve --token mysecret
+```
+
+Pass token via:
+- Query: `http://localhost:4321?token=mysecret`
+- Header: `Authorization: Bearer mysecret`
+- Browser: Stored in sessionStorage
+
+## Real-time Updates
+
+The web app uses WebSocket for live reload. Changes from CLI, TUI, or other browser tabs are reflected instantly.
+
+## LAN Access
+
+```bash
+# Allow access from other devices on your network
+barkcli serve --host 0.0.0.0
+```
+
+## Daemon Mode
+
+```bash
+# Start as background daemon
+barkcli serve --daemon
+
+# Check status
+barkcli serve --status
+
+# Stop
+barkcli serve --stop
+```
+
+## Troubleshooting
+
+- **Port in use**: `lsof -i :4321` to find the process, then kill it
+- **Can't connect**: Ensure `barkcli serve` is running
+- **WebSocket errors**: Check firewall settings

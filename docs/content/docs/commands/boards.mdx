@@ -1,0 +1,46 @@
+---
+title: boards
+description: Board management commands
+---
+
+# barkcli boards
+
+Manage boards in your project.
+
+## Usage
+
+```bash
+barkcli boards [command]
+```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `barkcli boards` | List all boards |
+| `barkcli boards create <name>` | Create a new board |
+
+## List Boards
+
+```bash
+barkcli boards
+```
+
+Output:
+```
+Boards:
+  my-project (default)
+  backend
+  frontend
+```
+
+## Create Board
+
+```bash
+barkcli boards create <name>
+```
+
+## Related
+
+- [create](/docs/commands/create) — Create a board
+- [switch](/docs/commands/boards) — Switch default board

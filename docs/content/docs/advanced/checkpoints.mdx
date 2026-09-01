@@ -1,0 +1,103 @@
+---
+title: Checkpoints
+description: Board state snapshots and recovery
+---
+
+# Checkpoints
+
+Checkpoints save board state at a point in time. Use them for recovery before risky changes.
+
+## Types
+
+| Type | Trigger | Description |
+|------|---------|-------------|
+| **Manual** | `checkpoint save` | Explicitly saved by user |
+| **Auto** | Git commit | Saved when `.board` files change |
+
+## Commands
+
+```bash
+# List checkpoints
+barkcli checkpoint list
+
+# Save manual checkpoint
+barkcli checkpoint save "before-refactor"
+
+# Show checkpoint details
+barkcli checkpoint show <checkpoint-id>
+
+# Restore checkpoint
+barkcli checkpoint restore <checkpoint-id>
+```
+
+## Storage
+
+- Manual: `.board/snapshots/manual/`
+- Auto: `.board/snapshots/auto/`
+
+## Workflow
+
+```bash
+# 1. Save checkpoint before risky changes
+barkcli checkpoint save "pre-refactor"
+
+# 2. Make changes
+barkcli my-project move task-1 doing
+barkcli my-project update task-1 --priority high
+
+# 3. If something goes wrong
+barkcli checkpoint list
+barkcli checkpoint restore <checkpoint-id>
+
+# 4. Board restored to previous state
+```
+
+## API Access
+
+```bash
+# List checkpoints
+curl http://localhost:4321/api/checkpoints?name=my-project
+
+# Save checkpoint
+curl -X POST http://localhost:4321/api/checkpoints?name=my-project \
+  -H "Content-Type: application/json" \
+  -d '{"label": "before-release"}'
+
+# Restore checkpoint
+curl -X POST http://localhost:4321/api/checkpoints/{id}/restore
+```
+
+## Integration with Undo
+
+Checkpoints complement the undo feature:
+
+- **Undo** — Revert single operation
+- **Checkpoint** — Revert to saved state
+
+```bash
+# Quick undo
+barkcli my-project undo
+
+# Full state restore
+barkcli checkpoint restore <id>
+```
+
+## Best Practices
+
+1. Save checkpoints before:
+   - Large batch operations
+   - Importing data
+   - Running scripts that modify boards
+   - Merging branches with board changes
+
+2. Use descriptive labels:
+   ```bash
+   barkcli checkpoint save "pre-sprint-2-import"
+   barkcli checkpoint save "before-column-rename"
+   ```
+
+3. Clean old checkpoints periodically:
+   ```bash
+   # Checkpoints are stored in .board/snapshots/
+   # Remove old ones manually or via script
+   ```

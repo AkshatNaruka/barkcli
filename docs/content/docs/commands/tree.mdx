@@ -1,0 +1,34 @@
+---
+title: tree
+description: View card hierarchy
+---
+
+# barkcli tree
+
+Display the parent-child hierarchy of cards.
+
+## Usage
+
+```bash
+barkcli <board> tree
+```
+
+## Output
+
+```
+auth-system (high)
+├── auth-jwt (high)
+│   ├── auth-jwt-validation (medium)
+│   └── auth-jwt-refresh (medium)
+├── auth-oauth (high)
+└── auth-sessions (medium)
+
+payment-system (high)
+├── payment-stripe (high)
+└── payment-webhooks (medium)
+```
+
+## Related
+
+- [link](/docs/commands/link) — Create links
+- [show](/docs/commands/show) — View card details

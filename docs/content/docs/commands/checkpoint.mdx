@@ -1,0 +1,54 @@
+---
+title: checkpoint
+description: Board state snapshots
+---
+
+# barkcli checkpoint
+
+Save and restore board state snapshots.
+
+## Usage
+
+```bash
+barkcli checkpoint <command>
+```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `list` | List checkpoints |
+| `save [label]` | Save manual checkpoint |
+| `show <id>` | Show checkpoint details |
+| `restore <id>` | Restore checkpoint |
+
+## Save Checkpoint
+
+```bash
+barkcli checkpoint save "before-refactor"
+```
+
+## List Checkpoints
+
+```bash
+barkcli checkpoint list
+```
+
+Output:
+```
+Checkpoints:
+  cp-abc123  before-refactor    manual   2025-01-15 14:20
+  cp-def456  auto:abc123        auto     2025-01-15 10:30
+  cp-ghi789  pre-release        manual   2025-01-14 16:00
+```
+
+## Restore Checkpoint
+
+```bash
+barkcli checkpoint restore cp-abc123
+```
+
+## Related
+
+- [Advanced: Checkpoints](/docs/advanced/checkpoints) — Checkpoint concepts
+- [undo](/docs/commands/undo) — Quick undo

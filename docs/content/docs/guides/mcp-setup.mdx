@@ -1,0 +1,144 @@
+---
+title: MCP Setup
+description: Setting up the MCP server for AI agents
+---
+
+# MCP Setup Guide
+
+The Model Context Protocol (MCP) server lets AI coding agents interact with barkcli.
+
+## Quick Start
+
+```bash
+# Start the MCP server
+barkcli mcp
+```
+
+The server communicates via JSON-RPC 2.0 over stdio.
+
+## Agent Configuration
+
+### Claude Code
+
+Add to `~/.config/claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "barkcli": {
+      "command": "barkcli",
+      "args": ["mcp"],
+      "env": {}
+    }
+  }
+}
+```
+
+### OpenCode
+
+Add to your OpenCode config:
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "barkcli": {
+        "command": "barkcli",
+        "args": ["mcp"]
+      }
+    }
+  }
+}
+```
+
+### Cursor
+
+Add to Cursor settings (MCP section):
+
+```json
+{
+  "barkcli": {
+    "command": "barkcli",
+    "args": ["mcp"]
+  }
+}
+```
+
+## Available Tools
+
+### Board Management
+
+| Tool | Parameters | Description |
+|------|-----------|-------------|
+| `board_list` | — | List all boards |
+| `board_get` | `name` | Get board details |
+
+### Card Operations
+
+| Tool | Parameters | Description |
+|------|-----------|-------------|
+| `card_list` | `board`, `column?`, `priority?`, `label?` | List cards |
+| `card_create` | `board`, `title`, `description?`, `priority?`, `labels?` | Create card |
+| `card_move` | `board`, `card_id`, `column` | Move card |
+| `card_update` | `board`, `card_id`, `title?`, `description?`, `priority?` | Update card |
+| `card_delete` | `board`, `card_id` | Delete card |
+
+### Code Context
+
+| Tool | Parameters | Description |
+|------|-----------|-------------|
+| `context_search` | `board`, `query` | Search code context |
+| `code_search` | `query` | Search code symbols |
+
+### Specs
+
+| Tool | Parameters | Description |
+|------|-----------|-------------|
+| `spec_list` | `board` | List specs |
+| `spec_create` | `board`, `title`, `description?` | Create spec |
+
+### Memory
+
+| Tool | Parameters | Description |
+|------|-----------|-------------|
+| `memory_search` | `board`, `query` | Search memory |
+| `memory_add` | `board`, `content`, `tier?` | Add memory |
+
+## Task Management API
+
+For orchestrated workflows, agents can use the REST API:
+
+```bash
+# List tasks
+curl http://localhost:4321/api/tasks
+
+# Claim a task
+curl -X POST http://localhost:4321/api/tasks/{id}/claim \
+  -d '{"agent_id": "my-agent"}'
+
+# Complete a task
+curl -X POST http://localhost:4321/api/tasks/{id}/complete \
+  -d '{"result": "Done", "commit_sha": "abc123"}'
+```
+
+## Authentication
+
+When using `--token`:
+
+```bash
+barkcli mcp --token mysecret
+```
+
+Or set the environment variable:
+
+```bash
+export BARKCLI_TOKEN=mysecret
+barkcli mcp
+```
+
+## Troubleshooting
+
+- **Server won't start**: Ensure barkcli is installed and on PATH
+- **Tools not found**: Check agent configuration JSON syntax
+- **Permission denied**: Check file permissions on `.board/` directory
+- **No boards**: Run `barkcli init` in your project first

@@ -1,0 +1,78 @@
+---
+title: mcp
+description: Start MCP server
+---
+
+# barkcli mcp
+
+Start the MCP (Model Context Protocol) server for AI coding agents.
+
+## Usage
+
+```bash
+barkcli mcp
+```
+
+## What It Does
+
+Starts a JSON-RPC 2.0 server on stdio with 25+ tools for AI agents.
+
+## Available Tools
+
+### Board Management
+- `board_list` — List all boards
+- `board_get` — Get board details
+
+### Card Operations
+- `card_list` — List cards with filters
+- `card_create` — Create new card
+- `card_move` — Move card to column
+- `card_update` — Update card fields
+- `card_delete` — Delete card
+
+### Code Context
+- `context_search` — Search code context
+- `code_search` — Search code symbols
+
+### Specs
+- `spec_list` — List specs
+- `spec_create` — Create spec
+
+### Memory
+- `memory_search` — Search memory
+- `memory_add` — Add memory entry
+
+## Configuration
+
+### Claude Code
+
+```json
+{
+  "mcpServers": {
+    "barkcli": {
+      "command": "barkcli",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+### OpenCode
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "barkcli": {
+        "command": "barkcli",
+        "args": ["mcp"]
+      }
+    }
+  }
+}
+```
+
+## Related
+
+- [MCP Setup](/docs/guides/mcp-setup) — Setup guide
+- [AI Agents](/docs/guides/ai-agents) — AI integration

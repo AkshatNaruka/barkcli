@@ -1,100 +1,82 @@
 ---
 title: Introduction
-description: What is barkcli and why it exists
+description: What barkcli is and why it exists
 ---
 
 # What is barkcli?
 
-barkcli is a **git-native Kanban board CLI** that stores tasks as YAML files directly in your repository. It brings task management into your codebase, making it accessible to both humans and AI agents.
+barkcli is a git-native project management tool. Tasks are stored as YAML files in your repository. No cloud. No accounts. Open source. MIT licensed. Built in Rust.
 
-## Why barkcli?
+## The Problem
 
-Traditional project management tools have fundamental problems for developers:
+Most project management tools are cloud-first. Your tasks live on someone else's server. You need accounts, subscriptions, and internet access. AI coding agents can't access your tasks without complex API integrations.
 
-| Problem | Traditional Tools | barkcli |
-|---------|-------------------|---------|
-| Tasks live in the cloud | Need internet + accounts | Tasks in your repo |
-| AI agents can't access them | API limits, auth tokens | Direct file access |
-| Context switching | Leave terminal/IDE | Stay in your workflow |
-| Vendor lock-in | Can't migrate data | Just YAML files |
-| Per-seat pricing | $10-15/user/month | Free forever |
+## The Solution
+
+barkcli keeps tasks as `.board` YAML files in your repo. They're just like code — you can diff them, merge them, and version control them.
+
+```bash
+# Initialize barkcli in your project
+barkcli init
+
+# Create a board and add tasks
+barkcli create my-project
+barkcli my-project add "Implement JWT auth" -p high
+barkcli my-project add "Write tests" -p medium
+
+# List tasks
+barkcli my-project list
+
+# Move tasks through your workflow
+barkcli my-project move implement-jwt-auth doing
+barkcli my-project done implement-jwt-auth
+
+# View git history of task changes
+barkcli my-project log
+```
 
 ## How It Works
 
-barkcli stores your tasks in `.board` files within your project:
-
-```yaml
-# my-project.board
-title: My Project
-columns:
-  - id: todo
-    name: To Do
-  - id: doing
-    name: Doing
-  - id: done
-    name: Done
-cards:
-  - id: implement-login
-    title: Implement login
-    column: doing
-    priority: high
-    labels:
-      - feature
-    created_at: 2024-01-15T10:30:00Z
-```
-
-These files are committed to git, so your tasks:
-- **Travel with your code** — same repo, same history
-- **Are version-controlled** — see who changed what and when
-- **Are accessible to AI** — MCP server for coding agents
-- **Work offline** — no internet required
+1. `barkcli init` creates a `.board/` directory in your project
+2. Boards are stored as `.board/*.board` YAML files
+3. These files are committed to git alongside your code
+4. `git diff` shows what tasks changed
+5. `git merge` syncs tasks across branches
+6. AI agents can read tasks directly from the filesystem
 
 ## Core Concepts
 
-### Boards
-A board is a collection of columns and cards. You can have multiple boards per project.
-
-### Cards
-Cards are individual tasks. Each card has:
-- **Title** — What needs to be done
-- **Column** — Current status (todo, doing, done)
-- **Priority** — high, medium, low
-- **Labels** — Categorization tags
-- **Due date** — Optional deadline
-- **Checklist** — Sub-tasks
-- **Comments** — Discussion threads
-
-### Columns
-Columns represent workflow stages. Default columns are:
-- `todo` — Not started
-- `doing` — In progress
-- `review` — Under review
-- `done` — Completed
-
-You can customize columns per board.
-
-### Links
-Cards can be linked with relationships:
-- `parent` / `child` — Breakdown hierarchy
-- `related` — Associated tasks
-- `blocked-by` — Dependencies
+| Concept | Description |
+|---------|-------------|
+| **Project** | Your codebase with a `.board/` directory |
+| **Board** | A collection of columns and cards (e.g., "my-project.board") |
+| **Card/Task** | A unit of work with title, priority, labels, assignee, due date |
+| **Column** | Workflow stage (default: todo, doing, review, done) |
+| **Code Context** | Links between cards and source code files |
+| **Links** | Relationships between cards (parent, child, related, blocked-by) |
 
 ## Interfaces
 
-barkcli provides multiple interfaces:
+barkcli provides four interfaces that all share the same YAML data:
 
-| Interface | Description | Command |
-|-----------|-------------|---------|
-| **CLI** | Command-line for scripts and automation | `barkcli <command>` |
-| **TUI** | Terminal Kanban board | `barkcli tui` |
-| **Web** | Browser-based Kanban board | `barkcli serve` |
-| **VS Code** | Editor integration | Extension marketplace |
-| **MCP** | AI agent integration | `barkcli mcp` |
+| Interface | Command | Description |
+|-----------|---------|-------------|
+| **CLI** | `barkcli <board> <command>` | Command-line interface |
+| **Terminal UI** | `barkcli tui` | Interactive kanban in your terminal |
+| **Web App** | `barkcli serve` | Browser-based board at localhost:4321 |
+| **VS Code** | Custom editor | Visual editor for .board files |
 
 ## Use Cases
 
-- **Solo developers** — Simple task tracking in your repo
-- **Small teams** — Lightweight project management
-- **AI-heavy workflows** — Tasks accessible to coding agents
-- **Open source** — Public roadmap in the repo
-- **Enterprise** — Replace per-seat SaaS tools
+- **Solo developers** who want tasks version-controlled with code
+- **Small teams** collaborating via git without a server
+- **AI-heavy workflows** where coding agents need task context
+- **Open source projects** accepting task contributions via PRs
+- **Enterprise teams** needing offline-capable project management
+
+## What barkcli is NOT
+
+- Not a replacement for Jira or Linear for large organizations (yet)
+- Not a cloud service — everything runs locally
+- Not a real-time collaboration tool — git is the sync mechanism
+- Not a project management tool for non-technical users

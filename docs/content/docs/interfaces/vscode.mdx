@@ -1,0 +1,57 @@
+---
+title: VS Code Extension
+description: Visual editor for .board files in VS Code
+---
+
+# VS Code Extension
+
+The VS Code extension provides a custom editor for `.board` files with drag-and-drop kanban.
+
+## Install
+
+```bash
+# Via VS Code Extensions
+Search for "barkcli" in the Extensions panel
+
+# Via CLI
+barkcli vscode-install
+```
+
+## Features
+
+- Custom editor for `.board` files
+- Drag-and-drop kanban board
+- Inline card editing
+- Board file syntax highlighting
+- Integrated with VS Code file explorer
+
+## Usage
+
+1. Open a `.board` file in VS Code
+2. Click "Open with barkcli" in the editor title bar
+3. Use the visual kanban interface
+
+## How It Works
+
+The extension loads the same web app (`web/`) as a VS Code webview. All board operations use the same APIs.
+
+## Limitations
+
+- Read-only for non-board files
+- Requires barkcli binary on PATH
+- Webview has VS Code security restrictions
+
+## Development
+
+```bash
+# Build the extension
+cd vscode-extension
+npm install
+npm run build
+
+# Package VSIX
+npx @vscode/vsce package
+
+# Install locally
+code --install-extension barkcli-vscode-0.1.0.vsix
+```

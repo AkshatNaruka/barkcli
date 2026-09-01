@@ -5,7 +5,7 @@ description: Start the web server
 
 # barkcli serve
 
-Start the web-based Kanban board server.
+Start the web app server.
 
 ## Usage
 
@@ -13,84 +13,61 @@ Start the web-based Kanban board server.
 barkcli serve [options]
 ```
 
-## Flags
+## Options
 
-| Flag | Short | Description | Default |
-|------|-------|-------------|---------|
-| `--port` | `-p` | Server port | `4321` |
-| `--board` | `-b` | Board to serve | First board |
-| `--host` | — | Bind address | `127.0.0.1` |
-| `--token` | — | Auth token | — |
-| `--open` | `-o` | Open browser | `false` |
-| `--daemon` | `-d` | Run as background daemon | `false` |
-| `--stop` | — | Stop running daemon | — |
-| `--status` | — | Check daemon status | — |
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--port` | `-p` | Port number (default: 4321) |
+| `--host` | | Host address (default: 127.0.0.1) |
+| `--token` | | Authentication token |
+| `--board` | `-b` | Open specific board |
+| `--open` | `-o` | Open browser automatically |
+| `--daemon` | `-d` | Run as background daemon |
+| `--stop` | | Stop daemon |
+| `--status` | | Check daemon status |
 
 ## Examples
 
-### Basic Server
-
 ```bash
+# Start server
 barkcli serve
-# Opens at http://localhost:4321
-```
 
-### Open Browser Automatically
-
-```bash
+# Start and open browser
 barkcli serve --open
-```
 
-### Custom Port
-
-```bash
+# Start on custom port
 barkcli serve --port 8080
-```
 
-### With Authentication
+# Start with auth
+barkcli serve --token mysecret
 
-```bash
-barkcli serve --token my-secret-token
-```
-
-### Run as Daemon
-
-```bash
-# Start in background
+# Run as daemon
 barkcli serve --daemon
 
-# Check status
-barkcli serve --status
-
-# Stop
+# Stop daemon
 barkcli serve --stop
 ```
 
-## Web UI Features
+## Features
 
-The web interface provides:
-
-- **Kanban Board** — Drag-and-drop cards
-- **Table View** — Spreadsheet-style list
-- **List View** — Compact card list
-- **Calendar** — Cards by due date
-- **Reports** — Progress analytics
-- **Code View** — Link tasks to code
-- **Activity** — Change history
-- **Memory** — Cross-session knowledge
-- **Specs** — Specifications
-- **Sprints** — Sprint management
+- Kanban board with drag-and-drop
+- Table, list, calendar views
+- Dashboard with stats
+- Code context browser
+- Sprint management
+- Memory and specs
+- Real-time WebSocket updates
 
 ## Keyboard Shortcuts
 
 | Shortcut | Action |
 |----------|--------|
 | `Cmd/Ctrl + K` | Command palette |
-| `Cmd/Ctrl + Z` | Undo last change |
-| `N` | New card (Board view) |
-| `?` | Show help |
+| `Cmd/Ctrl + Z` | Undo |
+| `N` | New card |
+| `?` | Show shortcuts |
 
-## Related Commands
+## Related
 
-- [`tui`](/docs/commands/tui) — Terminal UI
-- [`open`](/docs/commands/open) — Auto-detect best interface
+- [Web App](/docs/interfaces/web-app) — Web interface guide
+- [tui](/docs/commands/tui) — Terminal UI

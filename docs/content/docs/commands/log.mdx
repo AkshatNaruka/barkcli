@@ -1,0 +1,46 @@
+---
+title: log
+description: View operation history
+---
+
+# barkcli log
+
+Show the history of changes to a board.
+
+## Usage
+
+```bash
+barkcli <board> log [options]
+```
+
+## Options
+
+| Flag | Description |
+|------|-------------|
+| `--limit <n>` | Number of entries to show (default: 20) |
+
+## Examples
+
+```bash
+# Show recent history
+barkcli my-project log
+
+# Show last 5 entries
+barkcli my-project log --limit 5
+```
+
+## Output
+
+```
+2025-01-15 14:20  move    implement-oauth  todo → doing
+2025-01-15 10:30  add     implement-oauth  (new card)
+2025-01-15 09:15  done    setup-ci         (completed)
+2025-01-14 16:00  move    setup-ci         doing → review
+2025-01-14 11:30  add     setup-ci         (new card)
+```
+
+## Related
+
+- [undo](/docs/commands/undo) — Undo last change
+- [diff](/docs/commands/diff) — Show diff
+- [blame](/docs/commands/blame) — Card change history

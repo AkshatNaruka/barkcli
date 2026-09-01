@@ -1,0 +1,51 @@
+---
+title: remove
+description: Delete a card from a board
+---
+
+# barkcli remove
+
+Delete a card from a board.
+
+## Usage
+
+```bash
+barkcli <board> remove <id>
+```
+
+## Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `id` | Card ID |
+
+## Examples
+
+```bash
+barkcli my-project remove implement-oauth
+```
+
+## Output
+
+```
+Removed implement-oauth from my-project
+```
+
+## Aliases
+
+```bash
+barkcli <board> rm <id>
+```
+
+## Undo
+
+If you accidentally remove a card:
+
+```bash
+barkcli my-project undo
+```
+
+## Related
+
+- [undo](/docs/commands/undo) — Undo last change
+- [list](/docs/commands/list) — List cards

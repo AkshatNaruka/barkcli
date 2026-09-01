@@ -1,33 +1,65 @@
 ---
 title: Home
-description: barkcli documentation home
+description: barkcli documentation — git-native project management
 ---
 
-import { Card, Cards } from "fumadocs-ui/components/card";
+import { Cards, Card } from "fumadocs-ui/components/card";
+import { Accordion, Accordions } from "fumadocs-ui/components/accordion";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 
-# Welcome to barkcli
+# barkcli Documentation
 
-Git-native Kanban board CLI — tasks as YAML in your repo.
+Git-native project management — tasks as YAML in your repo.
 
 <Cards>
-  <Card
-    title="What is barkcli?"
-    description="Learn about git-native task management"
-    href="/docs/introduction"
-  />
-  <Card
-    title="Installation"
-    description="Install via npm, cargo, or binary"
-    href="/docs/installation"
-  />
-  <Card
-    title="Quick Start"
-    description="Get running in 30 seconds"
-    href="/docs/quick-start"
-  />
-  <Card
-    title="Command Reference"
-    description="Complete CLI documentation"
-    href="/docs/commands"
-  />
+  <Card title="Introduction" href="/docs/introduction">
+    What barkcli is and why it exists
+  </Card>
+  <Card title="Installation" href="/docs/installation">
+    Install via npm, cargo, or binary
+  </Card>
+  <Card title="Quick Start" href="/docs/quick-start">
+    Get running in 30 seconds
+  </Card>
+  <Card title="Command Reference" href="/docs/commands">
+    Complete CLI reference
+  </Card>
+</Cards>
+
+## What is barkcli?
+
+barkcli is a local-first project management tool. Tasks live as YAML files in your git repository — no cloud, no accounts, no vendor lock-in.
+
+```bash
+barkcli init
+barkcli create my-project
+barkcli my-project add "Implement auth" -p high
+barkcli my-project list
+```
+
+## Why barkcli?
+
+| Problem | Traditional Tools | barkcli |
+|---------|-------------------|---------|
+| Cloud dependency | Need internet | Tasks in repo |
+| AI can't access tasks | API limits | Direct file access |
+| Context switching | Leave IDE | Stay in workflow |
+| Vendor lock-in | Can't migrate | Just YAML files |
+| Per-seat pricing | $10-15/user/mo | Free forever (MIT) |
+
+## Quick Links
+
+<Cards>
+  <Card title="Core Concepts" href="/docs/concepts/tasks">
+    Understand tasks, boards, and projects
+  </Card>
+  <Card title="Interfaces" href="/docs/interfaces/cli">
+    CLI, TUI, Web App, VS Code
+  </Card>
+  <Card title="Guides" href="/docs/guides/team-workflow">
+    Step-by-step workflows
+  </Card>
+  <Card title="API Reference" href="/docs/api-reference">
+    REST API documentation
+  </Card>
 </Cards>

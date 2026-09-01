@@ -1,0 +1,129 @@
+---
+title: Boards
+description: Understanding boards in barkcli
+---
+
+# Boards
+
+Boards are collections of columns and cards. Each board is a separate `.board` file in your repository.
+
+## Board Structure
+
+```
+.board/
+├── config.json          # Project configuration
+├── my-project.board     # Board file
+├── backend.board        # Another board
+├── history/             # Operation history
+├── sessions/            # Agent sessions
+├── snapshots/           # Checkpoints
+├── context/             # Code context mappings
+└── sprints/             # Sprint data
+```
+
+## Creating Boards
+
+```bash
+# Create with default columns
+barkcli create my-project
+
+# Create with custom columns
+barkcli create backend --columns "todo,doing,review,done"
+
+# List all boards
+barkcli boards
+```
+
+## Board File Format
+
+`.board` files are YAML:
+
+```yaml
+columns:
+  - id: todo
+    name: Todo
+  - id: doing
+    name: Doing
+  - id: review
+    name: Review
+  - id: done
+    name: Done
+cards:
+  - id: implement-auth
+    title: Implement Google OAuth
+    column: doing
+    priority: high
+    labels:
+      - backend
+    assignee: alice
+    created: 2025-01-15T10:30:00Z
+    updated: 2025-01-15T14:20:00Z
+```
+
+## Board Management
+
+```bash
+# Switch default board
+barkcli switch backend
+
+# Check board status
+barkcli status
+
+# Validate board files
+barkcli validate
+
+# Auto-fix issues
+barkcli doctor
+```
+
+## Multiple Boards
+
+Use multiple boards for different contexts:
+
+```bash
+barkcli create frontend
+barkcli create backend
+barkcli create devops
+
+# Work on specific board
+barkcli frontend add "Fix CSS layout"
+barkcli backend add "Optimize queries"
+
+# List all boards
+barkcli boards
+```
+
+## Git Integration
+
+Board files are committed to git:
+
+```bash
+# See what changed
+barkcli my-project log
+
+# Diff against git ref
+barkcli my-project diff main
+
+# Undo last change
+barkcli my-project undo
+```
+
+## Board Configuration
+
+Configure in `.board/config.json`:
+
+```json
+{
+  "default_board": "my-project",
+  "columns": [
+    { "id": "todo", "name": "Todo" },
+    { "id": "doing", "name": "Doing" },
+    { "id": "review", "name": "Review" },
+    { "id": "done", "name": "Done" }
+  ],
+  "ai": {
+    "provider": "openai",
+    "model": "gpt-4o-mini"
+  }
+}
+```

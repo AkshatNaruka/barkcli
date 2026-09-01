@@ -5,7 +5,7 @@ description: Set up barkcli in your project
 
 # barkcli init
 
-Initialize barkcli in your project directory.
+Initialize barkcli in your project.
 
 ## Usage
 
@@ -13,52 +13,41 @@ Initialize barkcli in your project directory.
 barkcli init
 ```
 
-## Description
+## What It Does
 
-The `init` command sets up barkcli for your project by creating:
+1. Creates `.board/` directory
+2. Creates `.board/config.json` with default settings
+3. Adds `.board/` to `.gitignore` (for metadata only)
+4. Installs git hooks (pre-commit, commit-msg)
 
-- `.board/` directory — Stores metadata, checkpoints, and history
-- `config.json` — Default configuration
-- `.gitignore` — Ignores metadata files (keeps `.board` out of git)
-
-## What It Creates
+## Files Created
 
 ```
-your-project/
-├── .board/
-│   ├── config.json      # Default board configuration
-│   └── history/         # Change history (gitignored)
-├── .gitignore           # Added: .board/
-└── ...
+.board/
+├── config.json     # Project configuration
+└── .gitignore      # Ignores metadata files
 ```
 
-## Example
+## Options
 
-```bash
-$ cd my-project
-$ barkcli init
-
-✓ Created .board/ directory
-✓ Created config.json
-✓ Updated .gitignore
-```
+| Flag | Description |
+|------|-------------|
+| `--agent <name>` | Install hooks for specific agent (opencode, claude-code) |
 
 ## After Init
 
-Once initialized, you can:
-
 ```bash
-# Create your first board
+# Create a board
 barkcli create my-project
 
-# Add a card
-barkcli my-project add "First task"
+# Add a task
+barkcli my-project add "Hello world"
 
-# Open the web UI
+# Start web app
 barkcli serve --open
 ```
 
-## Next Steps
+## Related
 
-- [`create`](/docs/commands/create) — Create a board
-- [Quick Start](/docs/quick-start) — Full getting started guide
+- [create](/docs/commands/create) — Create a board
+- [Configuration](/docs/configuration) — Customize barkcli

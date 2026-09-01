@@ -1,0 +1,50 @@
+---
+title: diff
+description: Show changes since last checkpoint
+---
+
+# barkcli diff
+
+Show what changed in a board since the last checkpoint or git ref.
+
+## Usage
+
+```bash
+barkcli <board> diff [ref]
+```
+
+## Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `ref` | Git ref to compare against (default: last checkpoint) |
+
+## Examples
+
+```bash
+# Diff from last checkpoint
+barkcli my-project diff
+
+# Diff from main branch
+barkcli my-project diff main
+
+# Diff from specific commit
+barkcli my-project diff abc123
+```
+
+## Output
+
+```diff
+Card: implement-oauth
+  column: todo → doing
+  priority: medium → high
+  labels: +backend, +security
+
+Card: setup-ci
+  (removed)
+```
+
+## Related
+
+- [log](/docs/commands/log) — View history
+- [blame](/docs/commands/blame) — Card change history

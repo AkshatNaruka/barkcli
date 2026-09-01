@@ -1,0 +1,58 @@
+---
+title: report
+description: Generate reports (Pro)
+---
+
+# barkcli report
+
+Generate markdown reports. Requires Pro license.
+
+## Usage
+
+```bash
+barkcli report [options]
+```
+
+## Options
+
+| Flag | Description |
+|------|-------------|
+| `--since <date>` | Report since date |
+| `--sprint <name>` | Report for sprint |
+| `--json` | JSON output |
+
+## Examples
+
+```bash
+# Weekly report
+barkcli report --since "7 days ago"
+
+# Sprint report
+barkcli report --sprint sprint-1
+
+# JSON output
+barkcli report --since "7 days ago" --json
+```
+
+## Output
+
+```markdown
+## Weekly Report (Aug 1 - Aug 8)
+
+**Completed (12):**
+- implement-oauth (high)
+- write-tests (medium)
+- setup-ci (high)
+
+**In Progress (5):**
+- payment-integration (high)
+- api-docs (low)
+
+**Blocked (2):**
+- deploy-staging (medium)
+```
+
+## Related
+
+- [stats](/docs/commands/stats) — Velocity statistics
+- [sprint](/docs/commands/sprint) — Sprint management

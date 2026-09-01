@@ -1,0 +1,134 @@
+---
+title: Tasks
+description: Understanding tasks in barkcli
+---
+
+# Tasks
+
+Tasks (also called cards) are the fundamental unit of work in barkcli. Each task is a YAML entry in a `.board` file.
+
+## Task Structure
+
+Every task has:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Auto-generated from title (e.g., "Implement auth" → `implement-auth`) |
+| `title` | string | Human-readable task name |
+| `column` | string | Current workflow stage (todo, doing, review, done) |
+| `priority` | enum | high, medium, low |
+| `description` | string | Detailed task description |
+| `labels` | string[] | Tags for categorization |
+| `assignee` | string | Person responsible |
+| `due` | date | Due date |
+| `effort` | number | Story points or time estimate |
+| `area` | string | Code area or domain |
+| `checklist` | array | Subtasks with completion status |
+| `comments` | array | Discussion threads |
+| `links` | array | Relationships to other tasks |
+
+## Creating Tasks
+
+```bash
+# Basic task
+barkcli <board> add "Fix login bug"
+
+# With options
+barkcli <board> add "Implement OAuth" \
+  --priority high \
+  --label backend \
+  --assignee alice \
+  --due 2025-02-01 \
+  --effort 5 \
+  --area authentication \
+  --ac "Users can log in with Google"
+
+# With description
+barkcli <board> add "Database migration" \
+  --description "Migrate user table to support OAuth fields"
+```
+
+## Task States
+
+Tasks move through columns in your workflow:
+
+```
+todo → doing → review → done
+```
+
+Customize columns in `.board/config.json`:
+
+```json
+{
+  "columns": [
+    { "id": "backlog", "name": "Backlog" },
+    { "id": "todo", "name": "To Do" },
+    { "id": "in-progress", "name": "In Progress" },
+    { "id": "blocked", "name": "Blocked" },
+    { "id": "done", "name": "Done" }
+  ]
+}
+```
+
+## Task Links
+
+Connect tasks with relationships:
+
+```bash
+# Parent-child hierarchy
+barkcli <board> link implement-auth auth-jwt --as parent
+barkcli <board> link implement-auth auth-refresh --as parent
+
+# Related tasks
+barkcli <board> link login-bug oauth-fix --as related
+
+# Blocked-by
+barkcli <board> deploy-feature db-migration --as blocked-by
+
+# View hierarchy
+barkcli <board> tree
+```
+
+## Task Details
+
+```bash
+# Show full task details
+barkcli <board> show implement-auth
+
+# Update task
+barkcli <board> update implement-auth --title "Implement Google OAuth" --priority high
+
+# Add comment
+barkcli <board> comment implement-auth "Started working on this"
+
+# Pin important tasks
+barkcli <board> pin implement-auth
+```
+
+## YAML Format
+
+Tasks are stored as YAML:
+
+```yaml
+id: implement-auth
+title: Implement Google OAuth
+column: doing
+priority: high
+labels:
+  - backend
+  - security
+assignee: alice
+due: 2025-02-01
+effort: 5
+area: authentication
+checklist:
+  - text: Set up OAuth credentials
+    done: true
+  - text: Implement callback handler
+    done: false
+  - text: Add session management
+    done: false
+links:
+  - type: parent
+    target: auth-system
+```

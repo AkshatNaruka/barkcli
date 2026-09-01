@@ -1,0 +1,70 @@
+---
+title: Sessions
+description: Agent session capture and management
+---
+
+# Sessions
+
+Sessions capture agent activity — prompts, files touched, commits, and matched cards.
+
+## Commands
+
+```bash
+# List sessions
+barkcli session list
+
+# Show session details
+barkcli session show <session-id>
+
+# Resume a session
+barkcli session resume <session-id>
+
+# View session log
+barkcli session log <session-id>
+```
+
+## What's Captured
+
+| Field | Description |
+|-------|-------------|
+| `id` | Unique session identifier |
+| `agent` | Agent name (e.g., "opencode", "claude-code") |
+| `started_at` | Session start time |
+| `duration_ms` | Session duration |
+| `prompt` | Initial prompt/instruction |
+| `files_touched` | Files modified during session |
+| `commit_sha` | Git commit if any |
+| `matched_card_ids` | Cards linked to this session |
+
+## Storage
+
+Sessions are stored in `.board/sessions/<board>.jsonl` (JSON Lines format).
+
+## Integration with Code Context
+
+Sessions feed into the code context system:
+
+```bash
+# View sessions linked to a card
+barkcli context show implement-auth
+
+# Sessions appear in card details
+barkcli show implement-auth
+```
+
+## API Access
+
+```bash
+# List sessions
+curl http://localhost:4321/api/sessions
+
+# Query parameters
+curl "http://localhost:4321/api/sessions?name=my-project"
+```
+
+## Use Cases
+
+- **Track agent activity**: See what files an agent modified
+- **Debug issues**: Trace back from commit to session
+- **Link work to tasks**: Automatic card-session association
+- **Audit trail**: Complete history of automated changes

@@ -46,5 +46,12 @@ export async function generateMetadata(props: {
   return {
     title: page.data.title,
     description: page.data.description,
+    openGraph: {
+      title: `${page.data.title} · barkcli`,
+      description: page.data.description,
+      url: `https://barkcli.vercel.app/docs/${slug.join("/")}`,
+      siteName: "barkcli",
+      type: "article",
+    },
   };
 }

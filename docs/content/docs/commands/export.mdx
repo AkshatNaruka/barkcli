@@ -1,0 +1,37 @@
+---
+title: export
+description: Export board data
+---
+
+# barkcli export
+
+Export a board in YAML or JSON format.
+
+## Usage
+
+```bash
+barkcli <board> export [format]
+```
+
+## Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `format` | Export format: yaml (default), json |
+
+## Examples
+
+```bash
+# Export as YAML
+barkcli my-project export
+
+# Export as JSON
+barkcli my-project export json
+
+# Save to file
+barkcli my-project export json > backup.json
+```
+
+## Related
+
+- [import](/docs/commands/import) — Import board data

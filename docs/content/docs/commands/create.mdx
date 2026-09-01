@@ -1,0 +1,53 @@
+---
+title: create
+description: Create a new board
+---
+
+# barkcli create
+
+Create a new board with default or custom columns.
+
+## Usage
+
+```bash
+barkcli create <name>
+```
+
+## Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `name` | Board name (becomes `<name>.board` file) |
+
+## What It Does
+
+1. Creates `<name>.board` YAML file
+2. Adds default columns: todo, doing, review, done
+3. Sets as default board if first board
+
+## Options
+
+| Flag | Description |
+|------|-------------|
+| `--columns <list>` | Comma-separated column IDs |
+
+## Examples
+
+```bash
+# Create with default columns
+barkcli create my-project
+
+# Create with custom columns
+barkcli create backend --columns "todo,doing,done"
+```
+
+## Output
+
+```
+Created board my-project with columns: todo, doing, review, done
+```
+
+## Related
+
+- [init](/docs/commands/init) — Initialize barkcli
+- [boards](/docs/commands/boards) — List boards

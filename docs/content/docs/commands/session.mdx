@@ -1,0 +1,61 @@
+---
+title: session
+description: Agent session management
+---
+
+# barkcli session
+
+Manage captured agent sessions.
+
+## Usage
+
+```bash
+barkcli session <command>
+```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `list` | List all sessions |
+| `show <id>` | Show session details |
+| `resume <id>` | Resume a session |
+| `log <id>` | View session log |
+
+## List Sessions
+
+```bash
+barkcli session list
+```
+
+Output:
+```
+Sessions:
+  sess-abc123  opencode   2025-01-15  45min  3 files
+  sess-def456  claude     2025-01-14  12min  1 file
+```
+
+## Show Session
+
+```bash
+barkcli session show sess-abc123
+```
+
+Output:
+```
+Session: sess-abc123
+Agent: opencode
+Started: 2025-01-15T10:30:00Z
+Duration: 45min
+Prompt: "Implement JWT auth handler"
+Files touched:
+  - src/auth/handler.ts (modified)
+  - src/auth/types.ts (created)
+  - tests/auth.test.ts (created)
+Commit: abc123
+Cards: implement-oauth
+```
+
+## Related
+
+- [Advanced: Sessions](/docs/advanced/sessions) — Session concepts

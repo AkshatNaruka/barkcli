@@ -1,0 +1,99 @@
+---
+title: Hooks
+description: Git hooks and agent session hooks
+---
+
+# Hooks
+
+barkcli installs git hooks to validate board files and capture agent sessions.
+
+## Installation
+
+```bash
+# During init
+barkcli init
+
+# Or install separately
+barkcli hooks install
+
+# Install with specific agent
+barkcli hooks install --agent opencode
+```
+
+## Hook Types
+
+### Pre-commit Hook
+
+Runs `barkcli validate` before each commit. Prevents committing invalid board files.
+
+```bash
+# .git/hooks/pre-commit
+#!/bin/sh
+barkcli validate
+```
+
+### Commit-msg Hook
+
+Template for commit messages: `[card-id] Your message`
+
+```bash
+# .git/hooks/commit-msg
+#!/bin/sh
+# Enforces: [card-id] message format
+```
+
+### Post-commit Hook
+
+Saves a checkpoint when `.board` files change:
+
+```bash
+# .git/hooks/post-commit
+#!/bin/sh
+# Auto-saves checkpoint if .board files were modified
+```
+
+### Post-session Hook
+
+Records agent sessions when they complete:
+
+```bash
+# Triggered after agent session completes
+# Captures: prompt, files, commit, duration
+```
+
+## Commands
+
+```bash
+# Check hook status
+barkcli hooks status
+
+# Remove hooks
+barkcli hooks remove
+```
+
+## Agent Integration
+
+```bash
+# Install hooks for specific agent
+barkcli hooks install --agent opencode
+barkcli hooks install --agent claude-code
+```
+
+## Customization
+
+Hooks are standard git hooks. You can modify them:
+
+```bash
+# Edit pre-commit hook
+vim .git/hooks/pre-commit
+
+# Make executable
+chmod +x .git/hooks/pre-commit
+```
+
+## Troubleshooting
+
+- **Hooks not running**: Check `.git/hooks/` has executable scripts
+- **Permission denied**: `chmod +x .git/hooks/*`
+- **Validation fails**: Run `barkcli doctor` to fix issues
+- **Session not captured**: Check agent integration is installed

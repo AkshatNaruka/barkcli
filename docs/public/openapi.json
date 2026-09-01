@@ -1,0 +1,2244 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "barkcli REST API",
+    "description": "REST API for barkcli — git-native project management. All board data is stored as YAML files in your repository.",
+    "version": "0.2.0",
+    "contact": {
+      "name": "barkcli",
+      "url": "https://github.com/AkshatNaruka/barkcli"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:4321",
+      "description": "Local barkcli server (default)"
+    }
+  ],
+  "paths": {
+    "/api/boards": {
+      "get": {
+        "operationId": "listBoards",
+        "summary": "List boards",
+        "description": "Returns all board names in the project.",
+        "tags": ["Boards"],
+        "responses": {
+          "200": {
+            "description": "List of board names",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "boards": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    }
+                  }
+                },
+                "example": {
+                  "boards": ["my-project", "backend"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/boards/create": {
+      "post": {
+        "operationId": "createBoard",
+        "summary": "Create a board",
+        "description": "Create a new board with a title, description, and columns.",
+        "tags": ["Boards"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title"],
+                "properties": {
+                  "title": { "type": "string", "description": "Board title" },
+                  "description": { "type": "string", "description": "Board description" },
+                  "columns": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "name": { "type": "string" }
+                      }
+                    },
+                    "description": "Custom columns (default: todo, doing, review, done)"
+                  }
+                }
+              },
+              "example": {
+                "title": "my-project",
+                "description": "Main project board",
+                "columns": [
+                  { "id": "todo", "name": "Todo" },
+                  { "id": "doing", "name": "Doing" },
+                  { "id": "done", "name": "Done" }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Board created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "name": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/boards/{name}": {
+      "delete": {
+        "operationId": "deleteBoard",
+        "summary": "Delete a board",
+        "description": "Delete a board and its associated files.",
+        "tags": ["Boards"],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Board name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Board deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/board": {
+      "get": {
+        "operationId": "getBoard",
+        "summary": "Get board",
+        "description": "Returns the YAML content of a board.",
+        "tags": ["Board"],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Board name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Board YAML content",
+            "content": {
+              "text/yaml": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "saveBoard",
+        "summary": "Save board",
+        "description": "Save board YAML content.",
+        "tags": ["Board"],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Board name"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["yaml"],
+                "properties": {
+                  "yaml": { "type": "string", "description": "Board YAML content" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Board saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "name": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/board/cards/{card_id}/comments": {
+      "post": {
+        "operationId": "addComment",
+        "summary": "Add comment to card",
+        "description": "Add a comment to a specific card.",
+        "tags": ["Cards"],
+        "parameters": [
+          {
+            "name": "card_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Card ID"
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Board name"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["text"],
+                "properties": {
+                  "author": { "type": "string", "description": "Comment author" },
+                  "text": { "type": "string", "description": "Comment text" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Comment added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/history": {
+      "get": {
+        "operationId": "getHistory",
+        "summary": "Get operation history",
+        "description": "Returns the operation history for a board.",
+        "tags": ["History"],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Board name"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "default": 50 },
+            "description": "Max entries to return"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "History entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "history": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "timestamp": { "type": "string", "format": "date-time" },
+                          "action": { "type": "string" },
+                          "card_id": { "type": "string" },
+                          "details": { "type": "object" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions": {
+      "get": {
+        "operationId": "getSessions",
+        "summary": "Get agent sessions",
+        "description": "Returns captured agent sessions.",
+        "tags": ["Sessions"],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "schema": { "type": "string" },
+            "description": "Board name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sessions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "agent": { "type": "string" },
+                          "started_at": { "type": "string", "format": "date-time" },
+                          "duration_ms": { "type": "integer" },
+                          "files_touched": {
+                            "type": "array",
+                            "items": { "type": "string" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/context": {
+      "get": {
+        "operationId": "getContext",
+        "summary": "Get code context",
+        "description": "Returns the code context mapping for cards.",
+        "tags": ["Context"],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Board name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Code context data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cards": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                          "files": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "path": { "type": "string" },
+                                "symbols": {
+                                  "type": "array",
+                                  "items": { "type": "string" }
+                                },
+                                "status": { "type": "string", "enum": ["clean", "changed", "unknown"] }
+                              }
+                            }
+                          },
+                          "coverage_percent": { "type": "number" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/context/sync": {
+      "post": {
+        "operationId": "syncContext",
+        "summary": "Sync code context",
+        "description": "Git-aware refresh of code context. Updates file statuses based on git state.",
+        "tags": ["Context"],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Board name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sync result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "updated": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/context/clear": {
+      "post": {
+        "operationId": "clearContext",
+        "summary": "Clear code context",
+        "description": "Clear all code context for a board.",
+        "tags": ["Context"],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Board name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Context cleared",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/code": {
+      "get": {
+        "operationId": "searchCode",
+        "summary": "Search code symbols",
+        "description": "Search for symbols and files in the codebase.",
+        "tags": ["Code"],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Search query"
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "schema": { "type": "string" },
+            "description": "Board name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "file": { "type": "string" },
+                          "symbol": { "type": "string" },
+                          "line": { "type": "integer" },
+                          "cards": {
+                            "type": "array",
+                            "items": { "type": "string" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/config": {
+      "get": {
+        "operationId": "getConfig",
+        "summary": "Get configuration",
+        "description": "Returns the current barkcli configuration.",
+        "tags": ["Config"],
+        "responses": {
+          "200": {
+            "description": "Configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "default_board": { "type": "string" },
+                    "columns": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "name": { "type": "string" }
+                        }
+                      }
+                    },
+                    "ai": {
+                      "type": "object",
+                      "properties": {
+                        "provider": { "type": "string" },
+                        "model": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks": {
+      "get": {
+        "operationId": "listTasks",
+        "summary": "List tasks",
+        "description": "Returns all tasks in the management queue.",
+        "tags": ["Tasks"],
+        "responses": {
+          "200": {
+            "description": "Task list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tasks": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Task" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createTask",
+        "summary": "Create task",
+        "description": "Create a new task in the management queue.",
+        "tags": ["Tasks"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title"],
+                "properties": {
+                  "title": { "type": "string" },
+                  "description": { "type": "string" },
+                  "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+                  "context_files": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  },
+                  "dependencies": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Task created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Task" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks/{task_id}": {
+      "get": {
+        "operationId": "getTask",
+        "summary": "Get task",
+        "description": "Returns a specific task by ID.",
+        "tags": ["Tasks"],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task details",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Task" }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateTask",
+        "summary": "Update task",
+        "description": "Update a task's fields.",
+        "tags": ["Tasks"],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string" },
+                  "description": { "type": "string" },
+                  "priority": { "type": "string" },
+                  "status": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Task updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Task" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteTask",
+        "summary": "Delete task",
+        "description": "Delete a task from the queue.",
+        "tags": ["Tasks"],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks/{task_id}/claim": {
+      "post": {
+        "operationId": "claimTask",
+        "summary": "Claim task",
+        "description": "Claim a task for an agent to work on.",
+        "tags": ["Tasks"],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "agent_id": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Task claimed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Task" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks/{task_id}/complete": {
+      "post": {
+        "operationId": "completeTask",
+        "summary": "Complete task",
+        "description": "Mark a task as completed.",
+        "tags": ["Tasks"],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "result": { "type": "string" },
+                  "commit_sha": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Task completed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Task" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks/{task_id}/fail": {
+      "post": {
+        "operationId": "failTask",
+        "summary": "Fail task",
+        "description": "Mark a task as failed.",
+        "tags": ["Tasks"],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "error": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Task failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Task" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agents": {
+      "get": {
+        "operationId": "listAgents",
+        "summary": "List agents",
+        "description": "Returns all registered agents.",
+        "tags": ["Agents"],
+        "responses": {
+          "200": {
+            "description": "Agent list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agents": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Agent" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "registerAgent",
+        "summary": "Register agent",
+        "description": "Register a new coding agent.",
+        "tags": ["Agents"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "role"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "role": { "type": "string", "enum": ["tech-lead", "scrum-master", "product-owner", "project-manager", "developer"] },
+                  "capabilities": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Agent registered",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Agent" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agents/{agent_id}": {
+      "get": {
+        "operationId": "getAgent",
+        "summary": "Get agent",
+        "description": "Returns details of a specific agent.",
+        "tags": ["Agents"],
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent details",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Agent" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteAgent",
+        "summary": "Delete agent",
+        "description": "Remove a registered agent.",
+        "tags": ["Agents"],
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agents/{agent_id}/status": {
+      "get": {
+        "operationId": "getAgentStatus",
+        "summary": "Get agent status",
+        "description": "Returns the current status of an agent.",
+        "tags": ["Agents"],
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agent_id": { "type": "string" },
+                    "status": { "type": "string", "enum": ["idle", "working", "offline"] },
+                    "current_task": { "type": "string", "nullable": true },
+                    "last_active": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orchestrate/cycle": {
+      "post": {
+        "operationId": "orchestrateCycle",
+        "summary": "Run orchestration cycle",
+        "description": "Run a single orchestration cycle to assign pending tasks to available agents.",
+        "tags": ["Orchestration"],
+        "responses": {
+          "200": {
+            "description": "Cycle result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "assigned": { "type": "integer" },
+                    "pending": { "type": "integer" },
+                    "agents_available": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orchestrate/status": {
+      "get": {
+        "operationId": "getOrchestrationStatus",
+        "summary": "Get orchestration status",
+        "description": "Returns the current orchestration state.",
+        "tags": ["Orchestration"],
+        "responses": {
+          "200": {
+            "description": "Orchestration status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "status": { "type": "string" },
+                          "current_task": { "type": "string", "nullable": true }
+                        }
+                      }
+                    },
+                    "queue": {
+                      "type": "object",
+                      "properties": {
+                        "pending": { "type": "integer" },
+                        "assigned": { "type": "integer" },
+                        "in_progress": { "type": "integer" },
+                        "completed": { "type": "integer" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/memory": {
+      "get": {
+        "operationId": "listMemory",
+        "summary": "List memories",
+        "description": "List or search memory entries.",
+        "tags": ["Memory"],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Board name"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": { "type": "string" },
+            "description": "BM25 search query"
+          },
+          {
+            "name": "tier",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["working", "short_term", "long_term", "external"] },
+            "description": "Filter by memory tier"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "default": 50 },
+            "description": "Max entries to return"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Memory entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "memories": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "content": { "type": "string" },
+                          "tier": { "type": "string" },
+                          "tags": {
+                            "type": "array",
+                            "items": { "type": "string" }
+                          },
+                          "created_at": { "type": "string", "format": "date-time" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "addMemory",
+        "summary": "Add memory",
+        "description": "Add a new memory entry.",
+        "tags": ["Memory"],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Board name"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["content"],
+                "properties": {
+                  "content": { "type": "string" },
+                  "tier": { "type": "string", "enum": ["working", "short_term", "long_term", "external"], "default": "short_term" },
+                  "tags": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  },
+                  "source": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Memory added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "id": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/memory/{id}": {
+      "delete": {
+        "operationId": "deleteMemory",
+        "summary": "Delete memory",
+        "description": "Delete a memory entry by ID.",
+        "tags": ["Memory"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Board name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Memory deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/memory/stats": {
+      "get": {
+        "operationId": "getMemoryStats",
+        "summary": "Get memory statistics",
+        "description": "Returns memory usage statistics by tier.",
+        "tags": ["Memory"],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Board name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Memory stats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": { "type": "integer" },
+                    "by_tier": {
+                      "type": "object",
+                      "properties": {
+                        "working": { "type": "integer" },
+                        "short_term": { "type": "integer" },
+                        "long_term": { "type": "integer" },
+                        "external": { "type": "integer" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/memory/fact": {
+      "post": {
+        "operationId": "addFact",
+        "summary": "Add project fact",
+        "description": "Add a project fact (convention, pattern, decision, preference).",
+        "tags": ["Memory"],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Board name"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["content", "category"],
+                "properties": {
+                  "content": { "type": "string" },
+                  "category": { "type": "string", "enum": ["convention", "pattern", "decision", "preference"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Fact added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/memory/facts": {
+      "get": {
+        "operationId": "listFacts",
+        "summary": "List project facts",
+        "description": "List all project facts.",
+        "tags": ["Memory"],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Board name"
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "schema": { "type": "string" },
+            "description": "Filter by category"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project facts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "facts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "content": { "type": "string" },
+                          "category": { "type": "string" },
+                          "created_at": { "type": "string", "format": "date-time" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/specs": {
+      "get": {
+        "operationId": "listSpecs",
+        "summary": "List specs",
+        "description": "List all specs for a board.",
+        "tags": ["Specs"],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Board name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Spec list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "specs": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Spec" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createSpec",
+        "summary": "Create spec",
+        "description": "Create a new specification.",
+        "tags": ["Specs"],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Board name"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title"],
+                "properties": {
+                  "title": { "type": "string" },
+                  "description": { "type": "string" },
+                  "priority": { "type": "string" },
+                  "card_id": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Spec created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Spec" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/specs/{spec_id}": {
+      "get": {
+        "operationId": "getSpec",
+        "summary": "Get spec",
+        "description": "Get a specific spec with its requirements.",
+        "tags": ["Specs"],
+        "parameters": [
+          {
+            "name": "spec_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Spec details",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Spec" }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateSpec",
+        "summary": "Update spec",
+        "description": "Update a spec's fields.",
+        "tags": ["Specs"],
+        "parameters": [
+          {
+            "name": "spec_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string" },
+                  "description": { "type": "string" },
+                  "priority": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Spec updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Spec" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteSpec",
+        "summary": "Delete spec",
+        "description": "Delete a spec.",
+        "tags": ["Specs"],
+        "parameters": [
+          {
+            "name": "spec_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Spec deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/specs/{spec_id}/requirements": {
+      "post": {
+        "operationId": "addRequirement",
+        "summary": "Add requirement",
+        "description": "Add a requirement to a spec.",
+        "tags": ["Specs"],
+        "parameters": [
+          {
+            "name": "spec_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title"],
+                "properties": {
+                  "title": { "type": "string" },
+                  "description": { "type": "string" },
+                  "status": { "type": "string", "enum": ["pending", "in_progress", "implemented", "verified"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Requirement added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "req_id": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/specs/{spec_id}/requirements/{req_id}": {
+      "put": {
+        "operationId": "updateRequirement",
+        "summary": "Update requirement",
+        "description": "Update a requirement's fields.",
+        "tags": ["Specs"],
+        "parameters": [
+          {
+            "name": "spec_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "req_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string" },
+                  "description": { "type": "string" },
+                  "status": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Requirement updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/specs/{spec_id}/trace": {
+      "get": {
+        "operationId": "traceSpec",
+        "summary": "Get traceability",
+        "description": "Get traceability view for a spec (requirements to code/tests/tasks).",
+        "tags": ["Specs"],
+        "parameters": [
+          {
+            "name": "spec_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Traceability data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "requirements": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "title": { "type": "string" },
+                          "status": { "type": "string" },
+                          "linked_code": {
+                            "type": "array",
+                            "items": { "type": "string" }
+                          },
+                          "linked_tasks": {
+                            "type": "array",
+                            "items": { "type": "string" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/specs/coverage": {
+      "get": {
+        "operationId": "getSpecsCoverage",
+        "summary": "Get specs coverage",
+        "description": "Get coverage report across all specs.",
+        "tags": ["Specs"],
+        "responses": {
+          "200": {
+            "description": "Coverage report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total_requirements": { "type": "integer" },
+                    "implemented": { "type": "integer" },
+                    "verified": { "type": "integer" },
+                    "coverage_percent": { "type": "number" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/specs/scan-stale": {
+      "post": {
+        "operationId": "scanStaleSpecs",
+        "summary": "Scan for stale requirements",
+        "description": "Scan all specs for requirements that reference outdated code.",
+        "tags": ["Specs"],
+        "responses": {
+          "200": {
+            "description": "Stale requirements found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stale": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "spec_id": { "type": "string" },
+                          "req_id": { "type": "string" },
+                          "reason": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/checkpoints": {
+      "get": {
+        "operationId": "listCheckpoints",
+        "summary": "List checkpoints",
+        "description": "List all checkpoints for a board.",
+        "tags": ["Checkpoints"],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Board name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Checkpoint list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "checkpoints": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "label": { "type": "string" },
+                          "created_at": { "type": "string", "format": "date-time" },
+                          "type": { "type": "string", "enum": ["manual", "auto"] }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "saveCheckpoint",
+        "summary": "Save checkpoint",
+        "description": "Save a manual checkpoint of the current board state.",
+        "tags": ["Checkpoints"],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Board name"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "label": { "type": "string", "description": "Checkpoint label" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Checkpoint saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "id": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/checkpoints/{id}/restore": {
+      "post": {
+        "operationId": "restoreCheckpoint",
+        "summary": "Restore checkpoint",
+        "description": "Restore a board to a previous checkpoint.",
+        "tags": ["Checkpoints"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Checkpoint ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Checkpoint restored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/undo": {
+      "post": {
+        "operationId": "undo",
+        "summary": "Undo last change",
+        "description": "Revert the last operation on a board.",
+        "tags": ["History"],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Board name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Undo result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "reverted": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/diff": {
+      "get": {
+        "operationId": "getDiff",
+        "summary": "Get diff",
+        "description": "Show diff from the last checkpoint.",
+        "tags": ["History"],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Board name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Diff output",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "diff": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/blame/{card_id}": {
+      "get": {
+        "operationId": "blameCard",
+        "summary": "Blame card",
+        "description": "Show change history for a specific card.",
+        "tags": ["History"],
+        "parameters": [
+          {
+            "name": "card_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Board name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Blame data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "changes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "timestamp": { "type": "string", "format": "date-time" },
+                          "field": { "type": "string" },
+                          "old_value": { "type": "string" },
+                          "new_value": { "type": "string" },
+                          "author": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/snapshot": {
+      "post": {
+        "operationId": "saveSnapshot",
+        "summary": "Save snapshot",
+        "description": "Save a named snapshot of the current board state.",
+        "tags": ["History"],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Board name"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "label": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Snapshot saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "id": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/export": {
+      "get": {
+        "operationId": "exportBoard",
+        "summary": "Export board",
+        "description": "Export a board in YAML or JSON format.",
+        "tags": ["Import/Export"],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Board name"
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["yaml", "json"], "default": "yaml" },
+            "description": "Export format"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Exported board data",
+            "content": {
+              "application/json": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/import": {
+      "post": {
+        "operationId": "importBoard",
+        "summary": "Import board",
+        "description": "Import a board from YAML or JSON data.",
+        "tags": ["Import/Export"],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Board name"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["data"],
+                "properties": {
+                  "data": { "type": "string", "description": "Board YAML/JSON data" },
+                  "format": { "type": "string", "enum": ["yaml", "json"], "default": "yaml" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Import result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "name": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/validate": {
+      "get": {
+        "operationId": "validateBoards",
+        "summary": "Validate boards",
+        "description": "Validate all board files for structural correctness.",
+        "tags": ["Validation"],
+        "responses": {
+          "200": {
+            "description": "Validation results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "valid": { "type": "boolean" },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "board": { "type": "string" },
+                          "message": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/doctor": {
+      "post": {
+        "operationId": "runDoctor",
+        "summary": "Run doctor",
+        "description": "Auto-fix common board issues.",
+        "tags": ["Validation"],
+        "responses": {
+          "200": {
+            "description": "Doctor results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "fixed": { "type": "integer" },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "board": { "type": "string" },
+                          "issue": { "type": "string" },
+                          "fixed": { "type": "boolean" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Task": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "status": { "type": "string", "enum": ["pending", "assigned", "in_progress", "completed", "failed"] },
+          "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+          "assigned_to": { "type": "string", "nullable": true },
+          "context_files": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "dependencies": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Agent": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "role": { "type": "string", "enum": ["tech-lead", "scrum-master", "product-owner", "project-manager", "developer"] },
+          "capabilities": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "status": { "type": "string", "enum": ["idle", "working", "offline"] },
+          "current_task": { "type": "string", "nullable": true },
+          "registered_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Spec": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "priority": { "type": "string" },
+          "card_id": { "type": "string", "nullable": true },
+          "requirements": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "title": { "type": "string" },
+                "description": { "type": "string" },
+                "status": { "type": "string", "enum": ["pending", "in_progress", "implemented", "verified"] },
+                "linked_code": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            }
+          },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer"
+      },
+      "queryToken": {
+        "type": "apiKey",
+        "in": "query",
+        "name": "token"
+      }
+    }
+  },
+  "security": [
+    { "bearer": [] },
+    { "queryToken": [] }
+  ]
+}

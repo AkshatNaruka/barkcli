@@ -1,0 +1,148 @@
+---
+title: AI Coding Agents
+description: Integrating barkcli with AI coding agents
+---
+
+# AI Coding Agents
+
+barkcli integrates with AI coding agents through its MCP server and code context system.
+
+## How It Works
+
+1. Tasks are stored as YAML files in your repo
+2. AI agents read tasks directly from the filesystem
+3. Code context links tasks to source files
+4. Agents can claim and complete tasks via the API
+
+## MCP Server
+
+Start the MCP server:
+
+```bash
+barkcli mcp
+```
+
+This starts a JSON-RPC 2.0 server on stdio with 25+ tools.
+
+### Configure with Claude Code
+
+```json
+{
+  "mcpServers": {
+    "barkcli": {
+      "command": "barkcli",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+### Configure with OpenCode
+
+Add to your OpenCode configuration:
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "barkcli": {
+        "command": "barkcli",
+        "args": ["mcp"]
+      }
+    }
+  }
+}
+```
+
+## Available MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `board_list` | List all boards |
+| `board_get` | Get board details |
+| `card_list` | List cards with filters |
+| `card_create` | Create new card |
+| `card_move` | Move card to column |
+| `card_update` | Update card fields |
+| `card_delete` | Delete card |
+| `context_search` | Search code context |
+| `code_search` | Search code symbols |
+| `spec_list` | List specs |
+| `spec_create` | Create spec |
+| `memory_search` | Search memory |
+| `memory_add` | Add memory entry |
+
+## Agent Registration
+
+Register agents for task management:
+
+```bash
+# Register an agent
+curl -X POST http://localhost:4321/api/agents \
+  -H "Content-Type: application/json" \
+  -d '{"name": "claude-code", "role": "developer"}'
+
+# List agents
+curl http://localhost:4321/api/agents
+```
+
+## Task Claims
+
+Agents can claim and complete tasks:
+
+```bash
+# Claim a task
+curl -X POST http://localhost:4321/api/tasks/implement-auth/claim \
+  -H "Content-Type: application/json" \
+  -d '{"agent_id": "claude-code"}'
+
+# Complete a task
+curl -X POST http://localhost:4321/api/tasks/implement-auth/complete \
+  -H "Content-Type: application/json" \
+  -d '{"result": "Implemented JWT validation", "commit_sha": "abc123"}'
+```
+
+## Code Context for AI
+
+AI agents benefit from code context:
+
+```bash
+# Scan code context
+barkcli context scan
+
+# Show context for a task
+barkcli context show implement-auth
+
+# AI-powered context refresh (Pro)
+barkcli context refresh implement-auth
+```
+
+## Workflow Example
+
+```bash
+# 1. Human creates task
+barkcli sprint-1 add "Implement user registration" -p high
+
+# 2. AI agent picks up task
+barkcli mcp  # Agent connects via MCP
+
+# 3. Agent reads task and code context
+# Via MCP: card_list, context_search
+
+# 4. Agent implements code
+# ... writes code ...
+
+# 5. Agent reports completion
+# Via API: task_complete
+
+# 6. Human reviews
+barkcli sprint-1 log
+git diff
+```
+
+## Limitations
+
+- AI features require Pro license
+- MCP server runs locally only
+- No cloud-based agent coordination
+- Agents must be able to access the filesystem

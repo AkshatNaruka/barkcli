@@ -1,0 +1,125 @@
+---
+title: Team Workflow
+description: Collaborating with your team using barkcli
+---
+
+# Team Workflow Guide
+
+barkcli works through git — no server needed. Your team collaborates by committing board files.
+
+## Setup
+
+```bash
+# Team lead initializes
+barkcli init
+barkcli create sprint-1
+git add .board
+git commit -m "Initialize barkcli"
+git push
+
+# Team members
+git pull
+# barkcli is already initialized via .board/ in repo
+```
+
+## Daily Workflow
+
+### Morning
+
+```bash
+# See what's due today
+barkcli today
+
+# Check board status
+barkcli sprint-1 status
+
+# See what others are working on
+barkcli sprint-1 list -c doing
+```
+
+### During Work
+
+```bash
+# Pick up a task
+barkcli sprint-1 move <task-id> doing
+
+# Add a new task discovered during work
+barkcli sprint-1 add "Refactor auth module" -p medium
+
+# Comment on progress
+barkcli sprint-1 comment <task-id> "Implemented JWT handler"
+
+# Complete task
+barkcli sprint-1 done <task-id>
+```
+
+### End of Day
+
+```bash
+# Commit your board changes
+git add .board
+git commit -m "Update sprint-1: completed 2 tasks"
+git push
+```
+
+## Branch Strategy
+
+Board files work like code — use branches for parallel work:
+
+```bash
+# Feature branch
+git checkout -b feature/auth
+barkcli sprint-1 add "Auth feature" -p high
+barkcli sprint-1 move auth-feature doing
+git add .board
+git commit -m "Start auth feature"
+git push
+
+# Merge back
+git checkout main
+git merge feature/auth
+```
+
+## Conflict Resolution
+
+If two people modify the same board file:
+
+```bash
+# Git will show a merge conflict in the .board file
+# Resolve by choosing the correct YAML content
+# Then commit the resolution
+```
+
+Best practice: Communicate about who's working on which board to minimize conflicts.
+
+## Team Roles
+
+| Role | Typical Actions |
+|------|-----------------|
+| Product Owner | Creates boards, adds tasks, sets priorities |
+| Developer | Moves tasks, adds comments, completes work |
+| Scrum Master | Monitors status, runs reports, manages sprints |
+| AI Agent | Claims tasks, writes code, reports completion |
+
+## Communication
+
+Use comments for async communication:
+
+```bash
+barkcli sprint-1 comment auth-feature "Blocked by API rate limits. Need to implement caching."
+```
+
+View comments in the web app or VS Code extension.
+
+## Reports
+
+```bash
+# Weekly report
+barkcli report --since "7 days ago"
+
+# Sprint velocity
+barkcli stats
+
+# Export for stakeholder review
+barkcli sprint-1 export json > sprint-report.json
+```

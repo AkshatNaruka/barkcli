@@ -1,0 +1,45 @@
+---
+title: validate
+description: Validate board files
+---
+
+# barkcli validate
+
+Validate all board files for structural correctness.
+
+## Usage
+
+```bash
+barkcli validate
+```
+
+## What It Checks
+
+- Valid YAML syntax
+- Required fields present
+- Column IDs valid
+- Card IDs unique
+- Link targets exist
+- Date formats valid
+
+## Output
+
+```
+Validating boards...
+
+✓ my-project.board — valid
+✓ backend.board — valid
+✗ frontend.board — invalid: missing required field 'title' in card fix-css
+```
+
+## Exit Codes
+
+| Code | Description |
+|------|-------------|
+| `0` | All boards valid |
+| `1` | Validation errors found |
+
+## Related
+
+- [doctor](/docs/commands/doctor) — Auto-fix issues
+- [Configuration](/docs/configuration) — Board config

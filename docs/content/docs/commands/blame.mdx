@@ -1,0 +1,42 @@
+---
+title: blame
+description: Card change history
+---
+
+# barkcli blame
+
+Show who changed what on a card.
+
+## Usage
+
+```bash
+barkcli <board> blame <id>
+```
+
+## Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `id` | Card ID |
+
+## Examples
+
+```bash
+barkcli my-project blame implement-oauth
+```
+
+## Output
+
+```
+Card: implement-oauth
+
+2025-01-15 14:20  column   todo → doing     alice
+2025-01-15 14:25  priority medium → high    alice
+2025-01-15 15:00  label    +backend        bob
+2025-01-15 16:30  comment  "Started work"  alice
+```
+
+## Related
+
+- [log](/docs/commands/log) — Board history
+- [diff](/docs/commands/diff) — Board diff

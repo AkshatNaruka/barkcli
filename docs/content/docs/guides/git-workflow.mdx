@@ -1,0 +1,123 @@
+---
+title: Git Workflow
+description: Using barkcli with git
+---
+
+# Git Workflow
+
+barkcli is built on git. Board files are committed alongside your code.
+
+## Git Integration Features
+
+| Feature | Command | Description |
+|---------|---------|-------------|
+| History | `barkcli <board> log` | View task change history |
+| Undo | `barkcli <board> undo` | Revert last change |
+| Diff | `barkcli <board> diff` | See changes vs git ref |
+| Blame | `barkcli <board> blame <id>` | Who changed what |
+| Checkpoints | `barkcli checkpoint save` | Save state before risky changes |
+| Validate | `barkcli validate` | Check board file integrity |
+
+## Git Hooks
+
+```bash
+# Install hooks during init
+barkcli init
+
+# Or install separately
+barkcli hooks install
+```
+
+### Pre-commit Hook
+
+Runs `barkcli validate` before each commit. Prevents committing invalid board files.
+
+### Commit-msg Hook
+
+Template: `[card-id] Your message`
+
+Example:
+```bash
+git commit -m "[implement-auth] Add JWT handler"
+```
+
+## Recommended Workflow
+
+```bash
+# 1. Start work
+barkcli sprint-1 move implement-auth doing
+
+# 2. Make changes
+# ... code ...
+
+# 3. Commit with card reference
+git add .
+git commit -m "[implement-auth] Implement JWT validation"
+
+# 4. Complete task
+barkcli sprint-1 done implement-auth
+
+# 5. Push
+git push
+```
+
+## Viewing History
+
+```bash
+# Board-specific history
+barkcli sprint-1 log
+
+# With limit
+barkcli sprint-1 log --limit 10
+
+# Diff against main branch
+barkcli sprint-1 diff main
+
+# Blame a specific card
+barkcli sprint-1 blame implement-auth
+```
+
+## Undoing Changes
+
+```bash
+# Undo last board change
+barkcli sprint-1 undo
+
+# Checkpoint before risky operation
+barkcli checkpoint save "before-refactor"
+
+# Restore checkpoint
+barkcli checkpoint restore <id>
+```
+
+## Multi-branch Boards
+
+Work on board changes in feature branches:
+
+```bash
+git checkout -b sprint-2
+barkcli create sprint-2
+barkcli sprint-2 add "Feature X"
+git add .board
+git commit -m "Create sprint-2 board"
+git push -u origin sprint-2
+
+# Create PR
+# After merge, main gets the new board
+```
+
+## CI/CD Integration
+
+```yaml
+# .github/workflows/validate.yml
+name: Validate Boards
+on: [push, pull_request]
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust@v1
+      - run: cargo build --release
+      - run: ./target/release/barkcli validate
+```

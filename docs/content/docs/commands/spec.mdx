@@ -1,0 +1,65 @@
+---
+title: spec
+description: Specification management
+---
+
+# barkcli spec
+
+Manage specifications and requirements.
+
+## Usage
+
+```bash
+barkcli spec <command>
+```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `list` | List specs |
+| `show <id>` | Show spec details |
+| `create` | Create spec |
+| `update <id>` | Update spec |
+| `delete <id>` | Delete spec |
+| `add-req <spec-id>` | Add requirement |
+| `link-code <spec-id> <path>` | Link code to requirement |
+| `link-task <spec-id> <card-id>` | Link task to spec |
+| `trace <spec-id>` | View traceability |
+| `coverage` | Coverage report |
+| `scan-stale` | Scan for stale requirements |
+
+## Create Spec
+
+```bash
+barkcli spec create --title "Auth System" --description "JWT authentication"
+```
+
+## Add Requirement
+
+```bash
+barkcli spec add-req <spec-id> --title "JWT validation" --status pending
+```
+
+## Traceability
+
+```bash
+barkcli spec trace <spec-id>
+```
+
+Shows requirements linked to code and tasks.
+
+## Coverage
+
+```bash
+barkcli spec coverage
+```
+
+Output:
+```
+Coverage: 75% (9/12 requirements implemented)
+```
+
+## Related
+
+- [Advanced: MCP & AI](/docs/advanced/mcp-agents) — AI integration

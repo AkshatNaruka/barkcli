@@ -1,0 +1,69 @@
+---
+title: update
+description: Update card fields
+---
+
+# barkcli update
+
+Update fields on an existing card.
+
+## Usage
+
+```bash
+barkcli <board> update <id> [options]
+```
+
+## Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `id` | Card ID |
+
+## Options
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--title` | `-t` | New title |
+| `--priority` | `-p` | New priority |
+| `--label` | `-l` | Add label (repeatable) |
+| `--assignee` | `-a` | New assignee |
+| `--due` | | New due date |
+| `--effort` | | New effort estimate |
+| `--area` | | New area |
+| `--ac` | | New acceptance criteria |
+| `--rm-ac` | | Remove acceptance criteria |
+| `--no-effort` | | Remove effort |
+| `--no-area` | | Remove area |
+
+## Examples
+
+```bash
+# Update title
+barkcli my-project update implement-oauth -t "Implement Google OAuth"
+
+# Update priority
+barkcli my-project update implement-oauth -p critical
+
+# Add label
+barkcli my-project update implement-oauth -l urgent
+
+# Remove effort
+barkcli my-project update implement-oauth --no-effort
+```
+
+## Output
+
+```
+Updated implement-oauth: title → "Implement Google OAuth"
+```
+
+## Aliases
+
+```bash
+barkcli <board> up <id> [options]
+```
+
+## Related
+
+- [show](/docs/commands/show) — View card details
+- [add](/docs/commands/add) — Create new card

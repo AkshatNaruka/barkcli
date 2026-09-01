@@ -1,0 +1,126 @@
+---
+title: Migration Guide
+description: Migrating from other tools to barkcli
+---
+
+# Migration Guide
+
+How to migrate from other project management tools to barkcli.
+
+## From Linear
+
+```bash
+# 1. Export from Linear (Settings → Export)
+# 2. Convert JSON to barkcli format
+barkcli create my-project
+
+# 3. Add tasks manually or via script
+barkcli my-project add "Task from Linear" -p high
+
+# 4. Commit to git
+git add .board
+git commit -m "Migrate from Linear"
+```
+
+## From Jira
+
+```bash
+# 1. Export Jira issues as CSV
+# 2. Create board
+barkcli create my-project
+
+# 3. Import or add manually
+barkcli my-project add "Jira issue" -p medium
+
+# 4. Commit
+git add .board
+git commit -m "Migrate from Jira"
+```
+
+## From GitHub Issues
+
+```bash
+# 1. Create board
+barkcli create my-project
+
+# 2. Use sync command (Pro)
+barkcli sync --pull
+
+# 3. Or add manually
+barkcli my-project add "Issue title" -p high
+
+# 4. Commit
+git add .board
+git commit -m "Import from GitHub Issues"
+```
+
+## From Trello
+
+```bash
+# 1. Export Trello board as JSON
+# 2. Create barkcli board
+barkcli create my-project
+
+# 3. Map Trello lists to columns
+# Todo, Doing, Done → todo, doing, done
+
+# 4. Add cards
+barkcli my-project add "Card from Trello"
+
+# 5. Commit
+git add .board
+git commit -m "Migrate from Trello"
+```
+
+## From Notion
+
+```bash
+# 1. Export Notion database as CSV
+# 2. Create board
+barkcli create my-project
+
+# 3. Add tasks
+barkcli my-project add "Task from Notion" -p medium
+
+# 4. Commit
+git add .board
+git commit -m "Migrate from Notion"
+```
+
+## Import/Export Commands
+
+```bash
+# Export board as YAML
+barkcli my-project export yaml > backup.yaml
+
+# Export as JSON
+barkcli my-project export json > backup.json
+
+# Import from file
+barkcli import my-project backup.yaml
+
+# Import from stdin
+cat backup.json | barkcli import my-project json
+```
+
+## Data Mapping
+
+| Other Tool | barkcli Equivalent |
+|------------|-------------------|
+| Linear Issue | Card |
+| Jira Issue | Card |
+| GitHub Issue | Card |
+| Trello Card | Card |
+| Notion Page | Card |
+| Linear Project | Board |
+| Jira Board | Board |
+| Trello Board | Board |
+| Notion Database | Board |
+| Linear Label | Label |
+| Jira Label | Label |
+| Trello Label | Label |
+| Priority | Priority (high/medium/low) |
+| Assignee | Assignee |
+| Due Date | Due Date |
+| Description | Description |
+| Comments | Comments |

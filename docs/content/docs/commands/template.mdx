@@ -1,0 +1,51 @@
+---
+title: template
+description: Board templates
+---
+
+# barkcli template
+
+Use pre-built board templates.
+
+## Usage
+
+```bash
+barkcli template <command>
+```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `list` | List available templates |
+| `install <name>` | Install template |
+
+## Available Templates
+
+| Template | Tasks | Description |
+|----------|-------|-------------|
+| `saas-launch` | 15 | SaaS product launch |
+| `mobile-app` | 7 | Mobile app development |
+| `fundraising` | 7 | Fundraising process |
+| `hiring` | 6 | Hiring workflow |
+| `open-source` | 8 | Open source project |
+
+## Examples
+
+```bash
+# List templates
+barkcli template list
+
+# Install template
+barkcli template install saas-launch
+```
+
+## Output
+
+```
+Added 15 tasks from saas-launch template to tasks.board
+```
+
+## Related
+
+- [create](/docs/commands/create) — Create empty board

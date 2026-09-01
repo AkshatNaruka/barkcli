@@ -1,0 +1,117 @@
+---
+title: Projects
+description: Understanding project structure in barkcli
+---
+
+# Projects
+
+A project is any codebase that contains a `.board/` directory. barkcli works in any git repository.
+
+## Project Structure
+
+```
+my-project/
+├── .board/              # barkcli metadata (gitignored)
+│   ├── config.json
+│   ├── *.board          # Board files
+│   ├── history/
+│   ├── sessions/
+│   ├── snapshots/
+│   ├── context/
+│   └── sprints/
+├── src/                 # Your source code
+├── package.json
+└── .git/
+```
+
+## Initializing a Project
+
+```bash
+# In your project root
+barkcli init
+```
+
+Creates:
+- `.board/` directory
+- `.board/config.json` with defaults
+- `.gitignore` entries for metadata
+
+## Project Configuration
+
+`.board/config.json`:
+
+```json
+{
+  "default_board": "main",
+  "columns": [
+    { "id": "todo", "name": "Todo" },
+    { "id": "doing", "name": "Doing" },
+    { "id": "review", "name": "Review" },
+    { "id": "done", "name": "Done" }
+  ],
+  "ai": {
+    "provider": "openai",
+    "model": "gpt-4o-mini"
+  }
+}
+```
+
+## Global Configuration
+
+`~/.config/barkcli/config.json`:
+
+```json
+{
+  "theme": "dark",
+  "editor": "code",
+  "auto_sync": true
+}
+```
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `BARKCLI_BOARD` | Default board name |
+| `BARKCLI_TOKEN` | API authentication token |
+| `OPENAI_API_KEY` | OpenAI API key (for AI features) |
+| `ANTHROPIC_API_KEY` | Anthropic API key (for AI features) |
+
+## Team Workflow
+
+1. Initialize barkcli in your repo
+2. Commit `.board/` directory
+3. Team members `git pull` to get board state
+4. Make changes, commit them
+5. Push/pull like code
+
+```bash
+# Team member 1
+barkcli init
+barkcli create sprint-1
+barkcli sprint-1 add "Feature A" -p high
+git add .board
+git commit -m "Add sprint-1 board"
+git push
+
+# Team member 2
+git pull
+barkcli sprint-1 list
+barkcli sprint-1 move feature-a doing
+git add .board
+git commit -m "Move Feature A to doing"
+git push
+```
+
+## Backup & Recovery
+
+```bash
+# Save checkpoint before risky changes
+barkcli checkpoint save "before-refactor"
+
+# Restore if needed
+barkcli checkpoint restore <checkpoint-id>
+
+# View checkpoints
+barkcli checkpoint list
+```

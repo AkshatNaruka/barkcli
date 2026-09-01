@@ -1,0 +1,101 @@
+---
+title: Configuration
+description: Configuring barkcli for your workflow
+---
+
+# Configuration
+
+## Project Configuration
+
+`.board/config.json`:
+
+```json
+{
+  "default_board": "my-project",
+  "columns": [
+    { "id": "todo", "name": "Todo" },
+    { "id": "doing", "name": "Doing" },
+    { "id": "review", "name": "Review" },
+    { "id": "done", "name": "Done" }
+  ],
+  "ai": {
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "api_key_env": "OPENAI_API_KEY"
+  },
+  "agent": {
+    "role": "developer",
+    "poll_interval": 5000
+  }
+}
+```
+
+## Global Configuration
+
+`~/.config/barkcli/config.json`:
+
+```json
+{
+  "theme": "dark",
+  "editor": "code",
+  "auto_sync": true
+}
+```
+
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `BARKCLI_BOARD` | Default board name | — |
+| `BARKCLI_TOKEN` | API auth token | — |
+| `OPENAI_API_KEY` | OpenAI API key | — |
+| `ANTHROPIC_API_KEY` | Anthropic API key | — |
+
+## Custom Columns
+
+```json
+{
+  "columns": [
+    { "id": "backlog", "name": "Backlog" },
+    { "id": "todo", "name": "To Do" },
+    { "id": "in-progress", "name": "In Progress" },
+    { "id": "blocked", "name": "Blocked" },
+    { "id": "review", "name": "Review" },
+    { "id": "done", "name": "Done" }
+  ]
+}
+```
+
+## AI Configuration
+
+```bash
+# Set AI provider
+barkcli agent config set provider openai
+barkcli agent config set model gpt-4o-mini
+barkcli agent config set base-url https://api.openai.com/v1
+
+# Show current config
+barkcli agent config show
+
+# Reset to defaults
+barkcli agent config reset
+```
+
+## Supported AI Providers
+
+| Provider | Models | Notes |
+|----------|--------|-------|
+| OpenAI | gpt-4o, gpt-4o-mini | Requires API key |
+| Anthropic | claude-sonnet-4-20250514 | Requires API key |
+| Ollama | llama3, mistral | Local, no API key |
+| LM Studio | Various | Local, no API key |
+
+## Validation
+
+```bash
+# Validate configuration
+barkcli validate
+
+# Auto-fix issues
+barkcli doctor
+```

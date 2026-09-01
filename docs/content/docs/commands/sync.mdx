@@ -1,0 +1,48 @@
+---
+title: sync
+description: GitHub sync (Pro)
+---
+
+# barkcli sync
+
+Sync tasks with GitHub Issues. Requires Pro license.
+
+## Usage
+
+```bash
+barkcli sync [options]
+```
+
+## Options
+
+| Flag | Description |
+|------|-------------|
+| `--push` | Push cards to GitHub Issues |
+| `--pull` | Import GitHub Issues as cards |
+
+## Examples
+
+```bash
+# Push cards to GitHub
+barkcli sync --pull
+
+# Import from GitHub
+barkcli sync --pull
+```
+
+## How It Works
+
+- Cards get a `gh:<number>` label when synced
+- Two-way link stored in card metadata
+- Changes sync bidirectionally
+
+## Requirements
+
+```bash
+# Set GitHub token
+export GITHUB_TOKEN=ghp_...
+```
+
+## Related
+
+- [Git Workflow](/docs/guides/git-workflow) — Git integration

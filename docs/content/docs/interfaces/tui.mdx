@@ -1,0 +1,105 @@
+---
+title: Terminal UI
+description: Interactive kanban board in your terminal
+---
+
+# Terminal UI
+
+The TUI provides an interactive kanban board in your terminal with vim-style navigation.
+
+## Start
+
+```bash
+barkcli tui
+```
+
+## Tabs
+
+| Tab | Key | Description |
+|-----|-----|-------------|
+| Board | `1` | Kanban board view |
+| List | `2` | Flat list sorted by priority |
+| Tree | `3` | Parent-child hierarchy |
+| Agenda | `4` | Today's tasks + upcoming |
+| Reports | `5` | Velocity and statistics |
+| Code | `6` | Code search and context |
+| Agents | `7` | Agent registry |
+| Orchestrate | `8` | Task queue and orchestration |
+
+## Navigation
+
+### Board View
+
+| Key | Action |
+|-----|--------|
+| `h` / `l` | Move between columns |
+| `j` / `k` | Move between cards |
+| `a` | Add new card |
+| `e` | Edit selected card |
+| `d` | Delete card |
+| `H` / `L` | Move card left/right |
+| `/` | Search/filter |
+| `:` | Command palette |
+| `q` | Quit |
+
+### List View
+
+| Key | Action |
+|-----|--------|
+| `j` / `k` | Navigate up/down |
+| `p` | Sort by priority |
+| `t` | Sort by title |
+| `e` | Sort by effort |
+| `u` | Sort by due date |
+| `Enter` | View card details |
+
+### Detail View
+
+| Key | Action |
+|-----|--------|
+| `l` | Link to another card |
+| `u` | Unlink card |
+| `e` | Edit fields |
+| `q` | Close detail view |
+
+## Command Palette
+
+Press `:` to open the command palette:
+
+- `:new` — Add new card
+- `:move <column>` — Move card to column
+- `:filter <text>` — Filter cards
+- `:sort` — Sort cards
+- `:theme` — Toggle theme
+- `:help` — Show keybindings
+
+## Theme
+
+Toggle between dark and light themes:
+
+```bash
+:theme
+```
+
+Or configure in `~/.config/barkcli/config.json`:
+
+```json
+{
+  "theme": "light"
+}
+```
+
+## Example Workflow
+
+```
+1. Press 1 to enter Board view
+2. Press h/l to navigate to "Todo" column
+3. Press j to select a card
+4. Press a to add a new card
+5. Type title and press Enter
+6. Press H/L to move card between columns
+7. Press e to edit card details
+8. Press q to close detail view
+9. Press : then type "sort" to reorder
+10. Press q to quit
+```

@@ -1,0 +1,104 @@
+---
+title: CLI
+description: Command-line interface for barkcli
+---
+
+# CLI Interface
+
+The command-line interface is barkcli's primary interface. All actions are available via `barkcli` commands.
+
+## Usage Pattern
+
+```bash
+barkcli <board> <command> [options]
+```
+
+## Quick Reference
+
+```bash
+# Setup
+barkcli init
+barkcli create <board>
+
+# Task management
+barkcli <board> add <title> [options]
+barkcli <board> list [options]
+barkcli <board> show <id>
+barkcli <board> move <id> <column>
+barkcli <board> done <id>
+barkcli <board> update <id> [options]
+barkcli <board> remove <id>
+
+# Board management
+barkcli boards
+barkcli switch <board>
+barkcli status
+
+# History
+barkcli <board> log
+barkcli <board> undo
+barkcli <board> diff
+
+# Code context
+barkcli <board> code <query>
+barkcli context scan
+barkcli context status
+
+# Interfaces
+barkcli tui
+barkcli serve [--open]
+```
+
+## Global Flags
+
+| Flag | Description |
+|------|-------------|
+| `--board`, `-b` | Target board name |
+| `--help`, `-h` | Show help |
+| `--version`, `-v` | Show version |
+
+## Output Formatting
+
+CLI output is color-coded:
+- **Green** — Completed, success
+- **Yellow** — In progress, warnings
+- **Red** — Blocked, errors
+- **Blue** — Accent, highlights
+- **Gray** — Muted, secondary info
+
+Colors auto-disable when piped.
+
+## Examples
+
+```bash
+# Add a high-priority task
+barkcli my-project add "Fix critical bug" -p high
+
+# List only doing tasks
+barkcli my-project list -c doing
+
+# List high-priority tasks
+barkcli my-project list -p high
+
+# Export board as JSON
+barkcli my-project export json
+
+# Validate all boards
+barkcli validate
+
+# Auto-fix issues
+barkcli doctor
+```
+
+## Shell Completion
+
+```bash
+# Bash
+barkcli completion bash > ~/.bash_completion.d/barkcli
+
+# Zsh
+barkcli completion zsh > ~/.zfunc/_barkcli
+
+# Fish
+barkcli completion fish > ~/.config/fish/completions/barkcli.fish
+```

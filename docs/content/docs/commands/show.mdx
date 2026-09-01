@@ -1,0 +1,74 @@
+---
+title: show
+description: View card details
+---
+
+# barkcli show
+
+Display full details of a card.
+
+## Usage
+
+```bash
+barkcli <board> show <id>
+```
+
+## Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `id` | Card ID |
+
+## Output
+
+Shows all card fields including:
+- Title, description, column, priority
+- Labels, assignee, due date
+- Effort, area, acceptance criteria
+- Checklist items
+- Comments
+- Links to other cards
+- Code context files
+- Creation and update timestamps
+
+## Example
+
+```bash
+barkcli my-project show implement-oauth
+```
+
+```
+Card: implement-oauth
+Title: Implement OAuth
+Column: doing
+Priority: high
+Labels: backend, security
+Assignee: alice
+Due: 2025-02-01
+Effort: 5
+Area: authentication
+Created: 2025-01-15T10:30:00Z
+Updated: 2025-01-15T14:20:00Z
+
+Acceptance Criteria:
+- Users can log in with Google
+- Tokens are refreshable
+
+Checklist:
+- [x] Set up OAuth credentials
+- [ ] Implement callback handler
+- [ ] Add session management
+
+Links:
+- parent: auth-system
+
+Code Context:
+- src/auth/handler.ts (clean)
+- src/auth/service.ts (changed)
+```
+
+## Related
+
+- [list](/docs/commands/list) — List cards
+- [update](/docs/commands/update) — Update card
+- [link](/docs/commands/link) — Link cards

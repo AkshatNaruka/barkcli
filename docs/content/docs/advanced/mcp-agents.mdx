@@ -1,0 +1,147 @@
+---
+title: MCP & AI Agents
+description: Advanced AI agent integration
+---
+
+# MCP & AI Agents
+
+Advanced patterns for integrating barkcli with AI coding agents.
+
+## Architecture
+
+```
+Human → barkcli CLI → [card + spec created]
+                            ↓
+                      barkcli plan → [tasks created in queue]
+                            ↓
+                      barkcli dispatch → [tasks assigned to agents]
+                            ↓
+                 ┌──────────┼──────────┐
+                 ↓          ↓          ↓
+            Agent A     Agent B    Agent C
+            (feature)   (bugfix)   (refactor)
+                 ↓          ↓          ↓
+                 └──────────┼──────────┘
+                            ↓
+                      barkcli review → [validated → done]
+```
+
+## MCP Server (25+ Tools)
+
+```bash
+# Start MCP server
+barkcli mcp
+```
+
+### Tool Categories
+
+| Category | Tools |
+|----------|-------|
+| Board | `board_list`, `board_get` |
+| Card | `card_list`, `card_create`, `card_move`, `card_update`, `card_delete` |
+| Context | `context_search`, `code_search` |
+| Spec | `spec_list`, `spec_create` |
+| Memory | `memory_search`, `memory_add` |
+| Task | `task_list`, `task_create`, `task_claim`, `task_complete` |
+| Agent | `agent_list`, `agent_register` |
+
+## Orchestration
+
+```bash
+# Start orchestration engine
+barkcli orchestrate start
+
+# Run a cycle
+barkcli orchestrate cycle
+
+# Check status
+barkcli orchestrate status
+```
+
+## Agent Listener
+
+```bash
+# Start agent listener (Pro)
+barkcli listener
+```
+
+The listener polls for tasks and invokes coding agents.
+
+## Memory System
+
+### Memory Tiers
+
+| Tier | Capacity | Description |
+|------|----------|-------------|
+| Working | 20 | Current context |
+| Short-term | 100 | Session memory |
+| Long-term | 500 | Project patterns |
+| External | 10,000 | Searchable archive |
+
+### Commands
+
+```bash
+# Add memory
+barkcli memory add "User prefers functional style" --tier long_term
+
+# Search memory
+barkcli memory search "authentication patterns"
+
+# List memory
+barkcli memory list --tier long_term
+
+# Stats
+barkcli memory stats
+
+# Project facts
+barkcli memory fact add "We use TypeScript strict mode" --category convention
+barkcli memory fact list
+```
+
+## Task Queue
+
+Tasks flow through states:
+
+```
+pending → assigned → in_progress → completed
+                                     ↓
+                                   failed
+```
+
+### Task API
+
+```bash
+# Create task
+curl -X POST http://localhost:4321/api/tasks \
+  -d '{"title": "Implement auth", "priority": "high"}'
+
+# Claim task
+curl -X POST http://localhost:4321/api/tasks/{id}/claim \
+  -d '{"agent_id": "claude-code"}'
+
+# Complete task
+curl -X POST http://localhost:4321/api/tasks/{id}/complete \
+  -d '{"result": "Done", "commit_sha": "abc123"}'
+
+# Fail task
+curl -X POST http://localhost:4321/api/tasks/{id}/fail \
+  -d '{"error": "Tests failed"}'
+```
+
+## Secret Redaction
+
+barkcli automatically redacts:
+- API keys
+- Bearer tokens
+- Database URLs
+- Environment variable values
+
+This prevents secrets from leaking into task descriptions or memory.
+
+## Best Practices
+
+1. **Start simple**: One agent, one board
+2. **Use code context**: Scan before dispatching
+3. **Monitor activity**: Check orchestration status regularly
+4. **Review output**: Always review agent-completed work
+5. **Use memory**: Let agents learn project patterns

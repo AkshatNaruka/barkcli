@@ -1,0 +1,97 @@
+---
+title: context
+description: Code context management
+---
+
+# barkcli context
+
+Manage code context — links between cards and source files.
+
+## Usage
+
+```bash
+barkcli context <command> [options]
+```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `scan` | Auto-map cards to code |
+| `link <card> <path>` | Manually link card to file |
+| `unlink <card> <path>` | Remove link |
+| `status` | Show coverage and staleness |
+| `show <card>` | Show context for a card |
+| `sync` | Git-aware refresh |
+| `autosync on\|off` | Toggle auto-sync |
+| `clear` | Clear all context |
+
+## Scan
+
+```bash
+barkcli context scan
+```
+
+Fuzzy-matches card titles to code symbols and maps files.
+
+## Manual Link
+
+```bash
+barkcli context link implement-auth src/auth/handler.ts
+barkcli context link implement-auth "AuthService.login"
+```
+
+## Status
+
+```bash
+barkcli context status
+```
+
+Output:
+```
+Coverage: 65% (8/12 cards have context)
+
+Card               Files  Status
+implement-auth     3      clean
+setup-ci           2      changed
+write-tests        1      clean
+```
+
+## Show
+
+```bash
+barkcli context show implement-auth
+```
+
+Output:
+```
+Files:
+  src/auth/handler.ts    clean    (abc123)
+  src/auth/service.ts    changed  (uncommitted)
+  src/auth/types.ts      clean    (abc123)
+
+Symbols: AuthService, login, logout, validate
+```
+
+## Sync
+
+```bash
+barkcli context sync
+```
+
+Updates file statuses based on git state.
+
+## Autosync
+
+```bash
+# Enable automatic sync on commit
+barkcli context autosync on
+
+# Disable
+barkcli context autosync off
+```
+
+## Related
+
+- [code](/docs/commands/code) — Search code
+- [Code Context](/docs/concepts/code-context) — Concepts

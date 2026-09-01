@@ -1,0 +1,74 @@
+---
+title: link
+description: Link cards together
+---
+
+# barkcli link
+
+Create relationships between cards.
+
+## Usage
+
+```bash
+barkcli <board> link <id> <target> --as <type>
+```
+
+## Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `id` | Source card ID |
+| `target` | Target card ID |
+
+## Options
+
+| Flag | Description |
+|------|-------------|
+| `--as` | Link type: parent, child, related, blocked-by |
+
+## Link Types
+
+| Type | Description |
+|------|-------------|
+| `parent` | Source is parent of target |
+| `child` | Source is child of target |
+| `related` | Cards are related |
+| `blocked-by` | Source is blocked by target |
+
+## Examples
+
+```bash
+# Parent-child hierarchy
+barkcli my-project link auth-system auth-jwt --as parent
+barkcli my-project link auth-system auth-refresh --as parent
+
+# Related tasks
+barkcli my-project link login-bug oauth-fix --as related
+
+# Blocked by
+barkcli my-project deploy-feature db-migration --as blocked-by
+```
+
+## Output
+
+```
+Linked implement-oauth → auth-system (parent)
+```
+
+## Unlink
+
+```bash
+barkcli <board> unlink <id> <target>
+```
+
+## View Links
+
+```bash
+barkcli <board> tree
+barkcli <board> show <id>
+```
+
+## Related
+
+- [tree](/docs/commands/tree) — View hierarchy
+- [show](/docs/commands/show) — View card details

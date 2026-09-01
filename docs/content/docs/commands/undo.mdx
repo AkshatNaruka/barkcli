@@ -1,0 +1,46 @@
+---
+title: undo
+description: Undo the last change
+---
+
+# barkcli undo
+
+Revert the last operation on a board.
+
+## Usage
+
+```bash
+barkcli <board> undo
+```
+
+## What It Reverts
+
+- Card creation
+- Card moves
+- Card updates
+- Card deletion
+- Comment additions
+
+## Examples
+
+```bash
+# Undo last change
+barkcli my-project undo
+```
+
+## Output
+
+```
+Reverted: move implement-oauth from doing to todo
+```
+
+## Limitations
+
+- Only reverts one operation at a time
+- Cannot undo across board switches
+- Checkpoints provide more comprehensive recovery
+
+## Related
+
+- [checkpoint](/docs/commands/checkpoint) — Save/restore full state
+- [log](/docs/commands/log) — View history

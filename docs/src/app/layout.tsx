@@ -1,4 +1,4 @@
-import "./src/styles/global.css";
+import "../styles/global.css";
 
 import type { Metadata } from "next";
 import { RootProvider } from "fumadocs-ui/provider";
@@ -15,19 +15,36 @@ export const metadata: Metadata = {
     template: "%s · barkcli",
   },
   description:
-    "Git-native Kanban board CLI — tasks as YAML in your repo. Documentation, commands, and guides.",
-  keywords: ["barkcli", "kanban", "cli", "git", "task-management"],
+    "Git-native project management — tasks as YAML in your repo. CLI, terminal UI, web app, VS Code extension, and AI/MCP integrations.",
+  keywords: [
+    "barkcli",
+    "kanban",
+    "cli",
+    "git",
+    "task-management",
+    "project-management",
+    "yaml",
+    "mcp",
+    "ai-agents",
+  ],
   openGraph: {
     title: "barkcli Documentation",
-    description: "Git-native Kanban board CLI — tasks as YAML in your repo.",
-    url: "https://docs.barkcli.vercel.app",
+    description:
+      "Git-native project management — tasks as YAML in your repo.",
+    url: "https://barkcli.vercel.app/docs",
     siteName: "barkcli",
     type: "website",
+    locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
     title: "barkcli Documentation",
-    description: "Git-native Kanban board CLI — tasks as YAML in your repo.",
+    description:
+      "Git-native project management — tasks as YAML in your repo.",
+  },
+  robots: {
+    index: true,
+    follow: true,
   },
 };
 

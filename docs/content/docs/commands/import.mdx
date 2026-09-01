@@ -1,0 +1,38 @@
+---
+title: import
+description: Import board data
+---
+
+# barkcli import
+
+Import a board from YAML or JSON data.
+
+## Usage
+
+```bash
+barkcli import <board> [file]
+```
+
+## Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `board` | Target board name |
+| `file` | File to import (default: stdin) |
+
+## Examples
+
+```bash
+# Import from file
+barkcli import my-project backup.yaml
+
+# Import from stdin
+cat backup.json | barkcli import my-project json
+
+# Import JSON
+barkcli import my-project backup.json
+```
+
+## Related
+
+- [export](/docs/commands/export) — Export board data

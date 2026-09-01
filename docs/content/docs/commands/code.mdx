@@ -1,0 +1,55 @@
+---
+title: code
+description: Search code symbols and files
+---
+
+# barkcli code
+
+Search for symbols and files in your codebase.
+
+## Usage
+
+```bash
+barkcli <board> code <query>
+```
+
+## Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `query` | Search term (symbol name or file path) |
+
+## Examples
+
+```bash
+# Search for a symbol
+barkcli my-project code "AuthService"
+
+# Search for a file
+barkcli my-project code "src/auth"
+
+# Search for a function
+barkcli my-project code "login"
+```
+
+## Output
+
+```
+Results for "AuthService":
+
+src/auth/handler.ts
+  AuthService (class, line 15)
+  login (method, line 23)
+  logout (method, line 31)
+  Cards: implement-oauth
+
+src/auth/service.ts
+  AuthService (class, line 8)
+  validate (method, line 12)
+  Cards: implement-oauth, add-oauth
+```
+
+## Related
+
+- [context](/docs/commands/context) — Code context commands
+- [show](/docs/commands/show) — View card details

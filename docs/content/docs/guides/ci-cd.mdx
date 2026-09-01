@@ -1,0 +1,147 @@
+---
+title: CI/CD Integration
+description: Integrating barkcli with continuous integration
+---
+
+# CI/CD Integration
+
+Use barkcli in your CI/CD pipeline to validate boards and automate workflows.
+
+## GitHub Actions
+
+### Validate Boards
+
+```yaml
+# .github/workflows/validate-boards.yml
+name: Validate Boards
+on: [push, pull_request]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust@v1
+      - name: Build barkcli
+        run: cargo build --release
+      - name: Validate boards
+        run: ./target/release/barkcli validate
+```
+
+### Auto-generate Changelog
+
+```yaml
+# .github/workflows/changelog.yml
+name: Generate Changelog
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust@v1
+      - name: Build barkcli
+        run: cargo build --release
+      - name: Generate changelog
+        run: ./target/release/barkcli changelog > CHANGELOG.md
+      - name: Commit changelog
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add CHANGELOG.md
+          git commit -m "Update changelog" || true
+          git push
+```
+
+### Sprint Report
+
+```yaml
+# .github/workflows/sprint-report.yml
+name: Sprint Report
+on:
+  schedule:
+    - cron: "0 9 * * 1"  # Every Monday at 9am
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust@v1
+      - name: Build barkcli
+        run: cargo build --release
+      - name: Generate report
+        run: ./target/release/barkcli report --since "7 days ago" > report.md
+      - name: Create issue
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: Weekly Sprint Report
+          content-file: report.md
+```
+
+## GitLab CI
+
+```yaml
+# .gitlab-ci.yml
+validate-boards:
+  stage: test
+  image: rust:latest
+  script:
+    - cargo build --release
+    - ./target/release/barkcli validate
+```
+
+## Pre-commit Hook
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: local
+    hooks:
+      - id: barkcli-validate
+        name: barkcli validate
+        entry: barkcli validate
+        language: system
+        files: '\.board$'
+```
+
+## Docker
+
+```dockerfile
+FROM rust:latest as builder
+WORKDIR /app
+COPY . .
+RUN cargo build --release
+
+FROM debian:bookworm-slim
+COPY --from=builder /app/target/release/barkcli /usr/local/bin/
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+WORKDIR /workspace
+ENTRYPOINT ["barkcli"]
+```
+
+## API Integration
+
+Use the REST API in scripts:
+
+```bash
+#!/bin/bash
+# sync-tasks.sh
+
+# Get board data
+BOARDS=$(curl -s http://localhost:4321/api/boards)
+
+# Validate
+VALID=$(curl -s http://localhost:4321/api/validate)
+
+# Check for errors
+if echo "$VALID" | grep -q '"valid":false'; then
+  echo "Board validation failed!"
+  exit 1
+fi
+
+echo "All boards valid"
+```

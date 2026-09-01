@@ -1,0 +1,61 @@
+---
+title: ai
+description: AI task breakdown (Pro)
+---
+
+# barkcli ai
+
+Generate tasks from natural language using AI. Requires Pro license.
+
+## Usage
+
+```bash
+barkcli ai "<prompt>" [options]
+```
+
+## Options
+
+| Flag | Description |
+|------|-------------|
+| `--dry-run` | Preview without saving |
+| `--model` | AI model (default: gpt-4o-mini) |
+
+## Examples
+
+```bash
+# Generate tasks
+barkcli ai "Implement JWT auth with refresh tokens"
+
+# Preview
+barkcli ai "Ship MVP in 2 weeks" --dry-run
+
+# Use specific model
+barkcli ai "Build payment system" --model gpt-4o
+```
+
+## Output
+
+```
+Generated 6 tasks in tasks.board:
+  - Implement JWT middleware (high)
+  - Create auth endpoints (high)
+  - Add refresh token flow (medium)
+  - Write auth tests (medium)
+  - Update API docs (low)
+  - Add rate limiting (low)
+```
+
+## Requirements
+
+```bash
+# Set API key
+export OPENAI_API_KEY=sk-...
+
+# Or configure
+barkcli agent config set provider openai
+```
+
+## Related
+
+- [AI Agents](/docs/guides/ai-agents) — AI integration
+- [Advanced: MCP](/docs/advanced/mcp-agents) — MCP setup

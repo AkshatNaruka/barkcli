@@ -1,0 +1,39 @@
+---
+title: doctor
+description: Auto-fix board issues
+---
+
+# barkcli doctor
+
+Validate and auto-fix common board issues.
+
+## Usage
+
+```bash
+barkcli doctor
+```
+
+## What It Fixes
+
+- Missing required fields
+- Invalid column references
+- Duplicate card IDs
+- Malformed dates
+- Broken links
+
+## Output
+
+```
+Running barkcli doctor...
+
+✓ my-project.board — no issues
+✗ frontend.board — found 2 issues:
+  - Fixed: missing 'title' in card fix-css
+  - Fixed: invalid column 'backlog' → moved to 'todo'
+
+2 issues fixed
+```
+
+## Related
+
+- [validate](/docs/commands/validate) — Validate without fixing

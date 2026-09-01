@@ -1,0 +1,57 @@
+---
+title: sprint
+description: Sprint management
+---
+
+# barkcli sprint
+
+Manage time-boxed sprints.
+
+## Usage
+
+```bash
+barkcli sprint <command>
+```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `start <name>` | Start a sprint |
+| `end` | End current sprint |
+| `list` | List sprints |
+| `show <name>` | Show sprint details |
+
+## Start Sprint
+
+```bash
+barkcli sprint start sprint-1
+```
+
+Tags current `todo` cards with `sprint:sprint-1` label.
+
+## End Sprint
+
+```bash
+barkcli sprint end
+```
+
+Moves remaining cards to backlog, calculates velocity.
+
+## List Sprints
+
+```bash
+barkcli sprint list
+```
+
+Output:
+```
+Sprints:
+  sprint-1  2025-01-15 → 2025-01-29  10/12 done  velocity: 10
+  sprint-2  2025-01-29 → ongoing     3/8 done
+```
+
+## Related
+
+- [Advanced: Sprints](/docs/advanced/sprints) — Sprint concepts
+- [stats](/docs/commands/stats) — Velocity statistics

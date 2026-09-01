@@ -5,7 +5,7 @@ description: List cards in a board
 
 # barkcli list
 
-List cards in a board, grouped by column.
+List cards in a board with optional filters.
 
 ## Usage
 
@@ -13,54 +13,57 @@ List cards in a board, grouped by column.
 barkcli <board> list [options]
 ```
 
-## Flags
+## Options
 
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--column` | `-c` | Filter by column |
 | `--priority` | `-p` | Filter by priority |
 | `--label` | `-l` | Filter by label |
+| `--assignee` | `-a` | Filter by assignee |
 
 ## Examples
 
-### List All Cards
-
 ```bash
+# List all cards
 barkcli my-project list
-```
 
-Output:
-```
-📋 To Do
-  [fix-login] Fix login bug (high) #bug
-  [add-tests] Add unit tests (medium) #testing
-
-🔄 Doing
-  [implement-oauth] Implement OAuth (high) #feature #security
-
-✅ Done
-  [setup-ci] Set up CI/CD (medium) #devops
-```
-
-### Filter by Column
-
-```bash
+# List only doing cards
 barkcli my-project list -c doing
-```
 
-### Filter by Priority
-
-```bash
+# List high-priority cards
 barkcli my-project list -p high
+
+# List cards with backend label
+barkcli my-project list -l backend
+
+# Combine filters
+barkcli my-project list -c doing -p high
 ```
 
-### Filter by Label
+## Output
 
-```bash
-barkcli my-project list -l bug
+```
+┌─────────────────────────────────────────────────┐
+│ Todo (3)                                        │
+├─────────────────────────────────────────────────┤
+│ ● implement-oauth      high   backend  alice    │
+│ ● write-tests          medium testing           │
+│ ● fix-layout           low    frontend           │
+├─────────────────────────────────────────────────┤
+│ Doing (1)                                       │
+├─────────────────────────────────────────────────┤
+│ ● setup-ci             high   devops            │
+├─────────────────────────────────────────────────┤
+│ Done (2)                                        │
+├─────────────────────────────────────────────────┤
+│ ✓ init-project          -     -                 │
+│ ✓ create-board          -     -                 │
+└─────────────────────────────────────────────────┘
 ```
 
-## Related Commands
+## Related
 
-- [`show`](/docs/commands/show) — Show card details
-- [`add`](/docs/commands/add) — Add a card
+- [add](/docs/commands/add) — Add a card
+- [show](/docs/commands/show) — View card details
+- [move](/docs/commands/move) — Move card

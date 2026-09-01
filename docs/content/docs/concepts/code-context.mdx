@@ -1,0 +1,114 @@
+---
+title: Code Context
+description: Linking tasks to source code
+---
+
+# Code Context
+
+Code context links tasks to the source code they touch. This gives you visibility into which files each task affects and vice versa.
+
+## How It Works
+
+1. `barkcli context scan` analyzes your codebase
+2. It matches task titles to code symbols using fuzzy matching
+3. Links are stored in `.board/context/<board>.json`
+4. `barkcli context sync` refreshes git status of linked files
+
+## Setup
+
+```bash
+# Scan and link code to tasks
+barkcli context scan
+
+# Check coverage
+barkcli context status
+
+# Manual linking
+barkcli context link implement-auth src/auth/handler.ts
+barkcli context link implement-auth "AuthService.login"
+
+# Unlink
+barkcli context unlink implement-auth src/auth/handler.ts
+```
+
+## Viewing Context
+
+```bash
+# Show context for a specific card
+barkcli context show implement-auth
+
+# Search code symbols
+barkcli code "AuthService"
+
+# Find which cards touch a file
+barkcli code src/auth/handler.ts
+```
+
+## Git-Aware Sync
+
+```bash
+# Refresh file statuses based on git state
+barkcli context sync
+
+# Enable automatic sync on commit
+barkcli context autosync on
+```
+
+File statuses:
+- `clean` — File matches last commit
+- `changed` — File has uncommitted changes
+- `unknown` — File not tracked by git
+
+## Context File Format
+
+`.board/context/<board>.json`:
+
+```json
+{
+  "cards": {
+    "implement-auth": {
+      "files": [
+        {
+          "path": "src/auth/handler.ts",
+          "symbols": ["AuthService", "login", "logout"],
+          "status": "clean",
+          "last_commit": "abc123"
+        }
+      ],
+      "coverage_percent": 85
+    }
+  },
+  "index": {
+    "src/auth/handler.ts": ["implement-auth"],
+    "src/auth/service.ts": ["implement-auth", "add-oauth"]
+  }
+}
+```
+
+## Supported Languages
+
+| Language | Symbol Extraction |
+|----------|-------------------|
+| JavaScript/TypeScript | Full (functions, classes, types) |
+| Python | Full (functions, classes, methods) |
+| Rust | Full (functions, structs, traits) |
+| Go | Full (functions, types, interfaces) |
+| Other | File-level only |
+
+## Privacy
+
+All code context analysis runs locally. No code is sent to external services.
+
+## AI Features (Pro)
+
+```bash
+# AI-powered context refresh
+barkcli context refresh implement-auth
+
+# AI acceptance criteria generation
+barkcli agent propose implement-auth
+
+# Configure AI provider
+barkcli agent config set provider openai
+barkcli agent config set model gpt-4o-mini
+```

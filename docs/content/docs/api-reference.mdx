@@ -1,0 +1,531 @@
+---
+title: API Reference
+description: REST API documentation for barkcli server
+---
+
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+
+# API Reference
+
+The barkcli server exposes a REST API at `http://localhost:4321`.
+
+## Base URL
+
+```
+http://localhost:4321
+```
+
+## Authentication
+
+When using `--token`, pass the token via:
+
+<Tabs items={["Query Parameter", "Authorization Header"]}>
+  <Tab value="Query Parameter">
+    ```
+    http://localhost:4321/api/boards?token=mysecret
+    ```
+  </Tab>
+  <Tab value="Authorization Header">
+    ```
+    Authorization: Bearer mysecret
+    ```
+  </Tab>
+</Tabs>
+
+Static assets are always public.
+
+## OpenAPI Specification
+
+Download the machine-readable API specification:
+
+- [OpenAPI JSON](/openapi.json)
+
+## Board Endpoints
+
+### List Boards
+
+```
+GET /api/boards
+```
+
+Returns all board names.
+
+**Response:**
+```json
+{
+  "boards": ["my-project", "backend"]
+}
+```
+
+### Create Board
+
+```
+POST /api/boards/create
+```
+
+**Request:**
+```json
+{
+  "title": "my-project",
+  "description": "Main project board",
+  "columns": [
+    { "id": "todo", "name": "Todo" },
+    { "id": "doing", "name": "Doing" },
+    { "id": "done", "name": "Done" }
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "name": "my-project"
+}
+```
+
+### Delete Board
+
+```
+DELETE /api/boards/:name
+```
+
+### Get Board
+
+```
+GET /api/board?name=my-project
+```
+
+Returns YAML content.
+
+### Save Board
+
+```
+PUT /api/board?name=my-project
+```
+
+**Request:**
+```json
+{
+  "yaml": "columns:\n  - id: todo\n    name: Todo\n"
+}
+```
+
+## Card Endpoints
+
+### Add Comment
+
+```
+POST /api/board/cards/:card_id/comments?name=my-project
+```
+
+**Request:**
+```json
+{
+  "author": "alice",
+  "text": "Started working on this"
+}
+```
+
+## Task Management
+
+### List Tasks
+
+```
+GET /api/tasks
+```
+
+### Create Task
+
+```
+POST /api/tasks
+```
+
+**Request:**
+```json
+{
+  "title": "Implement auth",
+  "description": "Add JWT authentication",
+  "priority": "high",
+  "context_files": ["src/auth/handler.ts"]
+}
+```
+
+### Get Task
+
+```
+GET /api/tasks/:task_id
+```
+
+### Update Task
+
+```
+PUT /api/tasks/:task_id
+```
+
+### Delete Task
+
+```
+DELETE /api/tasks/:task_id
+```
+
+### Claim Task
+
+```
+POST /api/tasks/:task_id/claim
+```
+
+**Request:**
+```json
+{
+  "agent_id": "claude-code"
+}
+```
+
+### Complete Task
+
+```
+POST /api/tasks/:task_id/complete
+```
+
+**Request:**
+```json
+{
+  "result": "Implemented JWT validation",
+  "commit_sha": "abc123"
+}
+```
+
+### Fail Task
+
+```
+POST /api/tasks/:task_id/fail
+```
+
+**Request:**
+```json
+{
+  "error": "Tests failed"
+}
+```
+
+## Agent Endpoints
+
+### List Agents
+
+```
+GET /api/agents
+```
+
+### Register Agent
+
+```
+POST /api/agents
+```
+
+**Request:**
+```json
+{
+  "name": "claude-code",
+  "role": "developer",
+  "capabilities": ["rust", "typescript"]
+}
+```
+
+### Get Agent
+
+```
+GET /api/agents/:agent_id
+```
+
+### Delete Agent
+
+```
+DELETE /api/agents/:agent_id
+```
+
+### Agent Status
+
+```
+GET /api/agents/:agent_id/status
+```
+
+## Orchestration
+
+### Run Cycle
+
+```
+POST /api/orchestrate/cycle
+```
+
+### Status
+
+```
+GET /api/orchestrate/status
+```
+
+## Memory
+
+### List/Search Memories
+
+```
+GET /api/memory?name=my-project&q=search&tier=long_term&limit=50
+```
+
+### Add Memory
+
+```
+POST /api/memory?name=my-project
+```
+
+**Request:**
+```json
+{
+  "content": "User prefers functional style",
+  "tier": "long_term",
+  "tags": ["style", "preference"]
+}
+```
+
+### Delete Memory
+
+```
+DELETE /api/memory/:id?name=my-project
+```
+
+### Memory Stats
+
+```
+GET /api/memory/stats?name=my-project
+```
+
+### Add Fact
+
+```
+POST /api/memory/fact?name=my-project
+```
+
+**Request:**
+```json
+{
+  "content": "We use TypeScript strict mode",
+  "category": "convention"
+}
+```
+
+### List Facts
+
+```
+GET /api/memory/facts?name=my-project&category=convention
+```
+
+## Specs
+
+### List Specs
+
+```
+GET /api/specs?name=my-project
+```
+
+### Create Spec
+
+```
+POST /api/specs?name=my-project
+```
+
+**Request:**
+```json
+{
+  "title": "Auth System",
+  "description": "JWT authentication implementation",
+  "priority": "high"
+}
+```
+
+### Get Spec
+
+```
+GET /api/specs/:spec_id
+```
+
+### Update Spec
+
+```
+PUT /api/specs/:spec_id
+```
+
+### Delete Spec
+
+```
+DELETE /api/specs/:spec_id
+```
+
+### Add Requirement
+
+```
+POST /api/specs/:spec_id/requirements
+```
+
+**Request:**
+```json
+{
+  "title": "JWT token validation",
+  "description": "Validate JWT tokens on protected routes",
+  "status": "pending"
+}
+```
+
+### Update Requirement
+
+```
+PUT /api/specs/:spec_id/requirements/:req_id
+```
+
+### Traceability
+
+```
+GET /api/specs/:spec_id/trace
+```
+
+### Coverage
+
+```
+GET /api/specs/coverage
+```
+
+### Scan Stale
+
+```
+POST /api/specs/scan-stale
+```
+
+## Checkpoints
+
+### List Checkpoints
+
+```
+GET /api/checkpoints?name=my-project
+```
+
+### Save Checkpoint
+
+```
+POST /api/checkpoints?name=my-project
+```
+
+**Request:**
+```json
+{
+  "label": "before-refactor"
+}
+```
+
+### Restore Checkpoint
+
+```
+POST /api/checkpoints/:id/restore
+```
+
+## History
+
+### Undo
+
+```
+POST /api/undo?name=my-project
+```
+
+### Diff
+
+```
+GET /api/diff?name=my-project
+```
+
+### Blame
+
+```
+GET /api/blame/:card_id?name=my-project
+```
+
+### Snapshot
+
+```
+POST /api/snapshot?name=my-project
+```
+
+## Import/Export
+
+### Export
+
+```
+GET /api/export?name=my-project&format=yaml
+```
+
+### Import
+
+```
+POST /api/import?name=my-project
+```
+
+**Request:**
+```json
+{
+  "data": "columns:\n  - id: todo\n    name: Todo\n",
+  "format": "yaml"
+}
+```
+
+## Validation
+
+### Validate
+
+```
+GET /api/validate
+```
+
+### Doctor
+
+```
+POST /api/doctor
+```
+
+## Other
+
+### History
+
+```
+GET /api/history?name=my-project&limit=50
+```
+
+### Sessions
+
+```
+GET /api/sessions?name=my-project
+```
+
+### Context
+
+```
+GET /api/context?name=my-project
+POST /api/context/sync?name=my-project
+POST /api/context/clear?name=my-project
+```
+
+### Code Search
+
+```
+GET /api/code?q=AuthService&name=my-project
+```
+
+### Config
+
+```
+GET /api/config
+```
+
+### WebSocket
+
+```
+ws://localhost:4321/ws
+```
+
+Receives: `{ "type": "reload", "version": N }`

@@ -5,115 +5,98 @@ description: Get up and running with barkcli in 30 seconds
 
 # Quick Start
 
-## 1. Initialize Your Project
+## 1. Initialize barkcli
 
 ```bash
-cd your-project
 barkcli init
 ```
 
 This creates:
-- `.board/` directory for metadata
-- `config.json` with default settings
-- `.gitignore` for metadata files
+- `.board/` directory
+- `.board/config.json` with default settings
+- `.gitignore` entry for `.board/` metadata
 
-## 2. Create a Board
+## 2. Create a board
 
 ```bash
 barkcli create my-project
 ```
 
-This creates `my-project.board` with default columns.
+Creates `my-project.board` with default columns: `todo`, `doing`, `review`, `done`.
 
-## 3. Add Your First Card
+## 3. Add your first task
 
 ```bash
 barkcli my-project add "Set up CI/CD pipeline" -p high -l devops
 ```
 
-## 4. List Your Cards
+## 4. List tasks
 
 ```bash
 barkcli my-project list
 ```
 
 Output:
+
 ```
-📋 To Do
-  [set-up-cicd] Set up CI/CD pipeline (high) #devops
-
-🔄 Doing
-  (empty)
-
-✅ Done
-  (empty)
+┌─────────────────────────────────────────────────┐
+│ Todo (1)                                        │
+├─────────────────────────────────────────────────┤
+│ ● set-up-ci-cd-pipeline  high  devops           │
+└─────────────────────────────────────────────────┘
 ```
 
-## 5. Move Cards
+## 5. Move tasks through your workflow
 
 ```bash
-# Start working on it
-barkcli my-project move set-up-cicd doing
-
-# Mark as done
-barkcli my-project done set-up-cicd
+barkcli my-project move set-up-ci-cd-pipeline doing
+barkcli my-project move set-up-ci-cd-pipeline review
+barkcli my-project done set-up-ci-cd-pipeline
 ```
 
-## 6. Open the Web UI
+## 6. Start the web app
 
 ```bash
 barkcli serve --open
 ```
 
-This starts the web server and opens the Kanban board in your browser.
+Opens `http://localhost:4321` with a visual kanban board.
 
-## 7. Open the Terminal UI
+## 7. Start the terminal UI
 
 ```bash
 barkcli tui
 ```
 
-This opens the interactive terminal Kanban board.
+Interactive kanban in your terminal with vim-style navigation.
 
 ## Common Workflows
 
 ### Daily Standup
 
 ```bash
-# See what's due today
 barkcli today
-
-# See the calendar view
-barkcli calendar
+barkcli my-project list -c doing
 ```
 
 ### Task Breakdown
 
 ```bash
-# Add a card
-barkcli my-project add "Implement user authentication" -p high
-
-# Link sub-tasks
-barkcli my-project link implement-user-authentication add-login-form --as parent
-barkcli my-project link implement-user-authentication add-session-management --as parent
-barkcli my-project link implement-user-authentication add-password-reset --as parent
-
-# See the tree
+barkcli my-project add "Implement auth" -p high
+barkcli my-project add "Auth: JWT tokens" --as child
+barkcli my-project add "Auth: refresh tokens" --as child
 barkcli my-project tree
 ```
 
 ### Track Progress
 
 ```bash
-# See status across boards
-barkcli status
-
-# Export for reporting
+barkcli my-project status
 barkcli my-project export json
 ```
 
 ## Next Steps
 
-- [Command Reference](/docs/commands) — Full CLI reference
-- [Configuration](/docs/configuration) — Customize barkcli
-- [Examples](/docs/examples) — More workflow examples
+- [Commands Reference](/docs/commands) — Full CLI reference
+- [Core Concepts](/docs/concepts/tasks) — Understand the mental model
+- [Interfaces](/docs/interfaces/cli) — Explore all interfaces
