@@ -13,7 +13,8 @@ export type Route =
   | "orchestrate"
   | "timeline"
   | "settings"
-  | "agent-prompt";
+  | "agent-prompt"
+  | "docs";
 
 const ROUTES: Route[] = [
   "dashboard",
@@ -29,6 +30,7 @@ const ROUTES: Route[] = [
   "timeline",
   "settings",
   "agent-prompt",
+  "docs",
 ];
 
 export function parseRoute(hash: string): Route {

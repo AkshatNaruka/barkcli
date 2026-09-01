@@ -149,6 +149,9 @@ pub async fn run(
         .route("/api/boards/:name", delete(delete_board_handler))
         // Card comments
         .route("/api/board/cards/:card_id/comments", post(add_comment_handler))
+        // Documentation endpoints
+        .route("/api/docs", get(list_docs_handler))
+        .route("/api/docs/:file", get(get_doc_handler))
         .route("/ws", get(ws_handler))
         .fallback_service(ServeDir::new("web/dist").fallback(
             ServeDir::new("vscode-extension/dist") // fallback to old VS Code extension assets
@@ -2669,6 +2672,77 @@ async fn add_comment_handler(
 
     let _ = state.tx.send("reload".to_string());
     Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+// ── Documentation handlers ───────────────────────────────────────────────────
+
+/// List available documentation files (public docs only, no internal/).
+async fn list_docs_handler() -> Result<Json<serde_json::Value>, ServerError> {
+    let docs_dir = std::path::Path::new("docs");
+    let mut docs = Vec::new();
+
+    if docs_dir.is_dir() {
+        let entries = std::fs::read_dir(docs_dir)
+            .map_err(|e| ServerError::internal(format!("failed to read docs dir: {}", e)))?;
+
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                if let Some(name) = path.file_stem().and_then(|n| n.to_str()) {
+                    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+                    // Only serve public .md files, exclude internal/ and other dirs
+                    if ext == "md" && !name.starts_with('.') {
+                        // Read first line for title, or use filename
+                        let title = std::fs::read_to_string(&path)
+                            .ok()
+                            .and_then(|content| {
+                                content.lines().next().map(|line| {
+                                    let t = line.trim_start_matches('#').trim();
+                                    if t.is_empty() { name.to_string() } else { t.to_string() }
+                                })
+                            })
+                            .unwrap_or_else(|| name.to_string());
+
+                        docs.push(serde_json::json!({
+                            "slug": name,
+                            "title": title,
+                        }));
+                    }
+                }
+            }
+        }
+    }
+
+    // Sort alphabetically
+    docs.sort_by(|a, b| {
+        a["slug"].as_str().unwrap_or("").cmp(b["slug"].as_str().unwrap_or(""))
+    });
+
+    Ok(Json(serde_json::json!({ "docs": docs })))
+}
+
+/// Get a single documentation file by slug (e.g. /api/docs/COMMANDS).
+async fn get_doc_handler(
+    Path(file): Path<String>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    // Sanitize: only allow alphanumeric, hyphens, underscores
+    if file.is_empty() || file.len() > 100 || file.contains("..") || file.contains('/') || file.contains('\\') {
+        return Err(ServerError::bad("invalid doc filename"));
+    }
+
+    let path = std::path::Path::new("docs").join(format!("{}.md", file));
+
+    if !path.exists() {
+        return Err(ServerError::bad(format!("doc '{}' not found", file)));
+    }
+
+    let content = std::fs::read_to_string(&path)
+        .map_err(|e| ServerError::internal(format!("failed to read doc: {}", e)))?;
+
+    Ok(Json(serde_json::json!({
+        "slug": file,
+        "content": content,
+    })))
 }
 
 #[cfg(test)]

@@ -41,6 +41,7 @@ import { MemoryView } from "./components/MemoryView";
 import { SpecsView } from "./components/SpecsView";
 import { OrchestrateView } from "./components/OrchestrateView";
 import { TimelineView } from "./components/TimelineView";
+import { DocsView } from "./components/DocsView";
 
 const NAV_ITEMS: { route: Route; label: string }[] = [
   { route: "dashboard", label: "Dashboard" },
@@ -56,6 +57,7 @@ const NAV_ITEMS: { route: Route; label: string }[] = [
   { route: "timeline", label: "Timeline" },
   { route: "settings", label: "Settings" },
   { route: "agent-prompt", label: "AI Agent" },
+  { route: "docs", label: "Docs" },
 ];
 
 function CardHistoryModal({ cardId, entries, onClose }: { cardId: string; entries: any[]; onClose: () => void }) {
@@ -545,6 +547,9 @@ export function App() {
         )}
         {route === "agent-prompt" && (
           <AgentPromptView />
+        )}
+        {route === "docs" && (
+          <DocsView />
         )}
       </main>
 

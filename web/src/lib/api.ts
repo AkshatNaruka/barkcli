@@ -823,3 +823,30 @@ export async function addComment(cardId: string, author: string, text: string, n
     return res.ok;
   } catch { return false; }
 }
+
+// ── Documentation API ──
+
+export interface DocEntry {
+  slug: string;
+  title: string;
+}
+
+export async function fetchDocs(): Promise<DocEntry[]> {
+  if (isVscode) return [];
+  try {
+    const res = await fetch(withToken("/api/docs"));
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.docs || [];
+  } catch { return []; }
+}
+
+export async function fetchDoc(slug: string): Promise<string | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(withToken(`/api/docs/${encodeURIComponent(slug)}`));
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.content || null;
+  } catch { return null; }
+}
