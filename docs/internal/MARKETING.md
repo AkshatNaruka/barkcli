@@ -21,7 +21,7 @@
 > 
 > Open source. MIT licensed. Built in Rust.
 > 
-> 🧵 Thread ↓
+> Thread below ↓
 
 **Post 2:**
 > Why barkcli?

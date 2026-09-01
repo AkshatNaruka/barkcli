@@ -1,6 +1,6 @@
 # Shipping Specs — barkcli Market Readiness
 
-> Status: ✅ Complete | 🔄 In Progress | ❌ Not Started
+> Status: [DONE] Complete | [WIP] In Progress | [ ] Not Started
 > Each checkbox must be verified before marking complete.
 
 ---

@@ -1,6 +1,6 @@
 # Specs: `barkcli` v1.0 Enhancement
 
-> Development specs. Status: ✅ Complete
+> Development specs. Status: [DONE] Complete
 
 ---
 
@@ -34,7 +34,7 @@ barkcli --version
 barkcli init && barkcli create test && barkcli test add "hello" && barkcli test list
 ```
 All works from a fresh machine in under 30 seconds.
-**Status: ✅ DONE**
+**Status: [DONE] DONE**
 
 ---
 
@@ -52,7 +52,7 @@ All works from a fresh machine in under 30 seconds.
 - [x] **B6**: UI polish — Unicode borders, priority dots (●), label tags, card count badges
 - [x] **B7**: Status bar with mode indicator (NORMAL, FILTER, ADD, EDIT, COMMAND, DETAIL)
 
-**Status: ✅ DONE**
+**Status: [DONE] DONE**
 
 ---
 
@@ -82,7 +82,7 @@ All works from a fresh machine in under 30 seconds.
 - [x] **C18**: VS Code API shim — same `web/` app works in VS Code extension
 - [x] **C19**: Build output → served by `barkcli-server` via `ServeDir`
 
-**Status: ✅ DONE**
+**Status: [DONE] DONE**
 
 ---
 
@@ -98,7 +98,7 @@ All works from a fresh machine in under 30 seconds.
 - [x] **D4**: `barkcli diff [--board <name>] [<ref>]` — shows added, removed, moved cards vs git ref
 - [x] **D5**: `barkcli pr-summary [--board <name>] [--base <branch>]` — markdown table for PRs
 
-**Status: ✅ DONE**
+**Status: [DONE] DONE**
 
 ---
 
@@ -113,7 +113,7 @@ All works from a fresh machine in under 30 seconds.
 - [x] **E3**: `boardEditor.ts` fallback to old webview when new build not present
 - [x] **E4**: Package.json `build:sync-web` copies web/dist into extension dist
 
-**Status: ✅ DONE**
+**Status: [DONE] DONE**
 
 ---
 
@@ -129,4 +129,4 @@ All works from a fresh machine in under 30 seconds.
 - [x] **F4**: `barkcli validate` on current board < 5ms
 - [x] **F5**: `barkcli serve` startup < 100ms
 
-**Status: ✅ DONE**
+**Status: [DONE] DONE**

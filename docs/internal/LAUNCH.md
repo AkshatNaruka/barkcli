@@ -163,4 +163,4 @@ Ask me anything!
 
 7/7 Built in Rust. Single binary. VS Code extension included.
     Try it: curl -fsSL https://barkcli.vercel.app | sh
-    ⭐ on GitHub: https://github.com/AkshatNaruka/barkcli
+    Star on GitHub: https://github.com/AkshatNaruka/barkcli

@@ -12,7 +12,7 @@ typography-driven layout with intentional spacing.
 ## Color Palette
 
 ```
-White + black primary palette. Brown accent matches the 🐶 icon.
+White + black primary palette. Brown accent matches the barkcli icon.
 
 Backgrounds
   --bg-primary:      #FFFFFF    Page background
@@ -24,7 +24,7 @@ Text
   --text-body:       #333333    Body text
   --text-muted:      #777777    Captions, secondary labels
 
-Brown accent (🐶 dog brown)
+Brown accent (barkcli brand brown)
   --brown-700:       #6B4226    Dark brown — used sparingly for emphasis
   --brown-600:       #8B5E3C    Primary accent — CTAs, links, active states
   --brown-400:       #B8845C    Hover states, secondary accents
@@ -84,7 +84,7 @@ Terminal blocks:        rounded-2xl (16px)
 ```
 ┌─ border: 1px solid var(--border) ─────────────────┐
 │ ┌──┐                                               │
-│ │🗂│  Feature Title                                 │ ← icon + heading
+│ │FC│  Feature Title                                 │ ← icon + heading
 │ └──┘                                               │
 │ Description text in --text-body                    │
 │                                                    │

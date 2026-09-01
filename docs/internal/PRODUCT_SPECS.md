@@ -18,7 +18,7 @@
 - [x] **P1.5**: License key generator script (for selling keys)
 - [x] **P1.6**: Valid keys shipped as a const hash set in the binary
 
-**Status: ✅ DONE**
+**Status: [DONE] DONE**
 
 ---
 
@@ -36,7 +36,7 @@
 - [x] **P2.6**: `--dry-run` flag to preview without saving
 - [x] **P2.7**: Supports `--model` flag (default: gpt-4o-mini)
 
-**Status: ✅ DONE**
+**Status: [DONE] DONE**
 
 ### Acceptance
 ```
@@ -61,7 +61,7 @@ barkcli ai "ship MVP in 2 weeks" --dry-run
 - [x] **P3.4**: `--json` flag for machine-readable output
 - [x] **P3.5**: Groups by assignee and priority
 
-**Status: ✅ DONE**
+**Status: [DONE] DONE**
 
 ### Acceptance
 ```
@@ -85,7 +85,7 @@ barkcli report --since "7 days ago"
 - [x] **P4.3**: Outputs markdown grouped by added/completed
 - [x] **P4.4**: Detects last git tag automatically as the `since` ref
 
-**Status: ✅ DONE**
+**Status: [DONE] DONE**
 
 ### Acceptance
 ```
@@ -109,7 +109,7 @@ barkcli changelog
 - [x] **P5.3**: Progress bar (███░░░) in terminal
 - [x] **P5.4**: Per-column and per-priority breakdown
 
-**Status: ✅ DONE**
+**Status: [DONE] DONE**
 
 ### Acceptance
 ```
@@ -133,7 +133,7 @@ barkcli stats
 - [x] **P6.4**: Ship 5 templates: saas-launch(15), mobile-app(7), fundraising(7), hiring(6), open-source(8)
 - [x] **P6.5**: Templates use board-core::Card APIs for native integration
 
-**Status: ✅ DONE**
+**Status: [DONE] DONE**
 
 ### Acceptance
 ```
@@ -159,7 +159,7 @@ source (MIT); monetization is deferred.
 - [x] **P7.5**: Nav with Features, GitHub, theme toggle
 - [~] **P7.6**: Pricing section — **removed**: not monetizing initially
 
-**Status: ✅ DONE (pricing deferred)**
+**Status: [DONE] DONE (pricing deferred)**
 
 ### Acceptance
 Landing page at barkcli.vercel.app presents the product, install command and
@@ -175,7 +175,7 @@ GitHub link. No pricing or checkout.
 - [x] **P8.2**: `barkcli sprint end` — moves remaining to next sprint, shows velocity
 - [x] **P8.3**: Sprint history stored for velocity calculations
 
-**Status: ✅ DONE**
+**Status: [DONE] DONE**
 
 ---
 
@@ -187,7 +187,7 @@ GitHub link. No pricing or checkout.
 - [x] **P9.2**: `barkcli sync --pull` — imports GitHub Issues as cards
 - [x] **P9.3**: Two-way link stored in card metadata (`synced` label + `gh:<number>` label)
 
-**Status: ✅ DONE**
+**Status: [DONE] DONE**
 
 ---
 
@@ -202,7 +202,7 @@ GitHub link. No pricing or checkout.
 - [x] **P10.5**: `--effort N`, `--area <name>`, `--ac "<text>"` on add/update; `--no-effort`, `--no-area`, `--rm-ac` on update
 - [x] **P10.6**: `show` renders links/AC/effort/area
 
-**Status: ✅ DONE**
+**Status: [DONE] DONE**
 
 ---
 
@@ -220,7 +220,7 @@ GitHub link. No pricing or checkout.
 - [x] **P11.8**: `barkcli code <query>` — symbol search → files → linked cards
 - [x] **P11.9**: `clean` prunes orphaned context sidecars
 
-**Status: ✅ DONE**
+**Status: [DONE] DONE**
 
 ---
 
@@ -236,7 +236,7 @@ GitHub link. No pricing or checkout.
 - [x] **P12.6**: `barkcli ai` refactored onto shared provider (env/model overrides preserved)
 - [x] **P12.7**: Session→card linking: opencode plugin captures tool file paths; `matched_card_ids` computed on append; card sidecar records session ids
 
-**Status: ✅ DONE**
+**Status: [DONE] DONE**
 
 ---
 
@@ -251,7 +251,7 @@ GitHub link. No pricing or checkout.
 - [x] **P13.5**: Web Activity modal (history + sessions timeline); card menu gains Activity
 - [x] **P13.6**: Server: `/api/history`, `/api/sessions`, `/api/context`, `POST /api/context/sync`, `/api/code`; VS Code bridge: getCardContext/getHistory/getSessions/syncContext/openFile
 
-**Status: ✅ DONE**
+**Status: [DONE] DONE**
 
 ---
 
