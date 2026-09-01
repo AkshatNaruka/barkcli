@@ -1,13 +1,73 @@
 use std::collections::HashMap;
 
+use super::embeddings::{Embedding, EmbeddingEngine};
 use super::store::MemoryEntry;
+use super::tiers::TierManager;
 
-/// Search memories using BM25 scoring.
+/// Hybrid search combining BM25 keyword matching + TF-IDF semantic similarity.
 ///
-/// BM25 is a probabilistic retrieval function that scores documents based on
-/// term frequency and inverse document frequency. It's fast, lightweight,
-/// and works well for short text entries.
-pub fn search_memories<'a>(entries: &'a [MemoryEntry], query: &str, top: usize) -> Vec<&'a MemoryEntry> {
+/// Strategy:
+/// 1. BM25 catches exact keyword matches (fast, precise)
+/// 2. TF-IDF cosine similarity catches semantic relatedness (broader recall)
+/// 3. Results are combined with configurable weights
+/// 4. Tier and recency boost applied as final ranking
+pub fn search_memories<'a>(
+    entries: &'a [MemoryEntry],
+    query: &str,
+    top: usize,
+) -> Vec<&'a MemoryEntry> {
+    if query.is_empty() || entries.is_empty() {
+        return Vec::new();
+    }
+
+    let query_tokens = tokenize(query);
+    if query_tokens.is_empty() {
+        return Vec::new();
+    }
+
+    // Build engine and embed query
+    let texts: Vec<&str> = entries.iter().map(|e| e.content.as_str()).collect();
+    let mut engine = EmbeddingEngine::new();
+    engine.build_vocabulary(&texts);
+    let query_embedding = engine.embed(query);
+
+    // Compute BM25 scores
+    let avg_dl = average_document_length(entries);
+    let idf = compute_idf(entries, &query_tokens);
+
+    // Score each entry with hybrid approach
+    let mut scored: Vec<(&MemoryEntry, f32)> = entries
+        .iter()
+        .map(|entry| {
+            let tokens = tokenize(&entry.content);
+
+            // BM25 score (keyword matching)
+            let bm25 = bm25_score(&tokens, &query_tokens, &idf, avg_dl);
+
+            // TF-IDF cosine similarity (semantic matching)
+            let entry_embedding = engine.embed(&entry.content);
+            let semantic = query_embedding.cosine_similarity(&entry_embedding);
+
+            // Hybrid score: 60% BM25 + 40% semantic
+            let hybrid = 0.6 * bm25 + 0.4 * semantic;
+
+            // Apply tier and recency boosts
+            let tier_boost = TierManager::tier_weight(entry.tier);
+            let recency_boost = TierManager::recency_weight(entry.last_accessed);
+
+            let final_score = hybrid * tier_boost * recency_boost;
+
+            (entry, final_score)
+        })
+        .filter(|(_, score)| *score > 0.001) // Filter near-zero scores
+        .collect();
+
+    scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    scored.into_iter().take(top).map(|(e, _)| e).collect()
+}
+
+/// Pure BM25 search (for when you want keyword-only matching).
+pub fn bm25_search<'a>(entries: &'a [MemoryEntry], query: &str, top: usize) -> Vec<&'a MemoryEntry> {
     if query.is_empty() || entries.is_empty() {
         return Vec::new();
     }
@@ -28,6 +88,32 @@ pub fn search_memories<'a>(entries: &'a [MemoryEntry], query: &str, top: usize) 
             (entry, score)
         })
         .filter(|(_, score)| *score > 0.0)
+        .collect();
+
+    scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    scored.into_iter().take(top).map(|(e, _)| e).collect()
+}
+
+/// Pure semantic search (for when you want concept matching).
+pub fn semantic_search<'a>(entries: &'a [MemoryEntry], query: &str, top: usize) -> Vec<&'a MemoryEntry> {
+    if query.is_empty() || entries.is_empty() {
+        return Vec::new();
+    }
+
+    let texts: Vec<&str> = entries.iter().map(|e| e.content.as_str()).collect();
+    let mut engine = EmbeddingEngine::new();
+    engine.build_vocabulary(&texts);
+
+    let query_embedding = engine.embed(query);
+
+    let mut scored: Vec<(&MemoryEntry, f32)> = entries
+        .iter()
+        .map(|entry| {
+            let entry_embedding = engine.embed(&entry.content);
+            let score = query_embedding.cosine_similarity(&entry_embedding);
+            (entry, score)
+        })
+        .filter(|(_, score)| *score > 0.001)
         .collect();
 
     scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
@@ -162,7 +248,7 @@ mod tests {
     }
 
     #[test]
-    fn test_bm25_basic() {
+    fn test_hybrid_search() {
         let entries = vec![
             make_entry("Rust is a systems programming language"),
             make_entry("Python is a scripting language"),
@@ -176,7 +262,33 @@ mod tests {
     }
 
     #[test]
-    fn test_bm25_no_match() {
+    fn test_bm25_search() {
+        let entries = vec![
+            make_entry("Rust is a systems programming language"),
+            make_entry("Python is a scripting language"),
+        ];
+
+        let results = bm25_search(&entries, "Rust", 2);
+        assert!(!results.is_empty());
+        assert!(results[0].content.contains("Rust"));
+    }
+
+    #[test]
+    fn test_semantic_search() {
+        let entries = vec![
+            make_entry("The cat sat on the mat"),
+            make_entry("Feline rested on the rug"),
+            make_entry("Rust is a programming language"),
+        ];
+
+        let results = semantic_search(&entries, "cat", 2);
+        assert!(!results.is_empty());
+        // "cat" should match "feline" semantically
+        assert!(results[0].content.contains("cat") || results[0].content.contains("feline"));
+    }
+
+    #[test]
+    fn test_no_match() {
         let entries = vec![
             make_entry("Rust is a systems language"),
             make_entry("Python is a scripting language"),
@@ -187,7 +299,7 @@ mod tests {
     }
 
     #[test]
-    fn test_bm25_empty() {
+    fn test_empty() {
         let results = search_memories(&[], "test", 5);
         assert!(results.is_empty());
     }

@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::storage::board_dir::find_board_dir;
 
+use super::tiers::TierManager;
+
 /// Memory tier determines how memories are managed and prioritized.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -129,17 +131,65 @@ impl MemoryStore {
         })
     }
 
-    /// Add a memory entry.
+    /// Add a memory entry with automatic classification.
     pub fn add(&mut self, mut entry: MemoryEntry) {
+        // Auto-classify tier if not already set appropriately
+        if entry.source.is_some() {
+            let classified = TierManager::classify_entry(
+                &entry.content,
+                &entry.tags,
+                entry.source.as_deref().unwrap_or(""),
+            );
+            // Only override if classification suggests a more appropriate tier
+            if classified as u8 > entry.tier as u8 {
+                entry.tier = classified;
+            }
+        }
+
         // Evict if tier is full
         let tier = entry.tier;
         self.evict_if_needed(tier);
         self.memory.entries.push(entry);
     }
 
-    /// Search memories by query text.
+    /// Promote entries that meet criteria to higher tiers.
+    pub fn promote_entries(&mut self) -> usize {
+        let mut promoted = 0;
+        let entries_clone: Vec<MemoryEntry> = self.memory.entries.clone();
+
+        for (i, entry) in entries_clone.iter().enumerate() {
+            if let Some(new_tier) = TierManager::should_promote(entry) {
+                if new_tier as u8 > entry.tier as u8 {
+                    self.memory.entries[i].tier = new_tier;
+                    promoted += 1;
+                }
+            }
+        }
+        promoted
+    }
+
+    /// Evict entries that should be removed based on age and access patterns.
+    pub fn evict_stale(&mut self) -> usize {
+        let before = self.memory.entries.len();
+        self.memory.entries.retain(|entry| {
+            !TierManager::should_evict(entry, entry.tier)
+        });
+        before - self.memory.entries.len()
+    }
+
+    /// Search memories by query text (hybrid BM25 + semantic).
     pub fn search(&self, query: &str, top: usize) -> Vec<&MemoryEntry> {
         crate::memory::search::search_memories(&self.memory.entries, query, top)
+    }
+
+    /// Pure keyword search (BM25 only).
+    pub fn search_keyword(&self, query: &str, top: usize) -> Vec<&MemoryEntry> {
+        crate::memory::search::bm25_search(&self.memory.entries, query, top)
+    }
+
+    /// Pure semantic search (TF-IDF cosine similarity only).
+    pub fn search_semantic(&self, query: &str, top: usize) -> Vec<&MemoryEntry> {
+        crate::memory::search::semantic_search(&self.memory.entries, query, top)
     }
 
     /// Get memories for a specific tier.
