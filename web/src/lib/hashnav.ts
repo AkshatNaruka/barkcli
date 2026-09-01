@@ -8,6 +8,10 @@ export type Route =
   | "code"
   | "activity"
   | "sprints"
+  | "memory"
+  | "specs"
+  | "orchestrate"
+  | "timeline"
   | "settings"
   | "agent-prompt";
 
@@ -19,6 +23,10 @@ const ROUTES: Route[] = [
   "code",
   "activity",
   "sprints",
+  "memory",
+  "specs",
+  "orchestrate",
+  "timeline",
   "settings",
   "agent-prompt",
 ];

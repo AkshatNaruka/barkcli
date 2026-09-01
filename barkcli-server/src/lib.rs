@@ -11,7 +11,7 @@ use axum::{
     http::{header, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Json, Response},
-    routing::{get, post, put},
+    routing::{delete, get, post, put},
     Router,
 };
 use chrono::{DateTime, Local, Utc};
@@ -25,6 +25,9 @@ use barkcli_core::agent::{
     VelocityTracker,
 };
 use barkcli_core::code::SymbolIndex;
+use barkcli_core::memory::store::{MemoryEntry, MemoryStore, MemoryTier, ProjectFact};
+use barkcli_core::models::card::Comment;
+use barkcli_core::models::spec::{Requirement, RequirementStatus, Spec, SpecStatus};
 use barkcli_core::models::{Board, Sprint};
 use barkcli_core::storage::board_file;
 use barkcli_core::storage::board_file::{list_board_files, read_board};
@@ -60,6 +63,9 @@ pub async fn run(
     host: &str,
     token: Option<String>,
 ) -> Result<()> {
+    // Auto-init: create .board/ if it doesn't exist
+    auto_init().await;
+
     let (tx, _) = broadcast::channel::<String>(16);
 
     let state = Arc::new(AppState {
@@ -102,6 +108,47 @@ pub async fn run(
         .route("/api/orchestrate/next", post(orchestrate_next_handler))
         .route("/api/orchestrate/cycle", post(orchestrate_cycle_handler))
         .route("/api/orchestrate/status", get(orchestrate_status_handler))
+        // Memory endpoints
+        .route("/api/memory", get(list_memory_handler).post(add_memory_handler))
+        .route("/api/memory/:id", delete(delete_memory_handler))
+        .route("/api/memory/stats", get(memory_stats_handler))
+        .route("/api/memory/fact", post(add_fact_handler))
+        .route("/api/memory/facts", get(list_facts_handler))
+        // Specs endpoints
+        .route("/api/specs", get(list_specs_handler).post(create_spec_handler))
+        .route("/api/specs/coverage", get(specs_coverage_handler))
+        .route(
+            "/api/specs/:spec_id",
+            get(get_spec_handler)
+                .put(update_spec_handler)
+                .delete(delete_spec_handler),
+        )
+        .route("/api/specs/:spec_id/requirements", post(add_requirement_handler))
+        .route(
+            "/api/specs/:spec_id/requirements/:req_id",
+            put(update_requirement_handler),
+        )
+        .route("/api/specs/:spec_id/trace", get(trace_spec_handler))
+        .route("/api/specs/scan-stale", post(scan_stale_handler))
+        // Checkpoint endpoints
+        .route("/api/checkpoints", get(list_checkpoints_handler).post(save_checkpoint_handler))
+        .route("/api/checkpoints/:id/restore", post(restore_checkpoint_handler))
+        // Undo/Diff/Blame endpoints
+        .route("/api/undo", post(undo_handler))
+        .route("/api/diff", get(diff_handler))
+        .route("/api/blame/:card_id", get(blame_handler))
+        .route("/api/snapshot", post(snapshot_handler))
+        // Import/Export endpoints
+        .route("/api/export", get(export_handler))
+        .route("/api/import", post(import_handler))
+        // Validate/Doctor endpoints
+        .route("/api/validate", get(validate_handler))
+        .route("/api/doctor", post(doctor_handler))
+        // Board CRUD
+        .route("/api/boards/create", post(create_board_handler))
+        .route("/api/boards/:name", delete(delete_board_handler))
+        // Card comments
+        .route("/api/board/cards/:card_id/comments", post(add_comment_handler))
         .route("/ws", get(ws_handler))
         .fallback_service(ServeDir::new("web/dist").fallback(
             ServeDir::new("vscode-extension/dist") // fallback to old VS Code extension assets
@@ -149,6 +196,61 @@ pub async fn run(
         .context("server error")?;
 
     Ok(())
+}
+
+/// Auto-initialize `.board/` directory and create a default board if needed.
+async fn auto_init() {
+    let root = match barkcli_core::storage::board_dir::find_project_root() {
+        Ok(dir) => dir,
+        Err(_) => {
+            // No project root found, try to init from CWD
+            let cwd = std::env::current_dir().unwrap_or_default();
+            let board_dir = cwd.join(".board");
+            if !board_dir.exists() {
+                if let Ok(()) = std::fs::create_dir_all(&board_dir) {
+                    let config = barkcli_core::models::Config {
+                        version: 1,
+                        default_board: None,
+                        default_columns: vec!["todo".into(), "doing".into(), "review".into(), "done".into()],
+                        default_labels: vec!["bug".into(), "feature".into(), "urgent".into()],
+                        priorities: vec!["low".into(), "medium".into(), "high".into()],
+                        ai: None,
+                    };
+                    let config_json = serde_json::to_string_pretty(&config).unwrap_or_default();
+                    let _ = std::fs::write(board_dir.join("config.json"), config_json);
+
+                    // Create .gitignore
+                    let _ = std::fs::write(
+                        board_dir.join(".gitignore"),
+                        "history/\nsessions/\ncontext/\nundo/\nsnapshots/\nlocks/\nmemory/\n",
+                    );
+
+                    eprintln!("barkcli: initialized .board/ directory");
+                }
+            }
+            return;
+        }
+    };
+
+    // Check if any boards exist
+    let boards = list_board_files().unwrap_or_default();
+    if boards.is_empty() {
+        // Create a default board
+        let board = Board {
+            title: "My Project".into(),
+            description: Some("Default board created by barkcli serve".into()),
+            columns: vec![
+                barkcli_core::models::Column { id: "todo".into(), name: "To Do".into() },
+                barkcli_core::models::Column { id: "doing".into(), name: "Doing".into() },
+                barkcli_core::models::Column { id: "review".into(), name: "Review".into() },
+                barkcli_core::models::Column { id: "done".into(), name: "Done".into() },
+            ],
+            cards: vec![],
+        };
+        if let Ok(()) = board_file::write_board("my-project", &board) {
+            eprintln!("barkcli: created default board 'my-project.board'");
+        }
+    }
 }
 
 // ── Security middleware ──
@@ -789,25 +891,45 @@ async fn watch_board_files(tx: broadcast::Sender<String>, board_name: Option<Str
     let mut watcher: RecommendedWatcher = match Watcher::new(watch_tx, Config::default()) {
         Ok(w) => w, Err(_) => return,
     };
+    // Watch both the project root (for .board files) and .board/ dir (for metadata)
     if let Err(e) = watcher.watch(&board_dir, RecursiveMode::NonRecursive) {
         eprintln!("Failed to watch board directory: {}", e); return;
+    }
+    let board_meta_dir = board_dir.join(".board");
+    if board_meta_dir.exists() {
+        let _ = watcher.watch(&board_meta_dir, RecursiveMode::Recursive);
     }
     for event in watch_rx {
         match event {
             Ok(Event { kind: EventKind::Modify(_) | EventKind::Create(_) | EventKind::Remove(_), paths, .. }) => {
-                for path in paths {
-                    if path.extension().and_then(|e| e.to_str()) == Some("board") {
+                let mut should_reload = false;
+                for path in &paths {
+                    let ext = path.extension().and_then(|e| e.to_str());
+                    // Board files
+                    if ext == Some("board") {
                         if let Some(ref name) = board_name {
                             let expected = format!("{}.board", name);
                             if path.file_name().and_then(|n| n.to_str()) == Some(&expected) {
-                                RELOAD_VERSION.fetch_add(1, Ordering::SeqCst);
-                                let _ = tx.send("reload".to_string());
+                                should_reload = true;
                             }
                         } else {
-                            RELOAD_VERSION.fetch_add(1, Ordering::SeqCst);
-                            let _ = tx.send("reload".to_string());
+                            should_reload = true;
                         }
                     }
+                    // Metadata files (specs, memory, tasks, etc.)
+                    if let Some(path_str) = path.to_str() {
+                        if path_str.contains(".board/") && (
+                            path_str.ends_with(".json") ||
+                            path_str.ends_with(".jsonl") ||
+                            path_str.ends_with(".yaml")
+                        ) {
+                            should_reload = true;
+                        }
+                    }
+                }
+                if should_reload {
+                    RELOAD_VERSION.fetch_add(1, Ordering::SeqCst);
+                    let _ = tx.send("reload".to_string());
                 }
             }
             Err(_) => break,
@@ -1444,6 +1566,1109 @@ async fn orchestrate_status_handler(
             tasks_failed: 0,
         })),
     }
+}
+
+// ── Memory Handlers ──
+
+#[derive(Deserialize)]
+struct MemoryQuery {
+    name: Option<String>,
+    q: Option<String>,
+    tier: Option<String>,
+    limit: Option<usize>,
+}
+
+#[derive(serde::Serialize)]
+struct MemoryListResponse {
+    memories: Vec<MemoryEntry>,
+    total: usize,
+}
+
+async fn list_memory_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<MemoryQuery>,
+) -> Result<Json<MemoryListResponse>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let store = MemoryStore::open(&board_name).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let results = if let Some(ref q) = query.q {
+        let top = query.limit.unwrap_or(50);
+        store.search(q, top).into_iter().cloned().collect()
+    } else if let Some(ref tier_str) = query.tier {
+        let tier = match tier_str.as_str() {
+            "working" => MemoryTier::Working,
+            "short_term" | "short-term" => MemoryTier::ShortTerm,
+            "long_term" | "long-term" => MemoryTier::LongTerm,
+            "external" => MemoryTier::External,
+            _ => return Err(ServerError::bad(format!("invalid tier: {}", tier_str))),
+        };
+        let limit = query.limit.unwrap_or(100);
+        store.by_tier(tier).into_iter().take(limit).cloned().collect()
+    } else {
+        let limit = query.limit.unwrap_or(50);
+        store.recent(limit).into_iter().cloned().collect()
+    };
+
+    let total = store.len();
+    Ok(Json(MemoryListResponse { memories: results, total }))
+}
+
+#[derive(Deserialize)]
+struct AddMemoryRequest {
+    content: String,
+    tier: Option<String>,
+    tags: Option<Vec<String>>,
+    source: Option<String>,
+}
+
+async fn add_memory_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<BoardQuery>,
+    Json(req): Json<AddMemoryRequest>,
+) -> Result<Json<MemoryEntry>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let mut store = MemoryStore::open(&board_name).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let tier = match req.tier.as_deref().unwrap_or("short_term") {
+        "working" => MemoryTier::Working,
+        "short_term" | "short-term" => MemoryTier::ShortTerm,
+        "long_term" | "long-term" => MemoryTier::LongTerm,
+        "external" => MemoryTier::External,
+        _ => return Err(ServerError::bad("invalid tier")),
+    };
+
+    let mut entry = MemoryEntry::new(&req.content, tier);
+    if let Some(tags) = req.tags {
+        entry.tags = tags;
+    }
+    entry.source = req.source;
+
+    store.add(entry.clone());
+    store.save().map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(entry))
+}
+
+async fn delete_memory_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Query(query): Query<BoardQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let mut store = MemoryStore::open(&board_name).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let before = store.len();
+    store.memory.entries.retain(|e| e.id != id);
+    let removed = store.len() < before;
+
+    store.save().map_err(|e| ServerError::internal(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+
+    Ok(Json(serde_json::json!({ "deleted": removed })))
+}
+
+#[derive(serde::Serialize)]
+struct MemoryStatsResponse {
+    total: usize,
+    by_tier: std::collections::HashMap<String, usize>,
+    facts: usize,
+}
+
+async fn memory_stats_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<BoardQuery>,
+) -> Result<Json<MemoryStatsResponse>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let store = MemoryStore::open(&board_name).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let mut by_tier = std::collections::HashMap::new();
+    for tier in &[MemoryTier::Working, MemoryTier::ShortTerm, MemoryTier::LongTerm, MemoryTier::External] {
+        let count = store.by_tier(*tier).len();
+        by_tier.insert(tier.display_name().to_string(), count);
+    }
+
+    Ok(Json(MemoryStatsResponse {
+        total: store.len(),
+        by_tier,
+        facts: store.memory.project_facts.len(),
+    }))
+}
+
+#[derive(Deserialize)]
+struct AddFactRequest {
+    fact: String,
+    category: Option<String>,
+    confidence: Option<f32>,
+    sources: Option<Vec<String>>,
+}
+
+async fn add_fact_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<BoardQuery>,
+    Json(req): Json<AddFactRequest>,
+) -> Result<Json<ProjectFact>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let mut store = MemoryStore::open(&board_name).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let fact = ProjectFact {
+        fact: req.fact,
+        category: req.category.unwrap_or_else(|| "convention".into()),
+        confidence: req.confidence.unwrap_or(0.8),
+        sources: req.sources.unwrap_or_default(),
+        created_at: chrono::Utc::now(),
+    };
+
+    store.add_fact(fact.clone());
+    store.save().map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(fact))
+}
+
+#[derive(Deserialize)]
+struct FactsQuery {
+    name: Option<String>,
+    category: Option<String>,
+}
+
+#[derive(serde::Serialize)]
+struct FactsListResponse {
+    facts: Vec<ProjectFact>,
+}
+
+async fn list_facts_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<FactsQuery>,
+) -> Result<Json<FactsListResponse>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let store = MemoryStore::open(&board_name).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let facts = if let Some(ref cat) = query.category {
+        store.facts_by_category(cat).into_iter().cloned().collect()
+    } else {
+        store.memory.project_facts.clone()
+    };
+
+    Ok(Json(FactsListResponse { facts }))
+}
+
+// ── Specs Handlers ──
+
+#[derive(Deserialize)]
+struct SpecsQuery {
+    name: Option<String>,
+}
+
+#[derive(serde::Serialize)]
+struct SpecsListResponse {
+    specs: Vec<Spec>,
+}
+
+async fn list_specs_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<SpecsQuery>,
+) -> Result<Json<SpecsListResponse>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let specs = barkcli_core::storage::specs::read_specs(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(SpecsListResponse { specs }))
+}
+
+#[derive(Deserialize)]
+struct CreateSpecRequest {
+    title: String,
+    description: Option<String>,
+    priority: Option<String>,
+    tags: Option<Vec<String>>,
+}
+
+async fn create_spec_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<SpecsQuery>,
+    Json(req): Json<CreateSpecRequest>,
+) -> Result<Json<Spec>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let id = barkcli_core::util::slug::to_slug(&req.title);
+    let mut spec = Spec::new(&id, &req.title);
+    if let Some(desc) = req.description {
+        spec.description = Some(desc);
+    }
+    if let Some(p) = req.priority {
+        spec.priority = p;
+    }
+    if let Some(tags) = req.tags {
+        spec.tags = tags;
+    }
+
+    barkcli_core::storage::specs::upsert_spec(&board_name, spec.clone())
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(spec))
+}
+
+async fn get_spec_handler(
+    State(state): State<Arc<AppState>>,
+    Path(spec_id): Path<String>,
+    Query(query): Query<SpecsQuery>,
+) -> Result<Json<Spec>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    barkcli_core::storage::specs::get_spec(&board_name, &spec_id)
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .map(Json)
+        .ok_or_else(|| ServerError::bad(format!("spec '{}' not found", spec_id)))
+}
+
+#[derive(Deserialize)]
+struct UpdateSpecRequest {
+    status: Option<String>,
+    priority: Option<String>,
+    description: Option<String>,
+    title: Option<String>,
+}
+
+async fn update_spec_handler(
+    State(state): State<Arc<AppState>>,
+    Path(spec_id): Path<String>,
+    Query(query): Query<SpecsQuery>,
+    Json(req): Json<UpdateSpecRequest>,
+) -> Result<Json<Spec>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let mut spec = barkcli_core::storage::specs::get_spec(&board_name, &spec_id)
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .ok_or_else(|| ServerError::bad(format!("spec '{}' not found", spec_id)))?;
+
+    if let Some(s) = req.status {
+        spec.status = SpecStatus::parse(&s).ok_or_else(|| ServerError::bad(format!("invalid status: {}", s)))?;
+    }
+    if let Some(p) = req.priority {
+        spec.priority = p;
+    }
+    if let Some(d) = req.description {
+        spec.description = Some(d);
+    }
+    if let Some(t) = req.title {
+        spec.title = t;
+    }
+    spec.updated_at = chrono::Utc::now();
+
+    barkcli_core::storage::specs::upsert_spec(&board_name, spec.clone())
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(spec))
+}
+
+async fn delete_spec_handler(
+    State(state): State<Arc<AppState>>,
+    Path(spec_id): Path<String>,
+    Query(query): Query<SpecsQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let removed = barkcli_core::storage::specs::remove_spec(&board_name, &spec_id)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "deleted": removed })))
+}
+
+#[derive(Deserialize)]
+struct AddRequirementRequest {
+    title: String,
+    description: Option<String>,
+    acceptance_criteria: Option<Vec<String>>,
+}
+
+async fn add_requirement_handler(
+    State(state): State<Arc<AppState>>,
+    Path(spec_id): Path<String>,
+    Query(query): Query<SpecsQuery>,
+    Json(req): Json<AddRequirementRequest>,
+) -> Result<Json<Requirement>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let mut spec = barkcli_core::storage::specs::get_spec(&board_name, &spec_id)
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .ok_or_else(|| ServerError::bad(format!("spec '{}' not found", spec_id)))?;
+
+    let req_id = format!("req-{}", barkcli_core::util::slug::to_slug(&req.title));
+    let mut requirement = Requirement::new(&req_id, &req.title);
+    if let Some(desc) = req.description {
+        requirement.description = Some(desc);
+    }
+    if let Some(ac) = req.acceptance_criteria {
+        requirement.acceptance_criteria = ac;
+    }
+
+    if !spec.add_requirement(requirement.clone()) {
+        return Err(ServerError::bad(format!("requirement '{}' already exists", req_id)));
+    }
+
+    barkcli_core::storage::specs::upsert_spec(&board_name, spec)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(requirement))
+}
+
+#[derive(Deserialize)]
+struct UpdateRequirementRequest {
+    status: Option<String>,
+    title: Option<String>,
+    description: Option<String>,
+}
+
+async fn update_requirement_handler(
+    State(state): State<Arc<AppState>>,
+    Path((spec_id, req_id)): Path<(String, String)>,
+    Query(query): Query<SpecsQuery>,
+    Json(req): Json<UpdateRequirementRequest>,
+) -> Result<Json<Requirement>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let mut spec = barkcli_core::storage::specs::get_spec(&board_name, &spec_id)
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .ok_or_else(|| ServerError::bad(format!("spec '{}' not found", spec_id)))?;
+
+    let requirement = spec
+        .get_requirement_mut(&req_id)
+        .ok_or_else(|| ServerError::bad(format!("requirement '{}' not found", req_id)))?;
+
+    if let Some(s) = req.status {
+        requirement.status = RequirementStatus::parse(&s)
+            .ok_or_else(|| ServerError::bad(format!("invalid status: {}", s)))?;
+    }
+    if let Some(t) = req.title {
+        requirement.title = t;
+    }
+    if let Some(d) = req.description {
+        requirement.description = Some(d);
+    }
+    requirement.updated_at = chrono::Utc::now();
+
+    let result = requirement.clone();
+
+    barkcli_core::storage::specs::upsert_spec(&board_name, spec)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(result))
+}
+
+#[derive(serde::Serialize)]
+struct TraceResponse {
+    spec_id: String,
+    title: String,
+    requirements: Vec<TraceRequirement>,
+}
+
+#[derive(serde::Serialize)]
+struct TraceRequirement {
+    id: String,
+    title: String,
+    status: String,
+    linked_code: Vec<String>,
+    linked_tests: Vec<String>,
+    linked_tasks: Vec<String>,
+    stale: bool,
+    stale_reason: Option<String>,
+}
+
+async fn trace_spec_handler(
+    State(state): State<Arc<AppState>>,
+    Path(spec_id): Path<String>,
+    Query(query): Query<SpecsQuery>,
+) -> Result<Json<TraceResponse>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let spec = barkcli_core::storage::specs::get_spec(&board_name, &spec_id)
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .ok_or_else(|| ServerError::bad(format!("spec '{}' not found", spec_id)))?;
+
+    let requirements = spec.requirements.iter().map(|r| TraceRequirement {
+        id: r.id.clone(),
+        title: r.title.clone(),
+        status: format!("{:?}", r.status),
+        linked_code: r.linked_code.clone(),
+        linked_tests: r.linked_tests.clone(),
+        linked_tasks: r.linked_tasks.clone(),
+        stale: r.stale,
+        stale_reason: r.stale_reason.clone(),
+    }).collect();
+
+    Ok(Json(TraceResponse {
+        spec_id: spec.id,
+        title: spec.title,
+        requirements,
+    }))
+}
+
+#[derive(serde::Serialize)]
+struct CoverageResponse {
+    total_requirements: usize,
+    implemented: usize,
+    verified: usize,
+    stale: usize,
+    coverage_percent: f64,
+}
+
+async fn specs_coverage_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<SpecsQuery>,
+) -> Result<Json<CoverageResponse>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let cov = barkcli_core::storage::specs::calculate_coverage(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+
+    Ok(Json(CoverageResponse {
+        total_requirements: cov.total_requirements,
+        implemented: cov.implemented,
+        verified: cov.verified,
+        stale: cov.stale,
+        coverage_percent: cov.coverage_percent,
+    }))
+}
+
+#[derive(Deserialize)]
+struct ScanStaleRequest {
+    name: Option<String>,
+    modified_files: Vec<String>,
+}
+
+async fn scan_stale_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ScanStaleRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, req.name)?;
+    let stale_updates = barkcli_core::storage::specs::mark_stale_requirements(&board_name, &req.modified_files)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({
+        "ok": true,
+        "stale_count": stale_updates.len(),
+        "updates": stale_updates.into_iter().map(|(s, r, reason)| {
+            serde_json::json!({ "spec_id": s, "req_id": r, "reason": reason })
+        }).collect::<Vec<_>>(),
+    })))
+}
+
+// ── Checkpoint Handlers ──
+
+#[derive(Deserialize)]
+struct CheckpointQuery {
+    name: Option<String>,
+}
+
+#[derive(serde::Serialize)]
+struct CheckpointEntry {
+    kind: String,
+    id: String,
+    saved_at: String,
+}
+
+#[derive(serde::Serialize)]
+struct CheckpointsListResponse {
+    checkpoints: Vec<CheckpointEntry>,
+}
+
+async fn list_checkpoints_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<CheckpointQuery>,
+) -> Result<Json<CheckpointsListResponse>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let board_dir = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let snap_dir = board_dir.join("snapshots");
+
+    let mut checkpoints = Vec::new();
+
+    if snap_dir.is_dir() {
+        // Manual checkpoints
+        if let Ok(entries) = std::fs::read_dir(&snap_dir) {
+            for entry in entries.filter_map(|e| e.ok()) {
+                let path = entry.path();
+                if path.extension().and_then(|s| s.to_str()) == Some("yaml") {
+                    if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                        let saved_at = std::fs::metadata(&path)
+                            .and_then(|m| m.modified())
+                            .ok()
+                            .map(|t| {
+                                let dt: chrono::DateTime<chrono::Utc> = t.into();
+                                dt.format("%Y-%m-%d %H:%M").to_string()
+                            })
+                            .unwrap_or_else(|| "-".into());
+                        checkpoints.push(CheckpointEntry {
+                            kind: "manual".into(),
+                            id: stem.to_string(),
+                            saved_at,
+                        });
+                    }
+                }
+            }
+        }
+
+        // Auto checkpoints
+        let auto_dir = snap_dir.join("auto");
+        if auto_dir.is_dir() {
+            if let Ok(entries) = std::fs::read_dir(&auto_dir) {
+                for entry in entries.filter_map(|e| e.ok()) {
+                    let path = entry.path();
+                    if path.extension().and_then(|s| s.to_str()) == Some("yaml") {
+                        if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                            let saved_at = std::fs::metadata(&path)
+                                .and_then(|m| m.modified())
+                                .ok()
+                                .map(|t| {
+                                    let dt: chrono::DateTime<chrono::Utc> = t.into();
+                                    dt.format("%Y-%m-%d %H:%M").to_string()
+                                })
+                                .unwrap_or_else(|| "-".into());
+                            checkpoints.push(CheckpointEntry {
+                                kind: "auto".into(),
+                                id: stem.to_string(),
+                                saved_at,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    checkpoints.sort_by(|a, b| a.saved_at.cmp(&b.saved_at));
+    Ok(Json(CheckpointsListResponse { checkpoints }))
+}
+
+#[derive(Deserialize)]
+struct SaveCheckpointRequest {
+    label: Option<String>,
+}
+
+async fn save_checkpoint_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<CheckpointQuery>,
+    Json(req): Json<SaveCheckpointRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let label = req.label.unwrap_or_else(|| {
+        chrono::Local::now().format("%Y%m%d-%H%M%S").to_string()
+    });
+
+    let board_dir = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let snap_dir = board_dir.join("snapshots");
+    std::fs::create_dir_all(&snap_dir).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let board = read_board(&board_name).map_err(|e| ServerError::internal(e.to_string()))?;
+    let yaml = serde_yaml::to_string(&board).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let clean = label.replace(['/', '\\', ':'], "-");
+    let path = snap_dir.join(format!("{}.yaml", clean));
+    std::fs::write(&path, &yaml).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "ok": true, "label": label })))
+}
+
+async fn restore_checkpoint_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Query(query): Query<CheckpointQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let board_dir = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let snap_dir = board_dir.join("snapshots");
+    let clean = id.replace(['/', '\\', ':'], "-");
+
+    // Search in manual and auto dirs
+    let mut yaml_content = None;
+    for candidate in [
+        snap_dir.join(format!("{}.yaml", clean)),
+        snap_dir.join("auto").join(format!("{}.yaml", clean)),
+    ] {
+        if candidate.exists() {
+            yaml_content = Some(std::fs::read_to_string(&candidate)
+                .map_err(|e| ServerError::internal(e.to_string()))?);
+            break;
+        }
+    }
+
+    let yaml = yaml_content.ok_or_else(|| ServerError::bad(format!("checkpoint '{}' not found", id)))?;
+    let board: Board = serde_yaml::from_str(&yaml)
+        .map_err(|e| ServerError::internal(format!("invalid checkpoint YAML: {}", e)))?;
+
+    // Save undo state before restoring
+    let _ = barkcli_core::commands::undo::save_undo_state(&board_name, "checkpoint-restore", None);
+
+    board_file::write_board(&board_name, &board)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "ok": true, "restored": id })))
+}
+
+// ── Undo/Diff/Blame Handlers ──
+
+async fn undo_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<BoardQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let board_dir = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let undo_dir = board_dir.join("undo");
+    let path = undo_dir.join(format!("{}.jsonl", board_name));
+
+    if !path.exists() {
+        return Ok(Json(serde_json::json!({ "ok": false, "message": "nothing to undo" })));
+    }
+
+    let content = std::fs::read_to_string(&path).map_err(|e| ServerError::internal(e.to_string()))?;
+    let entries: Vec<barkcli_core::commands::undo::UndoEntry> = content
+        .lines()
+        .filter_map(|l| serde_json::from_str(l).ok())
+        .collect();
+
+    if entries.is_empty() {
+        return Ok(Json(serde_json::json!({ "ok": false, "message": "nothing to undo" })));
+    }
+
+    let idx = entries.len() - 1;
+    let board: Board = serde_yaml::from_str(&entries[idx].yaml)
+        .map_err(|e| ServerError::internal(format!("invalid undo YAML: {}", e)))?;
+
+    board_file::write_board(&board_name, &board)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+
+    // Remove the last entry
+    let new_entries: Vec<&barkcli_core::commands::undo::UndoEntry> = entries[..idx].iter().collect();
+    let new_content: String = new_entries
+        .iter()
+        .map(|e| format!("{}\n", serde_json::to_string(e).unwrap_or_default()))
+        .collect();
+    std::fs::write(&path, new_content).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({
+        "ok": true,
+        "undid": entries[idx].op,
+        "card_id": entries[idx].card_id,
+    })))
+}
+
+#[derive(serde::Serialize)]
+struct DiffResponse {
+    added: Vec<DiffCard>,
+    removed: Vec<DiffCard>,
+    moved: Vec<DiffMoved>,
+}
+
+#[derive(serde::Serialize)]
+struct DiffCard {
+    id: String,
+    title: String,
+    column: String,
+}
+
+#[derive(serde::Serialize)]
+struct DiffMoved {
+    id: String,
+    title: String,
+    from: String,
+    to: String,
+}
+
+async fn diff_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<BoardQuery>,
+) -> Result<Json<DiffResponse>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let board_dir = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let undo_dir = board_dir.join("undo");
+    let path = undo_dir.join(format!("{}.jsonl", board_name));
+
+    let current = read_board(&board_name).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    if !path.exists() {
+        return Ok(Json(DiffResponse { added: vec![], removed: vec![], moved: vec![] }));
+    }
+
+    let content = std::fs::read_to_string(&path).map_err(|e| ServerError::internal(e.to_string()))?;
+    let entries: Vec<barkcli_core::commands::undo::UndoEntry> = content
+        .lines()
+        .filter_map(|l| serde_json::from_str(l).ok())
+        .collect();
+
+    if let Some(last) = entries.last() {
+        let prev: Board = serde_yaml::from_str(&last.yaml)
+            .map_err(|e| ServerError::internal(format!("invalid undo YAML: {}", e)))?;
+
+        let added: Vec<DiffCard> = current.cards.iter()
+            .filter(|c| !prev.cards.iter().any(|p| p.id == c.id))
+            .map(|c| DiffCard { id: c.id.clone(), title: c.title.clone(), column: c.column.clone() })
+            .collect();
+
+        let removed: Vec<DiffCard> = prev.cards.iter()
+            .filter(|p| !current.cards.iter().any(|c| c.id == p.id))
+            .map(|c| DiffCard { id: c.id.clone(), title: c.title.clone(), column: c.column.clone() })
+            .collect();
+
+        let moved: Vec<DiffMoved> = current.cards.iter()
+            .filter(|c| prev.cards.iter().any(|p| p.id == c.id && p.column != c.column))
+            .filter_map(|c| {
+                prev.cards.iter().find(|p| p.id == c.id).map(|p| DiffMoved {
+                    id: c.id.clone(),
+                    title: c.title.clone(),
+                    from: p.column.clone(),
+                    to: c.column.clone(),
+                })
+            })
+            .collect();
+
+        Ok(Json(DiffResponse { added, removed, moved }))
+    } else {
+        Ok(Json(DiffResponse { added: vec![], removed: vec![], moved: vec![] }))
+    }
+}
+
+#[derive(serde::Serialize)]
+struct BlameEntry {
+    at: String,
+    op: String,
+}
+
+#[derive(serde::Serialize)]
+struct BlameResponse {
+    card_id: String,
+    entries: Vec<BlameEntry>,
+}
+
+async fn blame_handler(
+    State(state): State<Arc<AppState>>,
+    Path(card_id): Path<String>,
+    Query(query): Query<BoardQuery>,
+) -> Result<Json<BlameResponse>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let board_dir = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let undo_dir = board_dir.join("undo");
+    let path = undo_dir.join(format!("{}.jsonl", board_name));
+
+    if !path.exists() {
+        return Ok(Json(BlameResponse { card_id, entries: vec![] }));
+    }
+
+    let content = std::fs::read_to_string(&path).map_err(|e| ServerError::internal(e.to_string()))?;
+    let entries: Vec<BlameEntry> = content
+        .lines()
+        .filter_map(|l| serde_json::from_str::<barkcli_core::commands::undo::UndoEntry>(l).ok())
+        .filter(|e| e.card_id.as_deref() == Some(card_id.as_str()))
+        .map(|e| BlameEntry { at: e.at, op: e.op })
+        .collect();
+
+    Ok(Json(BlameResponse { card_id, entries }))
+}
+
+#[derive(Deserialize)]
+struct SnapshotRequest {
+    name: Option<String>,
+    label: String,
+}
+
+async fn snapshot_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<SnapshotRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, req.name)?;
+    let board_dir = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let snap_dir = board_dir.join("snapshots");
+    std::fs::create_dir_all(&snap_dir).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let board = read_board(&board_name).map_err(|e| ServerError::internal(e.to_string()))?;
+    let yaml = serde_yaml::to_string(&board).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let clean = req.label.replace(['/', '\\', ':'], "-");
+    let path = snap_dir.join(format!("{}.yaml", clean));
+    std::fs::write(&path, &yaml).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "ok": true, "label": req.label })))
+}
+
+// ── Import/Export Handlers ──
+
+#[derive(Deserialize)]
+struct ExportQuery {
+    name: Option<String>,
+    format: Option<String>,
+}
+
+async fn export_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<ExportQuery>,
+) -> Result<Response, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let board = read_board(&board_name).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let format = query.format.unwrap_or_else(|| "yaml".into());
+    let (content, content_type) = match format.as_str() {
+        "json" => {
+            let json = serde_json::to_string_pretty(&board)
+                .map_err(|e| ServerError::internal(e.to_string()))?;
+            (json, "application/json".to_string())
+        }
+        _ => {
+            let yaml = serde_yaml::to_string(&board)
+                .map_err(|e| ServerError::internal(e.to_string()))?;
+            (yaml, "text/yaml".to_string())
+        }
+    };
+
+    let filename = format!("{}.{}", board_name, format);
+    let ct = header::HeaderValue::from_str(&content_type).unwrap();
+    let cd = header::HeaderValue::from_str(&format!("attachment; filename=\"{}\"", filename)).unwrap();
+    Ok((
+        StatusCode::OK,
+        [(header::CONTENT_TYPE, ct), (header::CONTENT_DISPOSITION, cd)],
+        content,
+    ).into_response())
+}
+
+#[derive(Deserialize)]
+struct ImportRequest {
+    yaml: Option<String>,
+    json: Option<String>,
+    name: Option<String>,
+}
+
+async fn import_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ImportRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let is_json = req.json.is_some();
+    let content = req.yaml.or(req.json)
+        .ok_or_else(|| ServerError::bad("either 'yaml' or 'json' field required"))?;
+
+    let board: Board = if is_json {
+        serde_json::from_str(&content)
+            .map_err(|e| ServerError::bad(format!("invalid JSON: {}", e)))?
+    } else {
+        serde_yaml::from_str(&content)
+            .map_err(|e| ServerError::bad(format!("invalid YAML: {}", e)))?
+    };
+
+    if board.columns.is_empty() {
+        return Err(ServerError::bad("board must have at least one column"));
+    }
+
+    let board_name = resolve_board_name(&state, req.name)?;
+    board_file::write_board(&board_name, &board)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "ok": true, "name": board_name, "cards": board.cards.len() })))
+}
+
+// ── Validate/Doctor Handlers ──
+
+#[derive(serde::Serialize)]
+struct ValidateResponse {
+    boards: Vec<ValidateBoardResult>,
+    all_valid: bool,
+}
+
+#[derive(serde::Serialize)]
+struct ValidateBoardResult {
+    name: String,
+    valid: bool,
+    errors: Vec<String>,
+}
+
+async fn validate_handler() -> Result<Json<ValidateResponse>, ServerError> {
+    let boards = list_board_files().map_err(|e| ServerError::internal(e.to_string()))?;
+    let mut results = Vec::new();
+    let mut all_valid = true;
+
+    for name in &boards {
+        let errors = barkcli_core::commands::validate::validate_board(name);
+        if !errors.is_empty() {
+            all_valid = false;
+        }
+        results.push(ValidateBoardResult {
+            name: name.clone(),
+            valid: errors.is_empty(),
+            errors,
+        });
+    }
+
+    Ok(Json(ValidateResponse { boards: results, all_valid }))
+}
+
+#[derive(serde::Serialize)]
+struct DoctorResponse {
+    boards: Vec<DoctorBoardResult>,
+    fixed: usize,
+}
+
+#[derive(serde::Serialize)]
+struct DoctorBoardResult {
+    name: String,
+    errors_before: usize,
+    errors_after: usize,
+    fixed: Vec<String>,
+}
+
+async fn doctor_handler() -> Result<Json<DoctorResponse>, ServerError> {
+    let boards = list_board_files().map_err(|e| ServerError::internal(e.to_string()))?;
+    let mut results = Vec::new();
+    let mut total_fixed = 0;
+
+    for name in &boards {
+        let errors_before = barkcli_core::commands::validate::validate_board(name);
+        let mut fixed = Vec::new();
+
+        if !errors_before.is_empty() {
+            // Try to auto-fix
+            let path = format!("{}.board", name);
+            if let Ok(content) = std::fs::read_to_string(&path) {
+                if let Ok(mut value) = serde_yaml::from_str::<serde_yaml::Value>(&content) {
+                    let mapping = value.as_mapping_mut();
+
+                    // Fix missing title
+                    if let Some(m) = mapping {
+                        if !m.contains_key("title") {
+                            let title = name.replace(['-', '_'], " ");
+                            m.insert(
+                                serde_yaml::Value::String("title".into()),
+                                serde_yaml::Value::String(title),
+                            );
+                            fixed.push("added missing 'title'".into());
+                        }
+
+                        // Fix empty columns
+                        if let Some(cols) = m.get("columns").and_then(|c| c.as_sequence()) {
+                            if cols.is_empty() {
+                                if let Some(cols_mut) = m.get_mut("columns").and_then(|c| c.as_sequence_mut()) {
+                                    cols_mut.push(serde_yaml::Value::Mapping(serde_yaml::Mapping::from_iter([
+                                        (serde_yaml::Value::String("id".into()), serde_yaml::Value::String("todo".into())),
+                                        (serde_yaml::Value::String("name".into()), serde_yaml::Value::String("To Do".into())),
+                                    ])));
+                                    fixed.push("added default 'todo' column".into());
+                                }
+                            }
+                        }
+                    }
+
+                    if !fixed.is_empty() {
+                        let new_yaml = serde_yaml::to_string(&value)
+                            .map_err(|e| ServerError::internal(e.to_string()))?;
+                        std::fs::write(&path, &new_yaml)
+                            .map_err(|e| ServerError::internal(e.to_string()))?;
+                        total_fixed += fixed.len();
+                    }
+                }
+            }
+        }
+
+        let errors_after = barkcli_core::commands::validate::validate_board(name);
+        results.push(DoctorBoardResult {
+            name: name.clone(),
+            errors_before: errors_before.len(),
+            errors_after: errors_after.len(),
+            fixed,
+        });
+    }
+
+    Ok(Json(DoctorResponse { boards: results, fixed: total_fixed }))
+}
+
+// ── Board CRUD Handlers ──
+
+#[derive(Deserialize)]
+struct CreateBoardRequest {
+    title: String,
+    description: Option<String>,
+    columns: Option<Vec<String>>,
+}
+
+async fn create_board_handler(
+    Json(req): Json<CreateBoardRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let name = barkcli_core::util::slug::to_slug(&req.title);
+    if name.is_empty() {
+        return Err(ServerError::bad("board name cannot be empty"));
+    }
+
+    let columns: Vec<String> = req.columns.unwrap_or_else(|| {
+        vec!["todo".into(), "doing".into(), "review".into(), "done".into()]
+    });
+
+    let board = Board {
+        title: req.title,
+        description: req.description,
+        columns: columns.iter().map(|c| barkcli_core::models::Column {
+            id: c.clone(),
+            name: c.clone(),
+        }).collect(),
+        cards: vec![],
+    };
+
+    board_file::write_board(&name, &board)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+
+    Ok(Json(serde_json::json!({ "ok": true, "name": name })))
+}
+
+async fn delete_board_handler(
+    Path(name): Path<String>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let name = sanitize_name(&name)?;
+    let path = board_file::board_path(&name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+
+    if !path.exists() {
+        return Err(ServerError::bad(format!("board '{}' not found", name)));
+    }
+
+    std::fs::remove_file(&path).map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(serde_json::json!({ "deleted": true })))
+}
+
+// ── Card Comment Handler ──
+
+#[derive(Deserialize)]
+struct AddCommentRequest {
+    author: String,
+    text: String,
+}
+
+async fn add_comment_handler(
+    State(state): State<Arc<AppState>>,
+    Path(card_id): Path<String>,
+    Query(query): Query<BoardQuery>,
+    Json(req): Json<AddCommentRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let mut board = read_board(&board_name).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let card = board.cards.iter_mut().find(|c| c.id == card_id)
+        .ok_or_else(|| ServerError::bad(format!("card '{}' not found", card_id)))?;
+
+    let comment = Comment {
+        author: req.author,
+        text: req.text,
+        at: Utc::now(),
+    };
+    card.comments.push(comment);
+    card.updated_at = chrono::Utc::now();
+
+    board_file::write_board(&board_name, &board)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "ok": true })))
 }
 
 #[cfg(test)]

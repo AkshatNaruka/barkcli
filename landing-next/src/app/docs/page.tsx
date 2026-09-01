@@ -9,6 +9,8 @@ import {
   Zap,
   ChevronRight,
   HelpCircle,
+  Globe,
+  Code2,
 } from "lucide-react";
 
 const sections = [
@@ -29,6 +31,18 @@ const sections = [
     description: "CLI, Terminal UI, Web App, and VS Code extension guides.",
     href: "/docs/interfaces",
     icon: Monitor,
+  },
+  {
+    title: "Web App Guide",
+    description: "Complete guide to the browser interface — no CLI knowledge required.",
+    href: "/docs/web-app",
+    icon: Globe,
+  },
+  {
+    title: "API Reference",
+    description: "REST API documentation for all web server endpoints.",
+    href: "/docs/api-reference",
+    icon: Code2,
   },
   {
     title: "Code Context",

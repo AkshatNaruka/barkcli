@@ -28,6 +28,7 @@ fn run_serve(args: &[String]) {
     let mut open_browser = false;
     let mut host = "127.0.0.1".to_string();
     let mut token: Option<String> = None;
+    let mut daemon = false;
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -36,15 +37,203 @@ fn run_serve(args: &[String]) {
             "--host" => { i += 1; host = args.get(i).cloned().unwrap_or_else(|| "127.0.0.1".to_string()); }
             "--token" => { i += 1; token = args.get(i).map(|s| s.to_string()); }
             "--open" | "-o" => open_browser = true,
+            "--daemon" | "-d" => daemon = true,
+            "--stop" => { stop_daemon(); return; }
+            "--status" => { check_daemon_status(); return; }
             s if s.starts_with('-') => {}
             s => { if board_name.is_none() { board_name = Some(s.to_string()); } }
         }
         i += 1;
     }
+
+    if daemon {
+        run_daemon(port, board_name.as_deref(), open_browser, &host, token);
+        return;
+    }
+
     let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
     if let Err(e) = rt.block_on(barkcli_server::run(port, board_name.as_deref(), open_browser, &host, token)) {
         eprintln!("error: {}", e);
         std::process::exit(1);
+    }
+}
+
+#[cfg(feature = "serve")]
+fn run_daemon(port: u16, board_name: Option<&str>, open_browser: bool, host: &str, token: Option<String>) {
+    use std::fs;
+    use std::process::{Command, Stdio};
+
+    // Find .board/ directory for PID file
+    let pid_path = barkcli_core::storage::board_dir::find_board_dir()
+        .map(|d| d.join("server.pid"))
+        .unwrap_or_else(|_| std::env::current_dir().unwrap_or_default().join(".board").join("server.pid"));
+
+    // Check if already running
+    if pid_path.exists() {
+        if let Ok(pid_str) = fs::read_to_string(&pid_path) {
+            if let Ok(pid) = pid_str.trim().parse::<u32>() {
+                // Check if process is alive
+                #[cfg(unix)]
+                {
+                    let alive = unsafe { libc::kill(pid as i32, 0) == 0 };
+                    if alive {
+                        eprintln!("barkcli serve is already running (pid {}). Use --stop to stop it.", pid);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    // Fork process
+    #[cfg(unix)]
+    {
+        match unsafe { libc::fork() } {
+            -1 => {
+                eprintln!("Failed to fork daemon process");
+                std::process::exit(1);
+            }
+            0 => {
+                // Child process — become session leader
+                unsafe { libc::setsid(); }
+
+                // Close stdin
+                unsafe { libc::close(0); }
+
+                // Write PID file
+                let _ = fs::create_dir_all(pid_path.parent().unwrap());
+                let _ = fs::write(&pid_path, std::process::id().to_string());
+
+                // Set up signal handler for cleanup
+                unsafe {
+                    libc::signal(libc::SIGTERM, libc::SIG_DFL);
+                    libc::signal(libc::SIGINT, libc::SIG_DFL);
+                }
+
+                // Run the server
+                let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
+                let result = rt.block_on(barkcli_server::run(port, board_name, open_browser, host, token));
+
+                // Cleanup PID file on exit
+                let _ = fs::remove_file(&pid_path);
+
+                if let Err(e) = result {
+                    eprintln!("daemon error: {}", e);
+                }
+            }
+            pid => {
+                // Parent process
+                println!("barkcli serve started in background (pid {})", pid);
+                println!("Logs: check stderr or use --status to verify");
+                println!("Stop with: barkcli serve --stop");
+            }
+        }
+    }
+
+    #[cfg(not(unix))]
+    {
+        eprintln!("Daemon mode is only supported on Unix systems");
+        eprintln!("Run 'barkcli serve' directly instead");
+        std::process::exit(1);
+    }
+}
+
+#[cfg(feature = "serve")]
+fn stop_daemon() {
+    use std::fs;
+
+    let pid_path = barkcli_core::storage::board_dir::find_board_dir()
+        .map(|d| d.join("server.pid"))
+        .unwrap_or_else(|_| std::env::current_dir().unwrap_or_default().join(".board").join("server.pid"));
+
+    if !pid_path.exists() {
+        println!("No daemon running (no PID file found)");
+        return;
+    }
+
+    let pid_str = fs::read_to_string(&pid_path).unwrap_or_default();
+    let pid: u32 = match pid_str.trim().parse() {
+        Ok(p) => p,
+        Err(_) => {
+            eprintln!("Invalid PID file");
+            let _ = fs::remove_file(&pid_path);
+            return;
+        }
+    };
+
+    #[cfg(unix)]
+    {
+        let alive = unsafe { libc::kill(pid as i32, 0) == 0 };
+        if !alive {
+            println!("Daemon not running (stale PID file)");
+            let _ = fs::remove_file(&pid_path);
+            return;
+        }
+
+        println!("Stopping daemon (pid {})...", pid);
+        unsafe { libc::kill(pid as i32, libc::SIGTERM); }
+
+        // Wait up to 5 seconds for graceful shutdown
+        for _ in 0..50 {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            let alive = unsafe { libc::kill(pid as i32, 0) == 0 };
+            if !alive {
+                println!("Daemon stopped");
+                let _ = fs::remove_file(&pid_path);
+                return;
+            }
+        }
+
+        // Force kill
+        println!("Force killing daemon...");
+        unsafe { libc::kill(pid as i32, libc::SIGKILL); }
+        let _ = fs::remove_file(&pid_path);
+        println!("Daemon stopped");
+    }
+
+    #[cfg(not(unix))]
+    {
+        eprintln!("Daemon management is only supported on Unix systems");
+        let _ = fs::remove_file(&pid_path);
+    }
+}
+
+#[cfg(feature = "serve")]
+fn check_daemon_status() {
+    use std::fs;
+
+    let pid_path = barkcli_core::storage::board_dir::find_board_dir()
+        .map(|d| d.join("server.pid"))
+        .unwrap_or_else(|_| std::env::current_dir().unwrap_or_default().join(".board").join("server.pid"));
+
+    if !pid_path.exists() {
+        println!("No daemon running");
+        return;
+    }
+
+    let pid_str = fs::read_to_string(&pid_path).unwrap_or_default();
+    let pid: u32 = match pid_str.trim().parse() {
+        Ok(p) => p,
+        Err(_) => {
+            println!("No daemon running (invalid PID file)");
+            return;
+        }
+    };
+
+    #[cfg(unix)]
+    {
+        let alive = unsafe { libc::kill(pid as i32, 0) == 0 };
+        if alive {
+            println!("Daemon running (pid {})", pid);
+        } else {
+            println!("No daemon running (stale PID file)");
+            let _ = fs::remove_file(&pid_path);
+        }
+    }
+
+    #[cfg(not(unix))]
+    {
+        println!("Daemon status check not available on this platform");
     }
 }
 

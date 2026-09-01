@@ -4,6 +4,16 @@ import type {
   HistoryEntry,
   SessionEntry,
   Sprint,
+  MemoryEntry,
+  ProjectFact,
+  Spec,
+  SpecCoverage,
+  CheckpointEntry,
+  ValidateBoardResult,
+  DoctorBoardResult,
+  DiffCard,
+  DiffMoved,
+  BlameEntry,
 } from "./types";
 import { load as yamlParse, dump as yamlDump } from "js-yaml";
 
@@ -463,4 +473,353 @@ function fetchSessionsVsCode(): Promise<SessionEntry[]> {
 
 export function openFileInEditor(path: string, line?: number) {
   vscodeApi?.postMessage({ type: "openFile", path, line: line ?? 0 });
+}
+
+// ── Memory API ──
+
+export async function fetchMemory(name?: string, q?: string, tier?: string, limit?: number): Promise<{ memories: MemoryEntry[]; total: number }> {
+  if (isVscode) return { memories: [], total: 0 };
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    if (q) params.set("q", q);
+    if (tier) params.set("tier", tier);
+    if (limit) params.set("limit", String(limit));
+    const qs = params.toString();
+    const res = await fetch(withToken(`/api/memory${qs ? `?${qs}` : ""}`));
+    if (!res.ok) return { memories: [], total: 0 };
+    return await res.json();
+  } catch { return { memories: [], total: 0 }; }
+}
+
+export async function addMemory(content: string, tier?: string, tags?: string[], source?: string, name?: string): Promise<MemoryEntry | null> {
+  if (isVscode) return null;
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    const res = await fetch(withToken(`/api/memory?${params.toString()}`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content, tier, tags, source }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+export async function deleteMemory(id: string, name?: string): Promise<boolean> {
+  if (isVscode) return false;
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    const res = await fetch(withToken(`/api/memory/${id}?${params.toString()}`), { method: "DELETE" });
+    return res.ok;
+  } catch { return false; }
+}
+
+export async function fetchMemoryStats(name?: string): Promise<{ total: number; by_tier: Record<string, number>; facts: number }> {
+  if (isVscode) return { total: 0, by_tier: {}, facts: 0 };
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    const res = await fetch(withToken(`/api/memory/stats?${params.toString()}`));
+    if (!res.ok) return { total: 0, by_tier: {}, facts: 0 };
+    return await res.json();
+  } catch { return { total: 0, by_tier: {}, facts: 0 }; }
+}
+
+export async function addFact(fact: string, category?: string, confidence?: number, sources?: string[], name?: string): Promise<ProjectFact | null> {
+  if (isVscode) return null;
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    const res = await fetch(withToken(`/api/memory/fact?${params.toString()}`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fact, category, confidence, sources }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+export async function fetchFacts(name?: string, category?: string): Promise<ProjectFact[]> {
+  if (isVscode) return [];
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    if (category) params.set("category", category);
+    const res = await fetch(withToken(`/api/memory/facts?${params.toString()}`));
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.facts || [];
+  } catch { return []; }
+}
+
+// ── Specs API ──
+
+export async function fetchSpecs(name?: string): Promise<Spec[]> {
+  if (isVscode) return [];
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    const res = await fetch(withToken(`/api/specs?${params.toString()}`));
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.specs || [];
+  } catch { return []; }
+}
+
+export async function fetchSpec(specId: string, name?: string): Promise<Spec | null> {
+  if (isVscode) return null;
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    const res = await fetch(withToken(`/api/specs/${specId}?${params.toString()}`));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+export async function createSpec(title: string, description?: string, priority?: string, tags?: string[], name?: string): Promise<Spec | null> {
+  if (isVscode) return null;
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    const res = await fetch(withToken(`/api/specs?${params.toString()}`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, description, priority, tags }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+export async function updateSpec(specId: string, data: { status?: string; priority?: string; description?: string; title?: string }, name?: string): Promise<Spec | null> {
+  if (isVscode) return null;
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    const res = await fetch(withToken(`/api/specs/${specId}?${params.toString()}`), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+export async function deleteSpec(specId: string, name?: string): Promise<boolean> {
+  if (isVscode) return false;
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    const res = await fetch(withToken(`/api/specs/${specId}?${params.toString()}`), { method: "DELETE" });
+    return res.ok;
+  } catch { return false; }
+}
+
+export async function addRequirement(specId: string, title: string, description?: string, acceptanceCriteria?: string[], name?: string): Promise<Spec | null> {
+  if (isVscode) return null;
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    const res = await fetch(withToken(`/api/specs/${specId}/requirements?${params.toString()}`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, description, acceptance_criteria: acceptanceCriteria }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+export async function fetchSpecCoverage(name?: string): Promise<SpecCoverage | null> {
+  if (isVscode) return null;
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    const res = await fetch(withToken(`/api/specs/coverage?${params.toString()}`));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+// ── Checkpoints API ──
+
+export async function fetchCheckpoints(name?: string): Promise<CheckpointEntry[]> {
+  if (isVscode) return [];
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    const res = await fetch(withToken(`/api/checkpoints?${params.toString()}`));
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.checkpoints || [];
+  } catch { return []; }
+}
+
+export async function saveCheckpoint(label?: string, name?: string): Promise<boolean> {
+  if (isVscode) return false;
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    const res = await fetch(withToken(`/api/checkpoints?${params.toString()}`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label }),
+    });
+    return res.ok;
+  } catch { return false; }
+}
+
+export async function restoreCheckpoint(id: string, name?: string): Promise<boolean> {
+  if (isVscode) return false;
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    const res = await fetch(withToken(`/api/checkpoints/${id}/restore?${params.toString()}`), { method: "POST" });
+    return res.ok;
+  } catch { return false; }
+}
+
+// ── Undo/Diff/Blame API ──
+
+export async function undo(name?: string): Promise<{ ok: boolean; undid?: string; card_id?: string }> {
+  if (isVscode) return { ok: false };
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    const res = await fetch(withToken(`/api/undo?${params.toString()}`), { method: "POST" });
+    if (!res.ok) return { ok: false };
+    return await res.json();
+  } catch { return { ok: false }; }
+}
+
+export async function fetchDiff(name?: string): Promise<{ added: DiffCard[]; removed: DiffCard[]; moved: DiffMoved[] }> {
+  if (isVscode) return { added: [], removed: [], moved: [] };
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    const res = await fetch(withToken(`/api/diff?${params.toString()}`));
+    if (!res.ok) return { added: [], removed: [], moved: [] };
+    return await res.json();
+  } catch { return { added: [], removed: [], moved: [] }; }
+}
+
+export async function fetchBlame(cardId: string, name?: string): Promise<BlameEntry[]> {
+  if (isVscode) return [];
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    const res = await fetch(withToken(`/api/blame/${cardId}?${params.toString()}`));
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.entries || [];
+  } catch { return []; }
+}
+
+export async function saveSnapshot(label: string, name?: string): Promise<boolean> {
+  if (isVscode) return false;
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    const res = await fetch(withToken(`/api/snapshot?${params.toString()}`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label }),
+    });
+    return res.ok;
+  } catch { return false; }
+}
+
+// ── Import/Export API ──
+
+export async function exportBoard(name?: string, format?: string): Promise<string | null> {
+  if (isVscode) return null;
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    if (format) params.set("format", format);
+    const res = await fetch(withToken(`/api/export?${params.toString()}`));
+    if (!res.ok) return null;
+    return await res.text();
+  } catch { return null; }
+}
+
+export async function importBoard(data: string, format: "yaml" | "json", name?: string): Promise<boolean> {
+  if (isVscode) return false;
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    const body = format === "json" ? { json: data } : { yaml: data };
+    const res = await fetch(withToken(`/api/import?${params.toString()}`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return res.ok;
+  } catch { return false; }
+}
+
+// ── Validate/Doctor API ──
+
+export async function validateBoards(): Promise<{ boards: ValidateBoardResult[]; all_valid: boolean }> {
+  if (isVscode) return { boards: [], all_valid: true };
+  try {
+    const res = await fetch(withToken("/api/validate"));
+    if (!res.ok) return { boards: [], all_valid: true };
+    return await res.json();
+  } catch { return { boards: [], all_valid: true }; }
+}
+
+export async function doctorBoards(): Promise<{ boards: DoctorBoardResult[]; fixed: number }> {
+  if (isVscode) return { boards: [], fixed: 0 };
+  try {
+    const res = await fetch(withToken("/api/doctor"), { method: "POST" });
+    if (!res.ok) return { boards: [], fixed: 0 };
+    return await res.json();
+  } catch { return { boards: [], fixed: 0 }; }
+}
+
+// ── Board CRUD API ──
+
+export async function createBoard(title: string, description?: string, columns?: string[]): Promise<string | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(withToken("/api/boards/create"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, description, columns }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.name || null;
+  } catch { return null; }
+}
+
+export async function deleteBoard(name: string): Promise<boolean> {
+  if (isVscode) return false;
+  try {
+    const res = await fetch(withToken(`/api/boards/${encodeURIComponent(name)}`), { method: "DELETE" });
+    return res.ok;
+  } catch { return false; }
+}
+
+// ── Card Comment API ──
+
+export async function addComment(cardId: string, author: string, text: string, name?: string): Promise<boolean> {
+  if (isVscode) return false;
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    const res = await fetch(withToken(`/api/board/cards/${cardId}/comments?${params.toString()}`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ author, text }),
+    });
+    return res.ok;
+  } catch { return false; }
 }

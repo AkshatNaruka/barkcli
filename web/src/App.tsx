@@ -29,7 +29,6 @@ import { CalendarView } from "./components/CalendarView";
 import { ListView } from "./components/ListView";
 import { CardForm } from "./components/CardForm";
 import { CommandPalette } from "./components/CommandPalette";
-import { Toast } from "./components/Toast";
 import { ThemeDropdown } from "./components/ThemeDropdown";
 import { Dashboard } from "./components/Dashboard";
 import { ReportsView } from "./components/ReportsView";
@@ -38,6 +37,10 @@ import { ActivityView } from "./components/ActivityView";
 import { SprintView } from "./components/SprintView";
 import { SettingsView } from "./components/SettingsView";
 import { AgentPromptView } from "./components/AgentPromptView";
+import { MemoryView } from "./components/MemoryView";
+import { SpecsView } from "./components/SpecsView";
+import { OrchestrateView } from "./components/OrchestrateView";
+import { TimelineView } from "./components/TimelineView";
 
 const NAV_ITEMS: { route: Route; label: string }[] = [
   { route: "dashboard", label: "Dashboard" },
@@ -47,6 +50,10 @@ const NAV_ITEMS: { route: Route; label: string }[] = [
   { route: "code", label: "Code" },
   { route: "activity", label: "Activity" },
   { route: "sprints", label: "Sprints" },
+  { route: "memory", label: "Memory" },
+  { route: "specs", label: "Specs" },
+  { route: "orchestrate", label: "Orchestrate" },
+  { route: "timeline", label: "Timeline" },
   { route: "settings", label: "Settings" },
   { route: "agent-prompt", label: "AI Agent" },
 ];
@@ -147,7 +154,8 @@ export function App() {
   const [route, setRoute] = useRoute();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [form, setForm] = useState<{ card?: Card; columnId?: string; dueDate?: string } | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; action?: { label: string; onClick: () => void } } | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const boardRef = useRef(board);
   boardRef.current = board;
@@ -222,22 +230,54 @@ export function App() {
     return () => window.removeEventListener("pagehide", onHide);
   }, []);
 
-  const notify = useCallback((msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
+  const notify = useCallback((msg: string, action?: { label: string; onClick: () => void }) => {
+    setToast({ message: msg, action });
+    setTimeout(() => setToast(null), 4000);
   }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Ignore when typing in inputs
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         setPaletteOpen((p) => !p);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "z") {
+        e.preventDefault();
+        // Undo
+        import("./lib/api").then(({ undo }) => {
+          undo(boardName || undefined).then((r) => {
+            if (r.ok) {
+              notify(`Undid: ${r.undid}`, { label: "Reload", onClick: () => loadBoard(boardName, false) });
+              loadBoard(boardName, false);
+            } else {
+              notify("Nothing to undo");
+            }
+          });
+        });
+        return;
+      }
+      if (e.key === "?") {
+        e.preventDefault();
+        setHelpOpen((p) => !p);
+        return;
+      }
+      if (route === "board") {
+        if (e.key === "n" || e.key === "N") {
+          e.preventDefault();
+          if (board) handleOpenForm({ columnId: board.columns[0]?.id || "todo" });
+          return;
+        }
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, []);
+  }, [route, board, boardName, loadBoard, notify]);
 
   const switchBoard = useCallback((name: string) => {
     if (name === boardName) return;
@@ -283,8 +323,19 @@ export function App() {
     const card = b.cards.find((c) => c.id === id);
     b.cards = b.cards.filter((c) => c.id !== id);
     await doSave(b);
-    if (card) notify(`Card "${card.title}" deleted`);
-  }, [doSave, notify]);
+    if (card) {
+      notify(`Card "${card.title}" deleted`, {
+        label: "Undo",
+        onClick: () => {
+          import("./lib/api").then(({ undo }) => {
+            undo(boardName || undefined).then((r) => {
+              if (r.ok) loadBoard(boardName, false);
+            });
+          });
+        },
+      });
+    }
+  }, [doSave, notify, boardName, loadBoard]);
 
   const handleMoveCard = useCallback(async (id: string, column: string) => {
     if (!boardRef.current) return;
@@ -474,6 +525,18 @@ export function App() {
             onEditCard={(card) => handleOpenForm({ card })}
           />
         )}
+        {route === "memory" && (
+          <MemoryView boardName={boardName} />
+        )}
+        {route === "specs" && (
+          <SpecsView boardName={boardName} />
+        )}
+        {route === "orchestrate" && (
+          <OrchestrateView boardName={boardName} />
+        )}
+        {route === "timeline" && (
+          <TimelineView boardName={boardName} />
+        )}
         {board && route === "settings" && (
           <SettingsView
             board={board}
@@ -519,7 +582,20 @@ export function App() {
       )}
 
       {/* Toasts */}
-      {toast && <Toast message={toast} onClose={() => setToast(null)} />}
+      {toast && (
+        <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 bg-card border border-border rounded-lg px-3 py-2 shadow-lg">
+          <span className="text-xs text-text">{toast.message}</span>
+          {toast.action && (
+            <button
+              onClick={() => { toast.action!.onClick(); setToast(null); }}
+              className="text-xs text-accent hover:text-accent/80 font-medium ml-2"
+            >
+              {toast.action.label}
+            </button>
+          )}
+          <button onClick={() => setToast(null)} className="text-muted hover:text-text ml-1 text-xs">x</button>
+        </div>
+      )}
       {historyCard && (
         <CardHistoryModal cardId={historyCard.id} entries={historyCard.entries} onClose={() => setHistoryCard(null)} />
       )}
@@ -531,6 +607,7 @@ export function App() {
           onClose={() => setActivityCard(null)}
         />
       )}
+      {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
     </div>
   );
 }
@@ -619,4 +696,31 @@ function slugify(text: string, existing: string[]): string {
   let i = 2;
   while (existing.includes(id)) { id = `${slug}-${i}`; i++; }
   return id;
+}
+
+function HelpModal({ onClose }: { onClose: () => void }) {
+  const shortcuts = [
+    { keys: "Cmd/Ctrl + K", desc: "Command palette" },
+    { keys: "Cmd/Ctrl + Z", desc: "Undo last change" },
+    { keys: "?", desc: "Toggle this help" },
+    { keys: "N", desc: "New card (on Board view)" },
+  ];
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+      <div className="bg-card rounded-xl border border-border shadow-2xl max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <h3 className="font-semibold text-text text-sm">Keyboard Shortcuts</h3>
+          <button onClick={onClose} className="text-muted hover:text-text">x</button>
+        </div>
+        <div className="p-4 space-y-3">
+          {shortcuts.map((s) => (
+            <div key={s.keys} className="flex items-center justify-between">
+              <span className="text-xs text-text">{s.desc}</span>
+              <kbd className="text-[10px] text-muted bg-surface border border-border rounded px-1.5 py-0.5 font-mono">{s.keys}</kbd>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }

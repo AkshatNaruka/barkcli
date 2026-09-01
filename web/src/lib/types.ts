@@ -106,3 +106,100 @@ export interface Board {
 }
 
 export type ViewMode = "board" | "table" | "calendar" | "list";
+
+// ── New types for Phase 1+ features ──
+
+export type MemoryTier = "working" | "short_term" | "long_term" | "external";
+
+export interface MemoryEntry {
+  id: string;
+  content: string;
+  tier: MemoryTier;
+  tags: string[];
+  source?: string;
+  created_at: string;
+  last_accessed: string;
+  access_count: number;
+}
+
+export interface ProjectFact {
+  fact: string;
+  category: string;
+  confidence: number;
+  sources: string[];
+  created_at: string;
+}
+
+export type SpecStatus = "draft" | "in-progress" | "implemented" | "verified" | "deprecated";
+export type RequirementStatus = "pending" | "in-progress" | "implemented" | "verified" | "failed";
+
+export interface Requirement {
+  id: string;
+  title: string;
+  description?: string;
+  status: RequirementStatus;
+  acceptance_criteria: string[];
+  linked_code: string[];
+  linked_tests: string[];
+  linked_tasks: string[];
+  stale: boolean;
+  stale_reason?: string;
+  updated_at: string;
+}
+
+export interface Spec {
+  id: string;
+  title: string;
+  description?: string;
+  status: SpecStatus;
+  priority: string;
+  requirements: Requirement[];
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SpecCoverage {
+  total_requirements: number;
+  implemented: number;
+  verified: number;
+  stale: number;
+  coverage_percent: number;
+}
+
+export interface CheckpointEntry {
+  kind: string;
+  id: string;
+  saved_at: string;
+}
+
+export interface ValidateBoardResult {
+  name: string;
+  valid: boolean;
+  errors: string[];
+}
+
+export interface DoctorBoardResult {
+  name: string;
+  errors_before: number;
+  errors_after: number;
+  fixed: string[];
+}
+
+export interface DiffCard {
+  id: string;
+  title: string;
+  column: string;
+}
+
+export interface DiffMoved {
+  id: string;
+  title: string;
+  from: string;
+  to: string;
+}
+
+export interface BlameEntry {
+  at: string;
+  op: string;
+}
