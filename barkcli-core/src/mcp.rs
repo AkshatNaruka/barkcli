@@ -890,6 +890,20 @@ impl McpServer {
                     "required": []
                 }
             }),
+            serde_json::json!({
+                "name": "agent_heartbeat",
+                "description": "Send a heartbeat to indicate the agent is alive",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "agent_id": {
+                            "type": "string",
+                            "description": "Agent ID"
+                        }
+                    },
+                    "required": ["agent_id"]
+                }
+            }),
         ];
 
         JsonRpcResponse {
@@ -950,6 +964,7 @@ impl McpServer {
             "memory_add" => self.tool_memory_add(arguments),
             "memory_search" => self.tool_memory_search(arguments),
             "memory_list" => self.tool_memory_list(arguments),
+            "agent_heartbeat" => self.tool_agent_heartbeat(arguments),
             _ => Err(anyhow::anyhow!("Unknown tool: {}", tool_name)),
         };
 
@@ -1848,6 +1863,38 @@ impl McpServer {
             "total": store.len(),
             "memories": items
         }))
+    }
+
+    fn tool_agent_heartbeat(&self, args: Value) -> Result<Value> {
+        let agent_id = args.get("agent_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("agent_id required"))?;
+
+        let agents_path = crate::storage::board_dir::find_board_dir()?
+            .join("agents")
+            .join("registry.json");
+
+        let mut registry = if agents_path.exists() {
+            AgentRegistry::load(&agents_path)?
+        } else {
+            AgentRegistry::new()
+        };
+
+        let found = registry.get_mut(agent_id).is_some();
+        if found {
+            if let Some(agent) = registry.get_mut(agent_id) {
+                agent.heartbeat();
+            }
+            registry.save(&agents_path)?;
+            let agent = registry.get(agent_id).unwrap();
+            Ok(serde_json::json!({
+                "ok": true,
+                "agent_id": agent_id,
+                "last_heartbeat": agent.last_heartbeat.map(|t| t.to_rfc3339()),
+            }))
+        } else {
+            Err(anyhow::anyhow!("Agent '{}' not found", agent_id))
+        }
     }
 }
 

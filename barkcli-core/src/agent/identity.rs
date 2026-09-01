@@ -14,6 +14,7 @@ pub struct AgentIdentity {
     pub role: AgentRole,
     pub created_at: DateTime<Utc>,
     pub last_active: Option<DateTime<Utc>>,
+    pub last_heartbeat: Option<DateTime<Utc>>,
     pub status: AgentStatus,
     pub active_tasks: Vec<String>,
     pub completed_tasks: Vec<String>,
@@ -70,6 +71,7 @@ impl AgentIdentity {
             role,
             created_at: Utc::now(),
             last_active: None,
+            last_heartbeat: None,
             status: AgentStatus::Idle,
             active_tasks: Vec::new(),
             completed_tasks: Vec::new(),
@@ -77,6 +79,19 @@ impl AgentIdentity {
             total_time_ms: 0,
             metadata: AgentMetadata::new(),
         }
+    }
+
+    /// Send a heartbeat — updates last_heartbeat timestamp.
+    pub fn heartbeat(&mut self) {
+        self.last_heartbeat = Some(Utc::now());
+        self.last_active = Some(Utc::now());
+    }
+
+    /// Check if agent is alive (heartbeat within last N minutes).
+    pub fn is_alive(&self, within_minutes: i64) -> bool {
+        self.last_heartbeat
+            .map(|t| Utc::now().signed_duration_since(t).num_minutes() < within_minutes)
+            .unwrap_or(false)
     }
 
     /// Mark agent as working on a task
