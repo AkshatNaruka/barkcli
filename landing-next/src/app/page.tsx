@@ -430,6 +430,7 @@ export default function Home() {
               { href: "#features", label: "Features" },
               { href: "#interfaces", label: "Interfaces" },
               { href: "#ai-agent", label: "AI Agent" },
+              { href: "/docs", label: "Docs" },
               { href: "#install", label: "Install" },
             ].map((link) => (
               <a
@@ -520,6 +521,13 @@ export default function Home() {
         {/* Footer */}
         <footer className="relative z-10 flex items-center justify-center gap-4 h-12 shrink-0 text-[11px] text-white/50 font-mono">
           <span>barkcli</span>
+          <span className="opacity-40">·</span>
+          <a
+            href="/docs"
+            className="hover:text-white transition-colors"
+          >
+            Docs
+          </a>
           <span className="opacity-40">·</span>
           <a
             href="https://github.com/AkshatNaruka/barkcli"
@@ -651,9 +659,17 @@ export default function Home() {
                   className={`text-center ${activeTab === iface.id ? "block" : "hidden"}`}
                 >
                   <h3 className="text-2xl font-semibold mb-3">{iface.title}</h3>
-                  <p className="text-white/50 max-w-lg mx-auto mb-8 leading-relaxed">
+                  <p className="text-white/50 max-w-lg mx-auto mb-6 leading-relaxed">
                     {iface.description}
                   </p>
+                  {iface.id === "web" && (
+                    <a
+                      href="/docs/web-app"
+                      className="inline-block text-sm text-[#B8845C] hover:text-[#D4A574] mb-6 transition-colors"
+                    >
+                      Read the full Web App Guide →
+                    </a>
+                  )}
                   <div className="bg-[#0A0A0A] border border-white/10 rounded-xl p-4 sm:p-6 text-left max-w-2xl mx-auto overflow-x-auto relative">
                     <div className="absolute top-3 right-3 flex gap-1.5">
                       <div className="w-3 h-3 rounded-full bg-white/10" />
@@ -1053,6 +1069,24 @@ export default function Home() {
             <span className="text-sm text-white/40 font-mono">© 2024 barkcli · MIT License</span>
           </div>
           <div className="flex items-center gap-6 text-sm text-white/40">
+            <a
+              href="/docs"
+              className="hover:text-white transition-colors"
+            >
+              Docs
+            </a>
+            <a
+              href="/docs/web-app"
+              className="hover:text-white transition-colors"
+            >
+              Web App
+            </a>
+            <a
+              href="/docs/api-reference"
+              className="hover:text-white transition-colors"
+            >
+              API
+            </a>
             <a
               href="https://github.com/AkshatNaruka/barkcli"
               target="_blank"

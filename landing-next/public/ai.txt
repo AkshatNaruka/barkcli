@@ -12,10 +12,13 @@ The barkcli website is a single-page landing site for barkcli, an open-source (M
 
 ## Documentation
 - [Landing page](https://barkcli.vercel.app): Install command and product summary
+- [Documentation](https://barkcli.vercel.app/docs): Full documentation index
+- [Getting Started](https://barkcli.vercel.app/docs/getting-started): Quick start guide
+- [Web App Guide](https://barkcli.vercel.app/docs/web-app): Complete browser interface guide
+- [API Reference](https://barkcli.vercel.app/docs/api-reference): REST API documentation for all endpoints
+- [Commands](https://barkcli.vercel.app/docs/commands): CLI command reference
 - [GitHub repository](https://github.com/AkshatNaruka/barkcli): Source code, issues, releases
-- [README](https://github.com/AkshatNaruka/barkcli/blob/main/README.md): Quick start and command overview
-- [MANUAL.md](https://github.com/AkshatNaruka/barkcli/blob/main/MANUAL.md): Complete CLI reference
-- [AGENTS.md](https://github.com/AkshatNaruka/barkcli/blob/main/AGENTS.md): Detailed architecture and feature documentation for agent tooling
+- [AGENTS.md](https://github.com/AkshatNaruka/barkcli/blob/main/AGENTS.md): AI agent instructions and architecture
 - [LICENSE](https://github.com/AkshatNaruka/barkcli/blob/main/LICENSE): MIT license text
 
 ## Key capabilities

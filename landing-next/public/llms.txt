@@ -6,9 +6,13 @@ barkcli is a task-tracking tool for developers that works like `.git` but for Ka
 
 ## Main sections
 - [barkcli landing page](https://barkcli.vercel.app): Install command and product overview
+- [Documentation](https://barkcli.vercel.app/docs): Full documentation index
+- [Getting Started](https://barkcli.vercel.app/docs/getting-started): Quick start guide
+- [Web App Guide](https://barkcli.vercel.app/docs/web-app): Complete browser interface guide
+- [API Reference](https://barkcli.vercel.app/docs/api-reference): REST API documentation for all endpoints
+- [Commands](https://barkcli.vercel.app/docs/commands): CLI command reference
+- [Interfaces](https://barkcli.vercel.app/docs/interfaces): CLI, TUI, Web, and VS Code guides
 - [GitHub repository](https://github.com/AkshatNaruka/barkcli): Source code, issues, releases and all documentation
-- [README](https://github.com/AkshatNaruka/barkcli#readme): Quick start, install and command reference
-- [Manual](https://github.com/AkshatNaruka/barkcli/blob/main/MANUAL.md): Full command reference (init, create, list, status, sessions, sprints, code context, agent)
 - [Install script](https://barkcli.vercel.app/install.sh): One-line installer for macOS, Linux and Windows
 
 ## Key facts
