@@ -1,0 +1,100 @@
+---
+title: Introduction
+description: What is barkcli and why it exists
+---
+
+# What is barkcli?
+
+barkcli is a **git-native Kanban board CLI** that stores tasks as YAML files directly in your repository. It brings task management into your codebase, making it accessible to both humans and AI agents.
+
+## Why barkcli?
+
+Traditional project management tools have fundamental problems for developers:
+
+| Problem | Traditional Tools | barkcli |
+|---------|-------------------|---------|
+| Tasks live in the cloud | Need internet + accounts | Tasks in your repo |
+| AI agents can't access them | API limits, auth tokens | Direct file access |
+| Context switching | Leave terminal/IDE | Stay in your workflow |
+| Vendor lock-in | Can't migrate data | Just YAML files |
+| Per-seat pricing | $10-15/user/month | Free forever |
+
+## How It Works
+
+barkcli stores your tasks in `.board` files within your project:
+
+```yaml
+# my-project.board
+title: My Project
+columns:
+  - id: todo
+    name: To Do
+  - id: doing
+    name: Doing
+  - id: done
+    name: Done
+cards:
+  - id: implement-login
+    title: Implement login
+    column: doing
+    priority: high
+    labels:
+      - feature
+    created_at: 2024-01-15T10:30:00Z
+```
+
+These files are committed to git, so your tasks:
+- **Travel with your code** — same repo, same history
+- **Are version-controlled** — see who changed what and when
+- **Are accessible to AI** — MCP server for coding agents
+- **Work offline** — no internet required
+
+## Core Concepts
+
+### Boards
+A board is a collection of columns and cards. You can have multiple boards per project.
+
+### Cards
+Cards are individual tasks. Each card has:
+- **Title** — What needs to be done
+- **Column** — Current status (todo, doing, done)
+- **Priority** — high, medium, low
+- **Labels** — Categorization tags
+- **Due date** — Optional deadline
+- **Checklist** — Sub-tasks
+- **Comments** — Discussion threads
+
+### Columns
+Columns represent workflow stages. Default columns are:
+- `todo` — Not started
+- `doing` — In progress
+- `review` — Under review
+- `done` — Completed
+
+You can customize columns per board.
+
+### Links
+Cards can be linked with relationships:
+- `parent` / `child` — Breakdown hierarchy
+- `related` — Associated tasks
+- `blocked-by` — Dependencies
+
+## Interfaces
+
+barkcli provides multiple interfaces:
+
+| Interface | Description | Command |
+|-----------|-------------|---------|
+| **CLI** | Command-line for scripts and automation | `barkcli <command>` |
+| **TUI** | Terminal Kanban board | `barkcli tui` |
+| **Web** | Browser-based Kanban board | `barkcli serve` |
+| **VS Code** | Editor integration | Extension marketplace |
+| **MCP** | AI agent integration | `barkcli mcp` |
+
+## Use Cases
+
+- **Solo developers** — Simple task tracking in your repo
+- **Small teams** — Lightweight project management
+- **AI-heavy workflows** — Tasks accessible to coding agents
+- **Open source** — Public roadmap in the repo
+- **Enterprise** — Replace per-seat SaaS tools

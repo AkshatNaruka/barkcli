@@ -1,0 +1,64 @@
+---
+title: init
+description: Set up barkcli in your project
+---
+
+# barkcli init
+
+Initialize barkcli in your project directory.
+
+## Usage
+
+```bash
+barkcli init
+```
+
+## Description
+
+The `init` command sets up barkcli for your project by creating:
+
+- `.board/` directory — Stores metadata, checkpoints, and history
+- `config.json` — Default configuration
+- `.gitignore` — Ignores metadata files (keeps `.board` out of git)
+
+## What It Creates
+
+```
+your-project/
+├── .board/
+│   ├── config.json      # Default board configuration
+│   └── history/         # Change history (gitignored)
+├── .gitignore           # Added: .board/
+└── ...
+```
+
+## Example
+
+```bash
+$ cd my-project
+$ barkcli init
+
+✓ Created .board/ directory
+✓ Created config.json
+✓ Updated .gitignore
+```
+
+## After Init
+
+Once initialized, you can:
+
+```bash
+# Create your first board
+barkcli create my-project
+
+# Add a card
+barkcli my-project add "First task"
+
+# Open the web UI
+barkcli serve --open
+```
+
+## Next Steps
+
+- [`create`](/docs/commands/create) — Create a board
+- [Quick Start](/docs/quick-start) — Full getting started guide

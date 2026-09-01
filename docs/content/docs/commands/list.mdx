@@ -1,0 +1,66 @@
+---
+title: list
+description: List cards in a board
+---
+
+# barkcli list
+
+List cards in a board, grouped by column.
+
+## Usage
+
+```bash
+barkcli <board> list [options]
+```
+
+## Flags
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--column` | `-c` | Filter by column |
+| `--priority` | `-p` | Filter by priority |
+| `--label` | `-l` | Filter by label |
+
+## Examples
+
+### List All Cards
+
+```bash
+barkcli my-project list
+```
+
+Output:
+```
+📋 To Do
+  [fix-login] Fix login bug (high) #bug
+  [add-tests] Add unit tests (medium) #testing
+
+🔄 Doing
+  [implement-oauth] Implement OAuth (high) #feature #security
+
+✅ Done
+  [setup-ci] Set up CI/CD (medium) #devops
+```
+
+### Filter by Column
+
+```bash
+barkcli my-project list -c doing
+```
+
+### Filter by Priority
+
+```bash
+barkcli my-project list -p high
+```
+
+### Filter by Label
+
+```bash
+barkcli my-project list -l bug
+```
+
+## Related Commands
+
+- [`show`](/docs/commands/show) — Show card details
+- [`add`](/docs/commands/add) — Add a card

@@ -1,0 +1,16 @@
+{
+  "title": "Documentation",
+  "pages": [
+    "---Getting Started---",
+    "index",
+    "introduction",
+    "installation",
+    "quick-start",
+    "---Reference---",
+    "commands",
+    "configuration",
+    "---Guides---",
+    "examples",
+    "troubleshooting"
+  ]
+}

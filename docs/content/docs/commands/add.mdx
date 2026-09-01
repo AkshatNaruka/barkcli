@@ -1,0 +1,80 @@
+---
+title: add
+description: Add a new card to a board
+---
+
+# barkcli add
+
+Add a new card to a board.
+
+## Usage
+
+```bash
+barkcli <board> add <title> [options]
+```
+
+## Flags
+
+| Flag | Short | Description | Default |
+|------|-------|-------------|---------|
+| `--column` | `-c` | Column to add to | First column |
+| `--priority` | `-p` | Priority level | `medium` |
+| `--description` | `-d` | Card description | — |
+| `--label` | `-l` | Add a label (repeatable) | — |
+| `--assignee` | `-a` | Assign to someone | — |
+| `--due` | — | Due date (YYYY-MM-DD) | — |
+| `--remind` | — | Reminder (YYYY-MM-DD or YYYY-MM-DDTHH:MM) | — |
+| `--effort` | — | Effort estimate (story points) | — |
+| `--area` | — | Area/component | — |
+| `--ac` | — | Acceptance criteria (repeatable) | — |
+
+## Examples
+
+### Basic Card
+
+```bash
+barkcli my-project add "Fix login bug"
+```
+
+### With All Options
+
+```bash
+barkcli my-project add "Implement OAuth" \
+  -p high \
+  -d "Add Google and GitHub OAuth support" \
+  -l feature \
+  -l security \
+  -a john \
+  --due 2024-02-15 \
+  --effort 5 \
+  --area auth \
+  --ac "Users can sign in with Google" \
+  --ac "Users can sign in with GitHub" \
+  --ac "Session tokens are stored securely"
+```
+
+### In Specific Column
+
+```bash
+barkcli my-project add "Code review" -c review
+```
+
+### With Reminder
+
+```bash
+barkcli my-project add "Deploy to production" --remind 2024-01-20T09:00
+```
+
+## Output
+
+```
+✓ Added card: implement-oauth
+```
+
+The card ID is generated from the title: `Implement OAuth` → `implement-oauth`
+
+## Related Commands
+
+- [`update`](/docs/commands/update) — Modify a card
+- [`move`](/docs/commands/move) — Move to a column
+- [`link`](/docs/commands/link) — Link to other cards

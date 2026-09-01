@@ -15,6 +15,10 @@ categories = ["command-line-utilities"]
 name = "barkcli"
 path = "src/main.rs"
 
+[[bin]]
+name = "gen-docs"
+path = "src/bin/gen-docs.rs"
+
 [dependencies]
 barkcli-core = { path = "../barkcli-core", version = "0.2.0" }
 barkcli-tui = { path = "../barkcli-tui", version = "0.2.0", optional = true }
@@ -30,6 +34,7 @@ serde_yaml = "0.9"
 chrono = "0.4"
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
+clap-markdown = "0.1"
 libc = "0.2"
 
 [dev-dependencies]

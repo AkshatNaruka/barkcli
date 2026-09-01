@@ -1,0 +1,96 @@
+---
+title: serve
+description: Start the web server
+---
+
+# barkcli serve
+
+Start the web-based Kanban board server.
+
+## Usage
+
+```bash
+barkcli serve [options]
+```
+
+## Flags
+
+| Flag | Short | Description | Default |
+|------|-------|-------------|---------|
+| `--port` | `-p` | Server port | `4321` |
+| `--board` | `-b` | Board to serve | First board |
+| `--host` | — | Bind address | `127.0.0.1` |
+| `--token` | — | Auth token | — |
+| `--open` | `-o` | Open browser | `false` |
+| `--daemon` | `-d` | Run as background daemon | `false` |
+| `--stop` | — | Stop running daemon | — |
+| `--status` | — | Check daemon status | — |
+
+## Examples
+
+### Basic Server
+
+```bash
+barkcli serve
+# Opens at http://localhost:4321
+```
+
+### Open Browser Automatically
+
+```bash
+barkcli serve --open
+```
+
+### Custom Port
+
+```bash
+barkcli serve --port 8080
+```
+
+### With Authentication
+
+```bash
+barkcli serve --token my-secret-token
+```
+
+### Run as Daemon
+
+```bash
+# Start in background
+barkcli serve --daemon
+
+# Check status
+barkcli serve --status
+
+# Stop
+barkcli serve --stop
+```
+
+## Web UI Features
+
+The web interface provides:
+
+- **Kanban Board** — Drag-and-drop cards
+- **Table View** — Spreadsheet-style list
+- **List View** — Compact card list
+- **Calendar** — Cards by due date
+- **Reports** — Progress analytics
+- **Code View** — Link tasks to code
+- **Activity** — Change history
+- **Memory** — Cross-session knowledge
+- **Specs** — Specifications
+- **Sprints** — Sprint management
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Cmd/Ctrl + K` | Command palette |
+| `Cmd/Ctrl + Z` | Undo last change |
+| `N` | New card (Board view) |
+| `?` | Show help |
+
+## Related Commands
+
+- [`tui`](/docs/commands/tui) — Terminal UI
+- [`open`](/docs/commands/open) — Auto-detect best interface

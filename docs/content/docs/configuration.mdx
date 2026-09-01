@@ -1,0 +1,91 @@
+---
+title: Configuration
+description: Customize barkcli for your workflow
+---
+
+# Configuration
+
+barkcli stores configuration in `.board/config.json` within your project.
+
+## Default Configuration
+
+```json
+{
+  "default_board": "my-project",
+  "columns": [
+    { "id": "todo", "name": "To Do" },
+    { "id": "doing", "name": "Doing" },
+    { "id": "review", "name": "Review" },
+    { "id": "done", "name": "Done" }
+  ],
+  "ai": {
+    "provider": "openai",
+    "model": "gpt-4o-mini"
+  }
+}
+```
+
+## Configuration Options
+
+### Project Settings
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `default_board` | string | Default board when none specified |
+| `columns` | array | Custom column definitions |
+
+### AI Settings
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `ai.provider` | string | AI provider (openai, anthropic, etc.) |
+| `ai.model` | string | Model to use |
+| `ai.api_key_env` | string | Environment variable for API key |
+
+### Agent Settings
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `agent.role` | string | Default agent role |
+| `agent.poll_interval` | number | Poll interval in seconds |
+
+## Custom Columns
+
+```json
+{
+  "columns": [
+    { "id": "backlog", "name": "Backlog" },
+    { "id": "todo", "name": "To Do" },
+    { "id": "in-progress", "name": "In Progress" },
+    { "id": "review", "name": "Code Review" },
+    { "id": "testing", "name": "QA Testing" },
+    { "id": "done", "name": "Done" }
+  ]
+}
+```
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `BARKCLI_BOARD` | Override default board |
+| `BARKCLI_TOKEN` | Authentication token |
+| `OPENAI_API_KEY` | OpenAI API key |
+| `ANTHROPIC_API_KEY` | Anthropic API key |
+
+## Global Config
+
+Global settings are stored in `~/.config/barkcli/config.json`:
+
+```json
+{
+  "theme": "dark",
+  "editor": "code",
+  "auto_sync": true
+}
+```
+
+## Next Steps
+
+- [Examples](/docs/examples) — See configuration in action
+- [Command Reference](/docs/commands) — All available commands

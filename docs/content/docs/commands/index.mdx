@@ -1,0 +1,136 @@
+---
+title: Command Reference
+description: Complete CLI reference for all barkcli commands
+---
+
+# Command Reference
+
+barkcli commands are organized by category. Each command includes usage, flags, and examples.
+
+## Setup Commands
+
+| Command | Description |
+|---------|-------------|
+| [`init`](/docs/commands/init) | Set up .board/ directory |
+| [`create`](/docs/commands/create) | Create a new board |
+
+## Card Operations
+
+| Command | Description |
+|---------|-------------|
+| [`add`](/docs/commands/add) | Add a new card |
+| [`list`](/docs/commands/list) | List cards in a board |
+| [`show`](/docs/commands/show) | Show card details |
+| [`move`](/docs/commands/move) | Move a card to a column |
+| [`done`](/docs/commands/done) | Mark a card as done |
+| [`update`](/docs/commands/update) | Update a card's fields |
+| [`remove`](/docs/commands/remove) | Delete a card |
+
+## Board Management
+
+| Command | Description |
+|---------|-------------|
+| [`boards`](/docs/commands/boards) | List all boards |
+| [`switch`](/docs/commands/switch) | Switch default board |
+| [`status`](/docs/commands/status) | Show board status |
+| [`validate`](/docs/commands/validate) | Validate board files |
+| [`doctor`](/docs/commands/doctor) | Auto-fix board issues |
+
+## Links & Hierarchy
+
+| Command | Description |
+|---------|-------------|
+| [`link`](/docs/commands/link) | Link cards together |
+| [`unlink`](/docs/commands/unlink) | Remove a link |
+| [`tree`](/docs/commands/tree) | Show card hierarchy |
+
+## History & Undo
+
+| Command | Description |
+|---------|-------------|
+| [`log`](/docs/commands/log) | View change history |
+| [`undo`](/docs/commands/undo) | Undo last change |
+| [`diff`](/docs/commands/diff) | Show recent changes |
+| [`blame`](/docs/commands/blame) | See who changed what |
+| [`snapshot`](/docs/commands/snapshot) | Save a checkpoint |
+
+## Calendar & Reminders
+
+| Command | Description |
+|---------|-------------|
+| [`today`](/docs/commands/today) | Today's agenda |
+| [`calendar`](/docs/commands/calendar) | ASCII calendar view |
+| [`remind`](/docs/commands/remind) | Show reminders |
+
+## Code Context
+
+| Command | Description |
+|---------|-------------|
+| [`code`](/docs/commands/code) | Search code symbols |
+| [`context scan`](/docs/commands/context-scan) | Auto-map cards to code |
+| [`context link`](/docs/commands/context-link) | Link card to file |
+| [`context sync`](/docs/commands/context-sync) | Refresh context |
+
+## Sessions & Checkpoints
+
+| Command | Description |
+|---------|-------------|
+| [`session list`](/docs/commands/session-list) | List agent sessions |
+| [`checkpoint save`](/docs/commands/checkpoint-save) | Save checkpoint |
+| [`checkpoint restore`](/docs/commands/checkpoint-restore) | Restore checkpoint |
+
+## Interfaces
+
+| Command | Description |
+|---------|-------------|
+| [`tui`](/docs/commands/tui) | Terminal Kanban board |
+| [`serve`](/docs/commands/serve) | Web server |
+| [`open`](/docs/commands/open) | Open TUI or Web |
+
+## Management Layer
+
+| Command | Description |
+|---------|-------------|
+| [`intake`](/docs/commands/intake) | Classify input to cards |
+| [`plan`](/docs/commands/plan) | Generate spec + tasks |
+| [`memory`](/docs/commands/memory) | Cross-session memory |
+| [`monitor`](/docs/commands/monitor) | Agent dashboard |
+| [`review`](/docs/commands/review) | Validate completed tasks |
+
+## Import/Export
+
+| Command | Description |
+|---------|-------------|
+| [`export`](/docs/commands/export) | Export board data |
+| [`import`](/docs/commands/import) | Import board data |
+| [`merge`](/docs/commands/merge) | Merge boards from git |
+
+## AI & Agents
+
+| Command | Description |
+|---------|-------------|
+| [`mcp`](/docs/commands/mcp) | Start MCP server |
+| [`listener`](/docs/commands/listener) | Start agent listener |
+| [`orchestrate`](/docs/commands/orchestrate) | Run orchestration |
+
+## Global Flags
+
+| Flag | Description |
+|------|-------------|
+| `--board`, `-b` | Target a specific board |
+| `--help`, `-h` | Show help |
+| `--version`, `-V` | Show version |
+
+## Pro Commands
+
+Some commands require a Pro license:
+
+| Command | Description |
+|---------|-------------|
+| `ai` | AI task breakdown |
+| `report` | Weekly reports |
+| `changelog` | Auto-generate changelog |
+| `stats` | Progress analytics |
+| `template` | Board templates |
+| `sprint` | Sprint management |
+| `sync` | GitHub Issues sync |

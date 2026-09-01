@@ -1,0 +1,204 @@
+---
+title: FAQ & Troubleshooting
+description: Common issues and solutions
+---
+
+# FAQ & Troubleshooting
+
+## General
+
+### What is barkcli?
+
+barkcli is a git-native Kanban board CLI that stores tasks as YAML files in your repository. It's free, open-source, and works offline.
+
+### Is barkcli free?
+
+Yes. barkcli is MIT licensed and free forever. No per-seat pricing, no subscription tiers.
+
+Some advanced features (AI, sprints, reports) require a Pro license.
+
+### How is barkcli different from GitHub Issues?
+
+| Feature | barkcli | GitHub Issues |
+|---------|---------|---------------|
+| Storage | YAML in your repo | GitHub cloud |
+| Access | Offline, any tool | Requires internet |
+| AI agents | Direct file access | API calls needed |
+| Customization | Full control | Limited |
+| Multi-board | Yes | No (per-repo) |
+
+### Can I use barkcli with GitHub Issues?
+
+Yes. barkcli can sync with GitHub Issues:
+
+```bash
+barkcli sync --push  # Push to GitHub
+barkcli sync --pull  # Pull from GitHub
+```
+
+## Installation
+
+### `barkcli: command not found`
+
+**npm install:**
+```bash
+# Make sure global bin is in PATH
+npm config get prefix
+# Add the bin directory to your PATH
+```
+
+**cargo install:**
+```bash
+# Make sure cargo bin is in PATH
+echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+### Permission denied
+
+```bash
+# macOS/Linux
+sudo npm install -g barkcli
+```
+
+## Board Issues
+
+### `Board not found`
+
+```bash
+# List available boards
+barkcli boards
+
+# Create a new board
+barkcli create my-board
+
+# Switch default board
+barkcli switch my-board
+```
+
+### `Invalid board file`
+
+Run the doctor to auto-fix:
+
+```bash
+barkcli doctor
+```
+
+### Cards disappeared
+
+Check git status:
+
+```bash
+git status my-project.board
+git diff my-project.board
+```
+
+Restore from checkpoint:
+
+```bash
+barkcli checkpoint list
+barkcli checkpoint restore <checkpoint-id>
+```
+
+## Web Server
+
+### `Port already in use`
+
+```bash
+# Use a different port
+barkcli serve --port 8080
+
+# Or stop existing server
+barkcli serve --stop
+```
+
+### `Cannot connect to server`
+
+```bash
+# Check if server is running
+barkcli serve --status
+
+# Restart
+barkcli serve --stop
+barkcli serve
+```
+
+### WebSocket not connecting
+
+Ensure you're not behind a proxy that blocks WebSocket connections. Try:
+
+```bash
+barkcli serve --host 0.0.0.0
+```
+
+## Code Context
+
+### `context scan` finds nothing
+
+Ensure you have source files in your project:
+
+```bash
+# Check supported languages
+ls src/
+barkcli context scan
+```
+
+### Context is stale
+
+```bash
+# Refresh context
+barkcli context sync
+
+# Or manually re-scan
+barkcli context scan
+```
+
+## Performance
+
+### Large boards are slow
+
+```bash
+# Validate board integrity
+barkcli validate
+
+# Clean orphaned metadata
+barkcli clean
+
+# Export and re-import
+barkcli my-project export yaml > backup.yaml
+barkcli import my-project backup.yaml
+```
+
+### Git history is large
+
+Board files are YAML and compress well. If history is an issue:
+
+```bash
+# Use git LFS for board files
+git lfs track "*.board"
+```
+
+## Getting Help
+
+```bash
+# Show help for any command
+barkcli --help
+barkcli <command> --help
+
+# Validate your setup
+barkcli doctor
+
+# Check version
+barkcli --version
+```
+
+### Community
+
+- **GitHub**: [github.com/AkshatNaruka/barkcli](https://github.com/AkshatNaruka/barkcli)
+- **Issues**: [github.com/AkshatNaruka/barkcli/issues](https://github.com/AkshatNaruka/barkcli/issues)
+
+## Next Steps
+
+- [Command Reference](/docs/commands) — Full CLI reference
+- [Examples](/docs/examples) — Workflow recipes
+- [Configuration](/docs/configuration) — Customize barkcli

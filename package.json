@@ -5,6 +5,10 @@
   "scripts": {
     "dev": "cd landing-next && npm run dev",
     "build": "cd landing-next && npm run build",
-    "start": "cd landing-next && npm run start"
+    "start": "cd landing-next && npm run start",
+    "docs:dev": "cd docs && npm run dev",
+    "docs:build": "cd docs && npm run build",
+    "docs:gen-cli": "cd docs && node scripts/gen-cli-docs.mjs",
+    "docs:start": "cd docs && npm run start"
   }
 }

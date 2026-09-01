@@ -1,0 +1,175 @@
+---
+title: Examples & Recipes
+description: Common workflows and recipes for barkcli
+---
+
+# Examples & Recipes
+
+## Solo Developer Workflow
+
+```bash
+# Morning routine
+barkcli today                    # See what's due
+barkcli my-project list          # Check board state
+
+# Work on a task
+barkcli my-project move fix-login doing
+barkcli my-project comment fix-login "Starting investigation"
+
+# After completing
+barkcli my-project done fix-login
+barkcli snapshot end-of-day      # Save checkpoint
+```
+
+## Team Standup
+
+```bash
+# Show progress
+barkcli status                   # Cross-board summary
+barkcli today                    # Due items
+
+# Update cards
+barkcli my-project update implement-oauth --effort 5
+barkcli my-project comment implement-oauth "OAuth flow working, testing edge cases"
+```
+
+## AI-Assisted Development
+
+```bash
+# Let AI break down a feature
+barkcli ai "Add real-time notifications"
+
+# AI proposes child tasks
+barkcli my-project propose implement-notifications
+
+# Review AI suggestions
+barkcli my-project tree implement-notifications
+
+# Start working with context
+barkcli context scan
+barkcli serve --open             # Visualize in web UI
+```
+
+## Sprint Management (Pro)
+
+```bash
+# Start a sprint
+barkcli sprint start "Sprint 1" --start 2024-01-15 --end 2024-01-29
+
+# Work through tasks
+barkcli my-project done fix-login
+barkcli my-project done add-tests
+
+# End sprint
+barkcli sprint end "Sprint 1"
+# Shows velocity, completed points, burndown
+```
+
+## Code Context Workflow
+
+```bash
+# Scan codebase for context
+barkcli context scan
+
+# See what's linked
+barkcli context status
+
+# Manually link a card to code
+barkcli context link fix-login src/auth/login.ts
+
+# Sync after git changes
+barkcli context sync
+```
+
+## Multi-Board Project
+
+```bash
+# Create boards for different aspects
+barkcli create frontend
+barkcli create backend
+barkcli create infrastructure
+
+# Work across boards
+barkcli frontend add "Responsive navbar" -p high
+barkcli backend add "REST API endpoints" -p high
+barkcli infrastructure add "Set up monitoring" -p medium
+
+# See all boards
+barkcli boards
+barkcli status
+```
+
+## Export & Reporting
+
+```bash
+# Export for external tools
+barkcli my-project export json > tasks.json
+barkcli my-project export yaml > tasks.yaml
+
+# Weekly report (Pro)
+barkcli report --sprint "Sprint 1"
+
+# Generate changelog (Pro)
+barkcli changelog v0.1.0
+```
+
+## VS Code Integration
+
+```bash
+# Install VS Code extension
+barkcli vscode-install
+
+# Open board in VS Code
+code my-project.board
+```
+
+## MCP Agent Integration
+
+```bash
+# Start MCP server for AI agents
+barkcli mcp
+
+# Configure in your AI agent:
+# {
+#   "mcpServers": {
+#     "barkcli": {
+#       "command": "barkcli",
+#       "args": ["mcp"]
+#     }
+#   }
+# }
+```
+
+## CI/CD Integration
+
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Validate board
+        run: barkcli validate
+      
+      - name: Export tasks
+        run: barkcli my-project export json > tasks.json
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tasks
+          path: tasks.json
+```
+
+## Next Steps
+
+- [Command Reference](/docs/commands) — Full CLI reference
+- [Configuration](/docs/configuration) — Customize barkcli
+- [Troubleshooting](/docs/troubleshooting) — Get help
