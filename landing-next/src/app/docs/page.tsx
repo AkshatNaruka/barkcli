@@ -21,6 +21,12 @@ const sections = [
     icon: Rocket,
   },
   {
+    title: "Core Concepts",
+    description: "Tasks, boards, projects, and code context — the mental model.",
+    href: "/docs/concepts",
+    icon: Search,
+  },
+  {
     title: "Commands",
     description: "Complete reference for all barkcli commands with examples.",
     href: "/docs/commands",
@@ -52,7 +58,7 @@ const sections = [
   },
   {
     title: "Advanced",
-    description: "Sessions, checkpoints, sprints, and hooks.",
+    description: "Sessions, checkpoints, sprints, hooks, and MCP.",
     href: "/docs/advanced",
     icon: Zap,
   },

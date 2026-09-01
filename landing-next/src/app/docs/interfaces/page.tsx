@@ -32,6 +32,13 @@ const interfaces = [
     icon: "🌐",
     command: "barkcli serve --open",
   },
+  {
+    slug: "vscode",
+    title: "VS Code",
+    description: "Visual editor for .board files with drag-and-drop kanban.",
+    icon: "📝",
+    command: "barkcli vscode-install",
+  },
 ];
 
 export default function InterfacesPage() {
