@@ -79,7 +79,7 @@ pub fn run(args: &ArgMatches) -> Result<()> {
     });
 
     match client
-        .put(&register_url)
+        .post(&register_url)
         .send_json(&register_body)
     {
         Ok(_) => println!("Registered as agent '{}'", agent_id),

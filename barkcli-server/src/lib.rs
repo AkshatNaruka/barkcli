@@ -901,7 +901,7 @@ async fn create_task_handler(
         &req.title,
         &req.description.unwrap_or_default(),
         req.acceptance_criteria.unwrap_or_default(),
-        Vec::new(),
+        barkcli_core::agent::queue::populate_context_files(&req.card_id, &board_name),
         &req.priority.unwrap_or_else(|| "medium".to_string()),
     );
 
@@ -1020,6 +1020,9 @@ async fn claim_task_handler(
         .claim(&task_id, agent_id)
         .map_err(|e| ServerError::bad(e.to_string()))?;
 
+    // Update agent state
+    let _ = agent_start_task(agent_id, &task_id);
+
     queue.save(&tasks_path).map_err(|e| ServerError::internal(e.to_string()))?;
 
     let _ = state.tx.send("reload".to_string());
@@ -1056,15 +1059,35 @@ async fn complete_task_handler(
         .complete(&task_id)
         .map_err(|e| ServerError::bad(e.to_string()))?;
 
-    // Update task with result details
-    if let Some(task) = queue.get_mut(&task_id) {
-        if let Some(files) = &req.files_changed {
-            // We could store these in a separate results store
-        }
-        if let Some(summary) = &req.summary {
-            // Store summary if needed
+    // Update agent state
+    if let Some(task) = queue.get(&task_id) {
+        if let Some(ref agent_id) = task.assigned_agent {
+            let _ = agent_complete_task(agent_id, &task_id, 0);
         }
     }
+
+    // Store result details
+    let result = barkcli_core::agent::queue::TaskResult {
+        task_id: task_id.clone(),
+        status: barkcli_core::agent::queue::CompletionStatus::Success,
+        files_changed: req.files_changed.unwrap_or_default(),
+        commit_sha: req.commit_sha,
+        summary: req.summary.unwrap_or_else(|| format!("Completed task")),
+        tests_passed: req.tests_passed,
+        duration_ms: 0,
+        error_message: None,
+        artifacts: Vec::new(),
+    };
+
+    let results_dir = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .join("tasks");
+    let results_path = results_dir.join(format!("{}_results.json", board_name));
+
+    let mut results = barkcli_core::agent::queue::TaskResults::load(&results_path)
+        .unwrap_or_default();
+    results.add(result);
+    results.save(&results_path).map_err(|e| ServerError::internal(e.to_string()))?;
 
     queue.save(&tasks_path).map_err(|e| ServerError::internal(e.to_string()))?;
 
@@ -1093,6 +1116,13 @@ async fn fail_task_handler(
         .fail(&task_id)
         .map_err(|e| ServerError::bad(e.to_string()))?;
 
+    // Update agent state
+    if let Some(task) = queue.get(&task_id) {
+        if let Some(ref agent_id) = task.assigned_agent {
+            let _ = agent_fail_task(agent_id, &task_id);
+        }
+    }
+
     queue.save(&tasks_path).map_err(|e| ServerError::internal(e.to_string()))?;
 
     let _ = state.tx.send("reload".to_string());
@@ -1102,6 +1132,63 @@ async fn fail_task_handler(
         .cloned()
         .map(Json)
         .ok_or_else(|| ServerError::bad("Task not found"))
+}
+
+// ── Agent State Helpers ──
+
+/// Load or create the agent registry.
+fn load_registry() -> Result<AgentRegistry, ServerError> {
+    let agents_path = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .join("agents")
+        .join("registry.json");
+    if agents_path.exists() {
+        AgentRegistry::load(&agents_path).map_err(|e| ServerError::internal(e.to_string()))
+    } else {
+        Ok(AgentRegistry::new())
+    }
+}
+
+/// Save the agent registry to disk.
+fn save_registry(registry: &AgentRegistry) -> Result<(), ServerError> {
+    let agents_dir = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .join("agents");
+    std::fs::create_dir_all(&agents_dir).map_err(|e| ServerError::internal(e.to_string()))?;
+    let registry_path = agents_dir.join("registry.json");
+    registry
+        .save(&registry_path)
+        .map_err(|e| ServerError::internal(e.to_string()))
+}
+
+/// Update agent state when a task is claimed.
+fn agent_start_task(agent_id: &str, task_id: &str) -> Result<(), ServerError> {
+    let mut registry = load_registry()?;
+    if let Some(agent) = registry.get_mut(agent_id) {
+        agent.start_task(task_id);
+        save_registry(&registry)?;
+    }
+    Ok(())
+}
+
+/// Update agent state when a task is completed.
+fn agent_complete_task(agent_id: &str, task_id: &str, duration_ms: u64) -> Result<(), ServerError> {
+    let mut registry = load_registry()?;
+    if let Some(agent) = registry.get_mut(agent_id) {
+        agent.complete_task(task_id, duration_ms);
+        save_registry(&registry)?;
+    }
+    Ok(())
+}
+
+/// Update agent state when a task fails.
+fn agent_fail_task(agent_id: &str, task_id: &str) -> Result<(), ServerError> {
+    let mut registry = load_registry()?;
+    if let Some(agent) = registry.get_mut(agent_id) {
+        agent.fail_task(task_id);
+        save_registry(&registry)?;
+    }
+    Ok(())
 }
 
 // ── Agent Handlers ──

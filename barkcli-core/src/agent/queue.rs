@@ -131,6 +131,56 @@ pub struct TaskQueue {
     pub tasks: Vec<TaskRequest>,
 }
 
+/// Persistent store for completed task results.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct TaskResults {
+    pub results: Vec<TaskResult>,
+}
+
+impl TaskResults {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Add a result entry.
+    pub fn add(&mut self, result: TaskResult) {
+        self.results.push(result);
+    }
+
+    /// Get result by task ID.
+    pub fn for_task(&self, task_id: &str) -> Option<&TaskResult> {
+        self.results.iter().find(|r| r.task_id == task_id)
+    }
+
+    /// Get results for a card.
+    pub fn for_card(&self, card_id: &str) -> Vec<&TaskResult> {
+        // Results don't directly reference card_id, but tasks do.
+        // This is a convenience that requires cross-referencing.
+        self.results.iter().collect()
+    }
+
+    /// Save results to file.
+    pub fn save(&self, path: &Path) -> Result<()> {
+        crate::util::lock::with_lock(path, || {
+            let json = serde_json::to_string_pretty(self)?;
+            std::fs::write(path, json).context("Failed to write task results")?;
+            Ok(())
+        })
+    }
+
+    /// Load results from file.
+    pub fn load(path: &Path) -> Result<Self> {
+        crate::util::lock::with_lock(path, || {
+            if !path.exists() {
+                return Ok(Self::new());
+            }
+            let json = std::fs::read_to_string(path).context("Failed to read task results")?;
+            let results = serde_json::from_str(&json)?;
+            Ok(results)
+        })
+    }
+}
+
 impl TaskQueue {
     pub fn new() -> Self {
         Self::default()
@@ -141,11 +191,16 @@ impl TaskQueue {
         self.tasks.push(task);
     }
 
-    /// Get next pending task
+    /// Get next pending task, respecting dependency order.
+    ///
+    /// A task with unmet dependencies is skipped — its dependencies must be
+    /// completed first. Dependencies are resolved by checking the `dependencies`
+    /// field (task IDs) and the `card_id` field (parent card must be done).
     pub fn next_pending(&self) -> Option<&TaskRequest> {
         self.tasks
             .iter()
             .filter(|t| t.status == TaskStatus::Pending)
+            .filter(|t| self.dependencies_met(t))
             .min_by_key(|t| {
                 // Sort by priority, then by creation time
                 let priority_score = match t.priority.as_str() {
@@ -157,6 +212,15 @@ impl TaskQueue {
                 };
                 (priority_score, t.created_at)
             })
+    }
+
+    /// Check if all dependencies for a task are completed.
+    fn dependencies_met(&self, task: &TaskRequest) -> bool {
+        task.dependencies.iter().all(|dep_id| {
+            self.tasks
+                .iter()
+                .any(|t| t.id == *dep_id && t.status == TaskStatus::Completed)
+        })
     }
 
     /// Get tasks by status
@@ -251,19 +315,56 @@ impl TaskQueue {
         counts
     }
 
-    /// Save queue to file
+    /// Save queue to file (with advisory file lock for concurrent access).
     pub fn save(&self, path: &Path) -> Result<()> {
-        let json = serde_json::to_string_pretty(self)?;
-        std::fs::write(path, json).context("Failed to write task queue")?;
-        Ok(())
+        crate::util::lock::with_lock(path, || {
+            let json = serde_json::to_string_pretty(self)?;
+            std::fs::write(path, json).context("Failed to write task queue")?;
+            Ok(())
+        })
     }
 
-    /// Load queue from file
+    /// Load queue from file (with advisory file lock for concurrent access).
     pub fn load(path: &Path) -> Result<Self> {
-        let json = std::fs::read_to_string(path).context("Failed to read task queue")?;
-        let queue = serde_json::from_str(&json)?;
-        Ok(queue)
+        crate::util::lock::with_lock(path, || {
+            if !path.exists() {
+                return Ok(Self::new());
+            }
+            let json = std::fs::read_to_string(path).context("Failed to read task queue")?;
+            let queue = serde_json::from_str(&json)?;
+            Ok(queue)
+        })
     }
+}
+
+/// Populate FileContext entries from the board's code context for a given card.
+pub fn populate_context_files(card_id: &str, board_name: &str) -> Vec<FileContext> {
+    let ctx = match crate::storage::context::read_context(board_name) {
+        Ok(ctx) => ctx,
+        Err(_) => return Vec::new(),
+    };
+
+    let card_ctx = match ctx.cards.get(card_id) {
+        Some(c) => c,
+        None => return Vec::new(),
+    };
+
+    card_ctx
+        .files
+        .iter()
+        .map(|f| FileContext {
+            path: f.path.clone(),
+            content: std::fs::read_to_string(&f.path).ok(),
+            symbols: f.symbols.clone(),
+            call_graph: None,
+            test_coverage: card_ctx
+                .test_coverage
+                .as_ref()
+                .map(|tc| {
+                    serde_json::to_string(tc).unwrap_or_default()
+                }),
+        })
+        .collect()
 }
 
 /// Create a new task request

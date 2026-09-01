@@ -1327,7 +1327,7 @@ impl McpServer {
             title,
             &description,
             acceptance_criteria,
-            Vec::new(),
+            crate::agent::queue::populate_context_files(card_id, &board_name),
             &priority,
         );
 
