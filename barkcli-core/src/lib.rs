@@ -4,6 +4,7 @@ pub mod cli;
 pub mod code;
 pub mod commands;
 pub mod mcp;
+pub mod memory;
 pub mod models;
 pub mod storage;
 pub mod util;

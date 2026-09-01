@@ -117,6 +117,7 @@ fn dispatch(cmd: &str, cmd_args: &[String]) -> Result<()> {
 
         "intake" => commands::intake::run_intake(cmd_args)?,
         "plan" => commands::plan::run_plan(cmd_args)?,
+        "memory" | "mem" => commands::memory::run_memory(cmd_args)?,
 
         "session" => handle_session_cmd(cmd_args)?,
         "checkpoint" => handle_checkpoint_cmd(cmd_args)?,
@@ -694,6 +695,7 @@ fn print_usage() {
     println!("Management layer (human → agent pipeline):");
     println!("  intake <text>       Classify input → card + spec (--bug, --feature, --dry-run)");
     println!("  plan <card-id>      Generate spec + decomposition (--auto, --tasks, --dry-run)");
+    println!("  memory <cmd>        Cross-session memory (add, search, list, stats, compress)");
     println!();
     println!("Multiple boards (optional):");
     println!("  boards              List boards");

@@ -825,6 +825,71 @@ impl McpServer {
                     "required": []
                 }
             }),
+            serde_json::json!({
+                "name": "memory_add",
+                "description": "Store a memory entry for cross-session learning",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "content": {
+                            "type": "string",
+                            "description": "Memory content to store"
+                        },
+                        "tier": {
+                            "type": "string",
+                            "enum": ["working", "short", "long", "external"],
+                            "description": "Memory tier (default: short)"
+                        },
+                        "tags": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Tags for categorization"
+                        },
+                        "source": {
+                            "type": "string",
+                            "description": "Source context (card id, session id, etc.)"
+                        }
+                    },
+                    "required": ["content"]
+                }
+            }),
+            serde_json::json!({
+                "name": "memory_search",
+                "description": "Search memories using BM25 text matching",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "Search query"
+                        },
+                        "top": {
+                            "type": "integer",
+                            "description": "Number of results (default: 5)"
+                        }
+                    },
+                    "required": ["query"]
+                }
+            }),
+            serde_json::json!({
+                "name": "memory_list",
+                "description": "List stored memories",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "tier": {
+                            "type": "string",
+                            "enum": ["working", "short", "long", "external"],
+                            "description": "Filter by tier"
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Max results (default: 20)"
+                        }
+                    },
+                    "required": []
+                }
+            }),
         ];
 
         JsonRpcResponse {
@@ -881,6 +946,10 @@ impl McpServer {
             // Orchestration
             "orchestrate_next" => self.tool_orchestrate_next(arguments),
             "orchestrate_cycle" => self.tool_orchestrate_cycle(arguments),
+            // Memory
+            "memory_add" => self.tool_memory_add(arguments),
+            "memory_search" => self.tool_memory_search(arguments),
+            "memory_list" => self.tool_memory_list(arguments),
             _ => Err(anyhow::anyhow!("Unknown tool: {}", tool_name)),
         };
 
@@ -1691,6 +1760,93 @@ impl McpServer {
             "tasks_completed": result.tasks_completed,
             "tasks_failed": result.tasks_failed,
             "insights": result.insights
+        }))
+    }
+
+    fn tool_memory_add(&self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let content = args.get("content")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("content required"))?;
+
+        let tier_str = args.get("tier").and_then(|v| v.as_str()).unwrap_or("short");
+        let tier = match tier_str {
+            "working" => crate::memory::MemoryTier::Working,
+            "short" => crate::memory::MemoryTier::ShortTerm,
+            "long" => crate::memory::MemoryTier::LongTerm,
+            "external" => crate::memory::MemoryTier::External,
+            _ => crate::memory::MemoryTier::ShortTerm,
+        };
+
+        let tags: Vec<String> = args.get("tags")
+            .and_then(|v| v.as_array())
+            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+            .unwrap_or_default();
+
+        let source = args.get("source").and_then(|v| v.as_str()).map(String::from);
+
+        let mut store = crate::memory::MemoryStore::open(&board_name)?;
+        let mut entry = crate::memory::MemoryEntry::new(content, tier);
+        entry.tags = tags;
+        entry.source = source;
+        store.add(entry.clone());
+        store.save()?;
+
+        Ok(serde_json::json!({
+            "id": entry.id,
+            "tier": tier_str,
+            "content": content
+        }))
+    }
+
+    fn tool_memory_search(&self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let query = args.get("query")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("query required"))?;
+        let top = args.get("top").and_then(|v| v.as_u64()).unwrap_or(5) as usize;
+
+        let store = crate::memory::MemoryStore::open(&board_name)?;
+        let results = store.search(query, top);
+
+        let items: Vec<Value> = results.iter().map(|e| {
+            serde_json::json!({
+                "id": e.id,
+                "content": e.content,
+                "tier": e.tier.display_name(),
+                "tags": e.tags,
+                "source": e.source,
+                "created_at": e.created_at.to_rfc3339(),
+            })
+        }).collect();
+
+        Ok(serde_json::json!({
+            "count": items.len(),
+            "results": items
+        }))
+    }
+
+    fn tool_memory_list(&self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(20) as usize;
+
+        let store = crate::memory::MemoryStore::open(&board_name)?;
+        let entries = store.recent(limit);
+
+        let items: Vec<Value> = entries.iter().map(|e| {
+            serde_json::json!({
+                "id": e.id,
+                "content": e.content,
+                "tier": e.tier.display_name(),
+                "tags": e.tags,
+                "created_at": e.created_at.to_rfc3339(),
+            })
+        }).collect();
+
+        Ok(serde_json::json!({
+            "count": items.len(),
+            "total": store.len(),
+            "memories": items
         }))
     }
 }

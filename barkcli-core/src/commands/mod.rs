@@ -18,6 +18,7 @@ pub mod intake;
 pub mod link;
 pub mod list;
 pub mod merge;
+pub mod memory;
 pub mod plan;
 pub mod session;
 pub mod spec;
