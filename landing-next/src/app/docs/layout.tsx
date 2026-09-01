@@ -7,7 +7,22 @@ export const metadata: Metadata = {
     template: "%s · barkcli Docs",
   },
   description:
-    "Complete documentation for barkcli — git-native task management. Commands, guides, and API reference.",
+    "Complete documentation for barkcli — git-native task management. Commands, guides, API reference, and AI agent integration.",
+  keywords: [
+    "barkcli documentation",
+    "git task management docs",
+    "kanban CLI reference",
+    "barkcli commands",
+    "barkcli API",
+    "MCP server setup",
+  ],
+  openGraph: {
+    title: "barkcli Documentation",
+    description: "Complete documentation for barkcli — git-native task management.",
+    url: "https://barkcli.vercel.app/docs",
+    siteName: "barkcli",
+    type: "website",
+  },
 };
 
 export default function DocsLayout({

@@ -7,18 +7,21 @@ export function generatePageMetadata({
   description,
   path,
   image,
+  keywords,
 }: {
   title: string;
   description: string;
   path: string;
   image?: string;
+  keywords?: string[];
 }): Metadata {
   const url = `${SITE_URL}${path}`;
-  const ogImage = image || `${SITE_URL}/og${path}`;
+  const ogImage = image || `${SITE_URL}/og-image.png`;
 
   return {
     title,
     description,
+    keywords: keywords || undefined,
     alternates: {
       canonical: url,
     },
@@ -108,6 +111,61 @@ export function howToJsonLd(steps: { name: string; text: string }[]) {
       position: i + 1,
       name: step.name,
       text: step.text,
+    })),
+  });
+}
+
+export function articleJsonLd({
+  title,
+  description,
+  datePublished,
+  dateModified,
+  author,
+}: {
+  title: string;
+  description: string;
+  datePublished: string;
+  dateModified: string;
+  author?: string;
+}) {
+  return generateJsonLd({
+    "@type": "TechArticle",
+    headline: title,
+    description,
+    datePublished,
+    dateModified,
+    author: {
+      "@type": "Person",
+      name: author || "Akshat Naruka",
+      url: "https://github.com/AkshatNaruka",
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "barkcli",
+      url: SITE_URL,
+      logo: `${SITE_URL}/icon.svg`,
+    },
+  });
+}
+
+export function comparisonJsonLd({
+  name,
+  description,
+  items,
+}: {
+  name: string;
+  description: string;
+  items: { name: string; url: string; position: number }[];
+}) {
+  return generateJsonLd({
+    "@type": "ItemList",
+    name,
+    description,
+    itemListElement: items.map((item) => ({
+      "@type": "ListItem",
+      position: item.position,
+      name: item.name,
+      url: `${SITE_URL}${item.url}`,
     })),
   });
 }

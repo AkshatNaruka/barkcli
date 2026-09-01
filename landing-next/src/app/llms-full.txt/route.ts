@@ -1,8 +1,8 @@
 const llmsFull = `# barkcli — Complete Documentation
 
-> Local-first task management for developers. Tasks are YAML files in your git repo.
+> Git-native task management for developers. Tasks are YAML files in your git repo.
 
-Bark CLI is a git-native project management tool. Tasks are stored as YAML files in your repository. No cloud. No accounts. Open source. MIT licensed. Built in Rust.
+barkcli is a local-first project management tool. Tasks are stored as YAML files in your repository. No cloud. No accounts. Open source. MIT licensed. Built in Rust.
 
 ---
 
@@ -39,18 +39,18 @@ barkcli serve --open
 ### Tasks
 
 Tasks are the fundamental unit of work. Each task has:
-- id: Auto-generated from title
-- title: Human-readable name
-- column: Current workflow stage (todo, doing, review, done)
-- priority: high, medium, low
-- description: Detailed description
-- labels: Tags for categorization
-- assignee: Person responsible
-- due: Due date
-- effort: Story points
-- checklist: Subtasks
-- comments: Discussion threads
-- links: Relationships to other tasks
+- **id**: Auto-generated from title (e.g., "Implement OAuth" → implement-oauth)
+- **title**: Human-readable task name
+- **column**: Current workflow stage (todo, doing, review, done)
+- **priority**: high, medium, low
+- **description**: Detailed description
+- **labels**: Tags for categorization
+- **assignee**: Person responsible
+- **due**: Due date
+- **effort**: Story points
+- **checklist**: Subtasks with completion status
+- **comments**: Discussion threads
+- **links**: Relationships to other tasks (parent, child, related, blocked-by)
 
 ### Boards
 
@@ -60,6 +60,19 @@ Boards are collections of columns and cards. Each board is a separate .board YAM
 barkcli create my-project
 barkcli boards
 barkcli switch my-project
+\`\`\`
+
+Board configuration in .board/config.json:
+\`\`\`json
+{
+  "default_board": "my-project",
+  "columns": [
+    { "id": "todo", "name": "Todo" },
+    { "id": "doing", "name": "Doing" },
+    { "id": "review", "name": "Review" },
+    { "id": "done", "name": "Done" }
+  ]
+}
 \`\`\`
 
 ### Projects
@@ -86,56 +99,56 @@ barkcli code "AuthService"
 ## Commands
 
 ### Setup
-- barkcli init — Initialize .board/ directory
-- barkcli create <name> — Create a board
+- \`barkcli init\` — Initialize .board/ directory
+- \`barkcli create <name>\` — Create a board
 
 ### Task Management
-- barkcli <board> add <title> — Add task (-p, -l, -a, -c, -d, --due, --effort)
-- barkcli <board> list — List tasks (-c, -p, -l filters)
-- barkcli <board> show <id> — View task details
-- barkcli <board> move <id> <column> — Move task
-- barkcli <board> done <id> — Mark as done
-- barkcli <board> update <id> — Update fields
-- barkcli <board> remove <id> — Delete task
+- \`barkcli <board> add <title>\` — Add task (-p, -l, -a, -c, -d, --due, --effort)
+- \`barkcli <board> list\` — List tasks (-c, -p, -l filters)
+- \`barkcli <board> show <id>\` — View task details
+- \`barkcli <board> move <id> <column>\` — Move task
+- \`barkcli <board> done <id>\` — Mark as done
+- \`barkcli <board> update <id>\` — Update fields
+- \`barkcli <board> remove <id>\` — Delete task
 
 ### Board Management
-- barkcli boards — List boards
-- barkcli switch <name> — Set default board
-- barkcli status — Summary per column
+- \`barkcli boards\` — List boards
+- \`barkcli switch <name>\` — Set default board
+- \`barkcli status\` — Summary per column
 
 ### Links & Hierarchy
-- barkcli <board> link <id> <target> --as parent|child|related|blocked-by
-- barkcli <board> tree — View hierarchy
+- \`barkcli <board> link <id> <target> --as parent|child|related|blocked-by\`
+- \`barkcli <board> tree\` — View hierarchy
 
 ### History & Undo
-- barkcli <board> log — View history
-- barkcli <board> undo — Revert last change
-- barkcli <board> diff — Show changes
-- barkcli <board> blame <id> — Card change history
+- \`barkcli <board> log\` — View history
+- \`barkcli <board> undo\` — Revert last change
+- \`barkcli <board> diff\` — Show changes
+- \`barkcli <board> blame <id>\` — Card change history
 
 ### Code Context
-- barkcli code <query> — Search symbols
-- barkcli context scan — Auto-map cards
-- barkcli context status — Coverage
-- barkcli context sync — Git refresh
+- \`barkcli code <query>\` — Search symbols
+- \`barkcli context scan\` — Auto-map cards
+- \`barkcli context status\` — Coverage
+- \`barkcli context sync\` — Git refresh
 
 ### Interfaces
-- barkcli tui — Terminal UI
-- barkcli serve [--open] [--port] [--token] — Web server
+- \`barkcli tui\` — Terminal UI
+- \`barkcli serve [--open] [--port] [--token]\` — Web server
 
 ### Advanced
-- barkcli session list/show/resume — Agent sessions
-- barkcli checkpoint list/save/restore — State snapshots
-- barkcli sprint start/end/list — Sprint management
-- barkcli hooks install/status — Git hooks
+- \`barkcli session list/show/resume\` — Agent sessions
+- \`barkcli checkpoint list/save/restore\` — State snapshots
+- \`barkcli sprint start/end/list\` — Sprint management
+- \`barkcli hooks install/status\` — Git hooks
 
-### Pro Commands
-- barkcli ai "<prompt>" — AI task breakdown
-- barkcli report — Weekly report
-- barkcli changelog — Release notes
-- barkcli stats — Velocity
-- barkcli template list/install — Templates
-- barkcli sync --push/--pull — GitHub sync
+### Pro Commands (free, included in MIT)
+- \`barkcli ai "<prompt>"\` — AI task breakdown
+- \`barkcli report\` — Weekly report
+- \`barkcli changelog\` — Release notes
+- \`barkcli stats\` — Velocity
+- \`barkcli template list/install\` — Templates
+- \`barkcli sync --push/--pull\` — GitHub sync
 
 ---
 
@@ -282,7 +295,19 @@ JSON-RPC 2.0 server for AI coding agents.
 barkcli mcp
 \`\`\`
 
-### AI Features (Pro)
+Configure with Claude Code:
+\`\`\`json
+{
+  "mcpServers": {
+    "barkcli": {
+      "command": "barkcli",
+      "args": ["mcp"]
+    }
+  }
+}
+\`\`\`
+
+### AI Features (free, included in MIT)
 \`\`\`bash
 barkcli ai "Implement JWT auth"
 barkcli agent propose <id>
@@ -347,6 +372,18 @@ Configure MCP server for Claude Code, OpenCode, or Cursor:
 - BARKCLI_TOKEN — API auth token
 - OPENAI_API_KEY — OpenAI API key
 - ANTHROPIC_API_KEY — Anthropic API key
+
+---
+
+## Pricing
+
+Free and open source (MIT license). No subscriptions, no per-seat pricing.
+
+## Source Code
+
+- GitHub: https://github.com/AkshatNaruka/barkcli
+- License: MIT
+- Version: 0.2.0
 `;
 
 export async function GET() {

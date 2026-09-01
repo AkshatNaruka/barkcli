@@ -1,6 +1,22 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { ChevronRight } from "lucide-react";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { generatePageMetadata, breadcrumbJsonLd } from "@/lib/seo";
+
+export const metadata: Metadata = generatePageMetadata({
+  title: "Core Concepts — barkcli",
+  description:
+    "Understand the mental model of barkcli: tasks, boards, projects, and code context. Learn how git-native task management works.",
+  path: "/docs/concepts",
+  keywords: [
+    "barkcli concepts",
+    "git task management",
+    "kanban board concepts",
+    "YAML task files",
+    "code context",
+  ],
+});
 
 const concepts = [
   {
@@ -28,6 +44,18 @@ const concepts = [
 export default function ConceptsPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(
+            breadcrumbJsonLd([
+              { name: "Home", url: "/" },
+              { name: "Documentation", url: "/docs" },
+              { name: "Core Concepts", url: "/docs/concepts" },
+            ])
+          ),
+        }}
+      />
       <Breadcrumbs items={[{ label: "Core Concepts", href: "/docs/concepts" }]} />
       <h1 className="mb-4 text-4xl font-bold tracking-tight">Core Concepts</h1>
       <p className="mb-12 text-lg text-white/60">
@@ -58,6 +86,16 @@ export default function ConceptsPage() {
             <p className="text-sm text-white/50">{concept.description}</p>
           </Link>
         ))}
+      </div>
+
+      <div className="mt-12 rounded-xl border border-white/10 bg-white/5 p-6">
+        <h2 className="mb-3 text-lg font-semibold">Related</h2>
+        <div className="flex flex-wrap gap-4 text-sm">
+          <Link href="/docs/getting-started" className="text-[#B8845C] hover:underline">Getting Started</Link>
+          <Link href="/docs/commands" className="text-[#B8845C] hover:underline">Commands</Link>
+          <Link href="/docs/code-context" className="text-[#B8845C] hover:underline">Code Context Guide</Link>
+          <Link href="/docs/advanced" className="text-[#B8845C] hover:underline">Advanced</Link>
+        </div>
       </div>
     </>
   );
