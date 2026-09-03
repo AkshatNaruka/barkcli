@@ -24,12 +24,15 @@ const SITE_URL = "https://barkcli.vercel.app";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "barkcli — Git-native task management",
+    default: "barkcli — The management layer for AI agents",
     template: "%s · barkcli",
   },
   description:
-    "A git-native kanban board that lives in your repo. CLI, terminal UI, and web app — one binary, no cloud, no accounts. Free and open source (MIT). Tasks are YAML files you can diff, merge, and version control alongside your code.",
+    "barkcli is the management layer between humans and AI coding agents. Tasks, specs, memory, skills, and agent runs live in your repo — CLI, web app, and 38 MCP tools. One binary, no cloud, no accounts. Free and open source (MIT).",
   keywords: [
+    "management layer for ai agents",
+    "ai agent orchestration",
+    "ai project manager",
     "git kanban",
     "git-native task management",
     "kanban board CLI",
@@ -44,6 +47,8 @@ export const metadata: Metadata = {
     "mcp server",
     "ai coding agents",
     "code context",
+    "agent skills",
+    "spec driven development",
   ],
   applicationName: "barkcli",
   authors: [{ name: "Akshat Naruka", url: "https://github.com/AkshatNaruka" }],
@@ -58,9 +63,9 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: SITE_URL,
     siteName: "barkcli",
-    title: "barkcli — Git-native task management",
+    title: "barkcli — The management layer for AI agents",
     description:
-      "Git-native kanban board that lives in your repo. CLI, terminal UI, and web app — one binary, no cloud, no accounts. Free and open source.",
+      "The management layer between humans and AI coding agents. Tasks, specs, memory, and agent runs live in your repo. Free and open source.",
     images: [
       {
         url: `${SITE_URL}/og-image.png`,
@@ -72,9 +77,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "barkcli — Git-native task management",
+    title: "barkcli — The management layer for AI agents",
     description:
-      "Git-native kanban board that lives in your repo. CLI, terminal UI, and web app — one binary, no cloud. Free and open source (MIT).",
+      "Tasks, specs, memory, and agent runs live in your repo. CLI, web app, and 38 MCP tools. No cloud. Free and open source (MIT).",
     creator: "@probiex007",
     images: [`${SITE_URL}/og-image.png`],
   },
@@ -119,7 +124,7 @@ const structuredData = {
       operatingSystem: "macOS, Linux, Windows",
       url: SITE_URL,
       description:
-        "Git-native kanban board that lives in your repo. CLI, terminal UI, and web app — one binary, no cloud, no accounts. Tasks are YAML files you can diff, merge, and version control.",
+        "The management layer between humans and AI coding agents. Tasks, specs, memory, skills, and agent runs live in your repo — CLI, web app, and 38 MCP tools. One binary, no cloud, no accounts.",
       offers: {
         "@type": "Offer",
         price: "0",
@@ -133,17 +138,20 @@ const structuredData = {
         url: "https://github.com/AkshatNaruka",
       },
       featureList: [
-        "Git-native task management",
+        "Management layer for AI coding agents",
+        "Mind snapshot and overview",
+        "BMAD skills in repo",
+        "Agent task queue with review gate",
         "CLI, Terminal UI, Web App, VS Code extension",
-        "YAML-based board files",
-        "Code context and symbol search",
-        "MCP server for AI coding agents",
+        "YAML-based board files with spec traceability",
+        "Four-tier local memory",
+        "38 MCP tools for AI coding agents",
         "Sprint management",
         "Session capture and checkpoints",
         "Import/export",
       ],
       screenshot: `${SITE_URL}/og-image.png`,
-      softwareVersion: "0.2.0",
+      softwareVersion: "0.3.1",
       downloadUrl: "https://github.com/AkshatNaruka/barkcli/releases",
       installUrl: `${SITE_URL}/docs/getting-started`,
     },
@@ -152,7 +160,7 @@ const structuredData = {
       name: "barkcli",
       url: SITE_URL,
       description:
-        "Git-native kanban board that lives in your repo. CLI, terminal UI, and web app — one binary, no cloud.",
+        "The management layer between humans and AI coding agents. Tasks, specs, memory, and agent runs live in your repo.",
       inLanguage: "en",
       publisher: {
         "@type": "Organization",
