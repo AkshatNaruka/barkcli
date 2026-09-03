@@ -793,3 +793,17 @@ $ barkcli mind sync && barkcli overview
 ---
 
 *End of vision. Build the mind.*
+
+---
+
+## Implementation Log v0.3.0-mvp (feat/mvp-all-specs)
+
+- SPEC-001 Harden: `board_file.rs:58 with_lock+atomic`, `update_board`, `orchestrate.rs:65` persistence, `dispatch_task:257` context, `stress_concurrent.rs` 100 cards OK
+- SPEC-002 Mind: `mind/snapshot.rs`, `digest.rs`, `commands/mind.rs`, `commands/overview.rs` (offline 4 panels)
+- SPEC-003 Skills: `skills/builtin/{mvp,planning,scrum-master,test}.md`, `registry.rs` load_all, `commands/skills.rs`, heuristic fallback for `intake`/`plan`, `listener.rs:421` prompt injection
+- SPEC-004 Team: `models/card.rs` `spec_id`, `barkcli-server` `/api/mind`+`/api/skills` (axum 0.8 `{param}`), `mcp.rs` 5 tools →38 total
+- SPEC-005 Polish: version 0.3.0, README mind/skills/dispatch, `docs/content/AI_AGENT_PROMPT.md` 38 tools
+
+`cargo test:86 passed`, `cargo build` release OK, offline smoke `BARKCLI_API_KEY="" intake→plan→mind→overview→dispatch` verified.
+
+Tag: `v0.3.0-mvp` on `feat/mvp-all-specs`.
