@@ -23,6 +23,7 @@ import {
   type GitInfo,
 } from "./lib/api";
 import { useRoute, type Route } from "./lib/hashnav";
+import { Icon } from "./components/Icon";
 import { BoardView } from "./components/BoardView";
 import { TableView } from "./components/TableView";
 import { CalendarView } from "./components/CalendarView";
@@ -461,7 +462,7 @@ export function App() {
             className="hidden sm:flex items-center gap-2 text-xs text-muted hover:text-text px-3 py-1.5 rounded-lg border border-border hover:border-border-strong transition-colors min-w-[180px]"
             title="Command palette (⌘K)"
           >
-            <span>🔍</span>
+            <Icon name="search" size={13} />
             <span className="flex-1 text-left">Search or command…</span>
             <kbd className="text-[10px] font-mono bg-surface border border-border rounded px-1">⌘K</kbd>
           </button>
@@ -638,13 +639,21 @@ function BoardPage({
 }) {
   const [view, setView] = useState<ViewMode>("board");
   const [filter, setFilter] = useState("");
-  const [blockedOnly, setBlockedOnly] = useState(false);
+  const [chips, setChips] = useState<string[]>([]);
+  const toggleChip = (chip: string) =>
+    setChips((prev) => (prev.includes(chip) ? prev.filter((c) => c !== chip) : [...prev, chip]));
+  const staleCutoff = Date.now() - 7 * 24 * 3600 * 1000;
   const visible = React.useMemo(() => {
     const q = filter.trim().toLowerCase();
     return {
       ...board,
       cards: board.cards.filter((c) => {
-        if (blockedOnly && !isBlockedCard(c)) return false;
+        for (const chip of chips) {
+          if (chip === "blocked" && !isBlockedCard(c)) return false;
+          if (chip === "stale" && !(c.column !== "done" && new Date(c.updated_at).getTime() < staleCutoff)) return false;
+          if (chip === "no-spec" && c.spec_id) return false;
+          if (chip === "high" && c.priority !== "high") return false;
+        }
         if (!q) return true;
         return (
           c.title.toLowerCase().includes(q) ||
@@ -654,8 +663,15 @@ function BoardPage({
         );
       }),
     };
-  }, [board, filter, blockedOnly]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [board, filter, chips]);
   const hidden = board.cards.length - visible.cards.length;
+  const CHIP_DEFS = [
+    { id: "blocked", label: "Blocked", icon: "blocked" as const },
+    { id: "stale", label: "Stale", icon: "clock" as const },
+    { id: "no-spec", label: "No spec", icon: "link" as const },
+    { id: "high", label: "High", icon: "flag" as const },
+  ];
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center gap-2 px-4 pt-2 pb-0 shrink-0">
@@ -678,17 +694,24 @@ function BoardPage({
           placeholder="Filter by title, id, label, spec…"
           className="flex-1 max-w-xs bg-surface border border-border rounded-md px-2.5 py-1 text-xs text-text placeholder:text-muted focus:outline-none focus:border-accent"
         />
-        <button
-          onClick={() => setBlockedOnly((b) => !b)}
-          title="Show only blocked cards"
-          className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
-            blockedOnly
-              ? "text-danger border-danger/50 bg-danger-soft"
-              : "text-muted border-border hover:text-text"
-          }`}
-        >
-          ⛔ blocked
-        </button>
+        {CHIP_DEFS.map((chip) => {
+          const on = chips.includes(chip.id);
+          return (
+            <button
+              key={chip.id}
+              onClick={() => toggleChip(chip.id)}
+              title={`Quick filter: ${chip.label}`}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                on
+                  ? "text-accent border-accent/50 bg-accent-soft font-medium"
+                  : "text-muted border-border hover:text-text"
+              }`}
+            >
+              <Icon name={chip.icon} size={12} />
+              {chip.label}
+            </button>
+          );
+        })}
         {hidden > 0 && (
           <span className="text-[10px] text-muted font-mono">{hidden} hidden</span>
         )}

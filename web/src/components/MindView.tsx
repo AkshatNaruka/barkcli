@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { connectWs } from "../lib/api";
 import { navigate } from "../lib/hashnav";
+import { Icon } from "./Icon";
 
 interface MindSnapshot {
   board_name: string;
@@ -62,9 +63,10 @@ export function MindView({ boardName }: { boardName: string | null }) {
               await load();
               setSyncing(false);
             }}
-            className="text-xs px-3 py-1.5 rounded border border-border hover:border-border-strong text-muted hover:text-text"
+            className="text-xs px-3 py-1.5 rounded border border-border hover:border-border-strong text-muted hover:text-text inline-flex items-center gap-1.5"
           >
-            {syncing ? "Syncing…" : "⟳ Sync"}
+            <Icon name="refresh" size={13} />
+            {syncing ? "Syncing…" : "Sync"}
           </button>
           {digest && (
             <button
@@ -74,9 +76,10 @@ export function MindView({ boardName }: { boardName: string | null }) {
                   setTimeout(() => setCopied(false), 2000);
                 });
               }}
-              className="text-xs px-3 py-1.5 rounded bg-accent text-white hover:bg-accent/90"
+              className="text-xs px-3 py-1.5 rounded bg-accent text-white hover:bg-accent/90 inline-flex items-center gap-1.5"
             >
-              {copied ? "Copied!" : "⧉ Copy digest"}
+              <Icon name="copy" size={13} />
+              {copied ? "Copied!" : "Copy digest"}
             </button>
           )}
         </div>

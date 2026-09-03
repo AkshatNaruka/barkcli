@@ -113,7 +113,7 @@ export function ReportsView({ board, sprints }: { board: BoardType; sprints: Spr
             {board.columns.map((col) => (
               <Bar key={col.id} label={col.name} value={report.colEffort[col.id]?.effort || 0} max={maxColEffort} tone="bg-accent" />
             ))}
-            {maxColEffort === 1 && <p className="text-xs text-muted">No effort assigned yet (set ⏱ on cards).</p>}
+            {maxColEffort === 1 && <p className="text-xs text-muted">No effort assigned yet (set points on cards).</p>}
           </Section>
 
           {/* Effort by area */}

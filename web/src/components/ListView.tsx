@@ -2,6 +2,7 @@ import React from "react";
 import type { Board as BoardType, Card } from "../lib/types";
 import { Avatar } from "./Avatar";
 import { PriorityBadge } from "./PriorityBadge";
+import { Icon } from "./Icon";
 import { labelClasses } from "../lib/labels";
 
 interface Props {
@@ -21,8 +22,9 @@ export function ListView({ board, onEditCard, onDeleteCard, onMoveCard }: Props)
     <div className="p-4 max-w-2xl mx-auto h-full overflow-auto space-y-2">
       {sorted.length === 0 && (
         <div className="text-center py-12 text-muted">
-          <div className="text-3xl mb-2">🗂</div>
+          <div className="flex justify-center mb-3 text-muted"><Icon name="inbox" size={36} /></div>
           <p className="text-sm">No cards yet</p>
+          <p className="text-xs mt-1">Press N or use ⌘K → New card</p>
         </div>
       )}
       {sorted.map((card) => (

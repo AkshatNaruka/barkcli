@@ -1,10 +1,10 @@
 import React from "react";
 import { useTheme, type Theme } from "../lib/theme.tsx";
 
-const OPTIONS: { value: Theme; label: string; icon: string }[] = [
-  { value: "black", label: "Black", icon: "⬛" },
-  { value: "light", label: "Light", icon: "⬜" },
-  { value: "system", label: "System", icon: "🖥" },
+const OPTIONS: { value: Theme; label: string }[] = [
+  { value: "black", label: "Black" },
+  { value: "light", label: "Light" },
+  { value: "system", label: "System" },
 ];
 
 export function ThemeDropdown() {

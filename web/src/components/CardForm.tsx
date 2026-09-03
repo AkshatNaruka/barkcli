@@ -7,6 +7,7 @@ import type {
   ChecklistItem,
   LinkType,
 } from "../lib/types";
+import { Icon } from "./Icon";
 
 interface Props {
   card?: Card;
@@ -479,7 +480,9 @@ function SpecTab({ cardId, specId }: { cardId?: string; specId?: string }) {
               </p>
             )}
             {r.stale && (
-              <p className="text-[10px] text-warning mt-1">⚠ stale{r.stale_reason ? `: ${r.stale_reason}` : ""}</p>
+              <p className="text-[10px] text-warning mt-1 inline-flex items-center gap-1">
+                <Icon name="warn" size={11} /> stale{r.stale_reason ? `: ${r.stale_reason}` : ""}
+              </p>
             )}
           </div>
         ))}

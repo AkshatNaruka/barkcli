@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { Lozenge } from "./Lozenge";
 
 interface Agent {
   id: string;
@@ -21,17 +22,21 @@ interface Task {
   created_at: string;
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  Idle: "bg-green-500/10 text-green-400",
-  Working: "bg-yellow-500/10 text-yellow-400",
-  Paused: "bg-gray-500/10 text-gray-400",
-  Error: "bg-red-500/10 text-red-400",
-  Pending: "bg-gray-500/10 text-gray-400",
-  Assigned: "bg-blue-500/10 text-blue-400",
-  InProgress: "bg-yellow-500/10 text-yellow-400",
-  Completed: "bg-green-500/10 text-green-400",
-  Failed: "bg-red-500/10 text-red-400",
+const STATUS_TONE: Record<string, "gray" | "blue" | "amber" | "green" | "red"> = {
+  Idle: "green",
+  Working: "amber",
+  Paused: "gray",
+  Error: "red",
+  Pending: "gray",
+  Assigned: "blue",
+  InProgress: "amber",
+  Completed: "green",
+  Failed: "red",
 };
+
+function StatusPill({ status }: { status: string }) {
+  return <Lozenge tone={STATUS_TONE[status] || "gray"}>{status.replace(/([A-Z])/g, " $1").trim()}</Lozenge>;
+}
 
 export function OrchestrateView({ boardName }: { boardName: string | null }) {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -167,9 +172,7 @@ export function OrchestrateView({ boardName }: { boardName: string | null }) {
                   </button>
                 </div>
                 <div className="flex items-center gap-2 mt-2">
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${STATUS_COLORS[a.status] || "bg-gray-500/10 text-gray-400"}`}>
-                    {a.status}
-                  </span>
+                  <StatusPill status={a.status} />
                   <span className="text-[10px] text-muted">{a.role}</span>
                 </div>
                 <div className="flex items-center gap-3 mt-1 text-[10px] text-muted">
@@ -260,9 +263,7 @@ export function OrchestrateView({ boardName }: { boardName: string | null }) {
                 <div key={t.id} className="p-3 hover:bg-surface/50 group">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${STATUS_COLORS[t.status] || ""}`}>
-                        {t.status}
-                      </span>
+                      <StatusPill status={t.status} />
                       <span className="text-xs font-medium text-text">{t.title}</span>
                     </div>
                     <button

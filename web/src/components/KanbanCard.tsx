@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import type { Card } from "../lib/types";
 import { Avatar } from "./Avatar";
 import { PriorityBadge } from "./PriorityBadge";
+import { Icon } from "./Icon";
+import { Lozenge } from "./Lozenge";
 import { labelClasses } from "../lib/labels";
 
 interface Props {
@@ -41,7 +43,9 @@ export const KanbanCard = React.memo(function KanbanCard({ card, isOverlay, onEd
     >
       {/* Pin indicator */}
       {card.pinned && (
-        <span className="absolute -top-1.5 -right-1.5 text-[10px] text-warning select-none" title="Pinned">📌</span>
+        <span className="absolute -top-1.5 -right-1.5 text-warning select-none bg-card border border-border rounded-full p-0.5" title="Pinned">
+          <Icon name="pin" size={10} />
+        </span>
       )}
 
       {/* Card ID */}
@@ -62,14 +66,14 @@ export const KanbanCard = React.memo(function KanbanCard({ card, isOverlay, onEd
           {menuOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} />
-              <div className="absolute right-0 top-6 z-20 bg-card rounded-lg shadow-[var(--shadow)] border border-border py-1 min-w-[160px]">
-                <button onClick={(e) => { e.stopPropagation(); onEdit(card); setMenuOpen(false); }} className="w-full text-left px-3 py-1.5 text-sm text-text hover:bg-surface">✏️ Edit</button>
-                <button onClick={(e) => { e.stopPropagation(); onTogglePin(card.id); setMenuOpen(false); }} className="w-full text-left px-3 py-1.5 text-sm text-text hover:bg-surface">{card.pinned ? "📌 Unpin" : "📌 Pin"}</button>
-                <button onClick={(e) => { e.stopPropagation(); onCopyCommitMsg(card); setMenuOpen(false); }} className="w-full text-left px-3 py-1.5 text-sm text-text hover:bg-surface">📋 Copy commit msg</button>
-                <button onClick={(e) => { e.stopPropagation(); onShowHistory(card.id); setMenuOpen(false); }} className="w-full text-left px-3 py-1.5 text-sm text-text hover:bg-surface">🕐 History</button>
-                <button onClick={(e) => { e.stopPropagation(); onShowActivity(card.id); setMenuOpen(false); }} className="w-full text-left px-3 py-1.5 text-sm text-text hover:bg-surface">🧾 Activity</button>
+              <div className="absolute right-0 top-6 z-20 bg-card rounded-lg dialog-elevated border border-border py-1 min-w-[170px]">
+                <MenuItem onClick={(e) => { e.stopPropagation(); onEdit(card); setMenuOpen(false); }} icon="pencil" label="Edit" />
+                <MenuItem onClick={(e) => { e.stopPropagation(); onTogglePin(card.id); setMenuOpen(false); }} icon="pin" label={card.pinned ? "Unpin" : "Pin"} />
+                <MenuItem onClick={(e) => { e.stopPropagation(); onCopyCommitMsg(card); setMenuOpen(false); }} icon="copy" label="Copy commit msg" />
+                <MenuItem onClick={(e) => { e.stopPropagation(); onShowHistory(card.id); setMenuOpen(false); }} icon="history" label="History" />
+                <MenuItem onClick={(e) => { e.stopPropagation(); onShowActivity(card.id); setMenuOpen(false); }} icon="pulse" label="Activity" />
                 <div className="border-t border-border my-0.5" />
-                <button onClick={(e) => { e.stopPropagation(); onDelete(card.id); setMenuOpen(false); }} className="w-full text-left px-3 py-1.5 text-sm text-danger hover:bg-danger-soft">🗑 Delete</button>
+                <MenuItem onClick={(e) => { e.stopPropagation(); onDelete(card.id); setMenuOpen(false); }} icon="trash" label="Delete" danger />
               </div>
             </>
           )}
@@ -94,7 +98,9 @@ export const KanbanCard = React.memo(function KanbanCard({ card, isOverlay, onEd
       {checklistTotal > 0 && (
         <div className="mt-2">
           <div className="flex items-center justify-between text-[10px] mb-0.5">
-            <span className={checklistDone === checklistTotal ? "text-success" : "text-muted"}>☑ {checklistDone}/{checklistTotal}</span>
+            <span className={`inline-flex items-center gap-1 ${checklistDone === checklistTotal ? "text-success" : "text-muted"}`}>
+              <Icon name="check" size={11} /> {checklistDone}/{checklistTotal}
+            </span>
             <span className="text-muted font-mono">{checklistPct}%</span>
           </div>
           <div className="h-1 rounded-full bg-surface overflow-hidden">
@@ -126,25 +132,59 @@ export const KanbanCard = React.memo(function KanbanCard({ card, isOverlay, onEd
             <span className="w-5 h-5 rounded-full border border-dashed border-border" title="Unassigned" />
           )}
           {card.due_date && (
-            <span className={`text-[10px] font-mono ${overdue ? "text-danger" : "text-muted"}`}>
-              {overdue ? "⚠" : "📅"}{card.due_date.slice(5, 10)}
+            <span className={`text-[10px] font-mono inline-flex items-center gap-0.5 ${overdue ? "text-danger" : "text-muted"}`}>
+              <Icon name={overdue ? "warn" : "calendar"} size={11} />{card.due_date.slice(5, 10)}
             </span>
           )}
           {(card as any).spec_id && (
-            <span className="text-[10px] font-mono text-accent bg-accent/10 border border-accent/20 px-1 py-0 rounded" title={`Spec: ${(card as any).spec_id}`}>⎇ {(card as any).spec_id.slice(0, 12)}</span>
+            <span className="text-[10px] font-mono text-accent bg-accent/10 border border-accent/20 px-1 py-0 rounded inline-flex items-center gap-0.5" title={`Spec: ${(card as any).spec_id}`}>
+              <Icon name="link" size={10} />{(card as any).spec_id.slice(0, 12)}
+            </span>
           )}
+          {blockedBy && <Lozenge tone="red" title={`Blocked by ${blockedBy}`}>Blocked</Lozenge>}
         </div>
         <div className="flex items-center gap-2 text-[10px] text-muted">
           {card.effort !== undefined && card.effort > 0 && (
-            <span className="font-mono" title="Effort (points)">⏱ {card.effort}</span>
+            <span className="font-mono inline-flex items-center gap-0.5" title="Effort (points)">
+              <Icon name="clock" size={11} /> {card.effort}
+            </span>
           )}
           {childCount > 0 && (
-            <span className="text-accent" title={`${childCount} linked task(s)`}>◗ {childCount}</span>
+            <span className="text-accent inline-flex items-center gap-0.5" title={`${childCount} linked task(s)`}>
+              <Icon name="subtasks" size={11} /> {childCount}
+            </span>
           )}
-          {card.comments.length > 0 && <span>💬 {card.comments.length}</span>}
-          {blockedBy && <span title={`Blocked by ${blockedBy}`}>⛔</span>}
+          {card.comments.length > 0 && (
+            <span className="inline-flex items-center gap-0.5">
+              <Icon name="comment" size={11} /> {card.comments.length}
+            </span>
+          )}
         </div>
       </div>
     </div>
   );
 });
+
+function MenuItem({
+  onClick,
+  icon,
+  label,
+  danger,
+}: {
+  onClick: (e: React.MouseEvent) => void;
+  icon: "pencil" | "pin" | "copy" | "history" | "pulse" | "trash";
+  label: string;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full text-left px-3 py-1.5 text-[13px] flex items-center gap-2 transition-colors ${
+        danger ? "text-danger hover:bg-danger-soft" : "text-text hover:bg-surface"
+      }`}
+    >
+      <Icon name={icon} size={13} />
+      {label}
+    </button>
+  );
+}

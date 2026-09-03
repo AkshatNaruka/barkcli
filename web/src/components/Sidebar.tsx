@@ -1,50 +1,51 @@
 import React, { useState } from "react";
 import type { Route } from "../lib/hashnav";
+import { Icon, type IconName } from "./Icon";
 
 interface Section {
   label: string;
-  items: { route: Route; label: string; icon: string }[];
+  items: { route: Route; label: string; icon: IconName }[];
 }
 
 const SECTIONS: Section[] = [
   {
     label: "Manage",
     items: [
-      { route: "mind", label: "Mind", icon: "◉" },
-      { route: "board", label: "Board", icon: "▦" },
-      { route: "specs", label: "Specs", icon: "◈" },
-      { route: "sprints", label: "Sprints", icon: "◑" },
+      { route: "mind", label: "Mind", icon: "spark" },
+      { route: "board", label: "Board", icon: "board" },
+      { route: "specs", label: "Specs", icon: "layers" },
+      { route: "sprints", label: "Sprints", icon: "cycle" },
     ],
   },
   {
     label: "Build",
     items: [
-      { route: "code", label: "Code", icon: "⌨" },
-      { route: "agents", label: "Agents", icon: "⚙" },
+      { route: "code", label: "Code", icon: "code" },
+      { route: "agents", label: "Agents", icon: "users" },
     ],
   },
   {
     label: "Knowledge",
     items: [
-      { route: "memory", label: "Memory", icon: "🧠" },
-      { route: "skills", label: "Skills", icon: "✦" },
-      { route: "docs", label: "Docs", icon: "📄" },
+      { route: "memory", label: "Memory", icon: "db" },
+      { route: "skills", label: "Skills", icon: "star" },
+      { route: "docs", label: "Docs", icon: "doc" },
     ],
   },
   {
     label: "Insights",
     items: [
-      { route: "calendar", label: "Calendar", icon: "📅" },
-      { route: "reports", label: "Reports", icon: "📊" },
-      { route: "timeline", label: "Timeline", icon: "🕒" },
-      { route: "activity", label: "Activity", icon: "🧾" },
+      { route: "calendar", label: "Calendar", icon: "calendar" },
+      { route: "reports", label: "Reports", icon: "chart" },
+      { route: "timeline", label: "Timeline", icon: "clock" },
+      { route: "activity", label: "Activity", icon: "pulse" },
     ],
   },
 ];
 
-const UTILITY: { route: Route; label: string; icon: string }[] = [
-  { route: "settings", label: "Settings", icon: "⚙️" },
-  { route: "agent-prompt", label: "AI Agent", icon: "🤖" },
+const UTILITY: { route: Route; label: string; icon: IconName }[] = [
+  { route: "settings", label: "Settings", icon: "gear" },
+  { route: "agent-prompt", label: "AI Agent", icon: "robot" },
 ];
 
 export interface SidebarCounts {
@@ -92,10 +93,10 @@ export function Sidebar({
         )}
         <button
           onClick={() => setCollapsed((c) => !c)}
-          className="text-muted hover:text-text text-xs px-1.5 py-1 rounded hover:bg-surface"
+          className="text-muted hover:text-text p-1.5 rounded hover:bg-surface flex"
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          {collapsed ? "»" : "«"}
+          <Icon name={collapsed ? "chevR" : "chevL"} size={14} />
         </button>
       </div>
 
@@ -128,7 +129,7 @@ export function Sidebar({
                       : "text-muted hover:text-text hover:bg-surface border-l-2 border-transparent"
                   }`}
                 >
-                  <span className="w-4 text-center shrink-0 text-xs">{item.icon}</span>
+                  <span className="shrink-0 flex"><Icon name={item.icon} size={15} /></span>
                   {!collapsed && <span className="flex-1 text-left truncate">{item.label}</span>}
                   {!collapsed && badge > 0 && (
                     <span
@@ -161,7 +162,7 @@ export function Sidebar({
                 : "text-muted hover:text-text hover:bg-surface border-l-2 border-transparent"
             }`}
           >
-            <span className="w-4 text-center shrink-0 text-xs">{item.icon}</span>
+            <span className="shrink-0 flex"><Icon name={item.icon} size={15} /></span>
             {!collapsed && <span className="flex-1 text-left truncate">{item.label}</span>}
           </button>
         ))}

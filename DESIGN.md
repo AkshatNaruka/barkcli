@@ -168,6 +168,7 @@ Unchanged this pass except sidebar grouping + `fetchSkills` reuse.
 - [x] `hashnav.ts`: default `mind`; added `agents` alias; `dashboard` kept as alias rendering Mind.
 - [x] `MindView`: clickable blocker/stale/next-action rows; `CardForm`: Spec tab via `fetchSpec`; `KanbanCard`: blocked red border + stale dot; `CommandPalette`: `go to <view>` + `sync mind`.
 - [x] `npm run build` green (tsc + vite, 526 modules) + `barkcli serve` smoke (`/api/mind`, `/api/skills`, index).
+- [x] Emoji purge + Jira/Azure polish: `Icon.tsx` (~30 inline SVGs, zero deps) + `Lozenge.tsx` status pills; Sidebar/KanbanCard/Column/PriorityBadge/palette/theme/form/Mind/Dashboard/Calendar/List/Orchestrate converted; bundle verified emoji-free (only intentional checkbox text glyphs); BoardPage quick-filter chips (Blocked/Stale/No spec/High).
 
 Out of scope (deferred): card drawer (stays modal), milestones model, TUI, MCP/server changes.
 
