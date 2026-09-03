@@ -9,7 +9,7 @@ use crate::util::redact::redact_text;
 
 const HISTORY_DIR: &str = "history";
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HistoryEntry {
     pub op: String,
     pub board: String,

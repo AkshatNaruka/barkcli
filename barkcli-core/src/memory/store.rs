@@ -299,12 +299,19 @@ impl MemoryStore {
         }
     }
 
-    /// Save memory to disk.
+    /// Save memory to disk (locked + atomic).
     pub fn save(&self) -> Result<()> {
-        let json = serde_json::to_string_pretty(&self.memory)
-            .context("failed to serialize memory")?;
-        std::fs::write(&self.path, json).context("failed to write memory")?;
-        Ok(())
+        crate::util::lock::with_lock(&self.path, || {
+            let json = serde_json::to_string_pretty(&self.memory)
+                .context("failed to serialize memory")?;
+            let tmp = self.path.with_extension(format!(
+                "{}.tmp",
+                self.path.extension().and_then(|e| e.to_str()).unwrap_or("json")
+            ));
+            std::fs::write(&tmp, json).context("failed to write tmp memory")?;
+            std::fs::rename(&tmp, &self.path).context("failed to rename memory")?;
+            Ok(())
+        })
     }
 
     /// Get the board name.

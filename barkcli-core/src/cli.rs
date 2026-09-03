@@ -120,6 +120,17 @@ fn dispatch(cmd: &str, cmd_args: &[String]) -> Result<()> {
         "memory" | "mem" => commands::memory::run_memory(cmd_args)?,
         "monitor" => commands::monitor::run_monitor(cmd_args)?,
         "review" => commands::review::run_review(cmd_args)?,
+        "mind" => commands::mind::run_mind(cmd_args)?,
+        "overview" => commands::overview::run_overview(cmd_args)?,
+        "skills" | "skill" => commands::skills::run_skills(cmd_args)?,
+        "dispatch" => {
+            // Alias to orchestrate cycle via agent engine
+            let board_name = resolve_board(None)?;
+            let board = crate::storage::board_file::read_board(&board_name)?;
+            let mut eng = crate::agent::OrchestrationEngine::new(&board_name, crate::agent::AgentRole::ScrumMaster, board)?;
+            let res = eng.run_cycle()?;
+            println!("Dispatched {} tasks (created {}), insights: {}", res.tasks_dispatched, res.tasks_created, res.insights.join("; "));
+        }
 
         "session" => handle_session_cmd(cmd_args)?,
         "checkpoint" => handle_checkpoint_cmd(cmd_args)?,
@@ -700,6 +711,10 @@ fn print_usage() {
     println!("  memory <cmd>        Cross-session memory (add, search, list, stats, compress)");
     println!("  monitor             Dashboard: agents, tasks, insights (--watch for live)");
     println!("  review [card-id]    Validate completed tasks (--all, --auto)");
+    println!("  mind sync|show      Compile + show Mind snapshot/digest");
+    println!("  overview            4-panel human narrative (board/sprint/blockers/next)");
+    println!("  skills list|show    BMAD skills (mvp/planning/scrum-master/test)");
+    println!("  dispatch            Run orchestration cycle (assign tasks to agents)");
     println!();
     println!("Multiple boards (optional):");
     println!("  boards              List boards");

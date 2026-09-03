@@ -55,38 +55,38 @@ pub fn read_board_with_hash(name: &str) -> Result<(Board, String)> {
 
 /// Atomically write a board file using temp-file-then-rename.
 /// This prevents data corruption from partial writes or crashes.
+/// Uses advisory file lock to coordinate concurrent access (SPEC-001).
 pub fn write_board(name: &str, board: &Board) -> Result<()> {
     let path = board_path(name)?;
-    let content =
-        serde_yaml::to_string(board).context("failed to serialize board to YAML")?;
+    crate::util::lock::with_lock(&path, || {
+        let content =
+            serde_yaml::to_string(board).context("failed to serialize board to YAML")?;
 
-    let dir = path
-        .parent()
-        .context("board path has no parent directory")?;
+        let dir = path
+            .parent()
+            .context("board path has no parent directory")?;
 
-    // Create .board dir if it doesn't exist
-    std::fs::create_dir_all(dir)
-        .context(format!("failed to create directory {}", dir.display()))?;
+        std::fs::create_dir_all(dir)
+            .context(format!("failed to create directory {}", dir.display()))?;
 
-    // Write to a temp file in the same directory (for atomic rename)
-    let temp_name = format!(
-        ".boardtmp.{}.{}",
-        name,
-        std::process::id()
-    );
-    let temp_path = dir.join(&temp_name);
+        let temp_name = format!(
+            ".boardtmp.{}.{}",
+            name,
+            std::process::id()
+        );
+        let temp_path = dir.join(&temp_name);
 
-    std::fs::write(&temp_path, &content)
-        .context(format!("failed to write temp file {}", temp_path.display()))?;
+        std::fs::write(&temp_path, &content)
+            .context(format!("failed to write temp file {}", temp_path.display()))?;
 
-    // Atomic rename (same filesystem)
-    std::fs::rename(&temp_path, &path).context(format!(
-        "failed to rename {} -> {}",
-        temp_path.display(),
-        path.display()
-    ))?;
+        std::fs::rename(&temp_path, &path).context(format!(
+            "failed to rename {} -> {}",
+            temp_path.display(),
+            path.display()
+        ))?;
 
-    Ok(())
+        Ok(())
+    })
 }
 
 /// Write board only if the file hasn't changed since `expected_hash`.
@@ -107,4 +107,43 @@ pub fn write_board_if_unchanged(
 
 pub fn board_exists(name: &str) -> bool {
     board_path(name).is_ok_and(|p| p.exists())
+}
+
+/// Atomically read-modify-write a board under a file lock (SPEC-001).
+/// The closure is executed while holding an exclusive lock, preventing lost updates.
+pub fn update_board<F>(name: &str, f: F) -> Result<()>
+where
+    F: FnOnce(&mut Board) -> Result<()>,
+{
+    let path = board_path(name)?;
+    crate::util::lock::with_lock(&path, || {
+        // Read inside lock
+        let content = std::fs::read_to_string(&path)
+            .context(format!("failed to read {}", path.display()))?;
+        let mut board: Board = serde_yaml::from_str(&content)
+            .context(format!("failed to parse {}", path.display()))?;
+
+        f(&mut board)?;
+
+        let content =
+            serde_yaml::to_string(&board).context("failed to serialize board to YAML")?;
+
+        let dir = path
+            .parent()
+            .context("board path has no parent directory")?;
+        std::fs::create_dir_all(dir)
+            .context(format!("failed to create directory {}", dir.display()))?;
+
+        let temp_name = format!(".boardtmp.{}.{}", name, std::process::id());
+        let temp_path = dir.join(&temp_name);
+        std::fs::write(&temp_path, &content)
+            .context(format!("failed to write temp file {}", temp_path.display()))?;
+        std::fs::rename(&temp_path, &path).context(format!(
+            "failed to rename {} -> {}",
+            temp_path.display(),
+            path.display()
+        ))?;
+
+        Ok(())
+    })
 }

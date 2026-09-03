@@ -27,9 +27,16 @@ pub fn read_sprints(board_name: &str) -> Result<Vec<Sprint>> {
 
 pub fn write_sprints(board_name: &str, sprints: &[Sprint]) -> Result<()> {
     let path = sprints_path(board_name)?;
-    let json = serde_json::to_string_pretty(sprints).context("failed to serialize sprints")?;
-    std::fs::write(&path, json).context("failed to write sprints")?;
-    Ok(())
+    crate::util::lock::with_lock(&path, || {
+        let json = serde_json::to_string_pretty(sprints).context("failed to serialize sprints")?;
+        let tmp = path.with_extension(format!(
+            "{}.tmp",
+            path.extension().and_then(|e| e.to_str()).unwrap_or("json")
+        ));
+        std::fs::write(&tmp, json).context("failed to write tmp sprints")?;
+        std::fs::rename(&tmp, &path).context("failed to rename sprints")?;
+        Ok(())
+    })
 }
 
 /// Add a sprint or update an existing one (matched by name).

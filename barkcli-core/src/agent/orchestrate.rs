@@ -63,14 +63,16 @@ pub struct OrchestrationEngine {
 }
 
 impl OrchestrationEngine {
-    /// Create a new orchestration engine
+    /// Create a new orchestration engine — loads persisted queue/registry/velocity if present (SPEC-001).
     pub fn new(board_name: &str, role: AgentRole, board: Board) -> Result<Self> {
         let board_dir = crate::storage::board_dir::find_board_dir()
             .context("Failed to find board directory")?;
 
-        let state = OrchestrationState {
+        // Try to restore previous orchestration state (cycle count, etc.)
+        let existing_state = Self::load_state(board_name).ok().flatten();
+        let state = existing_state.unwrap_or(OrchestrationState {
             board_name: board_name.to_string(),
-            role,
+            role: role.clone(),
             status: OrchestrationStatus::Idle,
             cycle_count: 0,
             last_cycle_at: None,
@@ -78,14 +80,25 @@ impl OrchestrationEngine {
             tasks_completed: 0,
             tasks_failed: 0,
             current_sprint: None,
-        };
+        });
+
+        // Load persisted task queue
+        let tasks_path = board_dir.join("tasks").join(format!("{}.json", board_name));
+        let task_queue = TaskQueue::load(&tasks_path).unwrap_or_default();
+
+        // Load persisted agent registry
+        let registry_path = board_dir.join("agents").join("registry.json");
+        let agent_registry = AgentRegistry::load(&registry_path).unwrap_or_default();
+
+        // Velocity tracker — new for MVP (deferred full wiring, but persisted)
+        let velocity = VelocityTracker::new();
 
         Ok(Self {
             state,
             board,
-            task_queue: TaskQueue::new(),
-            agent_registry: AgentRegistry::new(),
-            velocity: VelocityTracker::new(),
+            task_queue,
+            agent_registry,
+            velocity,
             board_path: board_dir,
         })
     }
@@ -253,19 +266,26 @@ impl OrchestrationEngine {
         plans
     }
 
-    /// Dispatch a task plan to the queue
+    /// Dispatch a task plan to the queue — populates context_files per SPEC-001 R3.
     fn dispatch_task(&mut self, plan: &TaskPlan) -> Result<()> {
         for child in &plan.child_cards {
+            let ctx_files = super::queue::populate_context_files(&plan.parent_card, &self.state.board_name);
             let task = super::queue::create_task(
                 &plan.parent_card,
                 &child.title,
                 &child.description,
                 child.acceptance_criteria.clone(),
-                Vec::new(), // Context files will be added later
+                ctx_files,
                 &child.priority,
             );
             self.task_queue.add(task);
         }
+        // Persist queue immediately so restart sees it
+        let tasks_path = self.board_path.join("tasks").join(format!("{}.json", self.state.board_name));
+        if let Some(parent) = tasks_path.parent() {
+            std::fs::create_dir_all(parent).ok();
+        }
+        self.task_queue.save(&tasks_path)?;
         Ok(())
     }
 

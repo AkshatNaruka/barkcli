@@ -5,6 +5,8 @@ pub mod code;
 pub mod commands;
 pub mod mcp;
 pub mod memory;
+pub mod mind;
 pub mod models;
+pub mod skills;
 pub mod storage;
 pub mod util;
