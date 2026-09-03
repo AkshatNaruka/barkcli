@@ -121,6 +121,9 @@ export const KanbanCard = React.memo(function KanbanCard({ card, isOverlay, onEd
               {overdue ? "⚠" : "📅"}{card.due_date.slice(5, 10)}
             </span>
           )}
+          {(card as any).spec_id && (
+            <span className="text-[10px] font-mono text-accent bg-accent/10 border border-accent/20 px-1 py-0 rounded" title={`Spec: ${(card as any).spec_id}`}>⎇ {(card as any).spec_id.slice(0, 12)}</span>
+          )}
         </div>
         <div className="flex items-center gap-2 text-[10px] text-muted">
           {card.effort !== undefined && card.effort > 0 && (

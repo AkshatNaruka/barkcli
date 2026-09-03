@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { Board as BoardType, Card, HistoryEntry, SessionEntry, Sprint } from "../lib/types";
-import { fetchHistory, fetchSessions, type GitInfo } from "../lib/api";
+import { fetchHistory, fetchSessions, fetchMind, type GitInfo } from "../lib/api";
 
 function StatCard({ label, value, sub, tone }: { label: string; value: string | number; sub?: string; tone?: "accent" | "success" | "warning" | "danger" | "muted" }) {
   const toneClass = {
@@ -44,10 +44,12 @@ export function Dashboard({
 }) {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [sessions, setSessions] = useState<SessionEntry[]>([]);
+  const [mind, setMind] = useState<any | null>(null);
 
   useEffect(() => {
     fetchHistory(undefined, 25).then(setHistory);
     fetchSessions(15).then(setSessions);
+    fetchMind(board.title).then(setMind).catch(() => {});
   }, [board.title]);
 
   const today = todayStr();
@@ -125,6 +127,42 @@ export function Dashboard({
         ) : (
           <div className="bg-surface border border-border rounded-lg p-4 text-xs text-muted">
             No active sprint. Start one in the <span className="text-accent">Sprints</span> view.
+          </div>
+        )}
+
+        {/* Mind — blockers / stale / next (from new MR) */}
+        {mind && (
+          <div className="grid md:grid-cols-3 gap-3">
+            <div className="bg-surface border border-border rounded-lg p-3">
+              <h3 className="text-xs font-semibold text-text mb-2">🚧 Blockers</h3>
+              {mind.blockers?.length ? mind.blockers.slice(0, 4).map((b: any) => (
+                <div key={b.card_id} className="text-xs py-1 border-b border-border/50 last:border-0">
+                  <span className="text-text">{b.title}</span>
+                  <span className="text-muted"> → {b.blocked_by?.join(", ")}</span>
+                </div>
+              )) : <p className="text-xs text-muted">No blockers</p>}
+            </div>
+            <div className="bg-surface border border-border rounded-lg p-3">
+              <h3 className="text-xs font-semibold text-text mb-2">⌛ Stale &gt;7d</h3>
+              {mind.stale_cards?.length ? mind.stale_cards.slice(0, 4).map((s: any) => (
+                <div key={s.id} className="text-xs py-1 border-b border-border/50 last:border-0">
+                  <span className="text-text">{s.title}</span>
+                  <span className="text-muted"> ({s.column}, {s.days}d)</span>
+                </div>
+              )) : <p className="text-xs text-muted">No stale</p>}
+            </div>
+            <div className="bg-surface border border-border rounded-lg p-3">
+              <h3 className="text-xs font-semibold text-text mb-2">➡️ Next</h3>
+              {mind.next_actions?.length ? mind.next_actions.slice(0, 3).map((a: any, i: number) => (
+                <div key={i} className="text-xs py-1 border-b border-border/50 last:border-0">
+                  <span className="font-mono text-accent">{a.action}</span>
+                  <span className="text-muted"> — {a.reason}</span>
+                </div>
+              )) : <p className="text-xs text-muted">All clear</p>}
+              {mind.top_memories?.length ? (
+                <p className="text-[11px] text-muted mt-2 line-clamp-2">💡 {mind.top_memories[0].content.slice(0, 80)}…</p>
+              ) : null}
+            </div>
           </div>
         )}
 

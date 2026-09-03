@@ -51,6 +51,7 @@ export function CardForm({
   const [remindAt, setRemindAt] = useState(card?.remind_at ? toLocalInput(card.remind_at) : "");
   const [effort, setEffort] = useState(card?.effort?.toString() || "");
   const [area, setArea] = useState(card?.area || "");
+  const [specId, setSpecId] = useState((card as any)?.spec_id || "");
   const [checklist, setChecklist] = useState<ChecklistItem[]>(card?.checklist || []);
   const [newItem, setNewItem] = useState("");
   const [showAuthors, setShowAuthors] = useState(false);
@@ -112,7 +113,8 @@ export function CardForm({
       checklist,
       acceptance_criteria: acceptance,
       links,
-    });
+      spec_id: specId.trim() || undefined,
+    } as any);
   };
 
   const addChecklistItem = () => {
@@ -230,6 +232,12 @@ export function CardForm({
                 <label className="block text-xs font-medium text-muted mb-1">Area</label>
                 <input value={area} onChange={(e) => setArea(e.target.value)}
                   className={inputCls} placeholder="frontend, backend, ..." />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted mb-1">Spec ID</label>
+                <input value={specId} onChange={(e) => setSpecId(e.target.value)}
+                  className={inputCls} placeholder="auto: same as card id or spec" />
+                <p className="text-[11px] text-muted mt-1">O(1) traceability — links card → spec → tasks. Auto-filled by <code>intake</code>/<code>plan</code>.</p>
               </div>
 
               {/* Checklist */}

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { connectWs } from "../lib/api";
 
 interface MindSnapshot {
   board_name: string;
@@ -19,33 +20,65 @@ export function MindView({ boardName }: { boardName: string | null }) {
   const [snap, setSnap] = useState<MindSnapshot | null>(null);
   const [digest, setDigest] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
-  useEffect(() => {
-    setLoading(true);
+  const load = useCallback(async () => {
     const params = boardName ? `?name=${encodeURIComponent(boardName)}` : "";
     const token = new URLSearchParams(window.location.search).get("token");
     const q = params + (token ? `${params ? "&" : "?"}token=${encodeURIComponent(token)}` : "");
-    Promise.all([
+    const [a, b] = await Promise.all([
       fetch(`/api/mind${q}`).then(r => r.json()).catch(() => null),
       fetch(`/api/mind/digest${q}`).then(r => r.json()).catch(() => null),
-    ]).then(([a, b]) => {
-      if (a && !a.error) setSnap(a);
-      if (b && b.digest) setDigest(b.digest);
-      else if (a && a.board_name) {
-        // fallback: render from snapshot
-      }
-      setLoading(false);
-    });
+    ]);
+    if (a && !a.error) setSnap(a);
+    if (b && b.digest) setDigest(b.digest);
+    setLoading(false);
   }, [boardName]);
 
+  useEffect(() => {
+    setLoading(true);
+    load();
+    // Live reload via WebSocket (mind sync triggers .board/mind/*.json → ws reload)
+    const clean = connectWs(() => load());
+    return clean;
+  }, [load]);
+
   if (loading) return <div className="p-6 text-sm text-muted">Loading mind...</div>;
-  if (!snap) return <div className="p-6 text-sm text-muted">No mind yet. Run <code>barkcli mind sync</code></div>;
+  if (!snap) return <div className="p-6 text-sm text-muted">No mind yet. Run <code>barkcli mind sync</code> or click Sync</div>;
 
   return (
     <div className="h-full overflow-y-auto p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-text">Mind — {snap.board_name}</h2>
-        <span className="text-xs text-muted font-mono">{snap.generated_at?.slice(0, 16)}</span>
+        <div>
+          <h2 className="text-lg font-semibold text-text">Mind — {snap.board_name}</h2>
+          <span className="text-xs text-muted font-mono">{snap.generated_at?.slice(0, 16)} · live via WS</span>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={async () => {
+              setSyncing(true);
+              await load();
+              setSyncing(false);
+            }}
+            className="text-xs px-3 py-1.5 rounded border border-border hover:border-border-strong text-muted hover:text-text"
+          >
+            {syncing ? "Syncing…" : "⟳ Sync"}
+          </button>
+          {digest && (
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(digest).then(() => {
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                });
+              }}
+              className="text-xs px-3 py-1.5 rounded bg-accent text-white hover:bg-accent/90"
+            >
+              {copied ? "Copied!" : "⧉ Copy digest"}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Health */}
