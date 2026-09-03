@@ -2,15 +2,21 @@
 
 > Solo-first, team-ready. CLI is truth. TF-IDF now, ONNX later. 4 BMAD skills.
 
-This directory holds the authoritative build specs for the YC MVP. Each spec is one PR, independently shippable.
+This directory holds the authoritative build specs for the YC MVP. All specs built in **single branch `feat/mvp-all-specs`**.
 
-| Spec | Name | PR | Status | Days |
-|------|------|----|--------|------|
-| [001](./SPEC-001-harden-file-truth.md) | Harden: File Is Truth | `feat/spec-001-harden` | planned | 3 |
-| [002](./SPEC-002-mind-overview.md) | Mind + Overview | `feat/spec-002-mind` | planned | 3 |
-| [003](./SPEC-003-skills.md) | Skills Registry (mvp/planning/scrum-master/test) | `feat/spec-003-skills` | planned | 4 |
+| Spec | Name | Status | PR |
+|------|------|--------|----|
+| [001](./SPEC-001-harden-file-truth.md) | Harden: File Is Truth | ✅ done | #8 |
+| [002](./SPEC-002-mind-overview.md) | Mind + Overview | ✅ done | #8 |
+| [003](./SPEC-003-skills.md) | Skills Registry (mvp/planning/scrum-master/test) | ✅ done | #8 |
+| [004](./SPEC-004-server-mcp-team.md) | Team Protocol (Card.spec_id + /api/mind + /api/skills + MCP) | ✅ done | #8 |
+| [005](./SPEC-005-polish-release.md) | Polish & Release v0.3.0 | ✅ done | #8 |
 
-**Execution order:** 001 → 002 → 003. Tag `v0.3.0-mvp` after 003 green.
+**Branch:** `feat/mvp-all-specs` → `master` via #8. Tags `v0.3.0-mvp` + `v0.3.1-mvp` (web).
+
+**Web bonus:** `MindView` + `SkillsView` + `mind/skills` API complete.
+
+**Verification:** `cargo test:86 passed`, `vite build` 526 modules, offline smoke `intake→plan→mind→overview→dispatch`.
 
 **Principles (from `MANAGEMENT_LAYER_VISION.md`):**
 
