@@ -23,12 +23,18 @@ export const KanbanCard = React.memo(function KanbanCard({ card, isOverlay, onEd
   const checklistPct = checklistTotal > 0 ? Math.round((checklistDone / checklistTotal) * 100) : 0;
   const overdue = card.due_date && new Date(card.due_date) < new Date();
   const childCount = card.links.filter((l) => l.ty === "child").length;
+  const blockedBy = card.blocked_by || card.links.find((l) => l.ty === "blocked-by")?.target;
+  const stale =
+    card.column !== "done" &&
+    Date.now() - new Date(card.updated_at).getTime() > 7 * 24 * 3600 * 1000;
 
   return (
     <div
-      className={`bg-card rounded-lg p-3 border border-border hover:border-border-strong transition-colors group relative ${
-        isOverlay ? "shadow-[var(--shadow)] rotate-1" : "cursor-grab active:cursor-grabbing"
-      }`}
+      className={`bg-card rounded-lg p-3 border transition-colors group relative ${
+        blockedBy
+          ? "border-danger/60 hover:border-danger"
+          : "border-border hover:border-border-strong"
+      } ${isOverlay ? "shadow-[var(--shadow)] rotate-1" : "cursor-grab active:cursor-grabbing"}`}
       style={{ contain: "layout style" }}
       onContextMenu={(e) => e.preventDefault()}
       onDoubleClick={() => onEdit(card)}
@@ -40,7 +46,10 @@ export const KanbanCard = React.memo(function KanbanCard({ card, isOverlay, onEd
 
       {/* Card ID */}
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] font-mono text-muted truncate">{card.id}</span>
+        <span className="text-[10px] font-mono text-muted truncate">
+          {stale && <span className="text-warning mr-1" title="Stale — untouched for 7+ days">●</span>}
+          {card.id}
+        </span>
         <div className="relative flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
@@ -133,7 +142,7 @@ export const KanbanCard = React.memo(function KanbanCard({ card, isOverlay, onEd
             <span className="text-accent" title={`${childCount} linked task(s)`}>◗ {childCount}</span>
           )}
           {card.comments.length > 0 && <span>💬 {card.comments.length}</span>}
-          {card.blocked_by && <span title={`Blocked by ${card.blocked_by}`}>⛔</span>}
+          {blockedBy && <span title={`Blocked by ${blockedBy}`}>⛔</span>}
         </div>
       </div>
     </div>

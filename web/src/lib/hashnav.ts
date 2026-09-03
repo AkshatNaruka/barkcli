@@ -13,6 +13,7 @@ export type Route =
   | "memory"
   | "specs"
   | "orchestrate"
+  | "agents"
   | "timeline"
   | "settings"
   | "agent-prompt"
@@ -31,6 +32,7 @@ const ROUTES: Route[] = [
   "memory",
   "specs",
   "orchestrate",
+  "agents",
   "timeline",
   "settings",
   "agent-prompt",
@@ -39,7 +41,8 @@ const ROUTES: Route[] = [
 
 export function parseRoute(hash: string): Route {
   const h = hash.replace(/^#\/?/, "").split("?")[0].trim().toLowerCase();
-  return (ROUTES as string[]).includes(h) ? (h as Route) : "dashboard";
+  // Mind is the homepage (DESIGN.md §3.1); dashboard renders Mind.
+  return (ROUTES as string[]).includes(h) ? (h as Route) : "mind";
 }
 
 export function navigate(route: Route) {

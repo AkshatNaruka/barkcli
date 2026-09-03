@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { connectWs } from "../lib/api";
+import { navigate } from "../lib/hashnav";
 
 interface MindSnapshot {
   board_name: string;
@@ -111,10 +112,15 @@ export function MindView({ boardName }: { boardName: string | null }) {
             <p className="text-xs text-muted">No blockers</p>
           ) : (
             snap.blockers.map(b => (
-              <div key={b.card_id} className="text-xs py-1 border-b border-border/50 last:border-0">
+              <button
+                key={b.card_id}
+                onClick={() => navigate("board")}
+                title="Open in Board"
+                className="w-full text-left text-xs py-1 border-b border-border/50 last:border-0 hover:text-accent transition-colors"
+              >
                 <span className="text-text">{b.title}</span>
                 <span className="text-muted"> ({b.card_id}) → {b.blocked_by.join(", ")}</span>
-              </div>
+              </button>
             ))
           )}
         </div>
@@ -124,10 +130,15 @@ export function MindView({ boardName }: { boardName: string | null }) {
             <p className="text-xs text-muted">No stale cards</p>
           ) : (
             snap.stale_cards.map(s => (
-              <div key={s.id} className="text-xs py-1 border-b border-border/50 last:border-0">
+              <button
+                key={s.id}
+                onClick={() => navigate("board")}
+                title="Open in Board"
+                className="w-full text-left text-xs py-1 border-b border-border/50 last:border-0 hover:text-accent transition-colors"
+              >
                 <span className="text-text">{s.title}</span>
                 <span className="text-muted"> ({s.column}, {s.days}d)</span>
-              </div>
+              </button>
             ))
           )}
         </div>
@@ -137,11 +148,16 @@ export function MindView({ boardName }: { boardName: string | null }) {
       <div className="bg-surface border border-border rounded-lg p-3">
         <h3 className="text-xs font-semibold text-muted mb-2">Next Actions</h3>
         {snap.next_actions.map((a, i) => (
-          <div key={i} className="flex items-start gap-2 text-xs py-1">
+          <button
+            key={i}
+            onClick={() => navigator.clipboard.writeText(a.action).catch(() => {})}
+            title="Click to copy command"
+            className="w-full flex items-start gap-2 text-xs py-1 text-left hover:bg-surface rounded px-1 -mx-1 transition-colors"
+          >
             <span className="text-accent font-mono">{i + 1}.</span>
             <span className="text-text font-mono bg-card px-1 rounded">{a.action}</span>
             <span className="text-muted">{a.reason}</span>
-          </div>
+          </button>
         ))}
       </div>
 

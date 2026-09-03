@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import type { Board as BoardType, Card } from "../lib/types";
 import { useTheme } from "../lib/theme.tsx";
+import { navigate, type Route } from "../lib/hashnav";
 
 interface Props {
   board: BoardType;
@@ -10,6 +11,15 @@ interface Props {
   onEditCard: (card: Card) => void;
 }
 
+const VIEWS: { route: Route; label: string }[] = [
+  { route: "mind", label: "◉ Go to Mind" },
+  { route: "board", label: "▦ Go to Board" },
+  { route: "agents", label: "⚙ Go to Agents" },
+  { route: "specs", label: "◈ Go to Specs" },
+  { route: "memory", label: "🧠 Go to Memory" },
+  { route: "code", label: "⌨ Go to Code" },
+];
+
 export function CommandPalette({ board, onClose, onAddCard, onEditCard }: Props) {
   const [query, setQuery] = useState("");
   const { setTheme } = useTheme();
@@ -18,6 +28,23 @@ export function CommandPalette({ board, onClose, onAddCard, onEditCard }: Props)
     if (!query.trim()) return [];
     const q = query.toLowerCase();
     const items: { label: string; action: () => void }[] = [];
+
+    // View navigation (DESIGN.md §3.6 — ⌘K does everything)
+    for (const v of VIEWS) {
+      if (v.label.toLowerCase().includes(q) || `go to ${v.route}`.includes(q)) {
+        items.push({ label: v.label, action: () => { navigate(v.route); onClose(); } });
+      }
+    }
+    if ("sync mind".includes(q)) {
+      items.push({
+        label: "⟳ Sync mind",
+        action: () => {
+          fetch("/api/mind").then(() => {}).catch(() => {});
+          navigate("mind");
+          onClose();
+        },
+      });
+    }
 
     // Cards
     for (const card of board.cards) {
@@ -67,6 +94,7 @@ export function CommandPalette({ board, onClose, onAddCard, onEditCard }: Props)
             <div className="p-3 text-sm text-muted">
               <p>Search for cards, or type:</p>
               <ul className="mt-1 space-y-1 text-xs">
+                <li><code className="bg-surface px-1 rounded">go to mind</code> — Mind, Board, Agents, Specs…</li>
                 <li><code className="bg-surface px-1 rounded">new card</code> — create a card</li>
                 <li><code className="bg-surface px-1 rounded">add to {board.columns[0]?.name || "Todo"}</code> — add to column</li>
                 <li><code className="bg-surface px-1 rounded">edit board</code> — rename board</li>
