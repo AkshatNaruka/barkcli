@@ -28,6 +28,7 @@ export interface Card {
   acceptance_criteria: string[];
   effort?: number;
   area?: string;
+  spec_id?: string;
   pinned: boolean;
   created_at: string;
   updated_at: string;

@@ -72,13 +72,14 @@ barkcli memory search "error handling patterns"
 
 ```
 Human → intake → plan → dispatch → coding agent → review → done
+         ↕ skills (mvp/planning/scrum-master/test) → mind → overview
 ```
 
 ### Supported Agents
 
 - **OpenCode** — auto-detected, invoked via subprocess
 - **Claude Code** — auto-detected, invoked via subprocess
-- **Any MCP agent** — via `barkcli mcp` (25+ tools available)
+- **Any MCP agent** — via `barkcli mcp` (38 tools: board/card/task/agent/context/memory/mind/skills/intake)
 
 ## Core Commands
 
@@ -96,8 +97,12 @@ Human → intake → plan → dispatch → coding agent → review → done
 
 | Command | Description |
 |---------|-------------|
-| `barkcli intake <text>` | Classify input → card + spec |
+| `barkcli intake <text>` | Classify input → card + spec (offline heuristic if no LLM) |
 | `barkcli plan <card-id>` | Generate spec + decomposition |
+| `barkcli mind sync\|show` | Compile + show Mind snapshot/digest |
+| `barkcli overview` | 4-panel human narrative (board/sprint/blockers/next) |
+| `barkcli skills list\|show` | BMAD skills: mvp/planning/scrum-master/test |
+| `barkcli dispatch` | Run orchestration cycle (assign tasks) |
 | `barkcli monitor` | Dashboard: agents, tasks, insights |
 | `barkcli review [card-id]` | Validate completed work |
 | `barkcli memory <cmd>` | Cross-session memory (add/search/list) |
@@ -106,9 +111,9 @@ Human → intake → plan → dispatch → coding agent → review → done
 
 | Command | Description |
 |---------|-------------|
-| `barkcli mcp` | Start MCP server for coding agents |
-| `barkcli listener` | Poll for tasks and execute them |
-| `barkcli orchestrate cycle` | Run orchestration cycle |
+| `barkcli mcp` | Start MCP server (38 tools) |
+| `barkcli listener` | Poll for tasks and execute them (injects skills) |
+| `barkcli orchestrate cycle` | Run orchestration cycle (= `dispatch`) |
 | `barkcli hooks install` | Install agent hooks (opencode/claude-code) |
 
 ### Project Commands
@@ -148,7 +153,8 @@ barkcli memory stats
 | [Usage Manual](docs/USAGE_MANUAL.md) | Complete how-to guide |
 | [Commands](docs/COMMANDS.md) | Full CLI reference |
 | [Interfaces](docs/INTERFACES.md) | Setup guides |
-| [Management Layer Plan](MANAGEMENT_LAYER_PLAN.md) | Architecture and implementation plan |
+| [Management Layer Vision](MANAGEMENT_LAYER_VISION.md) | `v0.3.0-mvp` mind+skills+hardening |
+| [MVP Specs](specs/) | SPEC-001..004 + MVP-PLAN (solo-first, same branch) |
 
 ## Architecture
 

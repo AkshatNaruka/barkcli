@@ -417,9 +417,23 @@ fn invoke_coding_agent(
     }
 }
 
-/// Build a detailed prompt for the coding agent.
+/// Build a detailed prompt for the coding agent — includes skills (SPEC-003).
 fn build_agent_prompt(task: &TaskRequest, context: &str, branch: &str) -> String {
     let mut prompt = String::new();
+
+    // Inject matching skills (scrum-master/test/mvp/planning)
+    if let Ok(reg) = barkcli_core::skills::SkillRegistry::load_all(None) {
+        let ctx = barkcli_core::skills::registry::MatchContext {
+            labels: vec![task.priority.clone()],
+            area: None,
+            title: task.title.clone(),
+            pipeline_phase: "dispatch".into(),
+        };
+        if let Some(s) = reg.render_for_prompt(&ctx) {
+            prompt.push_str(&s);
+            prompt.push('\n');
+        }
+    }
 
     prompt.push_str(&format!("# Task: {}\n\n", task.title));
 

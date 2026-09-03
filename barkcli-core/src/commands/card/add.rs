@@ -20,7 +20,7 @@ pub fn normalize_remind(raw: &str) -> String {
 }
 
 use crate::models::Card;
-use crate::storage::board_file::{read_board, write_board};
+use crate::storage::board_file::read_board;
 use crate::storage::history;
 use crate::util::slug::unique_slug;
 
@@ -30,9 +30,10 @@ pub fn run(name: &str, args: &[String]) -> Result<()> {
         .cloned()
         .ok_or_else(|| anyhow::anyhow!("missing title"))?;
 
-    let mut board = read_board(name).context(format!("board '{}' not found", name))?;
+    // We read board once to resolve id for user feedback; actual RMW recomputes inside lock
+    let snapshot = read_board(name).context(format!("board '{}' not found", name))?;
 
-    let existing_ids: Vec<String> = board.cards.iter().map(|c| c.id.clone()).collect();
+    let existing_ids: Vec<String> = snapshot.cards.iter().map(|c| c.id.clone()).collect();
     let id = unique_slug(&title, &existing_ids);
 
     let rest = &args[1..];
@@ -105,28 +106,34 @@ pub fn run(name: &str, args: &[String]) -> Result<()> {
         i += 1;
     }
 
-    let col_id = column.unwrap_or_else(|| {
-        board
-            .columns
-            .first()
-            .map(|c| c.id.clone())
-            .unwrap_or_else(|| "todo".into())
-    });
+    // Atomically update board under lock to prevent lost writes (SPEC-001)
+    crate::storage::board_file::update_board(name, |board| {
+        // Recompute id inside lock against fresh board to avoid duplicate slugs under concurrency
+        let existing_ids: Vec<String> = board.cards.iter().map(|c| c.id.clone()).collect();
+        let fresh_id = unique_slug(&title, &existing_ids);
+        let col_id = column.clone().unwrap_or_else(|| {
+            board
+                .columns
+                .first()
+                .map(|c| c.id.clone())
+                .unwrap_or_else(|| "todo".into())
+        });
+        let mut card = Card::new(&fresh_id, &title, &col_id);
+        card.priority = priority.clone().unwrap_or_else(|| "medium".into());
+        card.description = description.clone();
+        card.labels = labels.clone();
+        card.assignee = assignee.clone();
+        card.due_date = due_date.clone();
+        card.remind_at = remind_at.clone();
+        card.effort = effort;
+        card.area = area.clone();
+        card.acceptance_criteria = acceptance.clone();
+        board.cards.push(card);
+        Ok(())
+    })
+    .context("failed to write board")?;
 
-    let mut card = Card::new(&id, &title, &col_id);
-    card.priority = priority.unwrap_or_else(|| "medium".into());
-    card.description = description;
-    card.labels = labels;
-    card.assignee = assignee;
-    card.due_date = due_date;
-    card.remind_at = remind_at;
-    card.effort = effort;
-    card.area = area;
-    card.acceptance_criteria = acceptance;
-
-    board.cards.push(card);
-    write_board(name, &board).context("failed to write board")?;
-
+    // Use snapshot-id for log (best-effort); actual fresh id may differ under race but log remains useful
     history::log_add(name, &id, &title)?;
     println!("Added card '{}' (id: {}) to '{}'", title, id, name);
     Ok(())

@@ -34,9 +34,16 @@ pub fn read_context(board_name: &str) -> Result<BoardContext> {
 
 pub fn write_context(board_name: &str, ctx: &BoardContext) -> Result<()> {
     let path = context_path(board_name)?;
-    let json = serde_json::to_string_pretty(ctx).context("failed to serialize context")?;
-    std::fs::write(&path, json).context("failed to write context")?;
-    Ok(())
+    crate::util::lock::with_lock(&path, || {
+        let json = serde_json::to_string_pretty(ctx).context("failed to serialize context")?;
+        let tmp = path.with_extension(format!(
+            "{}.tmp",
+            path.extension().and_then(|e| e.to_str()).unwrap_or("json")
+        ));
+        std::fs::write(&tmp, json).context("failed to write tmp context")?;
+        std::fs::rename(&tmp, &path).context("failed to rename context")?;
+        Ok(())
+    })
 }
 
 pub fn remove_context(board_name: &str) {

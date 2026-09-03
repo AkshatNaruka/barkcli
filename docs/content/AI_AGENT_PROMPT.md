@@ -169,7 +169,7 @@ Add to `.claude/settings.json`, `.opencode/config.json`, or `.cursor/mcp.json`:
 }
 ```
 
-### MCP Tools Available
+### MCP Tools Available (v0.3.0-mvp, 38 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -193,6 +193,12 @@ Add to `.claude/settings.json`, `.opencode/config.json`, or `.cursor/mcp.json`:
 | `context_get` | Get card context |
 | `code_search` | Search code symbols |
 | `metrics_get` | Get code metrics |
+| `mind_snapshot` | Mind snapshot (board health, blockers, next actions) |
+| `overview` | Human narrative 4-panel overview (from mind) |
+| `skill_list` | List BMAD skills (mvp/planning/scrum-master/test) |
+| `skill_get` | Get skill by id |
+| `intake` | Classify text → card + spec (offline heuristic if no LLM) |
+| `memory_add` / `memory_search` / `memory_list` | Cross-session memory (4 tiers) |
 
 ### Agent Registration
 
@@ -302,19 +308,23 @@ cards:
 
 ---
 
-## Board Directory Structure
+## Board Directory Structure (v0.3.0-mvp)
 
 ```
 project/
-├── .board/                    # Internal metadata (gitignored)
+├── .board/                    # Internal metadata (gitignored except .board/mind/digest)
 │   ├── config.json            # Configuration
-│   ├── history/               # Change logs
-│   ├── sessions/              # Agent sessions
+│   ├── history/               # Change logs (append-only)
+│   ├── sessions/              # Agent sessions (jsonl)
 │   ├── snapshots/             # Checkpoints
-│   ├── context/               # Code context
-│   └── agents/                # Agent registry
+│   ├── context/               # Code context (symbol index)
+│   ├── agents/                # Agent registry
+│   ├── tasks/                 # TaskQueue + results (locked, atomic)
+│   ├── memory/                # 4-tier memory (BM25+TF-IDF)
+│   ├── mind/                  # Snapshot.json + digest.md (derived)
+│   └── skills/                # BMAD skills/*.md (mvp/planning/scrum-master/test)
 │
-├── *.board                    # User-facing board files (committed)
+├── *.board                    # User-facing board files (committed, spec_id added)
 ```
 
 ---

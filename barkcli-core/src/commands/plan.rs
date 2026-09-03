@@ -107,7 +107,7 @@ pub fn run_plan(args: &[String]) -> Result<()> {
         .map(|m| format!("  - {} (score: {:.2})", m.path, m.score))
         .collect();
 
-    let system = r#"You are a software planning specialist. Given a card (task/feature/bug) and its context, generate a detailed implementation plan.
+    let mut system = r#"You are a software planning specialist. Given a card (task/feature/bug) and its context, generate a detailed implementation plan.
 
 Return JSON with exactly these fields:
 {
@@ -142,7 +142,17 @@ Planning rules:
 - Set effort from 1 (trivial) to 10 (very complex)
 - Risk: low = well-understood, high = unknowns or dependencies
 - Acceptance criteria must be testable
-- Keep child card titles under 60 characters"#;
+- Keep child card titles under 60 characters"#.to_string();
+
+    // Skill + memory injection (SPEC-003)
+    if let Some(skills) = load_plan_skills(card_title, card_labels) {
+        system.push_str("\n\n");
+        system.push_str(&skills);
+    }
+    if let Some(memories) = load_plan_memories(card_title, &board_name) {
+        system.push_str("\n\n## Relevant Memories\n");
+        system.push_str(&memories);
+    }
 
     let file_context = if file_lines.is_empty() {
         "(no code context mapped yet — run `barkcli context scan` first)".to_string()
@@ -200,9 +210,19 @@ Existing acceptance criteria:
         },
     ];
 
-    let cfg = cfg.ok_or_else(|| anyhow::anyhow!("AI provider not configured. Run `barkcli ai config set provider ollama` or set BARKCLI_API_KEY."))?;
-
-    let plan: PlanOutput = chat_json(&cfg, &messages)?;
+    // Heuristic fallback when offline (SPEC-003 R5)
+    let plan: PlanOutput = if let Some(ref c) = cfg {
+        match chat_json::<PlanOutput>(c, &messages) {
+            Ok(p) => p,
+            Err(e) => {
+                eprintln!("{} LLM failed ({}), falling back to heuristic", style::warn("Warning:"), e);
+                heuristic_plan(card_title, card_desc)
+            }
+        }
+    } else {
+        println!("{} No AI provider — using heuristic plan (offline)", style::muted("Plan:"));
+        heuristic_plan(card_title, card_desc)
+    };
 
     if dry_run {
         println!();
@@ -241,7 +261,8 @@ Existing acceptance criteria:
         }
     }
 
-    // Create child cards
+    // Create child cards — set spec_id to parent's spec anchor (R1)
+    let parent_spec = board.cards.iter().find(|c| c.id == card_id).and_then(|c| c.spec_id.clone()).unwrap_or_else(|| card_id.clone());
     let mut child_ids = Vec::new();
     for child in &plan.child_cards {
         let child_id = crate::util::slug::to_slug(&child.title);
@@ -250,6 +271,7 @@ Existing acceptance criteria:
         new_card.priority = child.priority.clone();
         new_card.labels = child.labels.clone();
         new_card.effort = Some(child.effort);
+        new_card.spec_id = Some(parent_spec.clone());
 
         for ac in &child.acceptance_criteria {
             new_card.checklist.push(crate::models::card::ChecklistItem {
@@ -435,6 +457,61 @@ Rules: 2-6 child cards, each 1-3 days. Include testing if effort > 3. Titles und
     }
 
     Ok(())
+}
+
+fn load_plan_skills(title: &str, labels: &[String]) -> Option<String> {
+    let reg = crate::skills::SkillRegistry::load_all(None).ok()?;
+    let ctx = crate::skills::registry::MatchContext {
+        labels: labels.to_vec(),
+        area: None,
+        title: title.to_string(),
+        pipeline_phase: "plan".into(),
+    };
+    reg.render_for_prompt(&ctx)
+}
+
+fn load_plan_memories(title: &str, board_name: &str) -> Option<String> {
+    let store = crate::memory::store::MemoryStore::open(board_name).ok()?;
+    let results = store.search(title, 3);
+    if results.is_empty() {
+        return None;
+    }
+    Some(results.iter().map(|e| format!("- {}", e.content)).collect::<Vec<_>>().join("\n"))
+}
+
+fn heuristic_plan(title: &str, desc: &Option<String>) -> PlanOutput {
+    let base = title.trim();
+    let desc_str = desc.clone().unwrap_or_default();
+    PlanOutput {
+        requirements: vec![PlanRequirement {
+            title: format!("Implement {}", base),
+            description: desc_str.clone(),
+            acceptance_criteria: vec!["Feature works as described".into()],
+            effort: 3,
+            area: "fullstack".into(),
+        }],
+        child_cards: vec![
+            PlanChildCard {
+                title: format!("{} — slice 1", base.chars().take(40).collect::<String>()),
+                description: desc_str.clone(),
+                priority: "high".into(),
+                effort: 2,
+                labels: vec!["heuristic".into()],
+                acceptance_criteria: vec!["Slice 1 done".into()],
+            },
+            PlanChildCard {
+                title: format!("{} — tests", base.chars().take(40).collect::<String>()),
+                description: "Add tests for the slice".into(),
+                priority: "medium".into(),
+                effort: 1,
+                labels: vec!["test".into()],
+                acceptance_criteria: vec!["Tests pass".into()],
+            },
+        ],
+        estimated_total_effort: 3,
+        risk_level: "low".into(),
+        rationale: "Heuristic split (offline)".into(),
+    }
 }
 
 /// Find the project root.

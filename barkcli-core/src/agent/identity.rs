@@ -217,11 +217,21 @@ impl AgentRegistry {
             .min_by_key(|a| a.active_tasks.len())
     }
 
-    /// Save registry to file
+    /// Save registry to file (locked + atomic)
     pub fn save(&self, path: &Path) -> Result<()> {
-        let json = serde_json::to_string_pretty(self)?;
-        std::fs::write(path, json).context("Failed to write agent registry")?;
-        Ok(())
+        crate::util::lock::with_lock(path, || {
+            let json = serde_json::to_string_pretty(self)?;
+            let tmp = path.with_extension(format!(
+                "{}.tmp",
+                path.extension().and_then(|e| e.to_str()).unwrap_or("json")
+            ));
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent).ok();
+            }
+            std::fs::write(&tmp, json).context("Failed to write tmp registry")?;
+            std::fs::rename(&tmp, path).context("Failed to rename registry")?;
+            Ok(())
+        })
     }
 
     /// Load registry from file

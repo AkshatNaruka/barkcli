@@ -81,6 +81,9 @@ pub fn run_intake(args: &[String]) -> Result<()> {
         forced_hints.push("The user explicitly said this is a FEATURE.".to_string());
     }
 
+    // Skill injection for intake (SPEC-003)
+    let skill_prompt = load_intake_skills(&text, &forced_hints);
+
     let system = format!(
         r#"You are a project intake specialist. Given a user's natural language input, classify it and create a structured work item.
 
@@ -104,7 +107,9 @@ Classification rules:
 - Priority: critical = blocks other work or production down; high = important feature/bug; medium = normal work; low = nice-to-have
 - Scope: small = < 1 day; medium = 1-3 days; large = > 3 days
 - Acceptance criteria should be specific and testable
-- Keep title under 60 characters"#
+- Keep title under 60 characters
+{skills}"#,
+        skills = skill_prompt.unwrap_or_default()
     );
 
     let user_msg = if forced_hints.is_empty() {
@@ -128,11 +133,19 @@ Classification rules:
         },
     ];
 
-    let cfg = cfg.ok_or_else(|| anyhow::anyhow!(
-        "AI provider not configured.\n  Set BARKCLI_API_KEY env var, or\n  Add OPENAI_API_KEY to ~/.board/config, or\n  Use a local provider: barkcli ai config set provider ollama"
-    ))?;
-
-    let classification: IntakeClassification = chat_json(&cfg, &messages)?;
+    // Heuristic fallback when no LLM (offline) — SPEC-003 R5
+    let classification: IntakeClassification = if let Some(ref c) = cfg {
+        match chat_json::<IntakeClassification>(c, &messages) {
+            Ok(cls) => cls,
+            Err(e) => {
+                eprintln!("{} LLM failed ({}), falling back to heuristic", style::warn("Warning:"), e);
+                heuristic_intake(&text, force_bug, force_feature)
+            }
+        }
+    } else {
+        println!("{} No AI provider — using heuristic classification (offline)", style::muted("Intake:"));
+        heuristic_intake(&text, force_bug, force_feature)
+    };
 
     // Create the card
     let card_id = crate::util::slug::to_slug(&classification.title);
@@ -182,10 +195,19 @@ Classification rules:
     println!("  Scope:    {}", classification.scope);
     println!("  Area:     {}", classification.area);
 
-    // Create spec if not disabled
+    // Create spec if not disabled — and set spec_id on card (R1)
+    let spec_id_for_card = crate::util::slug::to_slug(&classification.title);
     let spec_created = if !no_spec {
         match create_spec_from_intake(&board_name, &output_card_id, &classification) {
             Ok(true) => {
+                // Patch card.spec_id
+                let _ = crate::storage::board_file::update_board(&board_name, |b| {
+                    if let Some(c) = b.cards.iter_mut().find(|c| c.id == output_card_id) {
+                        c.spec_id = Some(spec_id_for_card.clone());
+                        c.touch();
+                    }
+                    Ok(())
+                });
                 println!("  {} Spec created", style::ok("OK"));
                 true
             }
@@ -276,6 +298,55 @@ fn create_spec_from_intake(
     std::fs::write(&specs_path, json)?;
 
     Ok(true)
+}
+
+fn load_intake_skills(text: &str, forced: &[String]) -> Option<String> {
+    let reg = crate::skills::SkillRegistry::load_all(None).ok()?;
+    let ctx = crate::skills::registry::MatchContext {
+        labels: forced.to_vec(),
+        area: None,
+        title: text.to_string(),
+        pipeline_phase: "intake".into(),
+    };
+    reg.render_for_prompt(&ctx)
+}
+
+fn heuristic_intake(text: &str, force_bug: bool, force_feature: bool) -> IntakeClassification {
+    let lower = text.to_lowercase();
+    let card_type = if force_bug {
+        "bug"
+    } else if force_feature {
+        "feature"
+    } else if lower.contains("crash") || lower.contains("error") || lower.contains("panic") || lower.contains("bug") || lower.contains("fix") || lower.contains("broken") {
+        "bug"
+    } else if lower.contains("refactor") || lower.contains("cleanup") || lower.contains("chore") {
+        "chore"
+    } else if lower.contains("research") || lower.contains("spike") || lower.contains("investigate") {
+        "spike"
+    } else {
+        "feature"
+    };
+    let priority = if lower.contains("critical") || lower.contains("urgent") || lower.contains("block") {
+        "high"
+    } else if lower.contains("low") || lower.contains("nice") {
+        "low"
+    } else {
+        "medium"
+    };
+    let scope = if text.split_whitespace().count() > 20 { "medium" } else { "small" };
+    let area = if lower.contains("frontend") || lower.contains("ui") { "frontend" } else if lower.contains("backend") || lower.contains("api") { "backend" } else { "fullstack" };
+    let title = text.chars().take(60).collect::<String>().trim().to_string();
+    let title = if title.is_empty() { "Untitled".into() } else { title };
+    IntakeClassification {
+        card_type: card_type.into(),
+        priority: priority.into(),
+        scope: scope.into(),
+        area: area.into(),
+        labels: vec![],
+        title: title.clone(),
+        description: text.to_string(),
+        acceptance_criteria: vec!["AC via heuristic — refine after planning".into()],
+    }
 }
 
 /// Find the target board from args or default.

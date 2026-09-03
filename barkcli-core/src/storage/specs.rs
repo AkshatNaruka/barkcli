@@ -27,9 +27,16 @@ pub fn read_specs(board_name: &str) -> Result<Vec<Spec>> {
 
 pub fn write_specs(board_name: &str, specs: &[Spec]) -> Result<()> {
     let path = specs_path(board_name)?;
-    let json = serde_json::to_string_pretty(specs).context("failed to serialize specs")?;
-    std::fs::write(&path, json).context("failed to write specs")?;
-    Ok(())
+    crate::util::lock::with_lock(&path, || {
+        let json = serde_json::to_string_pretty(specs).context("failed to serialize specs")?;
+        let tmp = path.with_extension(format!(
+            "{}.tmp",
+            path.extension().and_then(|e| e.to_str()).unwrap_or("json")
+        ));
+        std::fs::write(&tmp, json).context("failed to write tmp specs")?;
+        std::fs::rename(&tmp, &path).context("failed to rename specs")?;
+        Ok(())
+    })
 }
 
 /// Add a spec or update an existing one (matched by ID).

@@ -315,11 +315,16 @@ impl TaskQueue {
         counts
     }
 
-    /// Save queue to file (with advisory file lock for concurrent access).
+    /// Save queue to file (with advisory file lock + atomic rename).
     pub fn save(&self, path: &Path) -> Result<()> {
         crate::util::lock::with_lock(path, || {
             let json = serde_json::to_string_pretty(self)?;
-            std::fs::write(path, json).context("Failed to write task queue")?;
+            let tmp = path.with_extension(format!(
+                "{}.tmp",
+                path.extension().and_then(|e| e.to_str()).unwrap_or("json")
+            ));
+            std::fs::write(&tmp, json).context("Failed to write tmp queue")?;
+            std::fs::rename(&tmp, path).context("Failed to rename queue")?;
             Ok(())
         })
     }
