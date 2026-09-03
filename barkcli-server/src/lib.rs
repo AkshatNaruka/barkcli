@@ -91,26 +91,26 @@ pub async fn run(
         // Management layer endpoints
         .route("/api/tasks", get(list_tasks_handler).post(create_task_handler))
         .route(
-            "/api/tasks/:task_id",
+            "/api/tasks/{task_id}",
             get(get_task_handler)
                 .put(update_task_handler)
                 .delete(delete_task_handler),
         )
-        .route("/api/tasks/:task_id/claim", post(claim_task_handler))
-        .route("/api/tasks/:task_id/complete", post(complete_task_handler))
-        .route("/api/tasks/:task_id/fail", post(fail_task_handler))
+        .route("/api/tasks/{task_id}/claim", post(claim_task_handler))
+        .route("/api/tasks/{task_id}/complete", post(complete_task_handler))
+        .route("/api/tasks/{task_id}/fail", post(fail_task_handler))
         .route("/api/agents", get(list_agents_handler).post(register_agent_handler))
         .route(
-            "/api/agents/:agent_id",
+            "/api/agents/{agent_id}",
             get(get_agent_handler).delete(delete_agent_handler),
         )
-        .route("/api/agents/:agent_id/status", get(agent_status_handler))
+        .route("/api/agents/{agent_id}/status", get(agent_status_handler))
         .route("/api/orchestrate/next", post(orchestrate_next_handler))
         .route("/api/orchestrate/cycle", post(orchestrate_cycle_handler))
         .route("/api/orchestrate/status", get(orchestrate_status_handler))
         // Memory endpoints
         .route("/api/memory", get(list_memory_handler).post(add_memory_handler))
-        .route("/api/memory/:id", delete(delete_memory_handler))
+        .route("/api/memory/{id}", delete(delete_memory_handler))
         .route("/api/memory/stats", get(memory_stats_handler))
         .route("/api/memory/fact", post(add_fact_handler))
         .route("/api/memory/facts", get(list_facts_handler))
@@ -118,25 +118,25 @@ pub async fn run(
         .route("/api/specs", get(list_specs_handler).post(create_spec_handler))
         .route("/api/specs/coverage", get(specs_coverage_handler))
         .route(
-            "/api/specs/:spec_id",
+            "/api/specs/{spec_id}",
             get(get_spec_handler)
                 .put(update_spec_handler)
                 .delete(delete_spec_handler),
         )
-        .route("/api/specs/:spec_id/requirements", post(add_requirement_handler))
+        .route("/api/specs/{spec_id}/requirements", post(add_requirement_handler))
         .route(
-            "/api/specs/:spec_id/requirements/:req_id",
+            "/api/specs/{spec_id}/requirements/{req_id}",
             put(update_requirement_handler),
         )
-        .route("/api/specs/:spec_id/trace", get(trace_spec_handler))
+        .route("/api/specs/{spec_id}/trace", get(trace_spec_handler))
         .route("/api/specs/scan-stale", post(scan_stale_handler))
         // Checkpoint endpoints
         .route("/api/checkpoints", get(list_checkpoints_handler).post(save_checkpoint_handler))
-        .route("/api/checkpoints/:id/restore", post(restore_checkpoint_handler))
+        .route("/api/checkpoints/{id}/restore", post(restore_checkpoint_handler))
         // Undo/Diff/Blame endpoints
         .route("/api/undo", post(undo_handler))
         .route("/api/diff", get(diff_handler))
-        .route("/api/blame/:card_id", get(blame_handler))
+        .route("/api/blame/{card_id}", get(blame_handler))
         .route("/api/snapshot", post(snapshot_handler))
         // Import/Export endpoints
         .route("/api/export", get(export_handler))
@@ -146,12 +146,18 @@ pub async fn run(
         .route("/api/doctor", post(doctor_handler))
         // Board CRUD
         .route("/api/boards/create", post(create_board_handler))
-        .route("/api/boards/:name", delete(delete_board_handler))
+        .route("/api/boards/{name}", delete(delete_board_handler))
         // Card comments
-        .route("/api/board/cards/:card_id/comments", post(add_comment_handler))
+        .route("/api/board/cards/{card_id}/comments", post(add_comment_handler))
+        // Mind endpoints (SPEC-004 R2)
+        .route("/api/mind", get(mind_snapshot_handler))
+        .route("/api/mind/digest", get(mind_digest_handler))
+        // Skills endpoints (SPEC-004 R2)
+        .route("/api/skills", get(list_skills_handler))
+        .route("/api/skills/{id}", get(get_skill_handler))
         // Documentation endpoints
         .route("/api/docs", get(list_docs_handler))
-        .route("/api/docs/:file", get(get_doc_handler))
+        .route("/api/docs/{file}", get(get_doc_handler))
         .route("/ws", get(ws_handler))
         .fallback_service(ServeDir::new("web/dist").fallback(
             ServeDir::new("vscode-extension/dist") // fallback to old VS Code extension assets
@@ -2672,6 +2678,66 @@ async fn add_comment_handler(
 
     let _ = state.tx.send("reload".to_string());
     Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+// ── Mind & Skills handlers (SPEC-004 R2) ─────────────────────────────────────
+
+async fn mind_snapshot_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<BoardQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let snap = barkcli_core::mind::snapshot::build(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(serde_json::to_value(&snap).map_err(|e| ServerError::internal(e.to_string()))?))
+}
+
+async fn mind_digest_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<BoardQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let snap = barkcli_core::mind::snapshot::build(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let digest = barkcli_core::mind::digest::render(&snap);
+    Ok(Json(serde_json::json!({"board": board_name, "digest": digest, "snapshot": snap})))
+}
+
+async fn list_skills_handler() -> Result<Json<serde_json::Value>, ServerError> {
+    let reg = barkcli_core::skills::SkillRegistry::load_all(None)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let skills: Vec<serde_json::Value> = reg
+        .skills
+        .iter()
+        .map(|s| {
+            serde_json::json!({
+                "id": s.id,
+                "name": s.name,
+                "description": s.description,
+                "triggers": s.triggers,
+                "source": s.source.to_string(),
+            })
+        })
+        .collect();
+    Ok(Json(serde_json::json!({ "skills": skills })))
+}
+
+async fn get_skill_handler(
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let reg = barkcli_core::skills::SkillRegistry::load_all(None)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let skill = reg
+        .get(&id)
+        .ok_or_else(|| ServerError::bad(format!("skill '{}' not found", id)))?;
+    Ok(Json(serde_json::json!({
+        "id": skill.id,
+        "name": skill.name,
+        "description": skill.description,
+        "triggers": skill.triggers,
+        "source": skill.source.to_string(),
+        "content": skill.content,
+    })))
 }
 
 // ── Documentation handlers ───────────────────────────────────────────────────

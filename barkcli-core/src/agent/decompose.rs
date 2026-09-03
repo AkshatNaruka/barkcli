@@ -430,6 +430,7 @@ mod tests {
             acceptance_criteria: vec!["Works correctly".to_string()],
             effort: Some(5),
             area: None,
+            spec_id: None,
             pinned: false,
             version: 1,
             created_at: chrono::Utc::now(),

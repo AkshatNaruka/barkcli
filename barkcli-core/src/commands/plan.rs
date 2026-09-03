@@ -261,7 +261,8 @@ Existing acceptance criteria:
         }
     }
 
-    // Create child cards
+    // Create child cards — set spec_id to parent's spec anchor (R1)
+    let parent_spec = board.cards.iter().find(|c| c.id == card_id).and_then(|c| c.spec_id.clone()).unwrap_or_else(|| card_id.clone());
     let mut child_ids = Vec::new();
     for child in &plan.child_cards {
         let child_id = crate::util::slug::to_slug(&child.title);
@@ -270,6 +271,7 @@ Existing acceptance criteria:
         new_card.priority = child.priority.clone();
         new_card.labels = child.labels.clone();
         new_card.effort = Some(child.effort);
+        new_card.spec_id = Some(parent_spec.clone());
 
         for ac in &child.acceptance_criteria {
             new_card.checklist.push(crate::models::card::ChecklistItem {

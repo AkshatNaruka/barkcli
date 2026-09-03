@@ -904,6 +904,84 @@ impl McpServer {
                     "required": ["agent_id"]
                 }
             }),
+            // Mind & Skills (SPEC-004 R3)
+            serde_json::json!({
+                "name": "mind_snapshot",
+                "description": "Get Mind snapshot (board health, blockers, stale, next actions)",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "board": {
+                            "type": "string",
+                            "description": "Board name (optional)"
+                        }
+                    },
+                    "required": []
+                }
+            }),
+            serde_json::json!({
+                "name": "overview",
+                "description": "Human narrative overview (4 panels) from Mind",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "board": {
+                            "type": "string",
+                            "description": "Board name (optional)"
+                        }
+                    },
+                    "required": []
+                }
+            }),
+            serde_json::json!({
+                "name": "skill_list",
+                "description": "List all skills (mvp/planning/scrum-master/test)",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            }),
+            serde_json::json!({
+                "name": "skill_get",
+                "description": "Get a skill by id",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "string",
+                            "description": "Skill id"
+                        }
+                    },
+                    "required": ["id"]
+                }
+            }),
+            serde_json::json!({
+                "name": "intake",
+                "description": "Classify natural language into card + spec (offline heuristic if no LLM)",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "text": {
+                            "type": "string",
+                            "description": "Human input text"
+                        },
+                        "board": {
+                            "type": "string",
+                            "description": "Board name (optional)"
+                        },
+                        "bug": {
+                            "type": "boolean",
+                            "description": "Force bug"
+                        },
+                        "feature": {
+                            "type": "boolean",
+                            "description": "Force feature"
+                        }
+                    },
+                    "required": ["text"]
+                }
+            }),
         ];
 
         JsonRpcResponse {
@@ -965,6 +1043,11 @@ impl McpServer {
             "memory_search" => self.tool_memory_search(arguments),
             "memory_list" => self.tool_memory_list(arguments),
             "agent_heartbeat" => self.tool_agent_heartbeat(arguments),
+            "mind_snapshot" => self.tool_mind_snapshot(arguments),
+            "overview" => self.tool_overview(arguments),
+            "skill_list" => self.tool_skill_list(arguments),
+            "skill_get" => self.tool_skill_get(arguments),
+            "intake" => self.tool_intake(arguments),
             _ => Err(anyhow::anyhow!("Unknown tool: {}", tool_name)),
         };
 
@@ -1895,6 +1978,127 @@ impl McpServer {
         } else {
             Err(anyhow::anyhow!("Agent '{}' not found", agent_id))
         }
+    }
+
+    fn tool_mind_snapshot(&self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let snap = crate::mind::snapshot::build(&board_name)?;
+        Ok(serde_json::to_value(&snap)?)
+    }
+
+    fn tool_overview(&self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let snap = crate::mind::snapshot::build(&board_name)?;
+        let digest = crate::mind::digest::render(&snap);
+        Ok(serde_json::json!({"board": board_name, "digest": digest, "snapshot": snap}))
+    }
+
+    fn tool_skill_list(&self, _args: Value) -> Result<Value> {
+        let reg = crate::skills::SkillRegistry::load_all(None)?;
+        let skills: Vec<Value> = reg
+            .skills
+            .iter()
+            .map(|s| {
+                serde_json::json!({
+                    "id": s.id,
+                    "name": s.name,
+                    "description": s.description,
+                    "triggers": s.triggers,
+                    "source": s.source.to_string()
+                })
+            })
+            .collect();
+        Ok(serde_json::json!({"skills": skills}))
+    }
+
+    fn tool_skill_get(&self, args: Value) -> Result<Value> {
+        let id = args
+            .get("id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("id required"))?;
+        let reg = crate::skills::SkillRegistry::load_all(None)?;
+        let s = reg
+            .get(id)
+            .ok_or_else(|| anyhow::anyhow!("skill '{}' not found", id))?;
+        Ok(serde_json::json!({
+            "id": s.id,
+            "name": s.name,
+            "description": s.description,
+            "triggers": s.triggers,
+            "source": s.source.to_string(),
+            "content": s.content
+        }))
+    }
+
+    fn tool_intake(&self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let text = args
+            .get("text")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("text required"))?;
+        let force_bug = args.get("bug").and_then(|v| v.as_bool()).unwrap_or(false);
+        let force_feature = args.get("feature").and_then(|v| v.as_bool()).unwrap_or(false);
+
+        // Reuse heuristic path directly (offline) — avoid LLM for MCP speed
+        // We still try intake logic: create card via storage
+        // Simplified: create card directly with heuristic classification
+        let lower = text.to_lowercase();
+        let card_type = if force_bug {
+            "bug"
+        } else if force_feature {
+            "feature"
+        } else if lower.contains("crash") || lower.contains("error") || lower.contains("bug") {
+            "bug"
+        } else {
+            "feature"
+        };
+
+        let mut board = read_board(&board_name)?;
+        let card_id = crate::util::slug::to_slug(text);
+        let mut card = crate::models::card::Card::new(&card_id, text, "todo");
+        card.description = Some(text.to_string());
+        card.labels = vec![card_type.to_string()];
+        // Set spec_id
+        let spec_id = card_id.clone();
+        card.spec_id = Some(spec_id.clone());
+        board.cards.push(card.clone());
+        write_board(&board_name, &board)?;
+
+        // Create spec
+        let mut specs = crate::storage::specs::read_specs(&board_name).unwrap_or_default();
+        let spec = crate::models::spec::Spec {
+            id: spec_id.clone(),
+            title: format!("{}: {}", card_type, text),
+            description: Some(text.to_string()),
+            status: crate::models::spec::SpecStatus::Draft,
+            priority: "medium".into(),
+            tags: vec![],
+            requirements: vec![crate::models::spec::Requirement {
+                id: "req-1".into(),
+                title: text.to_string(),
+                description: None,
+                status: crate::models::spec::RequirementStatus::Pending,
+                acceptance_criteria: vec!["AC via intake mcp".into()],
+                linked_code: vec![],
+                linked_tests: vec![],
+                linked_tasks: vec![card_id.clone()],
+                stale: false,
+                stale_reason: None,
+                updated_at: chrono::Utc::now(),
+            }],
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        };
+        specs.push(spec);
+        crate::storage::specs::write_specs(&board_name, &specs).ok();
+
+        Ok(serde_json::json!({
+            "card_id": card_id,
+            "title": text,
+            "board": board_name,
+            "spec_id": spec_id,
+            "type": card_type
+        }))
     }
 }
 

@@ -195,10 +195,19 @@ Classification rules:
     println!("  Scope:    {}", classification.scope);
     println!("  Area:     {}", classification.area);
 
-    // Create spec if not disabled
+    // Create spec if not disabled — and set spec_id on card (R1)
+    let spec_id_for_card = crate::util::slug::to_slug(&classification.title);
     let spec_created = if !no_spec {
         match create_spec_from_intake(&board_name, &output_card_id, &classification) {
             Ok(true) => {
+                // Patch card.spec_id
+                let _ = crate::storage::board_file::update_board(&board_name, |b| {
+                    if let Some(c) = b.cards.iter_mut().find(|c| c.id == output_card_id) {
+                        c.spec_id = Some(spec_id_for_card.clone());
+                        c.touch();
+                    }
+                    Ok(())
+                });
                 println!("  {} Spec created", style::ok("OK"));
                 true
             }
