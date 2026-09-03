@@ -45,7 +45,7 @@ pub fn command() -> CliCommand {
             Arg::new("server-url")
                 .long("server-url")
                 .help("Management server URL")
-                .default_value("http://localhost:3000"),
+                .default_value("http://localhost:4321"),
         )
         .arg(
             Arg::new("once")

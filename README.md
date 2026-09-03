@@ -175,7 +175,7 @@ barkcli/
 cargo build
 cargo test
 cargo run -- tui
-cargo run -- serve --port 3000
+cargo run -- serve --port 4321
 ```
 
 ## License

@@ -281,7 +281,7 @@ Add all new commands to CommandPalette:
 ### 5.1 Enhanced `barkcli serve`
 ```bash
 barkcli serve                    # Start with auto-detect board
-barkcli serve --port 3000        # Custom port
+barkcli serve --port 8080        # Custom port
 barkcli serve --host 0.0.0.0     # Network accessible
 barkcli serve --token secret     # Require auth
 barkcli serve --open             # Auto-open browser
