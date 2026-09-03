@@ -307,6 +307,11 @@ barkcli serve                      # web app on localhost:4321
 barkcli serve --open               # open in browser
 barkcli serve --port 8080          # custom port
 barkcli serve --board backend      # specific board
+barkcli serve --daemon             # run in background
+barkcli serve --status             # show PID, port, URL
+barkcli serve --stop               # graceful stop
+barkcli serve --kill               # force-kill when stop hangs
+barkcli serve --stop --port 3000   # kill stale server on :3000
 ```
 
 ---

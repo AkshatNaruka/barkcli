@@ -239,7 +239,7 @@ All endpoints require authentication when `--token` is used.
 barkcli serve --daemon
 
 # With options
-barkcli serve --daemon --port 3000 --token mysecret
+barkcli serve --daemon --port 4321 --token mysecret
 
 # Auto-opens browser if --open is used
 barkcli serve --daemon --open
@@ -248,23 +248,32 @@ barkcli serve --daemon --open
 ### Managing the Daemon
 
 ```bash
-# Check if running
+# Check if running (shows PID, port, URL + how to stop)
 barkcli serve --status
 
-# Stop gracefully
+# Stop gracefully (SIGTERM, then SIGKILL after 5s)
 barkcli serve --stop
 
-# Force stop (if unresponsive)
-kill $(cat .board/server.pid)
+# Force-kill when graceful stop hangs
+barkcli serve --kill
+
+# Kill a stale server squatting on a port even with no PID file
+barkcli serve --stop --port 3000   # asks first if it's not a barkcli process
+barkcli serve --kill --port 3000   # force (e.g. old board server on :3000)
+
+# Manual fallback (no barkcli needed)
+lsof -tiTCP:4321 | xargs kill
+lsof -tiTCP:3000 | xargs kill
 ```
 
 ### How It Works
 
 1. `barkcli serve --daemon` forks a background process
-2. PID is written to `.board/server.pid`
+2. PID is written to `.board/server.pid`, port/host to `.board/server.json`
 3. The daemon watches board files for changes
 4. WebSocket broadcasts live updates to connected browsers
 5. `barkcli serve --stop` sends SIGTERM for graceful shutdown
+6. Default port is `4321` (unique to barkcli — avoids Next.js/Vite on `:3000`)
 
 ### Auto-Init
 

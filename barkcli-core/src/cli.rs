@@ -136,6 +136,15 @@ fn dispatch(cmd: &str, cmd_args: &[String]) -> Result<()> {
         "checkpoint" => handle_checkpoint_cmd(cmd_args)?,
         "hooks" => handle_hooks_cmd(cmd_args)?,
 
+        // Fleet: multi-agent execution (sessions, worktrees, leases)
+        "fleet" => commands::fleet::run_fleet(cmd_args)?,
+        "task" => commands::task_cmd::run_task(cmd_args)?,
+        "ready" => commands::ready::run_ready(cmd_args)?,
+        "packet" => commands::ready::run_packet(cmd_args)?,
+        "prime" => commands::prime::run_prime(cmd_args)?,
+        "verify" => commands::verify_cmd::run_verify(cmd_args)?,
+        "handoff" => commands::handoff::run_handoff(cmd_args)?,
+
         // Interfaces / self-update — handled by barkcli-cli's main.rs
         "tui" | "serve" | "open" | "update" | "upgrade" => {}
         "--version" | "-V" | "version" => {}

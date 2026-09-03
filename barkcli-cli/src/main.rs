@@ -22,28 +22,61 @@ fn run_tui(args: &[String]) {
 }
 
 #[cfg(feature = "serve")]
+const DEFAULT_SERVE_PORT: u16 = 4321;
+
+#[cfg(feature = "serve")]
 fn run_serve(args: &[String]) {
-    let mut port = 4321u16;
+    let mut port = DEFAULT_SERVE_PORT;
+    let mut port_explicit: Option<u16> = None;
     let mut board_name: Option<String> = None;
     let mut open_browser = false;
     let mut host = "127.0.0.1".to_string();
     let mut token: Option<String> = None;
     let mut daemon = false;
+    let mut want_stop = false;
+    let mut want_kill = false;
+    let mut want_status = false;
+    let mut force = false;
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
-            "--port" | "-p" => { i += 1; port = args.get(i).and_then(|v| v.parse().ok()).unwrap_or(4321); }
+            "--port" | "-p" => {
+                i += 1;
+                if let Some(v) = args.get(i).and_then(|s| s.parse::<u16>().ok()) {
+                    port = v;
+                    port_explicit = Some(v);
+                } else {
+                    eprintln!("warning: invalid --port value, using {}", DEFAULT_SERVE_PORT);
+                }
+            }
             "--board" | "-b" => { i += 1; board_name = args.get(i).map(|s| s.to_string()); }
             "--host" => { i += 1; host = args.get(i).cloned().unwrap_or_else(|| "127.0.0.1".to_string()); }
             "--token" => { i += 1; token = args.get(i).map(|s| s.to_string()); }
             "--open" | "-o" => open_browser = true,
             "--daemon" | "-d" => daemon = true,
-            "--stop" => { stop_daemon(); return; }
-            "--status" => { check_daemon_status(); return; }
+            "--stop" => want_stop = true,
+            "--kill" => want_kill = true,
+            "--force" => force = true,
+            "--status" => want_status = true,
+            "--help" | "-h" => { print_serve_help(); return; }
             s if s.starts_with('-') => {}
             s => { if board_name.is_none() { board_name = Some(s.to_string()); } }
         }
         i += 1;
+    }
+
+    // `--kill` implies force-kill; `--stop --force` also force-kills.
+    if want_kill {
+        stop_daemon_with_opts(port_explicit, true, true);
+        return;
+    }
+    if want_stop {
+        stop_daemon_with_opts(port_explicit, force, force);
+        return;
+    }
+    if want_status {
+        check_daemon_status();
+        return;
     }
 
     if daemon {
@@ -54,35 +87,260 @@ fn run_serve(args: &[String]) {
     let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
     if let Err(e) = rt.block_on(barkcli_server::run(port, board_name.as_deref(), open_browser, &host, token)) {
         eprintln!("error: {}", e);
+        eprintln!("hint: if the port is in use, stop the old server first:");
+        eprintln!("      barkcli serve --status");
+        eprintln!("      barkcli serve --stop --port {}", port);
         std::process::exit(1);
     }
 }
 
 #[cfg(feature = "serve")]
+fn print_serve_help() {
+    println!("Usage: barkcli serve [OPTIONS] [BOARD]");
+    println!();
+    println!("Browser kanban server. Default: http://localhost:{} (unique to barkcli —", DEFAULT_SERVE_PORT);
+    println!("avoids collisions with Next.js/Vite on :3000).");
+    println!();
+    println!("Options:");
+    println!("  -p, --port <PORT>   Server port (default: {})", DEFAULT_SERVE_PORT);
+    println!("  -b, --board <NAME>  Board name");
+    println!("      --host <HOST>   Bind address (default: 127.0.0.1)");
+    println!("      --token <TOKEN> Require auth token");
+    println!("  -o, --open          Open browser after starting");
+    println!("  -d, --daemon        Run in background");
+    println!("      --stop [--port <PORT>] [--force]");
+    println!("                      Stop daemon gracefully (SIGTERM, then SIGKILL after 5s).");
+    println!("                      With --port, also kills whatever is listening on that port");
+    println!("                      even when no PID file exists (e.g. --port 3000).");
+    println!("      --kill [--port <PORT>]");
+    println!("                      Force-kill daemon (SIGKILL) + any process on the port.");
+    println!("                      Use when --stop says nothing is running but the port is busy.");
+    println!("      --status        Show PID, port, URL and how to stop it");
+    println!("  -h, --help          Show this help");
+    println!();
+    println!("Examples:");
+    println!("  barkcli serve --daemon                  # background on :{}", DEFAULT_SERVE_PORT);
+    println!("  barkcli serve --status                  # is it running? which PID/port?");
+    println!("  barkcli serve --stop                    # graceful stop via PID file");
+    println!("  barkcli serve --stop --port 3000        # kill stale server squatting on :3000");
+    println!("  barkcli serve --kill                    # force-kill when graceful stop hangs");
+    println!("  barkcli serve --kill --port 4321        # force-kill occupant of :4321");
+}
+
+#[cfg(feature = "serve")]
+fn serve_pid_path() -> std::path::PathBuf {
+    barkcli_core::storage::board_dir::find_board_dir()
+        .map(|d| d.join("server.pid"))
+        .unwrap_or_else(|_| std::env::current_dir().unwrap_or_default().join(".board").join("server.pid"))
+}
+
+#[cfg(feature = "serve")]
+fn serve_info_path() -> std::path::PathBuf {
+    serve_pid_path().with_file_name("server.json")
+}
+
+#[cfg(feature = "serve")]
+fn read_pid_file() -> Option<u32> {
+    std::fs::read_to_string(serve_pid_path())
+        .ok()?
+        .trim()
+        .parse::<u32>()
+        .ok()
+}
+
+#[cfg(feature = "serve")]
+fn read_info_port() -> Option<u16> {
+    let text = std::fs::read_to_string(serve_info_path()).ok()?;
+    let v: serde_json::Value = serde_json::from_str(&text).ok()?;
+    v.get("port")?.as_u64().and_then(|p| u16::try_from(p).ok())
+}
+
+#[cfg(feature = "serve")]
+fn read_info_host() -> Option<String> {
+    let text = std::fs::read_to_string(serve_info_path()).ok()?;
+    let v: serde_json::Value = serde_json::from_str(&text).ok()?;
+    v.get("host")?.as_str().map(|s| s.to_string())
+}
+
+#[cfg(feature = "serve")]
+fn process_alive(pid: u32) -> bool {
+    #[cfg(unix)]
+    {
+        unsafe { libc::kill(pid as i32, 0) == 0 }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = pid;
+        false
+    }
+}
+
+#[cfg(feature = "serve")]
+fn process_name(pid: u32) -> String {
+    std::process::Command::new("ps")
+        .args(["-p", &pid.to_string(), "-o", "comm="])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_default()
+}
+
+#[cfg(feature = "serve")]
+fn is_barkcli_process(pid: u32) -> bool {
+    let name = process_name(pid).to_lowercase();
+    if name.contains("barkcli") {
+        return true;
+    }
+    // `cargo run -- serve` shows up as `cargo`/`barkcli`; check full args as fallback.
+    let args = std::process::Command::new("ps")
+        .args(["-p", &pid.to_string(), "-o", "args="])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).to_lowercase())
+        .unwrap_or_default();
+    args.contains("barkcli") && args.contains("serve")
+}
+
+/// PIDs listening on a TCP port (via lsof). Empty when lsof is missing or port is free.
+#[cfg(feature = "serve")]
+fn pids_on_port(port: u16) -> Vec<u32> {
+    let out = std::process::Command::new("lsof")
+        .args([format!("-tiTCP:{}", port), "-sTCP:LISTEN".to_string()])
+        .output();
+    match out {
+        Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout)
+            .split_whitespace()
+            .filter_map(|s| s.parse::<u32>().ok())
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+#[cfg(feature = "serve")]
+fn send_signal(pid: u32, sig: i32) {
+    #[cfg(unix)]
+    unsafe {
+        libc::kill(pid as i32, sig);
+    }
+    #[cfg(not(unix))]
+    let _ = (pid, sig);
+}
+
+#[cfg(feature = "serve")]
+fn wait_for_exit(pid: u32, timeout_ms: u64) -> bool {
+    let steps = timeout_ms / 100;
+    for _ in 0..steps {
+        if !process_alive(pid) {
+            return true;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    !process_alive(pid)
+}
+
+#[cfg(feature = "serve")]
+fn remove_serve_files() {
+    let _ = std::fs::remove_file(serve_pid_path());
+    let _ = std::fs::remove_file(serve_info_path());
+}
+
+#[cfg(feature = "serve")]
+fn kill_one_pid(pid: u32, force: bool, label: &str) -> bool {
+    if !process_alive(pid) {
+        println!("{}: pid {} already exited", label, pid);
+        return true;
+    }
+    if force {
+        println!("Force-killing {} (pid {})...", label, pid);
+        send_signal(pid, 9); // SIGKILL
+    } else {
+        println!("Stopping {} (pid {})...", label, pid);
+        send_signal(pid, 15); // SIGTERM
+        if wait_for_exit(pid, 5000) {
+            println!("{} stopped", label);
+            return true;
+        }
+        println!("Force killing {} (did not exit in 5s)...", label);
+        send_signal(pid, 9); // SIGKILL
+    }
+    if wait_for_exit(pid, 2000) {
+        println!("{} stopped", label);
+        true
+    } else {
+        eprintln!("{} (pid {}) did not exit", label, pid);
+        false
+    }
+}
+
+/// Kill whatever is listening on `port`. Refuses to kill non-barkcli
+/// processes unless `force` (from `--kill` or `--stop --force`) is set,
+/// so `serve --stop --port 3000` never nukes an unrelated Next.js dev server by accident.
+#[cfg(feature = "serve")]
+fn kill_port_occupants(port: u16, force: bool) -> bool {
+    let pids = pids_on_port(port);
+    if pids.is_empty() {
+        println!("Port {} is free (nothing listening)", port);
+        return true;
+    }
+    let mut ok = true;
+    for pid in pids {
+        let name = process_name(pid);
+        let ours = is_barkcli_process(pid);
+        if !ours && !force {
+            eprintln!(
+                "Port {} is in use by pid {} ({}) — not a barkcli server.",
+                port,
+                pid,
+                if name.is_empty() { "unknown" } else { &name }
+            );
+            eprintln!("Refusing to kill it. Re-run with --kill or --stop --force to override,");
+            eprintln!("or stop that process yourself:  kill {}  /  lsof -tiTCP:{} | xargs kill", pid, port);
+            ok = false;
+            continue;
+        }
+        let label = format!("process on port {} ({})", port, if name.is_empty() { "unknown".into() } else { name });
+        if !kill_one_pid(pid, force, &label) {
+            ok = false;
+        }
+    }
+    ok
+}
+
+#[cfg(feature = "serve")]
 fn run_daemon(port: u16, board_name: Option<&str>, open_browser: bool, host: &str, token: Option<String>) {
     use std::fs;
-    use std::process::{Command, Stdio};
 
-    // Find .board/ directory for PID file
-    let pid_path = barkcli_core::storage::board_dir::find_board_dir()
-        .map(|d| d.join("server.pid"))
-        .unwrap_or_else(|_| std::env::current_dir().unwrap_or_default().join(".board").join("server.pid"));
+    let pid_path = serve_pid_path();
+    let info_path = serve_info_path();
 
     // Check if already running
-    if pid_path.exists() {
-        if let Ok(pid_str) = fs::read_to_string(&pid_path) {
-            if let Ok(pid) = pid_str.trim().parse::<u32>() {
-                // Check if process is alive
-                #[cfg(unix)]
-                {
-                    let alive = unsafe { libc::kill(pid as i32, 0) == 0 };
-                    if alive {
-                        eprintln!("barkcli serve is already running (pid {}). Use --stop to stop it.", pid);
-                        return;
-                    }
-                }
-            }
+    if let Some(pid) = read_pid_file() {
+        if process_alive(pid) {
+            let known_port = read_info_port().unwrap_or(DEFAULT_SERVE_PORT);
+            eprintln!(
+                "barkcli serve is already running (pid {}, port {}).",
+                pid, known_port
+            );
+            eprintln!("  barkcli serve --status          # details");
+            eprintln!("  barkcli serve --stop            # graceful stop");
+            eprintln!("  barkcli serve --kill            # force-kill");
+            return;
+        } else {
+            // Stale PID file — clean up so the next --status/--stop is accurate.
+            remove_serve_files();
         }
+    }
+
+    // Refuse to start when the requested port is already taken, and say WHO has it.
+    let occupants = pids_on_port(port);
+    if !occupants.is_empty() {
+        eprintln!("Cannot start: port {} is already in use:", port);
+        for pid in &occupants {
+            eprintln!("  pid {} ({})", pid, process_name(*pid));
+        }
+        eprintln!("Stop it first:");
+        eprintln!("  barkcli serve --stop --port {}     # graceful (asks before killing non-barkcli)", port);
+        eprintln!("  barkcli serve --kill --port {}     # force", port);
+        eprintln!("Or pick another port:  barkcli serve --daemon --port <PORT>");
+        std::process::exit(1);
     }
 
     // Fork process
@@ -100,9 +358,16 @@ fn run_daemon(port: u16, board_name: Option<&str>, open_browser: bool, host: &st
                 // Close stdin
                 unsafe { libc::close(0); }
 
-                // Write PID file
+                // Write PID + info files (port/host so --status/--stop can find us)
                 let _ = fs::create_dir_all(pid_path.parent().unwrap());
                 let _ = fs::write(&pid_path, std::process::id().to_string());
+                let info = serde_json::json!({
+                    "pid": std::process::id(),
+                    "port": port,
+                    "host": host,
+                    "started_at": chrono::Utc::now().to_rfc3339(),
+                });
+                let _ = fs::write(&info_path, serde_json::to_string_pretty(&info).unwrap_or_default());
 
                 // Set up signal handler for cleanup
                 unsafe {
@@ -115,7 +380,7 @@ fn run_daemon(port: u16, board_name: Option<&str>, open_browser: bool, host: &st
                 let result = rt.block_on(barkcli_server::run(port, board_name, open_browser, host, token));
 
                 // Cleanup PID file on exit
-                let _ = fs::remove_file(&pid_path);
+                remove_serve_files();
 
                 if let Err(e) = result {
                     eprintln!("daemon error: {}", e);
@@ -123,9 +388,10 @@ fn run_daemon(port: u16, board_name: Option<&str>, open_browser: bool, host: &st
             }
             pid => {
                 // Parent process
-                println!("barkcli serve started in background (pid {})", pid);
-                println!("Logs: check stderr or use --status to verify");
-                println!("Stop with: barkcli serve --stop");
+                println!("barkcli serve started in background (pid {}, http://localhost:{})", pid, port);
+                println!("  barkcli serve --status   # verify it's up");
+                println!("  barkcli serve --stop     # graceful stop");
+                println!("  barkcli serve --kill     # force-kill if it hangs");
             }
         }
     }
@@ -139,101 +405,136 @@ fn run_daemon(port: u16, board_name: Option<&str>, open_browser: bool, host: &st
 }
 
 #[cfg(feature = "serve")]
+#[allow(dead_code)]
 fn stop_daemon() {
-    use std::fs;
+    stop_daemon_with_opts(None, false, false);
+}
 
-    let pid_path = barkcli_core::storage::board_dir::find_board_dir()
-        .map(|d| d.join("server.pid"))
-        .unwrap_or_else(|_| std::env::current_dir().unwrap_or_default().join(".board").join("server.pid"));
+/// Stop the daemon.
+///
+/// * `port_opt` — when Some, also kill whatever listens on that port even if
+///   no PID file exists (covers stale `serve --port 3000` squatters).
+/// * `force` — SIGKILL immediately (from `--kill` / `--stop --force`), and
+///   allow killing non-barkcli port occupants.
+#[cfg(feature = "serve")]
+fn stop_daemon_with_opts(port_opt: Option<u16>, force: bool, allow_non_barkcli: bool) {
+    let mut stopped_via_pid = false;
+    let mut pid_port: Option<u16> = None;
 
-    if !pid_path.exists() {
-        println!("No daemon running (no PID file found)");
-        return;
-    }
-
-    let pid_str = fs::read_to_string(&pid_path).unwrap_or_default();
-    let pid: u32 = match pid_str.trim().parse() {
-        Ok(p) => p,
-        Err(_) => {
-            eprintln!("Invalid PID file");
-            let _ = fs::remove_file(&pid_path);
-            return;
-        }
-    };
-
-    #[cfg(unix)]
-    {
-        let alive = unsafe { libc::kill(pid as i32, 0) == 0 };
-        if !alive {
-            println!("Daemon not running (stale PID file)");
-            let _ = fs::remove_file(&pid_path);
-            return;
-        }
-
-        println!("Stopping daemon (pid {})...", pid);
-        unsafe { libc::kill(pid as i32, libc::SIGTERM); }
-
-        // Wait up to 5 seconds for graceful shutdown
-        for _ in 0..50 {
-            std::thread::sleep(std::time::Duration::from_millis(100));
-            let alive = unsafe { libc::kill(pid as i32, 0) == 0 };
-            if !alive {
-                println!("Daemon stopped");
-                let _ = fs::remove_file(&pid_path);
-                return;
+    match read_pid_file() {
+        Some(pid) => {
+            if !process_alive(pid) {
+                println!("Daemon not running (stale PID file for pid {})", pid);
+                remove_serve_files();
+            } else {
+                pid_port = read_info_port();
+                stopped_via_pid = kill_one_pid(pid, force, "Daemon");
+                if stopped_via_pid {
+                    remove_serve_files();
+                }
             }
         }
-
-        // Force kill
-        println!("Force killing daemon...");
-        unsafe { libc::kill(pid as i32, libc::SIGKILL); }
-        let _ = fs::remove_file(&pid_path);
-        println!("Daemon stopped");
+        None => {
+            println!("No daemon PID file found");
+        }
     }
 
-    #[cfg(not(unix))]
-    {
-        eprintln!("Daemon management is only supported on Unix systems");
-        let _ = fs::remove_file(&pid_path);
+    // Determine which ports to sweep for orphaned listeners.
+    let mut ports: Vec<u16> = Vec::new();
+    if let Some(p) = port_opt {
+        ports.push(p);
+    } else if let Some(p) = pid_port.or_else(read_info_port) {
+        ports.push(p);
+    } else {
+        ports.push(DEFAULT_SERVE_PORT);
+    }
+
+    let mut all_ok = stopped_via_pid;
+    for port in ports {
+        // Skip the sweep when we already stopped our PID and the port is now free.
+        let occupants = pids_on_port(port);
+        if occupants.is_empty() {
+            if port_opt.is_some() || !stopped_via_pid {
+                println!("Port {} is free (nothing listening)", port);
+            }
+            all_ok = all_ok || stopped_via_pid;
+            continue;
+        }
+        println!("Found listener(s) on port {}: {:?}", port, occupants);
+        if kill_port_occupants(port, force || allow_non_barkcli) {
+            all_ok = true;
+        } else {
+            all_ok = false;
+        }
+        // Re-check: if the port is free now and it matches our PID file port, drop stale files.
+        if pids_on_port(port).is_empty() && Some(port) == pid_port {
+            remove_serve_files();
+        }
+    }
+
+    if !all_ok && !stopped_via_pid {
+        println!("Nothing stopped.");
+        println!("  barkcli serve --status              # see PID + port");
+        println!("  barkcli serve --kill                # force-kill daemon");
+        println!("  barkcli serve --kill --port <PORT>  # force-kill occupant of a port (e.g. 3000)");
+        println!("  lsof -tiTCP:<PORT> | xargs kill      # manual fallback");
     }
 }
 
 #[cfg(feature = "serve")]
 fn check_daemon_status() {
-    use std::fs;
-
-    let pid_path = barkcli_core::storage::board_dir::find_board_dir()
-        .map(|d| d.join("server.pid"))
-        .unwrap_or_else(|_| std::env::current_dir().unwrap_or_default().join(".board").join("server.pid"));
-
-    if !pid_path.exists() {
-        println!("No daemon running");
-        return;
-    }
-
-    let pid_str = fs::read_to_string(&pid_path).unwrap_or_default();
-    let pid: u32 = match pid_str.trim().parse() {
-        Ok(p) => p,
-        Err(_) => {
-            println!("No daemon running (invalid PID file)");
-            return;
+    match read_pid_file() {
+        None => {
+            println!("No daemon running (no PID file)");
         }
-    };
-
-    #[cfg(unix)]
-    {
-        let alive = unsafe { libc::kill(pid as i32, 0) == 0 };
-        if alive {
-            println!("Daemon running (pid {})", pid);
-        } else {
-            println!("No daemon running (stale PID file)");
-            let _ = fs::remove_file(&pid_path);
+        Some(pid) => {
+            if process_alive(pid) {
+                let port = read_info_port().unwrap_or(DEFAULT_SERVE_PORT);
+                let host = read_info_host().unwrap_or_else(|| "127.0.0.1".to_string());
+                let url_host = if host == "0.0.0.0" { "localhost" } else { host.as_str() };
+                println!("Daemon running (pid {}, http://{}:{})", pid, url_host, port);
+                println!("  barkcli serve --stop   # graceful stop");
+                println!("  barkcli serve --kill   # force-kill");
+            } else {
+                println!("No daemon running (stale PID file for pid {})", pid);
+                remove_serve_files();
+            }
         }
     }
 
-    #[cfg(not(unix))]
-    {
-        println!("Daemon status check not available on this platform");
+    // Always report port occupancy so an orphaned server is easy to spot,
+    // even when the PID file is gone (the "hard to detect" complaint).
+    let probe_port = read_info_port().unwrap_or(DEFAULT_SERVE_PORT);
+    let occupants = pids_on_port(probe_port);
+    if occupants.is_empty() {
+        println!("Port {} is free", probe_port);
+    } else {
+        for pid in &occupants {
+            let name = process_name(*pid);
+            let ours = if is_barkcli_process(*pid) { " (barkcli)" } else { "" };
+            println!(
+                "Port {} in use by pid {} ({}){}",
+                probe_port,
+                pid,
+                if name.is_empty() { "unknown" } else { &name },
+                ours
+            );
+        }
+        println!("  barkcli serve --stop --port {}   # stop it", probe_port);
+        println!("  barkcli serve --kill --port {}   # force-kill it", probe_port);
+    }
+
+    // Common collision: user expects 4321 but something squats on 3000 (old README example).
+    if probe_port != 3000 {
+        let squatters = pids_on_port(3000);
+        if !squatters.is_empty() {
+            println!("Note: port 3000 is also in use:");
+            for pid in &squatters {
+                println!("  pid {} ({})", pid, process_name(*pid));
+            }
+            println!("  barkcli serve --stop --port 3000   # stop it (asks first for non-barkcli)");
+            println!("  barkcli serve --kill --port 3000   # force-kill it");
+        }
     }
 }
 
@@ -439,7 +740,7 @@ fn main() {
                 } else {
                     #[cfg(feature = "serve")] {
                         let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
-                        if let Err(e) = rt.block_on(barkcli_server::run(4321, board_name, true, "127.0.0.1", None)) { eprintln!("error: {}", e); std::process::exit(1); }
+                        if let Err(e) = rt.block_on(barkcli_server::run(DEFAULT_SERVE_PORT, board_name, true, "127.0.0.1", None)) { eprintln!("error: {}", e); std::process::exit(1); }
                     }
                 }
                 return;

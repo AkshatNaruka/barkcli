@@ -94,6 +94,6 @@ new:
 ```bash
 cargo test -p barkcli-core skills mind card
 TEST_DIR=$(mktemp -d) && cd $TEST_DIR && /path/barkcli init && /path/barkcli create t && /path/barkcli add "A" -p high && BARKCLI_API_KEY="" /path/barkcli intake "Add OAuth feature" --feature && /path/barkcli mind sync && cat .board/mind/t.json | jq .stats.total
-curl http://localhost:3000/api/mind?name=t | jq .stats.total
+curl http://localhost:4321/api/mind?name=t | jq .stats.total
 barkcli mcp # then tools/call mind_snapshot
 ```
