@@ -7,6 +7,7 @@ import type {
   ChecklistItem,
   LinkType,
 } from "../lib/types";
+import { Icon } from "./Icon";
 
 interface Props {
   card?: Card;
@@ -25,7 +26,7 @@ interface Props {
 const inputCls =
   "w-full px-3 py-2 rounded-lg bg-surface border border-border text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent placeholder:text-muted transition-colors";
 
-type Tab = "details" | "acceptance" | "links" | "code";
+type Tab = "details" | "acceptance" | "links" | "code" | "spec";
 
 export function CardForm({
   card,
@@ -159,6 +160,7 @@ export function CardForm({
           <button type="button" className={tabCls("acceptance")} onClick={() => setTab("acceptance")}>Acceptance</button>
           <button type="button" className={tabCls("links")} onClick={() => setTab("links")}>Links</button>
           <button type="button" className={tabCls("code")} onClick={() => setTab("code")}>Code</button>
+          <button type="button" className={tabCls("spec")} onClick={() => setTab("spec")}>Spec</button>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
@@ -398,6 +400,10 @@ export function CardForm({
             </>
           )}
 
+          {tab === "spec" && (
+            <SpecTab cardId={card?.id} specId={specId || (card as any)?.spec_id} />
+          )}
+
           <div className="flex justify-between mt-2">
             {onDelete && (
               <button type="button" onClick={onDelete} className="px-3 py-2 text-sm text-danger hover:bg-danger-soft rounded-lg">Delete</button>
@@ -408,6 +414,81 @@ export function CardForm({
             </div>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function SpecTab({ cardId, specId }: { cardId?: string; specId?: string }) {
+  const [spec, setSpec] = React.useState<any | null>(null);
+  const [loading, setLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!specId) return;
+    setLoading(true);
+    import("../lib/api").then(({ fetchSpec }) => {
+      fetchSpec(specId).then((s) => {
+        setSpec(s);
+        setLoading(false);
+      });
+    });
+  }, [specId]);
+
+  if (!specId) {
+    return (
+      <p className="text-xs text-muted">
+        No spec linked. Set a Spec ID in Details, or run <code>barkcli intake "…"</code> to
+        auto-create card + spec{cardId ? <> for <code>{cardId}</code></> : null}.
+      </p>
+    );
+  }
+  if (loading) return <p className="text-xs text-muted">Loading spec…</p>;
+  if (!spec) {
+    return (
+      <p className="text-xs text-muted">
+        Spec <code className="font-mono">{specId}</code> not found on this board.
+      </p>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-semibold text-text">{spec.title}</span>
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface border border-border text-muted font-mono">
+          {spec.status}
+        </span>
+      </div>
+      {spec.description && <p className="text-xs text-muted">{spec.description}</p>}
+      <div className="space-y-1.5 max-h-56 overflow-y-auto">
+        {(spec.requirements || []).map((r: any) => (
+          <div key={r.id} className="rounded-lg bg-surface border border-border p-2">
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-accent">◈</span>
+              <span className="flex-1 text-text font-medium">{r.title}</span>
+              <span className="text-[10px] text-muted font-mono">{r.status}</span>
+            </div>
+            {(r.acceptance_criteria || []).length > 0 && (
+              <ul className="mt-1 space-y-0.5">
+                {r.acceptance_criteria.map((ac: string, i: number) => (
+                  <li key={i} className="text-[11px] text-muted">☐ {ac}</li>
+                ))}
+              </ul>
+            )}
+            {(r.linked_tasks || []).length > 0 && (
+              <p className="text-[10px] text-muted font-mono mt-1">
+                tasks: {r.linked_tasks.join(", ")}
+              </p>
+            )}
+            {r.stale && (
+              <p className="text-[10px] text-warning mt-1 inline-flex items-center gap-1">
+                <Icon name="warn" size={11} /> stale{r.stale_reason ? `: ${r.stale_reason}` : ""}
+              </p>
+            )}
+          </div>
+        ))}
+        {(spec.requirements || []).length === 0 && (
+          <p className="text-xs text-muted">No requirements yet.</p>
+        )}
       </div>
     </div>
   );

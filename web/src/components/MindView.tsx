@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { connectWs } from "../lib/api";
+import { navigate } from "../lib/hashnav";
+import { Icon } from "./Icon";
 
 interface MindSnapshot {
   board_name: string;
@@ -61,9 +63,10 @@ export function MindView({ boardName }: { boardName: string | null }) {
               await load();
               setSyncing(false);
             }}
-            className="text-xs px-3 py-1.5 rounded border border-border hover:border-border-strong text-muted hover:text-text"
+            className="text-xs px-3 py-1.5 rounded border border-border hover:border-border-strong text-muted hover:text-text inline-flex items-center gap-1.5"
           >
-            {syncing ? "Syncing…" : "⟳ Sync"}
+            <Icon name="refresh" size={13} />
+            {syncing ? "Syncing…" : "Sync"}
           </button>
           {digest && (
             <button
@@ -73,9 +76,10 @@ export function MindView({ boardName }: { boardName: string | null }) {
                   setTimeout(() => setCopied(false), 2000);
                 });
               }}
-              className="text-xs px-3 py-1.5 rounded bg-accent text-white hover:bg-accent/90"
+              className="text-xs px-3 py-1.5 rounded bg-accent text-white hover:bg-accent/90 inline-flex items-center gap-1.5"
             >
-              {copied ? "Copied!" : "⧉ Copy digest"}
+              <Icon name="copy" size={13} />
+              {copied ? "Copied!" : "Copy digest"}
             </button>
           )}
         </div>
@@ -111,10 +115,15 @@ export function MindView({ boardName }: { boardName: string | null }) {
             <p className="text-xs text-muted">No blockers</p>
           ) : (
             snap.blockers.map(b => (
-              <div key={b.card_id} className="text-xs py-1 border-b border-border/50 last:border-0">
+              <button
+                key={b.card_id}
+                onClick={() => navigate("board")}
+                title="Open in Board"
+                className="w-full text-left text-xs py-1 border-b border-border/50 last:border-0 hover:text-accent transition-colors"
+              >
                 <span className="text-text">{b.title}</span>
                 <span className="text-muted"> ({b.card_id}) → {b.blocked_by.join(", ")}</span>
-              </div>
+              </button>
             ))
           )}
         </div>
@@ -124,10 +133,15 @@ export function MindView({ boardName }: { boardName: string | null }) {
             <p className="text-xs text-muted">No stale cards</p>
           ) : (
             snap.stale_cards.map(s => (
-              <div key={s.id} className="text-xs py-1 border-b border-border/50 last:border-0">
+              <button
+                key={s.id}
+                onClick={() => navigate("board")}
+                title="Open in Board"
+                className="w-full text-left text-xs py-1 border-b border-border/50 last:border-0 hover:text-accent transition-colors"
+              >
                 <span className="text-text">{s.title}</span>
                 <span className="text-muted"> ({s.column}, {s.days}d)</span>
-              </div>
+              </button>
             ))
           )}
         </div>
@@ -137,11 +151,16 @@ export function MindView({ boardName }: { boardName: string | null }) {
       <div className="bg-surface border border-border rounded-lg p-3">
         <h3 className="text-xs font-semibold text-muted mb-2">Next Actions</h3>
         {snap.next_actions.map((a, i) => (
-          <div key={i} className="flex items-start gap-2 text-xs py-1">
+          <button
+            key={i}
+            onClick={() => navigator.clipboard.writeText(a.action).catch(() => {})}
+            title="Click to copy command"
+            className="w-full flex items-start gap-2 text-xs py-1 text-left hover:bg-surface rounded px-1 -mx-1 transition-colors"
+          >
             <span className="text-accent font-mono">{i + 1}.</span>
             <span className="text-text font-mono bg-card px-1 rounded">{a.action}</span>
             <span className="text-muted">{a.reason}</span>
-          </div>
+          </button>
         ))}
       </div>
 

@@ -134,7 +134,7 @@ export function Dashboard({
         {mind && (
           <div className="grid md:grid-cols-3 gap-3">
             <div className="bg-surface border border-border rounded-lg p-3">
-              <h3 className="text-xs font-semibold text-text mb-2">🚧 Blockers</h3>
+              <h3 className="text-xs font-semibold text-text mb-2">Blockers</h3>
               {mind.blockers?.length ? mind.blockers.slice(0, 4).map((b: any) => (
                 <div key={b.card_id} className="text-xs py-1 border-b border-border/50 last:border-0">
                   <span className="text-text">{b.title}</span>
@@ -143,7 +143,7 @@ export function Dashboard({
               )) : <p className="text-xs text-muted">No blockers</p>}
             </div>
             <div className="bg-surface border border-border rounded-lg p-3">
-              <h3 className="text-xs font-semibold text-text mb-2">⌛ Stale &gt;7d</h3>
+              <h3 className="text-xs font-semibold text-text mb-2">Stale &gt;7d</h3>
               {mind.stale_cards?.length ? mind.stale_cards.slice(0, 4).map((s: any) => (
                 <div key={s.id} className="text-xs py-1 border-b border-border/50 last:border-0">
                   <span className="text-text">{s.title}</span>
@@ -152,7 +152,7 @@ export function Dashboard({
               )) : <p className="text-xs text-muted">No stale</p>}
             </div>
             <div className="bg-surface border border-border rounded-lg p-3">
-              <h3 className="text-xs font-semibold text-text mb-2">➡️ Next</h3>
+              <h3 className="text-xs font-semibold text-text mb-2">Next</h3>
               {mind.next_actions?.length ? mind.next_actions.slice(0, 3).map((a: any, i: number) => (
                 <div key={i} className="text-xs py-1 border-b border-border/50 last:border-0">
                   <span className="font-mono text-accent">{a.action}</span>
@@ -160,7 +160,7 @@ export function Dashboard({
                 </div>
               )) : <p className="text-xs text-muted">All clear</p>}
               {mind.top_memories?.length ? (
-                <p className="text-[11px] text-muted mt-2 line-clamp-2">💡 {mind.top_memories[0].content.slice(0, 80)}…</p>
+                <p className="text-[11px] text-muted mt-2 line-clamp-2">{mind.top_memories[0].content.slice(0, 80)}…</p>
               ) : null}
             </div>
           </div>
@@ -200,7 +200,7 @@ export function Dashboard({
                 >
                   <span className={`font-mono shrink-0 ${isOver ? "text-danger" : "text-warning"}`}>{due}</span>
                   <span className="text-muted-strong truncate">{c.title}</span>
-                  {c.effort ? <span className="text-muted shrink-0 font-mono">⏱{c.effort}</span> : null}
+                  {c.effort ? <span className="text-muted shrink-0 font-mono">{c.effort} pts</span> : null}
                 </button>
               );
             })}

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import type { Board as BoardType, Card, Sprint } from "../lib/types";
+import { Icon } from "./Icon";
 
 interface Props {
   board: BoardType;
@@ -228,9 +229,9 @@ export function CalendarView({ board, sprints, onEditCard, onAddCard }: Props) {
                 }`}
                 title="Click to add a card on this date"
               >
-                <div className={`text-xs mb-1 ${isToday ? "text-accent font-bold" : hasOverdue ? "text-danger font-semibold" : "text-muted"}`}>
+                <div className={`text-xs mb-1 inline-flex items-center gap-1 ${isToday ? "text-accent font-bold" : hasOverdue ? "text-danger font-semibold" : "text-muted"}`}>
                   {day}
-                  {hasOverdue && <span className="ml-1">⚠</span>}
+                  {hasOverdue && <Icon name="warn" size={11} />}
                 </div>
                 {visible.map((c) => (
                   <CardChip key={c.id} card={c} todayStr={todayStr} sprints={sprints} onEditCard={onEditCard} />
@@ -334,10 +335,14 @@ function CardChip({ card, todayStr, sprints, onEditCard }: { card: Card; todaySt
       className={`block w-full text-left text-[10px] font-medium rounded px-1.5 py-0.5 mb-0.5 truncate transition-colors border border-transparent ${
         done ? "text-muted line-through opacity-60" : overdue ? "text-danger" : "text-text"
       } hover:border-border-strong`}
-      title={`${card.title}${card.remind_at ? " · 🔔 " + card.remind_at : ""}`}
+      title={`${card.title}${card.remind_at ? " · reminder " + card.remind_at : ""}`}
       style={color ? { borderLeftColor: color, borderLeftWidth: 3 } : undefined}
     >
-      {remind && <span className={remind === "overdue" ? "text-danger" : "text-amber-500"}>🔔 </span>}
+      {remind && (
+        <span className={`inline-flex mr-0.5 align-[-1px] ${remind === "overdue" ? "text-danger" : "text-amber-500"}`}>
+          <Icon name="bell" size={10} />
+        </span>
+      )}
       {card.title}
     </button>
   );

@@ -3,6 +3,8 @@ import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import type { Card, Column } from "../lib/types";
 import { SortableCard } from "./SortableCard";
+import { Icon } from "./Icon";
+import { Lozenge, columnTone } from "./Lozenge";
 
 interface Props {
   column: Column;
@@ -26,10 +28,14 @@ export const KanbanColumn = React.memo(function KanbanColumn({ column, cards, on
       className="flex flex-col bg-surface rounded-lg min-w-[280px] max-w-[320px] flex-shrink-0 border border-border"
     >
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <h3 className="font-semibold text-sm text-text">{column.name}</h3>
+        <div className="flex items-center gap-2">
+          <Lozenge tone={columnTone(column.id)}>{column.name}</Lozenge>
+        </div>
         <div className="flex items-center gap-2">
           {pinned > 0 && (
-            <span className="text-[10px] text-muted" title="Pinned cards">📌{pinned}</span>
+            <span className="text-[10px] text-muted inline-flex items-center gap-0.5" title="Pinned cards">
+              <Icon name="pin" size={11} />{pinned}
+            </span>
           )}
           <span className="text-xs text-muted bg-card border border-border px-2 py-0.5 rounded-full">
             {cards.length}

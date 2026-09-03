@@ -22,7 +22,8 @@ import {
   openFileInEditor,
   type GitInfo,
 } from "./lib/api";
-import { useRoute, navigate, type Route } from "./lib/hashnav";
+import { useRoute, type Route } from "./lib/hashnav";
+import { Icon } from "./components/Icon";
 import { BoardView } from "./components/BoardView";
 import { TableView } from "./components/TableView";
 import { CalendarView } from "./components/CalendarView";
@@ -30,7 +31,7 @@ import { ListView } from "./components/ListView";
 import { CardForm } from "./components/CardForm";
 import { CommandPalette } from "./components/CommandPalette";
 import { ThemeDropdown } from "./components/ThemeDropdown";
-import { Dashboard } from "./components/Dashboard";
+import { Sidebar } from "./components/Sidebar";
 import { ReportsView } from "./components/ReportsView";
 import { CodeView } from "./components/CodeView";
 import { ActivityView } from "./components/ActivityView";
@@ -45,24 +46,9 @@ import { DocsView } from "./components/DocsView";
 import { MindView } from "./components/MindView";
 import { SkillsView } from "./components/SkillsView";
 
-const NAV_ITEMS: { route: Route; label: string }[] = [
-  { route: "dashboard", label: "Dashboard" },
-  { route: "board", label: "Board" },
-  { route: "mind", label: "Mind" },
-  { route: "skills", label: "Skills" },
-  { route: "calendar", label: "Calendar" },
-  { route: "reports", label: "Reports" },
-  { route: "code", label: "Code" },
-  { route: "activity", label: "Activity" },
-  { route: "sprints", label: "Sprints" },
-  { route: "memory", label: "Memory" },
-  { route: "specs", label: "Specs" },
-  { route: "orchestrate", label: "Orchestrate" },
-  { route: "timeline", label: "Timeline" },
-  { route: "settings", label: "Settings" },
-  { route: "agent-prompt", label: "AI Agent" },
-  { route: "docs", label: "Docs" },
-];
+function isBlockedCard(c: Card): boolean {
+  return Boolean(c.blocked_by) || c.links.some((l) => l.ty === "blocked-by");
+}
 
 function CardHistoryModal({ cardId, entries, onClose }: { cardId: string; entries: any[]; onClose: () => void }) {
   return (
@@ -172,8 +158,20 @@ export function App() {
   const [cardContexts, setCardContexts] = useState<Record<string, CardContext | null>>({});
   const [boardList, setBoardList] = useState<string[]>([]);
   const [boardName, setBoardName] = useState<string | null>(null);
+  const [agentsActive, setAgentsActive] = useState(0);
   const boardNameRef = useRef<string | null>(null);
   boardNameRef.current = boardName;
+
+  // Sidebar badges: live agent count (board/blocker counts derive from board state)
+  useEffect(() => {
+    fetch("/api/agents")
+      .then((r) => r.json())
+      .then((d) => {
+        const agents = Array.isArray(d.agents) ? d.agents : [];
+        setAgentsActive(agents.filter((a: any) => a.status === "Working").length);
+      })
+      .catch(() => {});
+  }, [boardName, board]);
 
   // Debounced save: the latest board state is flushed 250ms after the last
   // edit. During the window we skip WS reloads caused by our own save.
@@ -420,19 +418,23 @@ export function App() {
     );
   }
 
+  const boardOpen = board ? board.cards.filter((c) => c.column !== "done").length : 0;
+  const blockerCount = board ? board.cards.filter(isBlockedCard).length : 0;
+
   return (
-    <div className="h-screen flex flex-col bg-bg">
-      {/* Row 1: brand + board switcher + meta */}
+    <div className="h-screen flex bg-bg">
+      {/* Sidebar: grouped management-layer nav (DESIGN.md §5) */}
+      <Sidebar
+        route={route}
+        onNavigate={setRoute}
+        counts={{ boardOpen, blockers: blockerCount, agentsActive }}
+        boardName={boardName || boardList[0] || null}
+      />
+
+      <div className="flex-1 flex flex-col min-w-0">
+      {/* Slim top bar: board switcher + search + meta (DESIGN.md §6) */}
       <header className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0 gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <button
-            onClick={() => navigate("dashboard")}
-            className="flex items-center gap-1.5 text-sm font-bold text-text hover:text-accent transition-colors shrink-0"
-          >
-            <span className="w-5 h-5 rounded bg-accent text-white flex items-center justify-center text-[10px] font-mono">b</span>
-            barkcli
-          </button>
-          <span className="w-px h-4 bg-border shrink-0" />
           {boardList.length > 0 && (
             <div className="relative shrink-0">
               <select
@@ -455,43 +457,28 @@ export function App() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setPaletteOpen(true)}
+            className="hidden sm:flex items-center gap-2 text-xs text-muted hover:text-text px-3 py-1.5 rounded-lg border border-border hover:border-border-strong transition-colors min-w-[180px]"
+            title="Command palette (⌘K)"
+          >
+            <Icon name="search" size={13} />
+            <span className="flex-1 text-left">Search or command…</span>
+            <kbd className="text-[10px] font-mono bg-surface border border-border rounded px-1">⌘K</kbd>
+          </button>
           {gitInfo && (
             <span className="hidden lg:inline text-[10px] text-muted font-mono border border-border rounded px-1.5 py-0.5 truncate max-w-[220px]">
               {gitInfo.branch} · {gitInfo.lastCommit}
             </span>
           )}
           <ThemeDropdown />
-          <button
-            onClick={() => setPaletteOpen(true)}
-            className="text-xs text-muted hover:text-text px-2 py-1.5 rounded border border-border hover:border-border-strong transition-colors"
-            title="Command palette (⌘K)"
-          >
-            ⌘K
-          </button>
         </div>
       </header>
 
-      {/* Row 2: hub navigation */}
-      <nav className="flex items-center px-2 border-b border-border shrink-0 overflow-x-auto">
-        {NAV_ITEMS.map((item) => (
-          <button
-            key={item.route}
-            onClick={() => setRoute(item.route)}
-            className={`px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${
-              route === item.route
-                ? "text-accent border-accent"
-                : "text-muted hover:text-text border-transparent"
-            }`}
-          >
-            {item.label}
-          </button>
-        ))}
-      </nav>
-
       {/* Main content */}
       <main className="flex-1 overflow-hidden">
-        {board && route === "dashboard" && (
-          <Dashboard board={board} sprints={sprints} gitInfo={gitInfo} onOpenCard={(id) => { setRoute("board"); }} />
+        {board && (route === "dashboard" || route === "mind") && (
+          <MindView boardName={boardName} />
         )}
         {board && route === "board" && (
           <BoardPage
@@ -542,7 +529,7 @@ export function App() {
         {route === "specs" && (
           <SpecsView boardName={boardName} />
         )}
-        {route === "orchestrate" && (
+        {(route === "orchestrate" || route === "agents") && (
           <OrchestrateView boardName={boardName} />
         )}
         {route === "timeline" && (
@@ -622,6 +609,7 @@ export function App() {
         />
       )}
       {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
+      </div>
     </div>
   );
 }
@@ -650,9 +638,43 @@ function BoardPage({
   onCopyCommitMsg: (card: Card) => void;
 }) {
   const [view, setView] = useState<ViewMode>("board");
+  const [filter, setFilter] = useState("");
+  const [chips, setChips] = useState<string[]>([]);
+  const toggleChip = (chip: string) =>
+    setChips((prev) => (prev.includes(chip) ? prev.filter((c) => c !== chip) : [...prev, chip]));
+  const staleCutoff = Date.now() - 7 * 24 * 3600 * 1000;
+  const visible = React.useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    return {
+      ...board,
+      cards: board.cards.filter((c) => {
+        for (const chip of chips) {
+          if (chip === "blocked" && !isBlockedCard(c)) return false;
+          if (chip === "stale" && !(c.column !== "done" && new Date(c.updated_at).getTime() < staleCutoff)) return false;
+          if (chip === "no-spec" && c.spec_id) return false;
+          if (chip === "high" && c.priority !== "high") return false;
+        }
+        if (!q) return true;
+        return (
+          c.title.toLowerCase().includes(q) ||
+          c.id.toLowerCase().includes(q) ||
+          c.labels.some((l) => l.toLowerCase().includes(q)) ||
+          (c.spec_id || "").toLowerCase().includes(q)
+        );
+      }),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [board, filter, chips]);
+  const hidden = board.cards.length - visible.cards.length;
+  const CHIP_DEFS = [
+    { id: "blocked", label: "Blocked", icon: "blocked" as const },
+    { id: "stale", label: "Stale", icon: "clock" as const },
+    { id: "no-spec", label: "No spec", icon: "link" as const },
+    { id: "high", label: "High", icon: "flag" as const },
+  ];
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center gap-1 px-4 pt-2 pb-0 shrink-0">
+      <div className="flex items-center gap-2 px-4 pt-2 pb-0 shrink-0">
         <div className="flex bg-surface rounded-md p-0.5">
           {(["board", "table", "list"] as ViewMode[]).map((v) => (
             <button
@@ -666,11 +688,38 @@ function BoardPage({
             </button>
           ))}
         </div>
+        <input
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Filter by title, id, label, spec…"
+          className="flex-1 max-w-xs bg-surface border border-border rounded-md px-2.5 py-1 text-xs text-text placeholder:text-muted focus:outline-none focus:border-accent"
+        />
+        {CHIP_DEFS.map((chip) => {
+          const on = chips.includes(chip.id);
+          return (
+            <button
+              key={chip.id}
+              onClick={() => toggleChip(chip.id)}
+              title={`Quick filter: ${chip.label}`}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                on
+                  ? "text-accent border-accent/50 bg-accent-soft font-medium"
+                  : "text-muted border-border hover:text-text"
+              }`}
+            >
+              <Icon name={chip.icon} size={12} />
+              {chip.label}
+            </button>
+          );
+        })}
+        {hidden > 0 && (
+          <span className="text-[10px] text-muted font-mono">{hidden} hidden</span>
+        )}
       </div>
       <div className="flex-1 overflow-hidden">
         {view === "board" && (
           <BoardView
-            board={board}
+            board={visible}
             onMoveCard={onMoveCard}
             onTogglePin={onTogglePin}
             onAddCard={onAddCard}
@@ -684,7 +733,7 @@ function BoardPage({
         )}
         {view === "table" && (
           <TableView
-            board={board}
+            board={visible}
             onEditCard={onEditCard}
             onDeleteCard={onDeleteCard}
             onMoveCard={onMoveCard}
@@ -692,7 +741,7 @@ function BoardPage({
         )}
         {view === "list" && (
           <ListView
-            board={board}
+            board={visible}
             onEditCard={onEditCard}
             onDeleteCard={onDeleteCard}
             onMoveCard={onMoveCard}
