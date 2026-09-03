@@ -96,27 +96,48 @@ if ! download "$GITHUB_URL" "$TMPDIR/barkcli.tar.gz"; then
   fi
 fi
 
-# Optional SHA256 verification (if SHA256SUMS available)
+# SHA256 verification against the release SHA256SUMS file.
+# Portable across macOS (BSD shasum) and Linux (coreutils): extracts the
+# expected hash for our exact archive name and compares it directly.
+# Fatal on mismatch when SHA256SUMS is available; warning only when the
+# checksum file itself cannot be downloaded.
 verify_checksum() {
-  _archive="$1"
-  _tmp="$2"
+  _tmp="$1"
   _sha_url=""
   if [ -n "$VERSION" ]; then
     _sha_url="https://github.com/${REPO}/releases/download/${VERSION}/SHA256SUMS"
   else
     _sha_url="https://github.com/${REPO}/releases/latest/download/SHA256SUMS"
   fi
-  if curl -fsSL "$_sha_url" -o "$_tmp/SHA256SUMS" 2>/dev/null; then
-    if command -v shasum >/dev/null 2>&1; then
-      (cd "$_tmp" && shasum -a 256 -c SHA256SUMS --ignore-missing 2>/dev/null) && echo "Checksum verified." || echo "Checksum warning: could not verify (non-fatal)"
-    elif command -v sha256sum >/dev/null 2>&1; then
-      (cd "$_tmp" && sha256sum -c SHA256SUMS --ignore-missing 2>/dev/null) && echo "Checksum verified." || echo "Checksum warning: could not verify (non-fatal)"
-    fi
+  if ! curl -fsSL "$_sha_url" -o "$_tmp/SHA256SUMS" 2>/dev/null; then
+    echo "Checksum warning: could not download SHA256SUMS (non-fatal, continuing)"
+    return 0
   fi
+  _expected="$(grep -E "[[:space:]]${ARCHIVE}\$" "$_tmp/SHA256SUMS" 2>/dev/null | awk '{print $1}' | head -1)"
+  if [ -z "$_expected" ]; then
+    echo "Checksum warning: no entry for ${ARCHIVE} in SHA256SUMS (non-fatal, continuing)"
+    return 0
+  fi
+  if command -v shasum >/dev/null 2>&1; then
+    _actual="$(shasum -a 256 "$_tmp/barkcli.tar.gz" 2>/dev/null | awk '{print $1}')"
+  elif command -v sha256sum >/dev/null 2>&1; then
+    _actual="$(sha256sum "$_tmp/barkcli.tar.gz" 2>/dev/null | awk '{print $1}')"
+  else
+    echo "Checksum warning: no sha256 tool found (non-fatal, continuing)"
+    return 0
+  fi
+  if [ "$_actual" = "$_expected" ]; then
+    echo "Checksum verified (${ARCHIVE})."
+    return 0
+  fi
+  echo "Checksum MISMATCH for ${ARCHIVE}!" >&2
+  echo "  expected: $_expected" >&2
+  echo "  actual:   ${_actual:-<could not compute>}" >&2
+  echo "The download may be corrupted or tampered with. Aborting." >&2
+  exit 1
 }
 
-# Verify if possible (non-fatal on failure)
-verify_checksum "$TMPDIR/barkcli.tar.gz" "$TMPDIR" || true
+verify_checksum "$TMPDIR"
 
 # Extract
 if ! tar -xzf "$TMPDIR/barkcli.tar.gz" -C "$TMPDIR" 2>/dev/null; then
@@ -140,6 +161,14 @@ fi
 mkdir -p "$INSTALL_DIR"
 cp "$BIN_SRC" "$INSTALL_DIR/barkcli"
 chmod +x "$INSTALL_DIR/barkcli"
+
+# macOS: remove the quarantine attribute so Gatekeeper doesn't block the
+# binary on first run ("cannot be opened because the developer cannot be
+# verified"). A `curl | sh` install is user-consented, so clearing the
+# attribute here is the standard practice (same as Homebrew does).
+if [ "$OS" = "Darwin" ] && command -v xattr >/dev/null 2>&1; then
+  xattr -d com.apple.quarantine "$INSTALL_DIR/barkcli" 2>/dev/null || true
+fi
 
 echo "barkcli installed to $INSTALL_DIR/barkcli"
 

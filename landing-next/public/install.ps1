@@ -106,9 +106,14 @@ try {
         if ($expected) {
             $actual = (Get-FileHash $ZipPath -Algorithm SHA256).Hash.ToLower()
             if ($actual -eq $expected.ToLower()) {
-                Write-Host "Checksum verified." -ForegroundColor Green
+                Write-Host "Checksum verified ($Archive)." -ForegroundColor Green
             } else {
-                Write-Host "Checksum mismatch! Expected $expected but got $actual" -ForegroundColor Yellow
+                Write-Host "Checksum MISMATCH for $Archive!" -ForegroundColor Red
+                Write-Host "  expected: $expected" -ForegroundColor Red
+                Write-Host "  actual:   $actual" -ForegroundColor Red
+                Write-Host "The download may be corrupted or tampered with. Aborting." -ForegroundColor Red
+                Remove-Item -Recurse -Force $TempDir -ErrorAction SilentlyContinue
+                exit 1
             }
         }
     }
@@ -135,7 +140,14 @@ New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 $BinDest = Join-Path $InstallDir "barkcli.exe"
 Copy-Item -Path $BinSource.FullName -Destination $BinDest -Force
 
+# Remove the Mark-of-the-Web (Zone.Identifier) so Windows Defender
+# SmartScreen doesn't flag the binary on first run. A user-consented
+# `irm | iex` install makes this the standard, safe practice.
+try { Unblock-File -Path $BinDest -ErrorAction SilentlyContinue } catch {}
+
 Write-Host "barkcli installed to $BinDest" -ForegroundColor Green
+Write-Host "Note: on first run Windows SmartScreen may still ask for confirmation" -ForegroundColor Yellow
+Write-Host "because the binary isn't EV code-signed. Click 'More info' -> 'Run anyway'." -ForegroundColor Yellow
 
 # Add to PATH if not already
 $CurrentPath = [Environment]::GetEnvironmentVariable("Path", "User")

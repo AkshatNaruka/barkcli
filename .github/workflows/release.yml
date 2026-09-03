@@ -101,6 +101,18 @@ jobs:
           "$BIN" --version || true
           # Strip binary on unix to reduce size (macOS/Linux)
           if command -v strip >/dev/null 2>&1; then strip "$BIN" || true; fi
+          # Ad-hoc code sign macOS binaries (must run AFTER strip, before tar).
+          # This makes `codesign -v` pass and avoids "damaged binary" Gatekeeper
+          # errors. Full notarization (zero Gatekeeper prompts) requires an Apple
+          # Developer ID: set APPLE_DEVELOPER_IDENTITY secret to enable signing
+          # with it instead of ad-hoc ("-").
+          case "${{ matrix.target }}" in
+            *apple-darwin*)
+              SIGN_IDENTITY="${APPLE_DEVELOPER_IDENTITY:--}"
+              codesign --sign "$SIGN_IDENTITY" --force --timestamp --options runtime "$BIN" || true
+              codesign -dv "$BIN" || true
+              ;;
+          esac
           tar -czf "barkcli-${{ matrix.target }}.tar.gz" -C "target/${{ matrix.target }}/release" "${{ matrix.bin }}"
           shasum -a 256 "barkcli-${{ matrix.target }}.tar.gz" | tee "barkcli-${{ matrix.target }}.tar.gz.sha256"
           ls -lh barkcli-*.tar.gz*
@@ -322,7 +334,12 @@ jobs:
               end
 
               test do
-                system "#{bin}/barkcli", "--version"
+                system "\#{bin}/barkcli", "--version"
+              end
+
+              livecheck do
+                url :stable
+                regex(/^v?(\d+(?:\.\d+)+)$/i)
               end
             end
           FORMULA
