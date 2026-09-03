@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 export type Route =
   | "dashboard"
   | "board"
+  | "mind"
+  | "skills"
   | "calendar"
   | "reports"
   | "code"
@@ -19,6 +21,8 @@ export type Route =
 const ROUTES: Route[] = [
   "dashboard",
   "board",
+  "mind",
+  "skills",
   "calendar",
   "reports",
   "code",

@@ -42,10 +42,14 @@ import { SpecsView } from "./components/SpecsView";
 import { OrchestrateView } from "./components/OrchestrateView";
 import { TimelineView } from "./components/TimelineView";
 import { DocsView } from "./components/DocsView";
+import { MindView } from "./components/MindView";
+import { SkillsView } from "./components/SkillsView";
 
 const NAV_ITEMS: { route: Route; label: string }[] = [
   { route: "dashboard", label: "Dashboard" },
   { route: "board", label: "Board" },
+  { route: "mind", label: "Mind" },
+  { route: "skills", label: "Skills" },
   { route: "calendar", label: "Calendar" },
   { route: "reports", label: "Reports" },
   { route: "code", label: "Code" },
@@ -302,6 +306,7 @@ export function App() {
       blocked_by: undefined, attachments: [],
       links: data.links || [], acceptance_criteria: data.acceptance_criteria || [],
       effort: data.effort, area: data.area,
+      spec_id: (data as any).spec_id,
       pinned: false,
       created_at: now, updated_at: now,
     };
@@ -527,6 +532,10 @@ export function App() {
             onEditCard={(card) => handleOpenForm({ card })}
           />
         )}
+        {route === "mind" && (
+          <MindView boardName={boardName} />
+        )}
+        {route === "skills" && <SkillsView />}
         {route === "memory" && (
           <MemoryView boardName={boardName} />
         )}
