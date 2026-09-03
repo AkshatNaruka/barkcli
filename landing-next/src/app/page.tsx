@@ -7,7 +7,6 @@ import {
   Monitor,
   Search,
   Bot,
-  BookOpen,
   GitBranch,
   TestTube,
   Zap,
@@ -16,17 +15,14 @@ import {
   Globe,
   Code,
   ChevronDown,
-  ChevronRight,
   Check,
   Copy,
   FileCode,
   LayoutDashboard,
-  Calendar,
   BarChart3,
   Settings,
   Sparkles,
   ArrowRight,
-  Play,
   Cpu,
   Shield,
   GitMerge,
@@ -38,7 +34,6 @@ import {
   Plug,
   Brain,
   Layers,
-  Braces,
 } from "lucide-react";
 
 const INSTALL = "curl -fsSL https://barkcli.vercel.app/install.sh | sh";
@@ -48,45 +43,45 @@ const VIDEO_URL =
 
 const FEATURES = [
   {
-    icon: FolderOpen,
-    title: "Git-Native",
-    description: "Tasks are YAML files in your repo. Diff them, merge them, grep them. Version control for your project management.",
-    code: "$ git diff main..feature -- *.board",
+    icon: Brain,
+    title: "Mind",
+    description: "A compiled snapshot of your project — health, blockers, stale work, next actions. One command answers what's happening.",
+    code: "$ barkcli mind sync && barkcli overview",
     gradient: "from-amber-500/20 to-orange-500/20",
   },
   {
-    icon: CloudOff,
-    title: "No Cloud",
-    description: "Works offline. No accounts, no subscriptions, no vendor lock-in. Your data stays in your repo.",
-    code: "$ barkcli list  # Works without internet",
+    icon: Layers,
+    title: "Skills",
+    description: "Reusable BMAD-style conventions (mvp, planning, scrum-master, test) versioned in your repo and injected into every agent prompt.",
+    code: "$ barkcli skills list",
     gradient: "from-blue-500/20 to-cyan-500/20",
   },
   {
-    icon: Monitor,
-    title: "Multi-Interface",
-    description: "CLI, terminal UI, and web app. Same data, same commands, your choice.",
-    code: "$ barkcli tui    # Terminal UI\n$ barkcli serve  # Web app",
+    icon: FolderOpen,
+    title: "Board + Traceability",
+    description: "Kanban with spec_id on every card — spec ↔ card ↔ task ↔ code, O(1). Diff it, merge it, grep it.",
+    code: "$ git diff main..feature -- *.board",
     gradient: "from-purple-500/20 to-pink-500/20",
   },
   {
-    icon: Search,
-    title: "Code Context",
-    description: "Automatic code analysis with call graphs, test coverage mapping, and complexity metrics.",
-    code: "$ barkcli context scan",
+    icon: Bot,
+    title: "Agent Queue",
+    description: "Tasks dispatch to OpenCode, Claude Code, Cursor, or a human. Claim, work, complete — with a review gate before done.",
+    code: "$ barkcli dispatch && barkcli review --auto",
     gradient: "from-green-500/20 to-emerald-500/20",
   },
   {
-    icon: Bot,
-    title: "AI-Ready",
-    description: "MCP server for coding agent integration. Orchestrate task decomposition and agent coordination.",
-    code: "$ barkcli mcp  # Start MCP server",
+    icon: Search,
+    title: "Memory",
+    description: "Four-tier local memory with hybrid BM25 + TF-IDF search. Decisions and patterns survive across sessions — offline.",
+    code: '$ barkcli memory search "auth errors"',
     gradient: "from-rose-500/20 to-red-500/20",
   },
   {
-    icon: BookOpen,
-    title: "Open Source",
-    description: "MIT licensed. Built in Rust. Fast, reliable, and transparent. Contribute or self-host.",
-    code: "$ cargo install barkcli",
+    icon: CloudOff,
+    title: "Offline Git-Native",
+    description: "No cloud, no accounts, no per-seat pricing. MIT licensed, built in Rust. Your data stays in your repo.",
+    code: "$ barkcli list  # Works without internet",
     gradient: "from-teal-500/20 to-cyan-500/20",
   },
 ];
@@ -94,24 +89,38 @@ const FEATURES = [
 const STEPS = [
   {
     number: "1",
-    title: "Initialize",
-    description: "Add barkcli to any project. Creates a .board directory with your configuration.",
-    command: "barkcli init",
+    title: "Intake",
+    description: "Human writes intent in plain language. barkcli classifies it into a card + spec — offline if needed.",
+    command: 'barkcli intake "Add Google OAuth" --feature',
     icon: Sparkles,
   },
   {
     number: "2",
-    title: "Add Tasks",
-    description: "Create cards with priorities, labels, and acceptance criteria.",
-    command: 'barkcli add "Build login page" -p high -l frontend',
+    title: "Plan",
+    description: "The spec decomposes into agent-ready child cards with file context and acceptance criteria.",
+    command: "barkcli plan oauth-login --tasks",
     icon: Boxes,
   },
   {
     number: "3",
-    title: "Work",
-    description: "Move cards across columns. Track progress. Commit changes with your code.",
-    command: "barkcli move build-login-page doing",
+    title: "Dispatch",
+    description: "Tasks route to the right agent — OpenCode, Claude Code, or a human — with full context + skills.",
+    command: "barkcli dispatch",
     icon: Wand2,
+  },
+  {
+    number: "4",
+    title: "Review",
+    description: "Completed work is validated against acceptance criteria, tests, and commits before it lands.",
+    command: "barkcli review --all --auto",
+    icon: Check,
+  },
+  {
+    number: "5",
+    title: "Remember",
+    description: "Decisions, patterns, and sessions persist in local memory. The mind snapshot tells you what's next.",
+    command: "barkcli mind sync && barkcli overview",
+    icon: Brain,
   },
 ];
 
@@ -152,8 +161,8 @@ $ barkcli move deploy-to-production done
     id: "web",
     title: "Web App",
     icon: Globe,
-    description: "Beautiful kanban board in your browser. Drag-and-drop, calendar view, reports, and real-time updates via WebSocket.",
-    demo: `Dashboard · Board · Calendar · Reports · Code
+    description: "The management layer UI: Mind homepage, board with spec traceability, agent queue, memory and skills — real-time via WebSocket.",
+    demo: `Mind · Board · Agents · Memory · Skills
 
 ┌──────────┬──────────┬──────────┬──────────┐
 │ Todo     │ Doing    │ Review   │ Done     │
@@ -175,8 +184,12 @@ const CODE_FEATURES = [
 
 const FAQ = [
   {
+    question: "Is barkcli a CLI tool or a web app?",
+    answer: "Both — but think of it as a management layer, not a tool. The same data powers the CLI, terminal UI, VS Code extension, and web app. Humans manage in the web app (Mind, Board, Agents), agents work through 38 MCP tools, and everything syncs through files in your repo.",
+  },
+  {
     question: "What makes barkcli different from Jira or Linear?",
-    answer: "barkcli is git-native. Tasks are YAML files in your repo, not in someone else's cloud. No accounts, no subscriptions, no vendor lock-in. Diff tasks like code, merge them with git, and keep everything version-controlled.",
+    answer: "Jira and Linear manage humans through a cloud database. barkcli manages humans and AI agents through files in your repo. Tasks, specs, memory, skills, and agent runs are YAML/JSON you can diff, merge, and version control. No accounts, no subscriptions, no vendor lock-in — and agents can read and write the same board you see.",
   },
   {
     question: "Does it work offline?",
@@ -187,8 +200,8 @@ const FAQ = [
     answer: "Absolutely. Commit the .board directory to your repo. Team members pull changes and see the same board. No server required — git handles the sync.",
   },
   {
-    question: "What about the AI features?",
-    answer: "barkcli includes an MCP server for coding agent integration. It can decompose tasks, analyze code complexity, and orchestrate multiple agents. The AI features are optional — the core tool works without them.",
+    question: "How do AI agents fit in?",
+    answer: "barkcli sits between you and your coding agents. You write intent (intake → plan), agents claim scoped tasks with file context and skills (dispatch), and completed work is validated before it lands (review). Memory persists decisions across sessions. Agents connect via 38 MCP tools — OpenCode, Claude Code, and Cursor all work. The core stays fully usable offline without any AI.",
   },
   {
     question: "Is it free?",
@@ -356,6 +369,129 @@ function useInView(ref: React.RefObject<HTMLElement | null>, threshold = 0.1) {
   return inView;
 }
 
+function ProductMock() {
+  return (
+    <div className="border border-white/10 rounded-2xl overflow-hidden bg-[#0A0A0A] shadow-2xl shadow-black/60">
+      {/* Browser chrome */}
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10 bg-white/[0.02]">
+        <div className="flex gap-1.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-white/15" />
+          <div className="w-2.5 h-2.5 rounded-full bg-white/15" />
+          <div className="w-2.5 h-2.5 rounded-full bg-white/15" />
+        </div>
+        <div className="flex-1 text-center">
+          <span className="text-[11px] font-mono text-white/30 bg-white/5 border border-white/10 rounded-md px-3 py-1">
+            localhost:3000 — barkcli mind
+          </span>
+        </div>
+        <div className="w-10" />
+      </div>
+      <div className="flex text-left">
+        {/* Sidebar */}
+        <div className="hidden sm:flex flex-col w-40 shrink-0 border-r border-white/10 py-3">
+          <div className="px-3 pb-2 text-[10px] font-mono uppercase tracking-widest text-white/30">Manage</div>
+          {[
+            { icon: Brain, label: "Mind", active: true, badge: "2" },
+            { icon: LayoutDashboard, label: "Board", active: false, badge: "8" },
+            { icon: Layers, label: "Specs", active: false },
+          ].map((item) => (
+            <div
+              key={item.label}
+              className={`flex items-center gap-2 px-3 py-1.5 text-xs border-l-2 ${
+                item.active
+                  ? "text-white bg-white/5 border-[#B8845C]"
+                  : "text-white/40 border-transparent"
+              }`}
+            >
+              <item.icon className="w-3.5 h-3.5" />
+              {item.label}
+              {item.badge && (
+                <span className={`ml-auto text-[10px] font-mono px-1.5 py-px rounded-full ${item.active ? "bg-red-500/20 text-red-400" : "bg-white/5 text-white/40"}`}>
+                  {item.badge}
+                </span>
+              )}
+            </div>
+          ))}
+          <div className="px-3 pt-3 pb-2 text-[10px] font-mono uppercase tracking-widest text-white/30">Build</div>
+          {[{ icon: Bot, label: "Agents", badge: "3" }].map((item) => (
+            <div key={item.label} className="flex items-center gap-2 px-3 py-1.5 text-xs text-white/40 border-l-2 border-transparent">
+              <item.icon className="w-3.5 h-3.5" />
+              {item.label}
+              <span className="ml-auto text-[10px] font-mono px-1.5 py-px rounded-full bg-white/5 text-white/40">{item.badge}</span>
+            </div>
+          ))}
+        </div>
+        {/* Kanban */}
+        <div className="flex-1 grid grid-cols-3 gap-2 p-3 min-w-0">
+          {[
+            {
+              name: "Todo",
+              tone: "text-white/40",
+              cards: [
+                { title: "Add OAuth login", meta: "HIGH", metaCls: "text-red-400 bg-red-500/10 border-red-500/30", spec: true, blocked: false },
+                { title: "Fix checkout crash", meta: "BUG", metaCls: "text-red-400 bg-red-500/10 border-red-500/30", spec: true, blocked: true },
+              ],
+            },
+            {
+              name: "Doing",
+              tone: "text-sky-400",
+              cards: [
+                { title: "Implement OAuth flow", meta: "IN PROGRESS", metaCls: "text-sky-400 bg-sky-500/10 border-sky-500/30", spec: true, blocked: false },
+              ],
+            },
+            {
+              name: "Review",
+              tone: "text-amber-400",
+              cards: [
+                { title: "Store tokens securely", meta: "REVIEW", metaCls: "text-amber-400 bg-amber-500/10 border-amber-500/30", spec: false, blocked: false },
+              ],
+            },
+          ].map((col) => (
+            <div key={col.name} className="bg-white/[0.02] border border-white/10 rounded-xl p-2 min-w-0">
+              <div className={`text-[10px] font-semibold uppercase tracking-wide mb-2 ${col.tone}`}>{col.name}</div>
+              <div className="space-y-2">
+                {col.cards.map((c) => (
+                  <div
+                    key={c.title}
+                    className={`bg-white/[0.03] rounded-lg p-2 border ${c.blocked ? "border-red-500/50" : "border-white/10"}`}
+                  >
+                    <div className="text-[11px] text-white/90 font-medium leading-snug">{c.title}</div>
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <span className={`text-[9px] font-semibold px-1.5 py-px rounded border ${c.metaCls}`}>{c.meta}</span>
+                      {c.spec && <span className="text-[9px] font-mono text-[#D4A574]">⎇ spec</span>}
+                      {c.blocked && <span className="text-[9px] font-semibold text-red-400">BLOCKED</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        {/* Agent queue */}
+        <div className="hidden md:flex flex-col w-48 shrink-0 border-l border-white/10 p-3">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-white/30 mb-2">Agents</div>
+          {[
+            { name: "opencode-1", task: "OAuth flow", tone: "text-amber-400", dot: "bg-amber-400" },
+            { name: "claude-2", task: "Token storage", tone: "text-sky-400", dot: "bg-sky-400" },
+            { name: "human-you", task: "Review queue", tone: "text-green-400", dot: "bg-green-400" },
+          ].map((a) => (
+            <div key={a.name} className="py-1.5 border-b border-white/5 last:border-0">
+              <div className="flex items-center gap-1.5">
+                <span className={`w-1.5 h-1.5 rounded-full ${a.dot} animate-pulse`} />
+                <span className="text-[11px] font-mono text-white/70">{a.name}</span>
+              </div>
+              <div className={`text-[10px] mt-0.5 ${a.tone}`}>{a.task}</div>
+            </div>
+          ))}
+          <div className="mt-auto pt-2">
+            <div className="text-[10px] font-mono text-white/30">Next: dispatch 2 pending</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AnimatedSection({ children, className = "", delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, 0.1);
@@ -427,11 +563,11 @@ export default function Home() {
           </a>
           <nav className="flex items-center gap-1">
             {[
+              { href: "#product", label: "Product" },
+              { href: "#pipeline", label: "How it works" },
               { href: "#features", label: "Features" },
-              { href: "#interfaces", label: "Interfaces" },
               { href: "#ai-agent", label: "AI Agent" },
               { href: "/docs", label: "Docs" },
-              { href: "#install", label: "Install" },
             ].map((link) => (
               <a
                 key={link.href}
@@ -456,18 +592,18 @@ export default function Home() {
         <main className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6">
           <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 mb-6">
             <Sparkles className="w-3 h-3 text-[#B8845C]" />
-            <span className="text-xs text-white/60 font-mono">Now with MCP server for AI agents</span>
+            <span className="text-xs text-white/60 font-mono">Open source (MIT) · v0.3.1 · 38 MCP tools</span>
           </div>
           <h1 className="text-white text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.05] mb-6">
-            Git for{" "}
+            The management layer
+            <br />
             <span className="bg-gradient-to-r from-[#B8845C] via-[#D4A574] to-[#B8845C] bg-clip-text text-transparent">
-              tasks
+              for AI agents.
             </span>
-            .
           </h1>
           <p className="text-white/60 text-sm sm:text-base md:text-lg font-light max-w-xl mb-10 leading-relaxed px-2">
-            Project management that lives in your repo, not someone else&apos;s cloud.
-            Diff tasks like code. Let AI agents read and write them.
+            barkcli is Git for your work — tasks, specs, memory and agent runs live
+            in your repo, not someone else&apos;s cloud. Humans write intent, agents do work.
           </p>
           <div className="flex flex-col items-center gap-3 w-full max-w-lg">
             <div className="flex items-center gap-1 border border-white/20 rounded-xl pl-5 pr-2 py-2.5 bg-white/5 backdrop-blur-xl w-full">
@@ -497,11 +633,11 @@ export default function Home() {
               </button>
             </div>
             <a
-              href="#ai-agent"
+              href="#product"
               className="flex items-center gap-2 text-sm font-medium text-white/60 hover:text-white transition-colors px-4 py-2.5"
             >
               <Bot className="w-4 h-4" />
-              Setup with AI Agent
+              See the management layer
               <ArrowRight className="w-3 h-3" />
             </a>
           </div>
@@ -540,6 +676,43 @@ export default function Home() {
           <span className="opacity-40">·</span>
           <span>MIT License</span>
         </footer>
+      </section>
+
+      {/* Product Section — the management layer UI */}
+      <section id="product" className="py-24 px-6">
+        <div className="max-w-6xl mx-auto">
+          <AnimatedSection className="text-center mb-12">
+            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
+              The web app
+            </p>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4">
+              One screen.
+              <br />
+              <span className="text-white/40">Humans and agents, side by side.</span>
+            </h2>
+            <p className="text-white/50 max-w-xl mx-auto">
+              Mind tells you what&apos;s blocked and what&apos;s next. The board holds the work
+              with spec traceability. Agents claim tasks like deployments.
+            </p>
+          </AnimatedSection>
+          <AnimatedSection>
+            <ProductMock />
+          </AnimatedSection>
+          {/* Trust stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8 max-w-3xl mx-auto">
+            {[
+              { metric: "38", desc: "MCP tools for agents" },
+              { metric: "4", desc: "BMAD skills in repo" },
+              { metric: "100%", desc: "offline-capable core" },
+              { metric: "MIT", desc: "open source forever" },
+            ].map((s) => (
+              <div key={s.desc} className="text-center border border-white/10 rounded-xl py-4 bg-white/[0.02]">
+                <div className="text-2xl font-bold text-[#D4A574] font-mono">{s.metric}</div>
+                <div className="text-[11px] text-white/40 mt-1">{s.desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* Features Section */}
@@ -583,21 +756,21 @@ export default function Home() {
       </section>
 
       {/* How It Works Section */}
-      <section className="py-24 px-6 bg-gradient-to-b from-white/[0.02] to-transparent">
+      <section id="pipeline" className="py-24 px-6 bg-gradient-to-b from-white/[0.02] to-transparent">
         <div className="max-w-6xl mx-auto">
           <AnimatedSection className="text-center mb-16">
             <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
-              How It Works
+              The pipeline
             </p>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight">
-              Three commands.
+              Intent in.
               <br />
-              <span className="text-white/40">That&apos;s it.</span>
+              <span className="text-white/40">Reviewed code out.</span>
             </h2>
           </AnimatedSection>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 relative">
             {/* Connecting Line */}
-            <div className="hidden md:block absolute top-12 left-[20%] right-[20%] h-px bg-gradient-to-r from-transparent via-[#B8845C]/30 to-transparent" />
+            <div className="hidden lg:block absolute top-12 left-[10%] right-[10%] h-px bg-gradient-to-r from-transparent via-[#B8845C]/30 to-transparent" />
             {STEPS.map((step, i) => {
               const Icon = step.icon;
               return (
@@ -1027,7 +1200,7 @@ export default function Home() {
                   </span>
                 </h2>
                 <p className="text-white/50 text-base sm:text-lg mb-8">
-                  Install barkcli. Add tasks to your repo. Let your AI agent handle the rest.
+                  Install barkcli. Write intent. Let your agents do the work — reviewed.
                 </p>
                 <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
                   <a

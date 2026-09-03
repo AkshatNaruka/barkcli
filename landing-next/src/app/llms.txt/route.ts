@@ -1,19 +1,21 @@
 const llmsTxt = `# barkcli
 
-> Git-native task management for developers. Tasks are YAML files in your git repo.
+> The management layer between humans and AI coding agents. Tasks, specs, memory, and agent runs live in your git repo.
 
-barkcli is a local-first project management tool. Tasks are stored as YAML files in your repository. No cloud. No accounts. Open source. MIT licensed. Built in Rust.
+barkcli is a local-first management layer. Humans write intent, agents do work, barkcli manages the pipeline: intake, plan, dispatch, review, remember. No cloud. No accounts. Open source. MIT licensed. Built in Rust.
 
 ## What It Does
 
-barkcli gives you a kanban board that lives in your git repo. Tasks are YAML files you can diff, merge, and version control alongside your code. It includes a CLI, terminal UI, web app, VS Code extension, and MCP server for AI coding agents.
+barkcli gives you a Mind homepage, kanban board with spec traceability, agent task queue with review gate, four-tier local memory, BMAD skills, CLI, terminal UI, web app, VS Code extension, and 38 MCP tools for AI coding agents.
 
 ## Key Features
 
+- **Management layer:** Pipeline from human intent to reviewed agent output
+- **Mind:** Compiled snapshot — health, blockers, next actions
+- **Skills:** Reusable conventions versioned in your repo
 - **Git-native:** Tasks are YAML files committed to your repo
 - **Multi-interface:** CLI, Terminal UI, Web App, VS Code
-- **Code context:** Links tasks to source code files
-- **AI/MCP:** Server for Claude, OpenCode, Cursor integration
+- **AI/MCP:** 38 tools for Claude, OpenCode, Cursor integration
 - **No cloud:** Works offline, no accounts needed
 - **Free:** MIT license, no subscriptions
 
