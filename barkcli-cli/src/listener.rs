@@ -725,6 +725,9 @@ mod tests {
             deadline: None,
             dependencies: vec![],
             metadata: Default::default(),
+            lease: None,
+            notes: Vec::new(),
+            blocked_reason: None,
         };
 
         let prompt = build_agent_prompt(&task, "context", "branch");

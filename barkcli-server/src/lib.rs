@@ -1138,6 +1138,11 @@ async fn claim_task_handler(
     let agent_id = query
         .get("agent_id")
         .ok_or_else(|| ServerError::bad("agent_id query parameter required"))?;
+    let session_id = query.get("session_id").map(|s| s.as_str());
+    let lease_minutes: i64 = query
+        .get("lease_minutes")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(30);
 
     let board_name = resolve_board_name(&state, None)?;
     let tasks_path = barkcli_core::storage::board_dir::find_board_dir()
@@ -1148,7 +1153,7 @@ async fn claim_task_handler(
     let mut queue = TaskQueue::load(&tasks_path).map_err(|e| ServerError::internal(e.to_string()))?;
 
     queue
-        .claim(&task_id, agent_id)
+        .claim(&task_id, agent_id, session_id, lease_minutes)
         .map_err(|e| ServerError::bad(e.to_string()))?;
 
     // Update agent state

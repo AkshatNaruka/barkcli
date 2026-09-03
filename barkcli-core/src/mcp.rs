@@ -539,7 +539,7 @@ impl McpServer {
             }),
             serde_json::json!({
                 "name": "task_claim",
-                "description": "Claim a task for an agent",
+                "description": "Claim a task for an agent (lease-based, idempotent per agent)",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -554,6 +554,14 @@ impl McpServer {
                         "agent_id": {
                             "type": "string",
                             "description": "Agent ID claiming the task"
+                        },
+                        "session_id": {
+                            "type": "string",
+                            "description": "Session ID holding the lease (optional)"
+                        },
+                        "lease_minutes": {
+                            "type": "integer",
+                            "description": "Lease duration in minutes (default 30)"
                         }
                     },
                     "required": ["task_id", "agent_id"]
@@ -982,6 +990,286 @@ impl McpServer {
                     "required": ["text"]
                 }
             }),
+            serde_json::json!({
+                "name": "prime",
+                "description": "One-shot boot context for an agent: board, next actions, memory, skills, queue, verify profile, git (<8KB)",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "board": {
+                            "type": "string",
+                            "description": "Board name (optional)"
+                        }
+                    },
+                    "required": []
+                }
+            }),
+            serde_json::json!({
+                "name": "ready",
+                "description": "Ranked runnable tasks with reasons (dependency + overlap aware)",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "board": {
+                            "type": "string",
+                            "description": "Board name (optional)"
+                        },
+                        "role": {
+                            "type": "string",
+                            "description": "Agent role for scoring (default scrum-master)"
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Max items (default 10)"
+                        }
+                    },
+                    "required": []
+                }
+            }),
+            serde_json::json!({
+                "name": "packet_get",
+                "description": "Fully enriched executable packet for a task: goal, AC, files, skills, prior art, verify steps",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "board": {
+                            "type": "string",
+                            "description": "Board name (optional)"
+                        },
+                        "task_id": {
+                            "type": "string",
+                            "description": "Task ID"
+                        }
+                    },
+                    "required": ["task_id"]
+                }
+            }),
+            serde_json::json!({
+                "name": "progress_note",
+                "description": "Append a timestamped progress note to a task",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "board": {
+                            "type": "string",
+                            "description": "Board name (optional)"
+                        },
+                        "task_id": {
+                            "type": "string",
+                            "description": "Task ID"
+                        },
+                        "author": {
+                            "type": "string",
+                            "description": "Author (agent id)"
+                        },
+                        "text": {
+                            "type": "string",
+                            "description": "Note text"
+                        }
+                    },
+                    "required": ["task_id", "author", "text"]
+                }
+            }),
+            serde_json::json!({
+                "name": "task_block",
+                "description": "Park a task as blocked with a reason",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "board": {
+                            "type": "string",
+                            "description": "Board name (optional)"
+                        },
+                        "task_id": {
+                            "type": "string",
+                            "description": "Task ID"
+                        },
+                        "author": {
+                            "type": "string",
+                            "description": "Author (agent id)"
+                        },
+                        "reason": {
+                            "type": "string",
+                            "description": "Why blocked"
+                        }
+                    },
+                    "required": ["task_id", "reason"]
+                }
+            }),
+            serde_json::json!({
+                "name": "task_unblock",
+                "description": "Return a blocked task to pending",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "board": {
+                            "type": "string",
+                            "description": "Board name (optional)"
+                        },
+                        "task_id": {
+                            "type": "string",
+                            "description": "Task ID"
+                        }
+                    },
+                    "required": ["task_id"]
+                }
+            }),
+            serde_json::json!({
+                "name": "task_heartbeat",
+                "description": "Refresh the lease on a claimed task",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "board": {
+                            "type": "string",
+                            "description": "Board name (optional)"
+                        },
+                        "task_id": {
+                            "type": "string",
+                            "description": "Task ID"
+                        },
+                        "agent_id": {
+                            "type": "string",
+                            "description": "Agent ID holding the lease"
+                        },
+                        "lease_minutes": {
+                            "type": "integer",
+                            "description": "Lease extension in minutes (default 30)"
+                        }
+                    },
+                    "required": ["task_id", "agent_id"]
+                }
+            }),
+            serde_json::json!({
+                "name": "handoff",
+                "description": "Resume text for a task: goal, notes, blockers, transcript tail, last result",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "board": {
+                            "type": "string",
+                            "description": "Board name (optional)"
+                        },
+                        "task_id": {
+                            "type": "string",
+                            "description": "Task ID"
+                        }
+                    },
+                    "required": ["task_id"]
+                }
+            }),
+            serde_json::json!({
+                "name": "verify",
+                "description": "Run the repo verify profile (test/lint/build). Optionally inside a task worktree.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "board": {
+                            "type": "string",
+                            "description": "Board name (optional)"
+                        },
+                        "task_id": {
+                            "type": "string",
+                            "description": "Run inside this task's worktree (optional)"
+                        }
+                    },
+                    "required": []
+                }
+            }),
+            serde_json::json!({
+                "name": "session_spawn",
+                "description": "Spawn an agent session, optionally bound to a task (acquires worktree + claims with lease + spawns backend)",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "board": {
+                            "type": "string",
+                            "description": "Board name (optional)"
+                        },
+                        "agent_id": {
+                            "type": "string",
+                            "description": "Agent identity for this session"
+                        },
+                        "backend": {
+                            "type": "string",
+                            "description": "opencode | claude-code | codex | human (default auto)"
+                        },
+                        "task_id": {
+                            "type": "string",
+                            "description": "Task to bind (optional)"
+                        },
+                        "role": {
+                            "type": "string",
+                            "description": "Agent role (default scrum-master)"
+                        }
+                    },
+                    "required": ["agent_id"]
+                }
+            }),
+            serde_json::json!({
+                "name": "session_list",
+                "description": "List agent sessions with liveness",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "status": {
+                            "type": "string",
+                            "description": "Filter by status (optional)"
+                        }
+                    },
+                    "required": []
+                }
+            }),
+            serde_json::json!({
+                "name": "session_logs",
+                "description": "Tail a session transcript",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "session_id": {
+                            "type": "string",
+                            "description": "Session ID"
+                        },
+                        "tail": {
+                            "type": "integer",
+                            "description": "Last N lines (default 50)"
+                        }
+                    },
+                    "required": ["session_id"]
+                }
+            }),
+            serde_json::json!({
+                "name": "session_kill",
+                "description": "Kill a session and release its lease back to pending",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "board": {
+                            "type": "string",
+                            "description": "Board name (optional)"
+                        },
+                        "session_id": {
+                            "type": "string",
+                            "description": "Session ID"
+                        }
+                    },
+                    "required": ["session_id"]
+                }
+            }),
+            serde_json::json!({
+                "name": "fleet_status",
+                "description": "Sessions x tasks x worktrees status for the fleet",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "board": {
+                            "type": "string",
+                            "description": "Board name (optional)"
+                        }
+                    },
+                    "required": []
+                }
+            }),
         ];
 
         JsonRpcResponse {
@@ -1048,6 +1336,20 @@ impl McpServer {
             "skill_list" => self.tool_skill_list(arguments),
             "skill_get" => self.tool_skill_get(arguments),
             "intake" => self.tool_intake(arguments),
+            "prime" => self.tool_prime(arguments),
+            "ready" => self.tool_ready(arguments),
+            "packet_get" => self.tool_packet_get(arguments),
+            "progress_note" => self.tool_progress_note(arguments),
+            "task_block" => self.tool_task_block(arguments),
+            "task_unblock" => self.tool_task_unblock(arguments),
+            "task_heartbeat" => self.tool_task_heartbeat(arguments),
+            "handoff" => self.tool_handoff(arguments),
+            "verify" => self.tool_verify(arguments),
+            "session_spawn" => self.tool_session_spawn(arguments),
+            "session_list" => self.tool_session_list(arguments),
+            "session_logs" => self.tool_session_logs(arguments),
+            "session_kill" => self.tool_session_kill(arguments),
+            "fleet_status" => self.tool_fleet_status(arguments),
             _ => Err(anyhow::anyhow!("Unknown tool: {}", tool_name)),
         };
 
@@ -1519,13 +1821,15 @@ impl McpServer {
         let agent_id = args.get("agent_id")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("agent_id required"))?;
-        
+        let session_id = args.get("session_id").and_then(|v| v.as_str());
+        let lease_minutes = args.get("lease_minutes").and_then(|v| v.as_i64()).unwrap_or(30);
+
         let tasks_path = crate::storage::board_dir::find_board_dir()?
             .join("tasks")
             .join(format!("{}.json", board_name));
 
         let mut queue = TaskQueue::load(&tasks_path)?;
-        queue.claim(task_id, agent_id)?;
+        queue.claim(task_id, agent_id, session_id, lease_minutes)?;
         queue.save(&tasks_path)?;
 
         Ok(serde_json::json!({ "claimed": true }))
@@ -2098,6 +2402,311 @@ impl McpServer {
             "board": board_name,
             "spec_id": spec_id,
             "type": card_type
+        }))
+    }
+
+    // ── Fleet: prime / ready / packet / notes / states / handoff / verify ──
+
+    fn tasks_path_for(&self, board_name: &str) -> Result<std::path::PathBuf> {
+        Ok(crate::storage::board_dir::find_board_dir()?
+            .join("tasks")
+            .join(format!("{}.json", board_name)))
+    }
+
+    fn load_queue_for(&self, board_name: &str) -> Result<TaskQueue> {
+        let path = self.tasks_path_for(board_name)?;
+        if path.exists() {
+            TaskQueue::load(&path)
+        } else {
+            Ok(TaskQueue::new())
+        }
+    }
+
+    fn tool_prime(&self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let text = crate::commands::prime::prime_text(&board_name)?;
+        Ok(serde_json::json!({ "board": board_name, "prime": text }))
+    }
+
+    fn tool_ready(&self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let role = match args.get("role").and_then(|v| v.as_str()) {
+            Some("product-owner") | Some("po") => AgentRole::ProductOwner,
+            Some("tech-lead") | Some("techlead") | Some("dev") => AgentRole::TechLead,
+            Some("project-manager") | Some("pm") => AgentRole::ProjectManager,
+            _ => AgentRole::ScrumMaster,
+        };
+        let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
+        let queue = self.load_queue_for(&board_name)?;
+        let registry = self.load_agent_registry().unwrap_or_default();
+        let items = crate::agent::dispatch_scores(&queue, &registry, &role);
+        let out: Vec<Value> = items
+            .into_iter()
+            .take(limit)
+            .map(|i| serde_json::json!(i))
+            .collect();
+        Ok(serde_json::json!({ "ready": out }))
+    }
+
+    fn tool_packet_get(&self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let task_id = args
+            .get("task_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("task_id required"))?;
+        let queue = self.load_queue_for(&board_name)?;
+        let task = queue
+            .get(task_id)
+            .ok_or_else(|| anyhow::anyhow!("task '{}' not found", task_id))?;
+
+        let skills = crate::agent::skills_for_task(task);
+        let overlap = crate::agent::overlap(&queue, &task.id);
+        let siblings: Vec<Value> = queue
+            .for_card(&task.card_id)
+            .into_iter()
+            .filter(|t| t.id != task.id)
+            .take(5)
+            .map(|t| serde_json::json!({"id": t.id, "title": t.title, "status": t.status}))
+            .collect();
+        let memories: Vec<Value> = crate::memory::MemoryStore::open(&board_name)
+            .map(|s| {
+                s.search(&task.title, 3)
+                    .into_iter()
+                    .map(|e| serde_json::json!({"id": e.id, "content": e.content}))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let verify_steps: Vec<Value> = crate::agent::verify::load_profile()
+            .map(|p| {
+                p.steps
+                    .into_iter()
+                    .map(|s| serde_json::json!({"name": s.name, "cmd": s.cmd}))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        Ok(serde_json::json!({
+            "task": task,
+            "skills_md": skills,
+            "overlap": overlap,
+            "siblings": siblings,
+            "memories": memories,
+            "verify_steps": verify_steps,
+        }))
+    }
+
+    fn tool_progress_note(&self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let task_id = args.get("task_id").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("task_id required"))?;
+        let author = args.get("author").and_then(|v| v.as_str()).unwrap_or("agent");
+        let text = args.get("text").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("text required"))?;
+        let path = self.tasks_path_for(&board_name)?;
+        let mut queue = TaskQueue::load(&path)?;
+        queue.add_note(task_id, author, text)?;
+        queue.save(&path)?;
+        Ok(serde_json::json!({ "noted": true }))
+    }
+
+    fn tool_task_block(&self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let task_id = args.get("task_id").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("task_id required"))?;
+        let author = args.get("author").and_then(|v| v.as_str()).unwrap_or("agent");
+        let reason = args.get("reason").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("reason required"))?;
+        let path = self.tasks_path_for(&board_name)?;
+        let mut queue = TaskQueue::load(&path)?;
+        queue.block(task_id, author, reason)?;
+        queue.save(&path)?;
+        Ok(serde_json::json!({ "blocked": true }))
+    }
+
+    fn tool_task_unblock(&self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let task_id = args.get("task_id").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("task_id required"))?;
+        let path = self.tasks_path_for(&board_name)?;
+        let mut queue = TaskQueue::load(&path)?;
+        queue.unblock(task_id)?;
+        queue.save(&path)?;
+        Ok(serde_json::json!({ "unblocked": true }))
+    }
+
+    fn tool_task_heartbeat(&self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let task_id = args.get("task_id").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("task_id required"))?;
+        let agent_id = args.get("agent_id").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("agent_id required"))?;
+        let lease_minutes = args.get("lease_minutes").and_then(|v| v.as_i64()).unwrap_or(30);
+        let path = self.tasks_path_for(&board_name)?;
+        let mut queue = TaskQueue::load(&path)?;
+        queue.heartbeat(task_id, agent_id, lease_minutes)?;
+        queue.save(&path)?;
+        Ok(serde_json::json!({ "refreshed": true }))
+    }
+
+    fn tool_handoff(&self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let task_id = args.get("task_id").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("task_id required"))?;
+        let text = crate::commands::handoff::handoff_text(&board_name, task_id)?;
+        Ok(serde_json::json!({ "task_id": task_id, "handoff": text }))
+    }
+
+    fn tool_verify(&self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let cwd = if let Some(task_id) = args.get("task_id").and_then(|v| v.as_str()) {
+            let queue = self.load_queue_for(&board_name)?;
+            let task = queue.get(task_id).ok_or_else(|| anyhow::anyhow!("task '{}' not found", task_id))?;
+            task.lease
+                .as_ref()
+                .and_then(|l| l.session_id.as_ref())
+                .and_then(|sid| crate::agent::load_session(sid).ok())
+                .and_then(|s| s.worktree_path.map(std::path::PathBuf::from))
+                .filter(|p| p.exists())
+                .unwrap_or(crate::storage::board_dir::find_project_root()?)
+        } else {
+            crate::storage::board_dir::find_project_root()?
+        };
+        let profile = crate::agent::verify::load_profile()?;
+        let results = crate::agent::verify::run_profile(&profile, &cwd);
+        let failed = results.iter().filter(|r| !r.success).count();
+        Ok(serde_json::json!({
+            "cwd": cwd.to_string_lossy(),
+            "steps": results,
+            "failed": failed,
+        }))
+    }
+
+    // ── Fleet: sessions ──
+
+    fn tool_session_spawn(&self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let agent_id = args.get("agent_id").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("agent_id required"))?;
+        let backend = args.get("backend").and_then(|v| v.as_str()).map(String::from);
+        let task_id = args.get("task_id").and_then(|v| v.as_str()).map(String::from);
+        let role = match args.get("role").and_then(|v| v.as_str()) {
+            Some("product-owner") | Some("po") => crate::agent::AgentRole::ProductOwner,
+            Some("tech-lead") | Some("techlead") | Some("dev") => crate::agent::AgentRole::TechLead,
+            Some("project-manager") | Some("pm") => crate::agent::AgentRole::ProjectManager,
+            _ => crate::agent::AgentRole::ScrumMaster,
+        };
+        let id = crate::commands::fleet::spawn_session(
+            &board_name,
+            crate::commands::fleet::SpawnOptions {
+                agent_id: agent_id.to_string(),
+                backend_name: backend,
+                task_id,
+                lease_minutes: 30,
+                role,
+            },
+        )?;
+        let session = crate::agent::load_session(&id)?;
+        Ok(serde_json::json!({ "session": session }))
+    }
+
+    fn tool_session_list(&self, args: Value) -> Result<Value> {
+        let status_filter = args.get("status").and_then(|v| v.as_str()).map(|s| s.to_string());
+        let sessions = crate::agent::list_sessions().unwrap_or_default();
+        let live: std::collections::HashSet<String> =
+            crate::commands::fleet::live_session_ids(&sessions);
+        let out: Vec<Value> = sessions
+            .into_iter()
+            .filter(|s| {
+                status_filter
+                    .as_ref()
+                    .map(|f| s.status.display_name().eq_ignore_ascii_case(f))
+                    .unwrap_or(true)
+            })
+            .map(|s| {
+                serde_json::json!({
+                    "id": s.id,
+                    "agent_id": s.agent_id,
+                    "backend": s.backend.display_name(),
+                    "task_id": s.task_id,
+                    "status": s.status.display_name(),
+                    "alive": live.contains(&s.id),
+                    "worktree": s.worktree_path,
+                    "branch": s.branch,
+                    "started_at": s.started_at,
+                })
+            })
+            .collect();
+        Ok(serde_json::json!({ "sessions": out }))
+    }
+
+    fn tool_session_logs(&self, args: Value) -> Result<Value> {
+        let session_id = args.get("session_id").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("session_id required"))?;
+        let tail = args.get("tail").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
+        let session = crate::agent::load_session(session_id)?;
+        let lines = crate::agent::transcript_tail(&session, tail);
+        Ok(serde_json::json!({ "session_id": session_id, "lines": lines }))
+    }
+
+    fn tool_session_kill(&self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let session_id = args.get("session_id").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("session_id required"))?;
+        let mut session = crate::agent::load_session(session_id)?;
+        if !session.status.is_terminal() {
+            if let Some(pid) = session.pid {
+                if crate::agent::pid_alive(pid) {
+                    crate::agent::kill_pid(pid).ok();
+                }
+            }
+            session.finish(crate::agent::SessionStatus::Killed, None);
+            session.add_note("fleet", "killed via MCP");
+            crate::agent::save_session(&session)?;
+            // Release lease.
+            let path = self.tasks_path_for(&board_name)?;
+            if path.exists() {
+                let mut queue = TaskQueue::load(&path)?;
+                for task in queue.tasks.iter_mut() {
+                    let bound = task
+                        .lease
+                        .as_ref()
+                        .and_then(|l| l.session_id.as_ref())
+                        .map(|sid| sid == &session.id)
+                        .unwrap_or(false);
+                    if bound && task.status.is_active() {
+                        task.status = crate::agent::TaskStatus::Pending;
+                        task.assigned_agent = None;
+                        task.lease = None;
+                    }
+                }
+                queue.save(&path)?;
+            }
+            crate::agent::remove_session(&session.id).ok();
+        }
+        Ok(serde_json::json!({ "killed": true }))
+    }
+
+    fn tool_fleet_status(&self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let queue = self.load_queue_for(&board_name)?;
+        let registry = self.load_agent_registry().unwrap_or_default();
+        let sessions = crate::agent::list_sessions().unwrap_or_default();
+        let live = crate::commands::fleet::live_session_ids(&sessions);
+        let session_rows: Vec<Value> = sessions
+            .iter()
+            .map(|s| {
+                serde_json::json!({
+                    "id": s.id,
+                    "agent_id": s.agent_id,
+                    "backend": s.backend.display_name(),
+                    "task_id": s.task_id,
+                    "status": s.status.display_name(),
+                    "alive": live.contains(&s.id),
+                    "worktree": s.worktree_path,
+                })
+            })
+            .collect();
+        let worktrees: Vec<Value> = crate::agent::worktree::list_worktrees()
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|(p, _, _)| crate::agent::worktree::is_managed_worktree(p))
+            .map(|(path, branch, _)| serde_json::json!({"path": path, "branch": branch}))
+            .collect();
+        Ok(serde_json::json!({
+            "board": board_name,
+            "tasks": crate::agent::FleetReconciler::task_counts(&queue),
+            "agents": crate::agent::FleetReconciler::agent_counts(&registry),
+            "sessions": session_rows,
+            "worktrees": worktrees,
         }))
     }
 }

@@ -5,6 +5,47 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// Task request sent to a coding agent
+/// Lease held by the agent/session working a task (F4: anti-ghost protocol).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskLease {
+    pub agent_id: String,
+    pub session_id: Option<String>,
+    pub acquired_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    pub last_heartbeat: DateTime<Utc>,
+}
+
+impl TaskLease {
+    pub fn new(agent_id: &str, session_id: Option<&str>, lease_minutes: i64) -> Self {
+        let now = Utc::now();
+        Self {
+            agent_id: agent_id.to_string(),
+            session_id: session_id.map(|s| s.to_string()),
+            acquired_at: now,
+            expires_at: now + chrono::Duration::minutes(lease_minutes),
+            last_heartbeat: now,
+        }
+    }
+
+    pub fn refresh(&mut self, lease_minutes: i64) {
+        let now = Utc::now();
+        self.last_heartbeat = now;
+        self.expires_at = now + chrono::Duration::minutes(lease_minutes);
+    }
+
+    pub fn is_expired(&self, now: DateTime<Utc>) -> bool {
+        now >= self.expires_at
+    }
+}
+
+/// Timestamped progress note on a task (cheap liveness between heartbeats).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProgressNote {
+    pub at: DateTime<Utc>,
+    pub author: String,
+    pub text: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskRequest {
     pub id: String,
@@ -23,6 +64,15 @@ pub struct TaskRequest {
     pub deadline: Option<DateTime<Utc>>,
     pub dependencies: Vec<String>,
     pub metadata: TaskMetadata,
+    /// Active work lease (F4). None when unclaimed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lease: Option<TaskLease>,
+    /// Progress notes, newest last.
+    #[serde(default)]
+    pub notes: Vec<ProgressNote>,
+    /// Why a task is Blocked / what NeedsInput is waiting on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blocked_reason: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,6 +108,8 @@ pub enum TaskStatus {
     Pending,
     Assigned,
     InProgress,
+    Blocked,
+    NeedsInput,
     Completed,
     Failed,
     Cancelled,
@@ -69,10 +121,26 @@ impl TaskStatus {
             TaskStatus::Pending => "Pending",
             TaskStatus::Assigned => "Assigned",
             TaskStatus::InProgress => "In Progress",
+            TaskStatus::Blocked => "Blocked",
+            TaskStatus::NeedsInput => "Needs Input",
             TaskStatus::Completed => "Completed",
             TaskStatus::Failed => "Failed",
             TaskStatus::Cancelled => "Cancelled",
         }
+    }
+
+    pub fn is_terminal(&self) -> bool {
+        matches!(
+            self,
+            TaskStatus::Completed | TaskStatus::Failed | TaskStatus::Cancelled
+        )
+    }
+
+    pub fn is_active(&self) -> bool {
+        matches!(
+            self,
+            TaskStatus::Assigned | TaskStatus::InProgress
+        )
     }
 }
 
@@ -245,14 +313,135 @@ impl TaskQueue {
         Ok(())
     }
 
-    /// Claim a task for an agent
-    pub fn claim(&mut self, task_id: &str, agent_id: &str) -> Result<()> {
+    /// Claim a task for an agent — lease-based and idempotent (F4).
+    ///
+    /// - Pending → Assigned with a fresh lease.
+    /// - Re-claim by the same agent on a non-terminal task → lease refresh, Ok.
+    /// - Anything else → Err.
+    pub fn claim(
+        &mut self,
+        task_id: &str,
+        agent_id: &str,
+        session_id: Option<&str>,
+        lease_minutes: i64,
+    ) -> Result<()> {
         let task = self.get_mut(task_id).context("Task not found")?;
-        if task.status != TaskStatus::Pending {
-            anyhow::bail!("Task is not pending");
+        if task.status == TaskStatus::Pending {
+            task.status = TaskStatus::Assigned;
+            task.assigned_agent = Some(agent_id.to_string());
+            task.lease = Some(TaskLease::new(agent_id, session_id, lease_minutes));
+            return Ok(());
         }
-        task.status = TaskStatus::Assigned;
-        task.assigned_agent = Some(agent_id.to_string());
+        if !task.status.is_terminal()
+            && task.assigned_agent.as_deref() == Some(agent_id)
+        {
+            if let Some(lease) = task.lease.as_mut() {
+                if let Some(sid) = session_id {
+                    lease.session_id = Some(sid.to_string());
+                }
+                lease.refresh(lease_minutes);
+            } else {
+                task.lease = Some(TaskLease::new(agent_id, session_id, lease_minutes));
+            }
+            return Ok(());
+        }
+        anyhow::bail!(
+            "Task '{}' is {} (held by {:?})",
+            task_id,
+            task.status.display_name(),
+            task.assigned_agent
+        );
+    }
+
+    /// Refresh the lease on a task held by this agent.
+    pub fn heartbeat(&mut self, task_id: &str, agent_id: &str, lease_minutes: i64) -> Result<()> {
+        let task = self.get_mut(task_id).context("Task not found")?;
+        match task.lease.as_mut() {
+            Some(lease) if lease.agent_id == agent_id => {
+                lease.refresh(lease_minutes);
+                Ok(())
+            }
+            Some(lease) => anyhow::bail!(
+                "Lease on '{}' is held by '{}'",
+                task_id,
+                lease.agent_id
+            ),
+            None => anyhow::bail!("Task '{}' has no active lease", task_id),
+        }
+    }
+
+    /// Release expired leases back to Pending. Returns released task ids.
+    /// Attempts are preserved so retry budgets survive ghost agents.
+    pub fn release_stale_leases(&mut self, now: DateTime<Utc>) -> Vec<String> {
+        let mut released = Vec::new();
+        for task in self.tasks.iter_mut() {
+            let expired = task
+                .lease
+                .as_ref()
+                .map(|l| l.is_expired(now))
+                .unwrap_or(false);
+            if expired && task.status.is_active() {
+                task.status = TaskStatus::Pending;
+                task.assigned_agent = None;
+                task.lease = None;
+                task.notes.push(ProgressNote {
+                    at: now,
+                    author: "fleet".to_string(),
+                    text: "Lease expired — released back to pending".to_string(),
+                });
+                released.push(task.id.clone());
+            }
+        }
+        released
+    }
+
+    /// Park a task as blocked with a reason (visible in overview/Mind).
+    pub fn block(&mut self, task_id: &str, author: &str, reason: &str) -> Result<()> {
+        let task = self.get_mut(task_id).context("Task not found")?;
+        task.status = TaskStatus::Blocked;
+        task.blocked_reason = Some(reason.to_string());
+        task.notes.push(ProgressNote {
+            at: Utc::now(),
+            author: author.to_string(),
+            text: format!("Blocked: {}", reason),
+        });
+        Ok(())
+    }
+
+    /// Park a task waiting on human input (structured question).
+    pub fn needs_input(&mut self, task_id: &str, author: &str, question: &str) -> Result<()> {
+        let task = self.get_mut(task_id).context("Task not found")?;
+        task.status = TaskStatus::NeedsInput;
+        task.blocked_reason = Some(question.to_string());
+        task.notes.push(ProgressNote {
+            at: Utc::now(),
+            author: author.to_string(),
+            text: format!("Needs input: {}", question),
+        });
+        Ok(())
+    }
+
+    /// Unblock back to Pending (lease cleared; must be re-claimed).
+    pub fn unblock(&mut self, task_id: &str) -> Result<()> {
+        let task = self.get_mut(task_id).context("Task not found")?;
+        if task.status != TaskStatus::Blocked && task.status != TaskStatus::NeedsInput {
+            anyhow::bail!("Task '{}' is not blocked", task_id);
+        }
+        task.status = TaskStatus::Pending;
+        task.assigned_agent = None;
+        task.lease = None;
+        task.blocked_reason = None;
+        Ok(())
+    }
+
+    /// Append a progress note.
+    pub fn add_note(&mut self, task_id: &str, author: &str, text: &str) -> Result<()> {
+        let task = self.get_mut(task_id).context("Task not found")?;
+        task.notes.push(ProgressNote {
+            at: Utc::now(),
+            author: author.to_string(),
+            text: text.to_string(),
+        });
         Ok(())
     }
 
@@ -398,6 +587,9 @@ pub fn create_task(
         deadline: None,
         dependencies: Vec::new(),
         metadata: TaskMetadata::default(),
+        lease: None,
+        notes: Vec::new(),
+        blocked_reason: None,
     }
 }
 
@@ -422,8 +614,26 @@ mod tests {
         assert!(queue.next_pending().is_some());
 
         let task_id = queue.tasks[0].id.clone();
-        queue.claim(&task_id, "agent-1").unwrap();
+        queue.claim(&task_id, "agent-1", None, 30).unwrap();
         assert_eq!(queue.get(&task_id).unwrap().status, TaskStatus::Assigned);
+        assert!(queue.get(&task_id).unwrap().lease.is_some());
+
+        // Idempotent re-claim by the same agent refreshes the lease.
+        queue.claim(&task_id, "agent-1", Some("sess-1"), 30).unwrap();
+        assert_eq!(
+            queue
+                .get(&task_id)
+                .unwrap()
+                .lease
+                .as_ref()
+                .unwrap()
+                .session_id
+                .as_deref(),
+            Some("sess-1")
+        );
+
+        // Another agent cannot steal the lease.
+        assert!(queue.claim(&task_id, "agent-2", None, 30).is_err());
 
         queue.start(&task_id).unwrap();
         assert_eq!(queue.get(&task_id).unwrap().status, TaskStatus::InProgress);
@@ -440,7 +650,7 @@ mod tests {
         queue.add(task);
 
         let task_id = queue.tasks[0].id.clone();
-        queue.claim(&task_id, "agent-1").unwrap();
+        queue.claim(&task_id, "agent-1", None, 30).unwrap();
         queue.start(&task_id).unwrap();
         queue.fail(&task_id).unwrap();
 
@@ -449,9 +659,61 @@ mod tests {
         assert_eq!(queue.get(&task_id).unwrap().attempts, 1);
 
         // Fail again - should be failed (2 attempts used)
-        queue.claim(&task_id, "agent-1").unwrap();
+        queue.claim(&task_id, "agent-1", None, 30).unwrap();
         queue.start(&task_id).unwrap();
         queue.fail(&task_id).unwrap();
         assert_eq!(queue.get(&task_id).unwrap().status, TaskStatus::Failed);
+    }
+
+    #[test]
+    fn test_lease_expiry_releases_task() {
+        let mut queue = TaskQueue::new();
+        let task = create_task("card-1", "T", "D", vec![], vec![], "high");
+        queue.add(task);
+        let task_id = queue.tasks[0].id.clone();
+
+        queue.claim(&task_id, "ghost", None, 30).unwrap();
+        // Heartbeat keeps it alive.
+        queue.heartbeat(&task_id, "ghost", 30).unwrap();
+        assert!(queue.get(&task_id).unwrap().lease.is_some());
+
+        // Foreign heartbeat is rejected.
+        assert!(queue.heartbeat(&task_id, "intruder", 30).is_err());
+
+        // Simulate expiry by backdating the lease.
+        {
+            let t = queue.get_mut(&task_id).unwrap();
+            t.status = TaskStatus::InProgress;
+            let lease = t.lease.as_mut().unwrap();
+            lease.expires_at = Utc::now() - chrono::Duration::minutes(1);
+        }
+        let released = queue.release_stale_leases(Utc::now());
+        assert_eq!(released, vec![task_id.clone()]);
+        let t = queue.get(&task_id).unwrap();
+        assert_eq!(t.status, TaskStatus::Pending);
+        assert!(t.lease.is_none());
+        assert_eq!(t.attempts, 0);
+    }
+
+    #[test]
+    fn test_block_and_unblock() {
+        let mut queue = TaskQueue::new();
+        let task = create_task("card-1", "T", "D", vec![], vec![], "high");
+        queue.add(task);
+        let task_id = queue.tasks[0].id.clone();
+
+        queue.block(&task_id, "agent-1", "waiting on API key").unwrap();
+        let t = queue.get(&task_id).unwrap();
+        assert_eq!(t.status, TaskStatus::Blocked);
+        assert_eq!(t.blocked_reason.as_deref(), Some("waiting on API key"));
+
+        queue.unblock(&task_id).unwrap();
+        assert_eq!(queue.get(&task_id).unwrap().status, TaskStatus::Pending);
+
+        queue.needs_input(&task_id, "agent-1", "Which OAuth provider?").unwrap();
+        assert_eq!(
+            queue.get(&task_id).unwrap().status,
+            TaskStatus::NeedsInput
+        );
     }
 }
