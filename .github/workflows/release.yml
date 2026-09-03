@@ -57,18 +57,18 @@ jobs:
             exit 0
           fi
           echo "Bumping Cargo.toml versions to $VERSION"
-          python3 <<PY
-           import re, pathlib
-           ver = "$VERSION"
-           for toml in ["barkcli-core/Cargo.toml","barkcli-tui/Cargo.toml","barkcli-server/Cargo.toml","barkcli-cli/Cargo.toml"]:
-               p = pathlib.Path(toml)
-               txt = p.read_text()
-               txt = re.sub(r'^version = ".*"', f'version = "{ver}"', txt, flags=re.MULTILINE)
-               # Update path dependency versions too (any barkcli-* = { path = ..., version = "x.y.z" })
-               txt = re.sub(r'(barkcli-[a-z-]+ = \{[^}]*version = ")[^"]+"', rf'\g<1>{ver}"', txt)
-               p.write_text(txt)
-               print(f"Updated {toml}")
-           PY
+          python3 - "$VERSION" <<'PY'
+          import re, pathlib, sys
+          ver = sys.argv[1]
+          for toml in ["barkcli-core/Cargo.toml","barkcli-tui/Cargo.toml","barkcli-server/Cargo.toml","barkcli-cli/Cargo.toml"]:
+              p = pathlib.Path(toml)
+              txt = p.read_text()
+              txt = re.sub(r'^version = ".*"', f'version = "{ver}"', txt, flags=re.MULTILINE)
+              # Update path dependency versions too (any barkcli-* = { path = ..., version = "x.y.z" })
+              txt = re.sub(r'(barkcli-[a-z-]+ = \{[^}]*version = ")[^"]+"', rf'\g<1>{ver}"', txt)
+              p.write_text(txt)
+              print(f"Updated {toml}")
+          PY
           grep -H "^version" barkcli-*/Cargo.toml
 
       - name: Install Rust toolchain
@@ -402,16 +402,16 @@ jobs:
           VERSION="${VERSION#v}"
           if [ -z "$VERSION" ] || [ "$VERSION" = "v" ]; then exit 0; fi
           echo "Bumping to $VERSION"
-          python3 <<PY
-           import re, pathlib
-           ver = "$VERSION"
-           for toml in ["barkcli-core/Cargo.toml","barkcli-tui/Cargo.toml","barkcli-server/Cargo.toml","barkcli-cli/Cargo.toml"]:
-               p = pathlib.Path(toml)
-               txt = p.read_text()
-               txt = re.sub(r'^version = ".*"', f'version = "{ver}"', txt, flags=re.MULTILINE)
-               txt = re.sub(r'(barkcli-[a-z-]+ = \{[^}]*version = ")[^"]+"', rf'\g<1>{ver}"', txt)
-               p.write_text(txt)
-            PY
+          python3 - "$VERSION" <<'PY'
+          import re, pathlib, sys
+          ver = sys.argv[1]
+          for toml in ["barkcli-core/Cargo.toml","barkcli-tui/Cargo.toml","barkcli-server/Cargo.toml","barkcli-cli/Cargo.toml"]:
+              p = pathlib.Path(toml)
+              txt = p.read_text()
+              txt = re.sub(r'^version = ".*"', f'version = "{ver}"', txt, flags=re.MULTILINE)
+              txt = re.sub(r'(barkcli-[a-z-]+ = \{[^}]*version = ")[^"]+"', rf'\g<1>{ver}"', txt)
+              p.write_text(txt)
+          PY
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
