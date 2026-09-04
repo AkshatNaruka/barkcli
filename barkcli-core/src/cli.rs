@@ -40,7 +40,7 @@ pub fn run_dispatch(cmd: &str, cmd_args: &[String]) -> Result<()> {
 
 fn dispatch(cmd: &str, cmd_args: &[String]) -> Result<()> {
     match cmd {
-        "init" => commands::init::run()?,
+        "init" => commands::init::run(cmd_args)?,
         "create" => {
             let name = cmd_args.first().ok_or_else(|| anyhow::anyhow!("missing board name"))?;
             commands::create::run(name)?
@@ -131,6 +131,7 @@ fn dispatch(cmd: &str, cmd_args: &[String]) -> Result<()> {
             let res = eng.run_cycle()?;
             println!("Dispatched {} tasks (created {}), insights: {}", res.tasks_dispatched, res.tasks_created, res.insights.join("; "));
         }
+        "autopilot" => handle_autopilot_cmd(cmd_args)?,
 
         "session" => handle_session_cmd(cmd_args)?,
         "checkpoint" => handle_checkpoint_cmd(cmd_args)?,
@@ -490,8 +491,7 @@ fn handle_checkpoint_cmd(args: &[String]) -> Result<()> {
     }
 }
 
-fn handle_hooks_cmd(args: &[String]) -> Result<()> {
-    let Some(sub) = args.first() else {
+fn handle_hooks_cmd(args: &[String]) -> Result<()> {    let Some(sub) = args.first() else {
         bail!("usage: barkcli hooks <install|remove|status> [--spec-sync]");
     };
     match sub.as_str() {
@@ -519,6 +519,70 @@ fn handle_hooks_cmd(args: &[String]) -> Result<()> {
         }
         "status" => commands::hooks::run_status(),
         _ => bail!("unknown hooks subcommand '{}' (install | remove | status)", sub),
+    }
+}
+
+// ─── Autopilot (agent-driven loop with human gates) ───
+
+fn handle_autopilot_cmd(args: &[String]) -> Result<()> {
+    let Some(sub) = args.first() else {
+        bail!("usage: barkcli autopilot <status|propose|approve|reject> [--board N]");
+    };
+    let board = parse_board_flag(&args[1..])?.0.or(resolve_board(None).ok());
+    let board_name = resolve_board(board.as_deref())?;
+    match sub.as_str() {
+        "status" => {
+            let st = crate::agent::autopilot::evaluate(&board_name)?;
+            println!("Autopilot [{}]: {}", st.board, st.phase_label);
+            println!(
+                "  unplanned:{} proposals:{} pending:{} active:{} review:{} blocked:{}",
+                st.counts.todo_unplanned,
+                st.counts.pending_proposals,
+                st.counts.queue_pending,
+                st.counts.queue_active,
+                st.counts.in_review,
+                st.counts.blocked
+            );
+            if let Some(h) = st.human_prompt {
+                println!("  Human: {}", h);
+            }
+            if let Some(a) = st.agent_action {
+                println!("  Agent: {}", a);
+            }
+            Ok(())
+        }
+        "propose" => {
+            let rest = &args[1..];
+            let card_id = rest.iter().find(|a| !a.starts_with('-')).cloned()
+                .ok_or_else(|| anyhow::anyhow!("usage: barkcli autopilot propose <card-id> [--as NAME]"))?;
+            let by = rest.iter().position(|a| a == "--as").and_then(|i| rest.get(i + 1)).cloned().unwrap_or_else(|| "human".into());
+            let mut st = crate::agent::autopilot::AutopilotState::load(&board_name);
+            let p = st.propose(&board_name, &card_id, &by)?;
+            println!("Proposed plan for '{}': {} child cards, effort {}, risk {} — awaiting approval",
+                p.card_id, p.children.len(), p.estimated_total_effort, p.risk_level);
+            Ok(())
+        }
+        "approve" => {
+            let rest = &args[1..];
+            let card_id = rest.iter().find(|a| !a.starts_with('-')).cloned()
+                .ok_or_else(|| anyhow::anyhow!("usage: barkcli autopilot approve <card-id> [--no-tasks]"))?;
+            let create_tasks = !rest.iter().any(|a| a == "--no-tasks");
+            let mut st = crate::agent::autopilot::AutopilotState::load(&board_name);
+            let kids = st.approve(&board_name, &card_id, create_tasks)?;
+            println!("Approved '{}': {} child cards{}",
+                card_id, kids.len(), if create_tasks { " + queue tasks" } else { "" });
+            Ok(())
+        }
+        "reject" => {
+            let rest = &args[1..];
+            let card_id = rest.iter().find(|a| !a.starts_with('-')).cloned()
+                .ok_or_else(|| anyhow::anyhow!("usage: barkcli autopilot reject <card-id>"))?;
+            let mut st = crate::agent::autopilot::AutopilotState::load(&board_name);
+            st.reject(&board_name, &card_id, "")?;
+            println!("Rejected proposal for '{}'", card_id);
+            Ok(())
+        }
+        _ => bail!("unknown autopilot subcommand '{}' (status | propose | approve | reject)", sub),
     }
 }
 

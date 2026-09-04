@@ -169,7 +169,7 @@ Add to `.claude/settings.json`, `.opencode/config.json`, or `.cursor/mcp.json`:
 }
 ```
 
-### MCP Tools Available (51 tools — see `barkcli-core/src/mcp.rs:handle_tools_list`)
+### MCP Tools Available (56 tools — see `barkcli-core/src/mcp.rs:handle_tools_list`)
 
 | Tool | Description |
 |------|-------------|
@@ -209,6 +209,10 @@ Add to `.claude/settings.json`, `.opencode/config.json`, or `.cursor/mcp.json`:
 | `prime` / `ready` / `packet_get` / `handoff` / `verify` | Agent handoff helpers |
 | `session_spawn` / `session_list` / `session_logs` / `session_kill` | Agent sessions |
 | `fleet_status` | Fleet status |
+| `autopilot_status` | Loop phase, human gates, agent next action |
+| `autopilot_propose` | Propose plan (creates approval gate) |
+| `autopilot_approve` / `autopilot_reject` | Human gate decisions |
+| `packet_claim` | Atomic top-packet claim (ready + claim + Working) |
 | `memory_add` / `memory_search` / `memory_list` | Cross-session memory (4 tiers) |
 
 ### Agent Registration

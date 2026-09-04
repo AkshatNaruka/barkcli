@@ -1,3 +1,4 @@
+use std::io::IsTerminal;
 use std::path::Path;
 use std::process::Command;
 
@@ -11,7 +12,13 @@ use crate::util::style;
 
 const DEFAULT_BOARD: &str = "tasks";
 
-pub fn run() -> Result<()> {
+/// `barkcli init [--yes|--no]` — set up task tracking + wire automations.
+///
+/// - `--yes`/`-y`: enable all automations without prompting (agents, CI).
+/// - `--no`/`--minimal`: lean setup, current behavior (git hooks only).
+/// - interactive TTY: ask per automation. Piped/non-TTY defaults to lean
+///   so scripts never hang waiting on stdin.
+pub fn run(args: &[String]) -> Result<()> {
     let board_dir = ensure_board_dir().context("failed to create .board directory")?;
     init_config(&board_dir).context("failed to create config.json")?;
 
@@ -42,8 +49,86 @@ pub fn run() -> Result<()> {
     println!("  barkcli list");
     println!("  barkcli move <id> doing");
 
+    // Automation wiring: ask once, never again.
+    wire_automations(args, project_root, &board_dir)?;
+
     // Hint about VS Code extension
     hint_vscode_extension();
+
+    println!();
+    println!("{} Open the web app to work without CLI commands:", style::accent("Autopilot."));
+    println!("  barkcli serve --open   # type intent, approve plans, merge");
+
+    Ok(())
+}
+
+/// Ask (or auto-answer) per automation. Never prompts when stdin is not a TTY.
+fn wire_automations(args: &[String], root: &Path, board_dir: &Path) -> Result<()> {
+    let yes = args.iter().any(|a| a == "--yes" || a == "-y");
+    let no = args.iter().any(|a| a == "--no" || a == "--minimal");
+    let interactive = !yes && !no && std::io::stdin().is_terminal();
+
+    // Returns true when the automation should be enabled.
+    let decide = |name: &str, question: &str, def_yes: bool| -> bool {
+        if yes {
+            return true;
+        }
+        if no || !interactive {
+            return false;
+        }
+        println!();
+        println!("{} {}", style::accent(name), question);
+        print!("  [{}] ", if def_yes { "Y/n" } else { "y/N" });
+        use std::io::Write as _;
+        let _ = std::io::stdout().flush();
+        let mut line = String::new();
+        if std::io::stdin().read_line(&mut line).is_err() {
+            return false;
+        }
+        match line.trim().to_lowercase().as_str() {
+            "y" | "yes" => true,
+            "n" | "no" => false,
+            "" => def_yes,
+            _ => def_yes,
+        }
+    };
+
+    if decide(
+        "Agent hooks",
+        "Capture coding-agent sessions automatically (opencode + claude-code)?",
+        true,
+    ) {
+        match super::hooks::run_install(&[]) {
+            Ok(()) => println!("  {} agent session hooks", style::ok("Enabled")),
+            Err(e) => eprintln!("  {} agent hooks: {}", style::warn("Skipped"), e),
+        }
+    }
+
+    if decide(
+        "Spec sync",
+        "Flag stale requirements on every commit (post-commit scan)?",
+        false,
+    ) {
+        match super::hooks::install_spec_sync(&root.to_path_buf()) {
+            Ok(()) => println!("  {} spec stale-scan on commit", style::ok("Enabled")),
+            Err(e) => eprintln!("  {} spec sync: {}", style::warn("Skipped"), e),
+        }
+    }
+
+    if decide(
+        "Context autosync",
+        "Refresh code-context file status on every commit?",
+        true,
+    ) {
+        let board = read_config(board_dir)
+            .ok()
+            .and_then(|c| c.default_board)
+            .unwrap_or_else(|| DEFAULT_BOARD.to_string());
+        match super::context::run_autosync(&board, &["on".to_string()]) {
+            Ok(()) => println!("  {} context autosync for '{}'", style::ok("Enabled"), board),
+            Err(e) => eprintln!("  {} context autosync: {}", style::warn("Skipped"), e),
+        }
+    }
 
     Ok(())
 }

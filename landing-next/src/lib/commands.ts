@@ -12,10 +12,14 @@ export const commands: Command[] = [
   {
     slug: "init",
     name: "barkcli init",
-    description: "Initialize barkcli in the current project. Creates a .board directory with configuration.",
+    description: "Initialize barkcli and wire automations (agent hooks, spec sync, context autosync). Asks once; scripts use --yes/--no.",
     category: "Core",
-    usage: "barkcli init",
-    examples: ["barkcli init"],
+    usage: "barkcli init [--yes|--no]",
+    examples: ["barkcli init", "barkcli init --yes"],
+    flags: [
+      { name: "--yes, -y", description: "Enable all automations without prompting" },
+      { name: "--no, --minimal", description: "Lean setup, git hooks only" },
+    ],
   },
   {
     slug: "add",
@@ -410,6 +414,23 @@ export const commands: Command[] = [
       'barkcli memory search "auth errors"',
       "barkcli memory add \"Decided JWT over sessions\" --tier long",
       "barkcli memory stats",
+    ],
+  },
+  {
+    slug: "autopilot",
+    name: "barkcli autopilot",
+    description: "Agent-driven loop status and human gates: propose/approve/reject plans. Most humans use the web UI instead.",
+    category: "Management Layer",
+    usage: "barkcli autopilot <status|propose|approve|reject> [options]",
+    examples: [
+      "barkcli autopilot status",
+      "barkcli autopilot propose oauth-login",
+      "barkcli autopilot approve oauth-login",
+      "barkcli autopilot reject oauth-login",
+    ],
+    flags: [
+      { name: "--as", description: "Proposer name (propose)" },
+      { name: "--no-tasks", description: "Approve without creating queue tasks" },
     ],
   },
 ];

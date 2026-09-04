@@ -2,9 +2,9 @@
 // Generated from barkcli-core/src/mcp.rs `handle_tools_list`.
 // Run `npm run gen:mcp` (scripts/gen-mcp-count.mjs) to regenerate after adding tools.
 //
-// Do NOT hardcode "38" anywhere — import MCP_TOOL_COUNT instead.
+// Do NOT hardcode counts anywhere — import MCP_TOOL_COUNT instead.
 
-export const MCP_TOOL_COUNT = 51;
+export const MCP_TOOL_COUNT = 56;
 
 export const MCP_TOOLS = [
   "board_list",
@@ -58,6 +58,11 @@ export const MCP_TOOLS = [
   "session_logs",
   "session_kill",
   "fleet_status",
+  "autopilot_status",
+  "autopilot_propose",
+  "autopilot_approve",
+  "autopilot_reject",
+  "packet_claim",
 ] as const;
 
 export const MCP_TOOL_COUNT_LABEL = `${MCP_TOOL_COUNT} MCP tools`;

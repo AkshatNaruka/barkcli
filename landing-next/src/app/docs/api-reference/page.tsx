@@ -114,6 +114,17 @@ const sections = [
     ],
   },
   {
+    title: "Autopilot Endpoints",
+    endpoints: [
+      { method: "GET", path: "/api/autopilot/status?name=", desc: "Loop phase, human gates, agent next action" },
+      { method: "POST", path: "/api/intake", desc: "Submit intent → card + spec" },
+      { method: "POST", path: "/api/autopilot/propose", desc: "Propose plan (creates approval gate)" },
+      { method: "POST", path: "/api/autopilot/approve", desc: "Approve plan (human gate)" },
+      { method: "POST", path: "/api/autopilot/reject", desc: "Reject plan (human gate)" },
+      { method: "POST", path: "/api/review", desc: "Run review (auto-move passes)" },
+    ],
+  },
+  {
     title: "Mind & Skills Endpoints",
     endpoints: [
       { method: "GET", path: "/api/mind", desc: "Mind snapshot (health, blockers, next)" },

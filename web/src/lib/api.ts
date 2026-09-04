@@ -873,3 +873,84 @@ export async function fetchSkills(): Promise<any[]> {
     return data.skills || [];
   } catch { return []; }
 }
+
+// ── Autopilot API (agent-driven loop with human gates) ──
+
+export interface AutopilotStatus {
+  board: string;
+  phase: string | { [k: string]: any };
+  phase_label: string;
+  needs_human: boolean;
+  human_prompt: string | null;
+  agent_action: string | null;
+  counts: {
+    todo_unplanned: number;
+    pending_proposals: number;
+    queue_pending: number;
+    queue_active: number;
+    in_review: number;
+    blocked: number;
+  };
+}
+
+export interface PlanProposal {
+  card_id: string;
+  card_title: string;
+  proposed_at: string;
+  proposed_by: string;
+  requirements: { title: string; acceptance_criteria: string[]; effort: number }[];
+  children: {
+    title: string;
+    description: string;
+    priority: string;
+    effort: number;
+    labels: string[];
+    acceptance_criteria: string[];
+  }[];
+  estimated_total_effort: number;
+  risk_level: string;
+  rationale: string;
+}
+
+async function postJson(url: string, body: any): Promise<any | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(withToken(url), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+export async function fetchAutopilotStatus(name?: string): Promise<AutopilotStatus | null> {
+  if (isVscode) return null;
+  try {
+    const params = name ? `?name=${encodeURIComponent(name)}` : "";
+    const res = await fetch(withToken(`/api/autopilot/status${params}`));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+export async function submitIntent(text: string, kind?: string, name?: string): Promise<any | null> {
+  return postJson("/api/intake", { text, kind, board: name });
+}
+
+export async function proposePlan(cardId: string, name?: string): Promise<PlanProposal | null> {
+  return postJson("/api/autopilot/propose", { card_id: cardId, board: name, by: "web" });
+}
+
+export async function approvePlan(cardId: string, name?: string): Promise<any | null> {
+  return postJson("/api/autopilot/approve", { card_id: cardId, board: name });
+}
+
+export async function rejectPlan(cardId: string, reason?: string, name?: string): Promise<any | null> {
+  return postJson("/api/autopilot/reject", { card_id: cardId, reason, board: name });
+}
+
+export async function runReview(name?: string): Promise<any | null> {
+  return postJson("/api/review", { board: name, all: true, auto: true });
+}

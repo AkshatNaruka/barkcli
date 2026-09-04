@@ -152,6 +152,13 @@ pub async fn run(
         // Mind endpoints (SPEC-004 R2)
         .route("/api/mind", get(mind_snapshot_handler))
         .route("/api/mind/digest", get(mind_digest_handler))
+        // Autopilot endpoints (agent-driven loop with human gates)
+        .route("/api/autopilot/status", get(autopilot_status_handler))
+        .route("/api/intake", post(intake_handler))
+        .route("/api/autopilot/propose", post(autopilot_propose_handler))
+        .route("/api/autopilot/approve", post(autopilot_approve_handler))
+        .route("/api/autopilot/reject", post(autopilot_reject_handler))
+        .route("/api/review", post(review_handler))
         // Skills endpoints (SPEC-004 R2)
         .route("/api/skills", get(list_skills_handler))
         .route("/api/skills/{id}", get(get_skill_handler))
@@ -258,6 +265,22 @@ async fn auto_init() {
         };
         if let Ok(()) = board_file::write_board("my-project", &board) {
             eprintln!("barkcli: created default board 'my-project.board'");
+        }
+    }
+
+    // Pin default_board when unambiguous (fresh serve / single board) so
+    // CLI, MCP, and server all resolve the same board without flags.
+    if let Ok(board_dir) = barkcli_core::storage::board_dir::find_board_dir() {
+        if let Ok(cfg) = config_store::read_config(&board_dir) {
+            if cfg.default_board.is_none() {
+                if let Ok(boards) = list_board_files() {
+                    if boards.len() == 1 {
+                        let mut cfg = cfg;
+                        cfg.default_board = Some(boards[0].clone());
+                        let _ = config_store::write_config(&board_dir, &cfg);
+                    }
+                }
+            }
         }
     }
 }
@@ -413,11 +436,20 @@ fn resolve_board_name(state: &AppState, query: Option<String>) -> Result<String,
     let name = match query.or(state.board_name.clone()).unwrap_or_default() {
         n if !n.is_empty() => sanitize_name(&n)?,
         _ => {
-            let boards = list_board_files().map_err(|e| ServerError::internal(e.to_string()))?;
-            boards
-                .first()
-                .cloned()
-                .ok_or_else(|| ServerError::bad("No boards found. Create one with `board create <name>`."))?
+            // Respect config default_board like the CLI (not just first file).
+            let def = barkcli_core::storage::board_dir::find_board_dir()
+                .ok()
+                .and_then(|d| config_store::read_config(&d).ok())
+                .and_then(|c| c.default_board);
+            if let Some(n) = def {
+                n
+            } else {
+                let boards = list_board_files().map_err(|e| ServerError::internal(e.to_string()))?;
+                boards
+                    .first()
+                    .cloned()
+                    .ok_or_else(|| ServerError::bad("No boards found. Create one with `board create <name>`."))?
+            }
         }
     };
     if !board_file::board_exists(&name) {
@@ -2706,6 +2738,127 @@ async fn mind_digest_handler(
         .map_err(|e| ServerError::internal(e.to_string()))?;
     let digest = barkcli_core::mind::digest::render(&snap);
     Ok(Json(serde_json::json!({"board": board_name, "digest": digest, "snapshot": snap})))
+}
+
+// ── Autopilot handlers (agent-driven loop with human gates) ─────────────────
+
+async fn autopilot_status_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<BoardQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let st = barkcli_core::agent::autopilot::evaluate(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(serde_json::to_value(&st).map_err(|e| ServerError::internal(e.to_string()))?))
+}
+
+#[derive(Deserialize)]
+struct IntakeRequest {
+    text: String,
+    kind: Option<String>,
+    board: Option<String>,
+}
+
+async fn intake_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<IntakeRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    if req.text.trim().is_empty() {
+        return Err(ServerError::bad("text required"));
+    }
+    let board_name = resolve_board_name(&state, req.board)?;
+    let mut args = vec![req.text.clone()];
+    match req.kind.as_deref() {
+        Some("bug") => args.push("--bug".into()),
+        Some("feature") => args.push("--feature".into()),
+        _ => {}
+    }
+    args.push("--board".into());
+    args.push(board_name.clone());
+    barkcli_core::commands::intake::run_intake(&args)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    // run_intake reports via /tmp JSON sidecar for programmatic use.
+    let out: serde_json::Value = std::fs::read_to_string(std::env::temp_dir().join("barkcli-intake-last.json"))
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or(serde_json::json!({}));
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "board": board_name, "intake": out })))
+}
+
+#[derive(Deserialize)]
+struct AutopilotCardRequest {
+    card_id: String,
+    board: Option<String>,
+    by: Option<String>,
+    reason: Option<String>,
+    create_tasks: Option<bool>,
+}
+
+async fn autopilot_propose_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<AutopilotCardRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, req.board)?;
+    let mut st = barkcli_core::agent::autopilot::AutopilotState::load(&board_name);
+    let by = req.by.as_deref().unwrap_or("web");
+    let p = st
+        .propose(&board_name, &req.card_id, by)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::to_value(&p).map_err(|e| ServerError::internal(e.to_string()))?))
+}
+
+async fn autopilot_approve_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<AutopilotCardRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, req.board)?;
+    let mut st = barkcli_core::agent::autopilot::AutopilotState::load(&board_name);
+    let kids = st
+        .approve(&board_name, &req.card_id, req.create_tasks.unwrap_or(true))
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "approved": true, "card_id": req.card_id, "child_cards": kids })))
+}
+
+async fn autopilot_reject_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<AutopilotCardRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, req.board)?;
+    let mut st = barkcli_core::agent::autopilot::AutopilotState::load(&board_name);
+    st.reject(&board_name, &req.card_id, req.reason.as_deref().unwrap_or(""))
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "rejected": true, "card_id": req.card_id })))
+}
+
+#[derive(Deserialize)]
+struct ReviewRequest {
+    board: Option<String>,
+    all: Option<bool>,
+    auto: Option<bool>,
+}
+
+async fn review_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ReviewRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, req.board)?;
+    let mut args = Vec::new();
+    if req.all.unwrap_or(true) {
+        args.push("--all".to_string());
+    }
+    if req.auto.unwrap_or(true) {
+        args.push("--auto".to_string());
+    }
+    args.push("--board".to_string());
+    args.push(board_name.clone());
+    barkcli_core::commands::review::run_review(&args)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "board": board_name, "reviewed": true })))
 }
 
 async fn list_skills_handler() -> Result<Json<serde_json::Value>, ServerError> {

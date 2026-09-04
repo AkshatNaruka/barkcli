@@ -10,32 +10,32 @@ use crate::storage::context::read_context;
 use crate::util::style;
 
 /// LLM output for planning.
-#[derive(Debug, Deserialize)]
-struct PlanOutput {
-    requirements: Vec<PlanRequirement>,
-    child_cards: Vec<PlanChildCard>,
-    estimated_total_effort: u32,
-    risk_level: String,
-    rationale: String,
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct PlanOutput {
+    pub(crate) requirements: Vec<PlanRequirement>,
+    pub(crate) child_cards: Vec<PlanChildCard>,
+    pub(crate) estimated_total_effort: u32,
+    pub(crate) risk_level: String,
+    pub(crate) rationale: String,
 }
 
-#[derive(Debug, Deserialize)]
-struct PlanRequirement {
-    title: String,
-    description: String,
-    acceptance_criteria: Vec<String>,
-    effort: u32,
-    area: String,
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct PlanRequirement {
+    pub(crate) title: String,
+    pub(crate) description: String,
+    pub(crate) acceptance_criteria: Vec<String>,
+    pub(crate) effort: u32,
+    pub(crate) area: String,
 }
 
-#[derive(Debug, Deserialize)]
-struct PlanChildCard {
-    title: String,
-    description: String,
-    priority: String,
-    effort: u32,
-    labels: Vec<String>,
-    acceptance_criteria: Vec<String>,
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct PlanChildCard {
+    pub(crate) title: String,
+    pub(crate) description: String,
+    pub(crate) priority: String,
+    pub(crate) effort: u32,
+    pub(crate) labels: Vec<String>,
+    pub(crate) acceptance_criteria: Vec<String>,
 }
 
 /// `barkcli plan <card-id>` — Generate spec + decomposition for a card.
@@ -246,8 +246,59 @@ Existing acceptance criteria:
         return Ok(());
     }
 
+    // Update card with plan + create children + optional queue tasks.
+    // Shared with the autopilot approval gate (agent/autopilot.rs).
+    let _child_ids = apply_plan(&board_name, &board, &card_id, &plan, create_tasks)?;
+
+    println!(
+        "{} Plan created for '{}':",
+        style::ok("OK"),
+        style::strong(card_title),
+    );
+    println!("  {} requirements, {} child cards", plan.requirements.len(), plan.child_cards.len());
+    println!("  Total effort: {}, Risk: {}", plan.estimated_total_effort, plan.risk_level);
+    println!();
+    for (i, child) in plan.child_cards.iter().enumerate() {
+        println!("  {}. {} [{}] (effort: {})", i + 1, child.title, child.priority, child.effort);
+    }
+
+    if create_tasks {
+        println!();
+        println!(
+            "{} Created {} tasks in queue",
+            style::ok("OK"),
+            plan.child_cards.len()
+        );
+    }
+
+    println!();
+    println!("Next steps:");
+    if !create_tasks {
+        println!("  barkcli plan {} --tasks  # Also create tasks in queue", card_id);
+    }
+    println!("  barkcli dispatch        # Assign tasks to agents");
+    println!("  barkcli move {} doing    # Start working", card_id);
+
+    Ok(())
+}
+
+/// Apply a computed plan to the board: checklist AC, child cards with
+/// Parent/Child links + spec anchor, optional task-queue entries.
+/// Returns the new child card ids. Used by `run_plan` and autopilot approval.
+pub(crate) fn apply_plan(
+    board_name: &str,
+    board: &Board,
+    card_id: &str,
+    plan: &PlanOutput,
+    create_tasks: bool,
+) -> Result<Vec<String>> {
+use crate::storage::board_file::read_board;
+
+    // Re-read for a fresh base (callers may hold a stale clone).
+    let base = read_board(board_name).unwrap_or_else(|_| board.clone());
+    let mut board_mut = base.clone();
+
     // Update card with plan
-    let mut board_mut = board.clone();
     if let Some(c) = board_mut.cards.iter_mut().find(|c| c.id == card_id) {
         for req in &plan.requirements {
             for ac in &req.acceptance_criteria {
@@ -262,10 +313,17 @@ Existing acceptance criteria:
     }
 
     // Create child cards — set spec_id to parent's spec anchor (R1)
-    let parent_spec = board.cards.iter().find(|c| c.id == card_id).and_then(|c| c.spec_id.clone()).unwrap_or_else(|| card_id.clone());
+    let parent_spec = board.cards.iter().find(|c| c.id == card_id).and_then(|c| c.spec_id.clone()).unwrap_or_else(|| card_id.to_string());
     let mut child_ids = Vec::new();
     for child in &plan.child_cards {
         let child_id = crate::util::slug::to_slug(&child.title);
+        // Idempotency: skip if a card with this id already exists (re-approval safe).
+        if board_mut.cards.iter().any(|c| c.id == child_id) {
+            if !child_ids.contains(&child_id) {
+                child_ids.push(child_id.clone());
+            }
+            continue;
+        }
         let mut new_card = crate::models::card::Card::new(&child_id, &child.title, "todo");
         new_card.description = Some(child.description.clone());
         new_card.priority = child.priority.clone();
@@ -282,7 +340,7 @@ Existing acceptance criteria:
 
         new_card.links.push(crate::models::card::CardLink {
             ty: crate::models::card::LinkType::Parent,
-            target: card_id.clone(),
+            target: card_id.to_string(),
         });
 
         child_ids.push(new_card.id.clone());
@@ -301,19 +359,7 @@ Existing acceptance criteria:
         }
     }
 
-    write_board(&board_name, &board_mut)?;
-
-    println!(
-        "{} Plan created for '{}':",
-        style::ok("OK"),
-        style::strong(card_title),
-    );
-    println!("  {} requirements, {} child cards", plan.requirements.len(), plan.child_cards.len());
-    println!("  Total effort: {}, Risk: {}", plan.estimated_total_effort, plan.risk_level);
-    println!();
-    for (i, child) in plan.child_cards.iter().enumerate() {
-        println!("  {}. {} [{}] (effort: {})", i + 1, child.title, child.priority, child.effort);
-    }
+    write_board(board_name, &board_mut)?;
 
     // Create tasks if requested
     if create_tasks {
@@ -324,7 +370,7 @@ Existing acceptance criteria:
         let mut queue = TaskQueue::load(&tasks_path).unwrap_or_default();
 
         for (i, child) in plan.child_cards.iter().enumerate() {
-            let context_files = populate_context_files(&card_id, &board_name);
+            let context_files = populate_context_files(card_id, board_name);
             let mut task = create_task(
                 &child_ids[i],
                 &child.title,
@@ -339,23 +385,9 @@ Existing acceptance criteria:
         }
 
         queue.save(&tasks_path)?;
-        println!();
-        println!(
-            "{} Created {} tasks in queue",
-            style::ok("OK"),
-            plan.child_cards.len()
-        );
     }
 
-    println!();
-    println!("Next steps:");
-    if !create_tasks {
-        println!("  barkcli plan {} --tasks  # Also create tasks in queue", card_id);
-    }
-    println!("  barkcli dispatch        # Assign tasks to agents");
-    println!("  barkcli move {} doing    # Start working", card_id);
-
-    Ok(())
+    Ok(child_ids)
 }
 
 /// Auto-plan all unplanned cards in todo column.
@@ -479,7 +511,7 @@ fn load_plan_memories(title: &str, board_name: &str) -> Option<String> {
     Some(results.iter().map(|e| format!("- {}", e.content)).collect::<Vec<_>>().join("\n"))
 }
 
-fn heuristic_plan(title: &str, desc: &Option<String>) -> PlanOutput {
+pub(crate) fn heuristic_plan(title: &str, desc: &Option<String>) -> PlanOutput {
     let base = title.trim();
     let desc_str = desc.clone().unwrap_or_default();
     PlanOutput {

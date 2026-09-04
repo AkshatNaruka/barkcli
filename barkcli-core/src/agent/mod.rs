@@ -1,4 +1,5 @@
 pub mod backend;
+pub mod autopilot;
 pub mod capacity;
 pub mod decompose;
 pub mod fleet;
@@ -11,6 +12,7 @@ pub mod session;
 pub mod verify;
 pub mod worktree;
 
+pub use autopilot::{evaluate as autopilot_evaluate, AutopilotPhase, AutopilotState, AutopilotStatus, PlanProposal};
 pub use backend::{auto_backend, backend_for, kill_pid, pid_alive, Backend};
 pub use capacity::VelocityTracker;
 pub use decompose::TaskPlan;

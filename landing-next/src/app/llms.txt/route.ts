@@ -6,7 +6,7 @@ barkcli is a local-first management layer. Humans write intent, agents do work, 
 
 ## What It Does
 
-barkcli gives you a Mind homepage, kanban board with spec traceability, agent task queue with review gate, four-tier local memory, BMAD skills, CLI, terminal UI, web app, VS Code extension, and 51 MCP tools for AI coding agents.
+barkcli gives you a Mind homepage, kanban board with spec traceability, agent task queue with review gate, four-tier local memory, BMAD skills, CLI, terminal UI, web app, VS Code extension, and 56 MCP tools for AI coding agents.
 
 ## Key Features
 
@@ -15,7 +15,7 @@ barkcli gives you a Mind homepage, kanban board with spec traceability, agent ta
 - **Skills:** Reusable conventions versioned in your repo
 - **Git-native:** Tasks are YAML files committed to your repo
 - **Multi-interface:** CLI, Terminal UI, Web App, VS Code
-- **AI/MCP:** 51 tools for Claude, OpenCode, Cursor integration
+- **AI/MCP:** 56 tools for Claude, OpenCode, Cursor integration
 - **No cloud:** Works offline, no accounts needed
 - **Free:** MIT license, no subscriptions
 

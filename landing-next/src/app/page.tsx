@@ -186,7 +186,7 @@ const CODE_FEATURES = [
 const FAQ = [
   {
     question: "Is barkcli a CLI tool or a web app?",
-    answer: "Both — but think of it as a management layer, not a tool. The same data powers the CLI, terminal UI, VS Code extension, and web app. Humans manage in the web app (Mind, Board, Agents), agents work through 51 MCP tools, and everything syncs through files in your repo.",
+    answer: "Both — but think of it as a management layer, not a tool. The same data powers the CLI, terminal UI, VS Code extension, and web app. Humans manage in the web app (Mind, Board, Agents), agents work through 56 MCP tools, and everything syncs through files in your repo.",
   },
   {
     question: "What makes barkcli different from Jira or Linear?",
@@ -202,7 +202,7 @@ const FAQ = [
   },
   {
     question: "How do AI agents fit in?",
-    answer: "barkcli sits between you and your coding agents. You write intent (intake → plan), agents claim scoped tasks with file context and skills (dispatch), and completed work is validated before it lands (review). Memory persists decisions across sessions. Agents connect via 51 MCP tools — OpenCode, Claude Code, and Cursor all work. The core stays fully usable offline without any AI.",
+    answer: "barkcli sits between you and your coding agents. You write intent (intake → plan), agents claim scoped tasks with file context and skills (dispatch), and completed work is validated before it lands (review). Memory persists decisions across sessions. Agents connect via 56 MCP tools — OpenCode, Claude Code, and Cursor all work. The core stays fully usable offline without any AI.",
   },
   {
     question: "Is it free?",
@@ -239,13 +239,13 @@ barkcli list
 6. Add a sample task to confirm everything works:
 barkcli add "Welcome to barkcli" -p low -d "barkcli is now set up and ready to use"
 
-After running these commands, barkcli will be fully configured. You can now:
-• Use "barkcli add <title>" to create tasks
-• Use "barkcli list" to see all tasks
-• Use "barkcli move <id> doing" to start working on a task
-• Use "barkcli done <id>" to mark tasks complete
-• Use "barkcli tui" for a terminal kanban board
-• Use "barkcli serve" for a web interface
+After running these commands, barkcli will be fully configured. The autonomous loop works like this:
+• Type intent in the web app (Mind tab) or run "barkcli intake <text>"
+• Approve the proposed plan (web gate or "barkcli autopilot approve <id>")
+• Agents claim packets, work, and complete them via MCP
+• Merge when review passes — checkpoints + undo cover recovery
+
+You rarely need CLI commands — open "barkcli serve --open" and decide what gets built.
 
 For the full AI agent prompt with all commands, run: barkcli --help`,
   opencode: `Please run the following commands to install and set up barkcli (git-native project management) in this project:
@@ -276,13 +276,13 @@ barkcli list
 6. Add a sample task to confirm everything works:
 barkcli add "Welcome to barkcli" -p low -d "barkcli is now set up and ready to use"
 
-After running these commands, barkcli will be fully configured. You can now:
-• Use "barkcli add <title>" to create tasks
-• Use "barkcli list" to see all tasks
-• Use "barkcli move <id> doing" to start working on a task
-• Use "barkcli done <id>" to mark tasks complete
-• Use "barkcli tui" for a terminal kanban board
-• Use "barkcli serve" for a web interface
+After running these commands, barkcli will be fully configured. The autonomous loop works like this:
+• Type intent in the web app (Mind tab) or run "barkcli intake <text>"
+• Approve the proposed plan (web gate or "barkcli autopilot approve <id>")
+• Agents claim packets, work, and complete them via MCP
+• Merge when review passes — checkpoints + undo cover recovery
+
+You rarely need CLI commands — open "barkcli serve --open" and decide what gets built.
 
 For the full AI agent prompt with all commands, run: barkcli --help`,
   cursor: `Please run the following commands to install and set up barkcli (git-native project management) in this project:
@@ -313,13 +313,13 @@ barkcli list
 6. Add a sample task to confirm everything works:
 barkcli add "Welcome to barkcli" -p low -d "barkcli is now set up and ready to use"
 
-After running these commands, barkcli will be fully configured. You can now:
-• Use "barkcli add <title>" to create tasks
-• Use "barkcli list" to see all tasks
-• Use "barkcli move <id> doing" to start working on a task
-• Use "barkcli done <id>" to mark tasks complete
-• Use "barkcli tui" for a terminal kanban board
-• Use "barkcli serve" for a web interface
+After running these commands, barkcli will be fully configured. The autonomous loop works like this:
+• Type intent in the web app (Mind tab) or run "barkcli intake <text>"
+• Approve the proposed plan (web gate or "barkcli autopilot approve <id>")
+• Agents claim packets, work, and complete them via MCP
+• Merge when review passes — checkpoints + undo cover recovery
+
+You rarely need CLI commands — open "barkcli serve --open" and decide what gets built.
 
 For the full AI agent prompt with all commands, run: barkcli --help`,
   generic: `Please run the following commands to install and set up barkcli (git-native project management) in this project:
@@ -340,13 +340,13 @@ barkcli list
 5. Add a sample task to confirm everything works:
 barkcli add "Welcome to barkcli" -p low -d "barkcli is now set up and ready to use"
 
-After running these commands, barkcli will be fully configured. You can now:
-• Use "barkcli add <title>" to create tasks
-• Use "barkcli list" to see all tasks
-• Use "barkcli move <id> doing" to start working on a task
-• Use "barkcli done <id>" to mark tasks complete
-• Use "barkcli tui" for a terminal kanban board
-• Use "barkcli serve" for a web interface
+After running these commands, barkcli will be fully configured. The autonomous loop works like this:
+• Type intent in the web app (Mind tab) or run "barkcli intake <text>"
+• Approve the proposed plan (web gate or "barkcli autopilot approve <id>")
+• Agents claim packets, work, and complete them via MCP
+• Merge when review passes — checkpoints + undo cover recovery
+
+You rarely need CLI commands — open "barkcli serve --open" and decide what gets built.
 
 For the full AI agent prompt with all commands, run: barkcli --help`,
 };
@@ -663,6 +663,22 @@ export default function Home() {
               See the management layer
               <ArrowRight className="w-3 h-3" />
             </a>
+            <div className="flex items-center gap-2 sm:gap-3 text-[11px] font-mono text-white/50">
+              <span className="flex items-center gap-1.5 border border-white/10 rounded-full px-3 py-1.5 bg-white/[0.03]">
+                <Sparkles className="w-3 h-3 text-[#B8845C]" /> 1. Type intent
+              </span>
+              <ArrowRight className="w-3 h-3 text-white/30" />
+              <span className="flex items-center gap-1.5 border border-white/10 rounded-full px-3 py-1.5 bg-white/[0.03]">
+                <Check className="w-3 h-3 text-[#B8845C]" /> 2. Approve plan
+              </span>
+              <ArrowRight className="w-3 h-3 text-white/30" />
+              <span className="flex items-center gap-1.5 border border-white/10 rounded-full px-3 py-1.5 bg-white/[0.03]">
+                <GitMerge className="w-3 h-3 text-[#B8845C]" /> 3. Merge
+              </span>
+            </div>
+            <p className="text-[11px] font-mono text-white/30">
+              Agents do everything between — no CLI commands to memorize.
+            </p>
           </div>
           <div className="flex flex-wrap justify-center gap-3 sm:gap-4 mt-6 text-[11px] font-mono text-white/40">
             <span className="flex items-center gap-1">

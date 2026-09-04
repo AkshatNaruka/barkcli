@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     template: "%s · barkcli",
   },
   description:
-    "barkcli is the management layer between humans and AI coding agents. Tasks, specs, memory, skills, and agent runs live in your repo — CLI, web app, and 51 MCP tools. One binary, no cloud, no accounts. Free and open source (MIT).",
+    "barkcli is the management layer between humans and AI coding agents. Tasks, specs, memory, skills, and agent runs live in your repo — CLI, web app, and 56 MCP tools. One binary, no cloud, no accounts. Free and open source (MIT).",
   keywords: [
     "management layer for ai agents",
     "ai agent orchestration",
@@ -79,7 +79,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "barkcli — The management layer for AI agents",
     description:
-      "Tasks, specs, memory, and agent runs live in your repo. CLI, web app, and 51 MCP tools. No cloud. Free and open source (MIT).",
+      "Tasks, specs, memory, and agent runs live in your repo. CLI, web app, and 56 MCP tools. No cloud. Free and open source (MIT).",
     creator: "@probiex007",
     images: [`${SITE_URL}/og-image.png`],
   },
@@ -124,7 +124,7 @@ const structuredData = {
       operatingSystem: "macOS, Linux, Windows",
       url: SITE_URL,
       description:
-        "The management layer between humans and AI coding agents. Tasks, specs, memory, skills, and agent runs live in your repo — CLI, web app, and 51 MCP tools. One binary, no cloud, no accounts.",
+        "The management layer between humans and AI coding agents. Tasks, specs, memory, skills, and agent runs live in your repo — CLI, web app, and 56 MCP tools. One binary, no cloud, no accounts.",
       offers: {
         "@type": "Offer",
         price: "0",
@@ -145,7 +145,7 @@ const structuredData = {
         "CLI, Terminal UI, Web App, VS Code extension",
         "YAML-based board files with spec traceability",
         "Four-tier local memory",
-        "51 MCP tools for AI coding agents",
+        "56 MCP tools for AI coding agents",
         "Sprint management",
         "Session capture and checkpoints",
         "Import/export",

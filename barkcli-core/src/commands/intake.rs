@@ -45,13 +45,24 @@ pub fn run_intake(args: &[String]) -> Result<()> {
     let force_bug = args.iter().any(|a| a == "--bug");
     let force_feature = args.iter().any(|a| a == "--feature");
 
-    // Extract the text (everything that's not a flag)
-    let text: String = args
-        .iter()
-        .filter(|a| !a.starts_with('-'))
-        .cloned()
-        .collect::<Vec<_>>()
-        .join(" ");
+    // Extract the text (non-flag args, skipping values of value-flags
+    // like --board/-b so `intake "text" --board foo` stays clean).
+    let mut text_parts = Vec::new();
+    let mut skip_next = false;
+    for a in args {
+        if skip_next {
+            skip_next = false;
+            continue;
+        }
+        if a == "--board" || a == "-b" {
+            skip_next = true;
+            continue;
+        }
+        if !a.starts_with('-') {
+            text_parts.push(a.clone());
+        }
+    }
+    let text: String = text_parts.join(" ");
 
     if text.is_empty() {
         anyhow::bail!("usage: barkcli intake <text> [--bug|--feature] [--dry-run] [--no-spec]");

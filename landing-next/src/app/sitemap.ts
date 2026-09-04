@@ -19,6 +19,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   ];
 
   const docPages = [
+    { url: `${BASE_URL}/docs/autopilot`, lastModified: now, changeFrequency: "monthly" as const, priority: 0.9 },
     { url: `${BASE_URL}/docs/getting-started`, lastModified: now, changeFrequency: "monthly" as const, priority: 0.8 },
     { url: `${BASE_URL}/docs/concepts`, lastModified: now, changeFrequency: "monthly" as const, priority: 0.8 },
     { url: `${BASE_URL}/docs/concepts/tasks`, lastModified: now, changeFrequency: "monthly" as const, priority: 0.7 },

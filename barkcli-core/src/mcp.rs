@@ -12,7 +12,7 @@
 //! - `resources/list`: List available resources
 //! - `resources/read`: Read a resource
 //!
-//! # Available Tools (51)
+//! # Available Tools (56)
 //!
 //! ## Board Management
 //! - `board_list`: List all boards
@@ -57,6 +57,12 @@
 //! - `orchestrate_next` / `orchestrate_cycle`: Dispatch
 //! - `memory_add` / `memory_search` / `memory_list`: Cross-session memory
 //! - `session_spawn` / `session_list` / `session_logs` / `session_kill` / `fleet_status`: Sessions & fleet
+//!
+//! ## Autopilot (agent-driven loop with human gates)
+//! - `autopilot_status`: Loop phase, human gates, agent next action
+//! - `autopilot_propose`: Propose a plan (creates approval gate)
+//! - `autopilot_approve` / `autopilot_reject`: Human gate decisions
+//! - `packet_claim`: Atomic top-packet claim (ready + claim + Working)
 //!
 //! # Usage
 //!
@@ -1283,6 +1289,108 @@ impl McpServer {
                     "required": []
                 }
             }),
+            serde_json::json!({
+                "name": "autopilot_status",
+                "description": "Autopilot loop state: phase, human gates, agent next action, counts",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "board": {
+                            "type": "string",
+                            "description": "Board name (optional)"
+                        }
+                    },
+                    "required": []
+                }
+            }),
+            serde_json::json!({
+                "name": "autopilot_propose",
+                "description": "Propose a decomposition plan for a card (creates human approval gate)",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "board": {
+                            "type": "string",
+                            "description": "Board name (optional)"
+                        },
+                        "card_id": {
+                            "type": "string",
+                            "description": "Card to plan"
+                        },
+                        "proposed_by": {
+                            "type": "string",
+                            "description": "Agent id proposing (optional)"
+                        }
+                    },
+                    "required": ["card_id"]
+                }
+            }),
+            serde_json::json!({
+                "name": "autopilot_approve",
+                "description": "Approve a proposed plan (human gate): applies child cards + queue tasks",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "board": {
+                            "type": "string",
+                            "description": "Board name (optional)"
+                        },
+                        "card_id": {
+                            "type": "string",
+                            "description": "Card whose proposal to approve"
+                        },
+                        "create_tasks": {
+                            "type": "boolean",
+                            "description": "Also create queue tasks (default true)"
+                        }
+                    },
+                    "required": ["card_id"]
+                }
+            }),
+            serde_json::json!({
+                "name": "autopilot_reject",
+                "description": "Reject a proposed plan with an optional reason",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "board": {
+                            "type": "string",
+                            "description": "Board name (optional)"
+                        },
+                        "card_id": {
+                            "type": "string",
+                            "description": "Card whose proposal to reject"
+                        },
+                        "reason": {
+                            "type": "string",
+                            "description": "Why (optional)"
+                        }
+                    },
+                    "required": ["card_id"]
+                }
+            }),
+            serde_json::json!({
+                "name": "packet_claim",
+                "description": "Atomically claim the top-ranked runnable packet for an agent (ready + claim + Working)",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "board": {
+                            "type": "string",
+                            "description": "Board name (optional)"
+                        },
+                        "agent_id": {
+                            "type": "string",
+                            "description": "Claiming agent id"
+                        },
+                        "role": {
+                            "type": "string",
+                            "description": "Dispatch role for ranking (default scrum-master)"
+                        }
+                    },
+                    "required": ["agent_id"]
+                }
+            }),
         ];
 
         JsonRpcResponse {
@@ -1363,6 +1471,11 @@ impl McpServer {
             "session_logs" => self.tool_session_logs(arguments),
             "session_kill" => self.tool_session_kill(arguments),
             "fleet_status" => self.tool_fleet_status(arguments),
+            "autopilot_status" => self.tool_autopilot_status(arguments),
+            "autopilot_propose" => self.tool_autopilot_propose(arguments),
+            "autopilot_approve" => self.tool_autopilot_approve(arguments),
+            "autopilot_reject" => self.tool_autopilot_reject(arguments),
+            "packet_claim" => self.tool_packet_claim(arguments),
             _ => Err(anyhow::anyhow!("Unknown tool: {}", tool_name)),
         };
 
@@ -1464,6 +1577,10 @@ impl McpServer {
         }
         if let Some(name) = &self.board_name {
             return Ok(name.clone());
+        }
+        // Respect config default_board like the CLI does (not just first file).
+        if let Ok(Some(name)) = crate::commands::boards::default_board_name() {
+            return Ok(name);
         }
         let boards = list_board_files()?;
         boards.first().cloned().ok_or_else(|| anyhow::anyhow!("No boards found"))
@@ -1845,6 +1962,16 @@ impl McpServer {
         queue.claim(task_id, agent_id, session_id, lease_minutes)?;
         queue.save(&tasks_path)?;
 
+        // Mirror barkcli-server claim_task_handler: reflect the assignment
+        // on the agent so Agents UI + sidebar badge stay coherent.
+        // Best-effort: claiming with an unregistered agent id still succeeds.
+        if let Ok(mut registry) = self.load_agent_registry() {
+            if let Some(agent) = registry.get_mut(agent_id) {
+                agent.start_task(task_id);
+                let _ = self.save_agent_registry(&registry);
+            }
+        }
+
         Ok(serde_json::json!({ "claimed": true }))
     }
 
@@ -1862,6 +1989,19 @@ impl McpServer {
         queue.complete(task_id)?;
         queue.save(&tasks_path)?;
 
+        // Mirror barkcli-server complete_task_handler: drop the task from
+        // the assignee's active list (best-effort).
+        if let Some(task) = queue.get(task_id) {
+            if let Some(agent_id) = task.assigned_agent.clone() {
+                if let Ok(mut registry) = self.load_agent_registry() {
+                    if let Some(agent) = registry.get_mut(&agent_id) {
+                        agent.complete_task(task_id, 0);
+                        let _ = self.save_agent_registry(&registry);
+                    }
+                }
+            }
+        }
+
         Ok(serde_json::json!({ "completed": true }))
     }
 
@@ -1878,6 +2018,18 @@ impl McpServer {
         let mut queue = TaskQueue::load(&tasks_path)?;
         queue.fail(task_id)?;
         queue.save(&tasks_path)?;
+
+        // Mirror barkcli-server fail_task_handler (best-effort).
+        if let Some(task) = queue.get(task_id) {
+            if let Some(agent_id) = task.assigned_agent.clone() {
+                if let Ok(mut registry) = self.load_agent_registry() {
+                    if let Some(agent) = registry.get_mut(&agent_id) {
+                        agent.fail_task(task_id);
+                        let _ = self.save_agent_registry(&registry);
+                    }
+                }
+            }
+        }
 
         Ok(serde_json::json!({ "failed": true }))
     }
@@ -2720,6 +2872,92 @@ impl McpServer {
             "agents": crate::agent::FleetReconciler::agent_counts(&registry),
             "sessions": session_rows,
             "worktrees": worktrees,
+        }))
+    }
+
+    fn tool_autopilot_status(&self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let st = crate::agent::autopilot::evaluate(&board_name)?;
+        Ok(serde_json::to_value(&st)?)
+    }
+
+    fn tool_autopilot_propose(&self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let card_id = args.get("card_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("card_id required"))?;
+        let by = args.get("proposed_by")
+            .and_then(|v| v.as_str())
+            .unwrap_or("agent");
+        let mut st = crate::agent::autopilot::AutopilotState::load(&board_name);
+        let p = st.propose(&board_name, card_id, by)?;
+        Ok(serde_json::to_value(&p)?)
+    }
+
+    fn tool_autopilot_approve(&mut self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let card_id = args.get("card_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("card_id required"))?;
+        let create_tasks = args.get("create_tasks")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
+        let mut st = crate::agent::autopilot::AutopilotState::load(&board_name);
+        let kids = st.approve(&board_name, card_id, create_tasks)?;
+        Ok(serde_json::json!({ "approved": true, "card_id": card_id, "child_cards": kids }))
+    }
+
+    fn tool_autopilot_reject(&mut self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let card_id = args.get("card_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("card_id required"))?;
+        let reason = args.get("reason").and_then(|v| v.as_str()).unwrap_or("");
+        let mut st = crate::agent::autopilot::AutopilotState::load(&board_name);
+        st.reject(&board_name, card_id, reason)?;
+        Ok(serde_json::json!({ "rejected": true, "card_id": card_id }))
+    }
+
+    /// Atomically pick the top-ranked runnable packet and claim it for an
+    /// agent: ranking (ready) + claim + agent Working in one call, so agents
+    /// never observe a half-claimed queue.
+    fn tool_packet_claim(&mut self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let agent_id = args.get("agent_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("agent_id required"))?;
+        let role_str = args.get("role").and_then(|v| v.as_str()).unwrap_or("scrum-master");
+        let role = crate::agent::AgentRole::from_str(role_str)
+            .ok_or_else(|| anyhow::anyhow!("Invalid role: {}", role_str))?;
+
+        let tasks_path = crate::storage::board_dir::find_board_dir()?
+            .join("tasks")
+            .join(format!("{}.json", board_name));
+        let mut queue = crate::agent::TaskQueue::load(&tasks_path).unwrap_or_default();
+        let registry = self.load_agent_registry().unwrap_or_default();
+
+        let top = crate::agent::dispatch_scores(&queue, &registry, &role)
+            .into_iter()
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("nothing runnable — queue drained or all blocked"))?;
+
+        queue.claim(&top.task_id, agent_id, None, 30)?;
+        queue.save(&tasks_path)?;
+
+        if let Ok(mut reg) = self.load_agent_registry() {
+            if let Some(agent) = reg.get_mut(agent_id) {
+                agent.start_task(&top.task_id);
+                let _ = self.save_agent_registry(&reg);
+            }
+        }
+
+        Ok(serde_json::json!({
+            "claimed": true,
+            "task_id": top.task_id,
+            "title": top.title,
+            "priority": top.priority,
+            "reason": top.reason,
+            "agent_id": agent_id,
         }))
     }
 }

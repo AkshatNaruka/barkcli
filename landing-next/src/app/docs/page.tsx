@@ -11,9 +11,16 @@ import {
   HelpCircle,
   Globe,
   Code2,
+  Bot,
 } from "lucide-react";
 
 const sections = [
+  {
+    title: "Autopilot",
+    description: "Type intent, approve plans, merge. Agents do the rest — start here.",
+    href: "/docs/autopilot",
+    icon: Bot,
+  },
   {
     title: "Getting Started",
     description: "Install barkcli and create your first task in 10 seconds.",
