@@ -83,16 +83,29 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.6,
   }));
 
-  // Machine-readable files for AI agents
+  // Machine-readable files for AI agents and GEO
   const agentFiles = [
     { url: `${BASE_URL}/llms.txt`, lastModified: now, changeFrequency: "weekly" as const, priority: 0.5 },
     { url: `${BASE_URL}/llms-full.txt`, lastModified: now, changeFrequency: "weekly" as const, priority: 0.5 },
+    { url: `${BASE_URL}/ai.txt`, lastModified: now, changeFrequency: "weekly" as const, priority: 0.5 },
     { url: `${BASE_URL}/pricing.md`, lastModified: now, changeFrequency: "monthly" as const, priority: 0.4 },
+  ];
+
+  // Landing hub pages (folder lists) — useful for crawlers to discover all children
+  const hubPages = [
+    { url: `${BASE_URL}/docs/concepts/tasks`, lastModified: now, changeFrequency: "monthly" as const, priority: 0.6 },
+    { url: `${BASE_URL}/docs/concepts/boards`, lastModified: now, changeFrequency: "monthly" as const, priority: 0.6 },
+    { url: `${BASE_URL}/docs/concepts/projects`, lastModified: now, changeFrequency: "monthly" as const, priority: 0.6 },
+    { url: `${BASE_URL}/docs/concepts/code-context`, lastModified: now, changeFrequency: "monthly" as const, priority: 0.6 },
+    { url: `${BASE_URL}/guides`, lastModified: now, changeFrequency: "monthly" as const, priority: 0.7 },
+    { url: `${BASE_URL}/guides/migrate-from-linear`, lastModified: now, changeFrequency: "monthly" as const, priority: 0.6 },
+    { url: `${BASE_URL}/guides/migrate-from-jira`, lastModified: now, changeFrequency: "monthly" as const, priority: 0.6 },
   ];
 
   return [
     ...staticPages,
     ...docPages,
+    ...hubPages,
     ...commandPages,
     ...interfacePages,
     ...comparisonPages,

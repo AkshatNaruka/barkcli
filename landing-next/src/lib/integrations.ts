@@ -3,6 +3,8 @@ export interface Integration {
   name: string;
   description: string;
   icon: string;
+  logo?: string;
+  brandColor?: string;
   setupSteps: string[];
   features: string[];
   configExample: string;
@@ -88,56 +90,65 @@ export const integrations: Integration[] = [
   {
     slug: "opencode",
     name: "OpenCode",
-    description: "Integrate barkcli with OpenCode via MCP. Give your AI agent full task context.",
+    description:
+      "Integrate barkcli with OpenCode via MCP so an OpenCode session can read tasks, claim work, update progress, and run orchestration cycles from inside your repo.",
     icon: "🤖",
+    logo: "/logos/opencode.svg",
+    brandColor: "#D99C57",
     setupSteps: [
-      "Configure MCP in your OpenCode config",
-      "Set barkcli as the MCP server",
-      "Agent reads tasks via MCP tools",
-      "Agent creates and updates tasks",
+      "Install barkcli and run `barkcli init` in your repo",
+      "Add barkcli as an MCP server in your OpenCode config",
+      "OpenCode reads tasks and code context via MCP tools",
+      "OpenCode creates, assigns, and completes tasks",
     ],
     features: [
-      "25+ MCP tools for task management",
-      "Agent reads task context",
-      "Automatic task creation",
-      "Code context integration",
+      "56 MCP tools — task, board, memory, specs, orchestration",
+      "Agent can read full task context from the codebase",
+      "Automatic task creation from prompts",
+      "Code context and symbol search for the agent",
     ],
     configExample: '{\n  "mcpServers": {\n    "barkcli": {\n      "command": "barkcli",\n      "args": ["mcp"]\n    }\n  }\n}',
   },
   {
     slug: "claude-code",
     name: "Claude Code",
-    description: "Connect barkcli to Claude Code via MCP. Give Claude full project context.",
+    description:
+      "Connect barkcli to Claude Code via MCP so Claude can read your board, link tasks to code, manage memory and specs, and report progress — all with full project context.",
     icon: "🧠",
+    logo: "/logos/claude-code.svg",
+    brandColor: "#D97757",
     setupSteps: [
-      "Add barkcli MCP server to Claude Code config",
-      "Claude reads tasks from .board/",
-      "Claude creates tasks via MCP",
-      "Claude links code to tasks",
+      "Install barkcli and run `barkcli init` in your repo",
+      "Add barkcli as an MCP server to Claude Code settings",
+      "Claude reads tasks and specs from .board/",
+      "Claude creates, links, and completes tasks via MCP",
     ],
     features: [
-      "Full task context for Claude",
+      "Full task and spec context for Claude",
       "Automatic task creation from prompts",
-      "Code context mapping",
-      "Session tracking",
+      "Code context mapping and symbol search",
+      "Session tracking and handoff between agents",
     ],
     configExample: '{\n  "mcpServers": {\n    "barkcli": {\n      "command": "barkcli",\n      "args": ["mcp"]\n    }\n  }\n}',
   },
   {
     slug: "cursor",
     name: "Cursor",
-    description: "Use barkcli alongside Cursor. Tasks in your repo, AI context via MCP.",
+    description:
+      "Use barkcli alongside Cursor. Tasks live in your repo and Cursor's AI gets full task context through MCP while you manage boards from the terminal.",
     icon: "📝",
+    logo: "/logos/cursor.svg",
+    brandColor: "#6B5CE7",
     setupSteps: [
-      "Install barkcli binary",
-      "Configure MCP in Cursor settings",
-      "Tasks visible to Cursor's AI",
-      "Manage tasks from terminal or Cursor",
+      "Install barkcli binary and run `barkcli init`",
+      "Configure barkcli as an MCP server in Cursor",
+      "Tasks and specs visible to Cursor's AI",
+      "Manage tasks from terminal or Cursor chat",
     ],
     features: [
       "Tasks as context for Cursor AI",
-      "MCP integration",
-      "Code context mapping",
+      "MCP integration in Cursor settings",
+      "Code context and symbol search",
       "Works alongside Cursor's codebase indexing",
     ],
     configExample: '// .cursor/mcp.json\n{\n  "mcpServers": {\n    "barkcli": {\n      "command": "barkcli",\n      "args": ["mcp"]\n    }\n  }\n}',

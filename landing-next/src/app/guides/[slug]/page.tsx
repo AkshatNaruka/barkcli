@@ -160,13 +160,21 @@ barkcli list  # See updated board`,
       },
       {
         title: "Step 3: Use MCP Tools",
-        content: "Your agent can now use 25+ barkcli tools.",
+        content: "Your agent can now use 56 barkcli tools for boards, cards, memory, specs, sessions, orchestration, and code search.",
         code: `# Agent can now:
 # - List tasks: board_list, card_list
 # - Create tasks: card_create
+# - Claim work: task_claim, packet_claim
 # - Search code: code_search
-# - Get call graphs: callgraph_get
-# - Register as agent: agent_register`,
+# - Register as agent: agent_register
+# - Run cycles: orchestrate_cycle, dispatch
+# - Snapshot: mind_snapshot, overview`,
+      },
+      {
+        title: "Step 4: Register Your Agent",
+        content: "Register an agent id so barkcli can assign tasks and track sessions.",
+        code: `barkcli agent register --id claude-code --name "My Agent"
+barkcli agent watch   # Follow the agent's work`,
       },
     ],
   },
@@ -300,6 +308,30 @@ export default async function GuidePage({ params }: PageProps) {
         >
           ← All Guides
         </Link>
+      </div>
+
+      <div className="mt-12 rounded-xl border border-white/10 bg-white/5 p-6">
+        <h2 className="mb-2 text-lg font-semibold">Keep going</h2>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/docs/getting-started"
+            className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-white/90"
+          >
+            Getting Started →
+          </Link>
+          <Link
+            href="/integrations"
+            className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition-colors hover:bg-white/10"
+          >
+            Integrations
+          </Link>
+          <Link
+            href="/compare"
+            className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition-colors hover:bg-white/10"
+          >
+            Compare
+          </Link>
+        </div>
       </div>
     </>
   );

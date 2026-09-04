@@ -79,6 +79,34 @@ export default function UseCasesPage() {
           );
         })}
       </div>
+
+      <div className="mt-16 rounded-xl border border-white/10 bg-white/5 p-8 text-center">
+        <h2 className="mb-2 text-2xl font-bold">Start Your First Board</h2>
+        <p className="mx-auto mb-6 max-w-md text-white/60">
+          Whatever your workflow, barkcli adapts. Install the binary and init a
+          board in any repo.
+        </p>
+        <div className="flex flex-wrap justify-center gap-4">
+          <Link
+            href="/docs/getting-started"
+            className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-white/90"
+          >
+            Get Started →
+          </Link>
+          <Link
+            href="/guides/migrate-from-jira"
+            className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition-colors hover:bg-white/10"
+          >
+            Migrate from Jira
+          </Link>
+          <Link
+            href="/compare"
+            className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition-colors hover:bg-white/10"
+          >
+            Compare Alternatives
+          </Link>
+        </div>
+      </div>
     </>
   );
 }

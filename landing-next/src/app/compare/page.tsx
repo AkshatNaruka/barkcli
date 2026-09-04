@@ -1,17 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {
-  GitBranch,
-  Cloud,
-  DollarSign,
-  Wifi,
-  Users,
-  Settings,
-  Check,
-  X,
-  ChevronRight,
-} from "lucide-react";
+import { ChevronRight } from "lucide-react";
 
 const comparisons = [
   { slug: "linear", name: "Linear", tagline: "barkcli vs Linear — Git-native vs Cloud-first" },
@@ -42,9 +32,39 @@ const faqs = [
   },
 ];
 
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqs.map((faq) => ({
+    "@type": "Question",
+    name: faq.question,
+    acceptedAnswer: { "@type": "Answer", text: faq.answer },
+  })),
+};
+
 export default function ComparePage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            name: "barkcli comparisons",
+            itemListElement: comparisons.map((comp, i) => ({
+              "@type": "ListItem",
+              position: i + 1,
+              name: `barkcli vs ${comp.name}`,
+              url: `https://barkcli.vercel.app/compare/${comp.slug}`,
+            })),
+          }),
+        }}
+      />
       <h1 className="mb-4 text-4xl font-bold tracking-tight">
         Compare barkcli
       </h1>
@@ -82,6 +102,34 @@ export default function ComparePage() {
               <p className="text-white/60">{faq.answer}</p>
             </div>
           ))}
+        </div>
+      </div>
+
+      <div className="mt-16 rounded-xl border border-white/10 bg-white/5 p-8 text-center">
+        <h2 className="mb-2 text-2xl font-bold">Try barkcli Free</h2>
+        <p className="mx-auto mb-6 max-w-md text-white/60">
+          Tasks in your repo, AI agents in your loop, $0 forever. Install in 10
+          seconds.
+        </p>
+        <div className="flex flex-wrap justify-center gap-4">
+          <Link
+            href="/docs/getting-started"
+            className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-white/90"
+          >
+            Get Started →
+          </Link>
+          <Link
+            href="/integrations"
+            className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition-colors hover:bg-white/10"
+          >
+            AI Agent Integrations
+          </Link>
+          <Link
+            href="/guides/ai-agent-setup"
+            className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition-colors hover:bg-white/10"
+          >
+            Agent Setup Guide
+          </Link>
         </div>
       </div>
     </>

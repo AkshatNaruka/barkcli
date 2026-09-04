@@ -16,7 +16,7 @@ export function generatePageMetadata({
   keywords?: string[];
 }): Metadata {
   const url = `${SITE_URL}${path}`;
-  const ogImage = image || `${SITE_URL}/og-image.png`;
+  const ogImage = image || `${SITE_URL}/opengraph-image`;
 
   return {
     title,

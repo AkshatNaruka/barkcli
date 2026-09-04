@@ -68,7 +68,7 @@ export const metadata: Metadata = {
       "The management layer between humans and AI coding agents. Tasks, specs, memory, and agent runs live in your repo. Free and open source.",
     images: [
       {
-        url: `${SITE_URL}/og-image.png`,
+        url: `${SITE_URL}/opengraph-image`,
         width: 1200,
         height: 630,
         alt: "barkcli — Git-native task management",
@@ -81,7 +81,7 @@ export const metadata: Metadata = {
     description:
       "Tasks, specs, memory, and agent runs live in your repo. CLI, web app, and 56 MCP tools. No cloud. Free and open source (MIT).",
     creator: "@probiex007",
-    images: [`${SITE_URL}/og-image.png`],
+    images: [`${SITE_URL}/opengraph-image`],
   },
   robots: {
     index: true,
@@ -118,6 +118,21 @@ const structuredData = {
   "@context": "https://schema.org",
   "@graph": [
     {
+      "@type": "Organization",
+      name: "barkcli",
+      url: SITE_URL,
+      logo: `${SITE_URL}/icon.svg`,
+      sameAs: [
+        "https://github.com/AkshatNaruka/barkcli",
+        "https://github.com/AkshatNaruka",
+      ],
+      contactPoint: {
+        "@type": "ContactPoint",
+        contactType: "support",
+        email: "narukaakshat@gmail.com",
+      },
+    },
+    {
       "@type": "SoftwareApplication",
       name: "barkcli",
       applicationCategory: "DeveloperApplication",
@@ -150,7 +165,7 @@ const structuredData = {
         "Session capture and checkpoints",
         "Import/export",
       ],
-      screenshot: `${SITE_URL}/og-image.png`,
+      screenshot: `${SITE_URL}/opengraph-image`,
       softwareVersion: "0.3.0",
       downloadUrl: "https://github.com/AkshatNaruka/barkcli/releases",
       installUrl: `${SITE_URL}/docs/getting-started`,
@@ -168,14 +183,6 @@ const structuredData = {
         url: SITE_URL,
         logo: `${SITE_URL}/icon.svg`,
       },
-      potentialAction: {
-        "@type": "SearchAction",
-        target: {
-          "@type": "EntryPoint",
-          urlTemplate: `${SITE_URL}/docs?q={search_term_string}`,
-        },
-        "query-input": "required name=search_term_string",
-      },
     },
     {
       "@type": "BreadcrumbList",
@@ -191,6 +198,43 @@ const structuredData = {
           position: 2,
           name: "Documentation",
           item: `${SITE_URL}/docs`,
+        },
+      ],
+    },
+    {
+      "@type": "FAQPage",
+      mainEntity: [
+        {
+          "@type": "Question",
+          name: "What is barkcli?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "barkcli is an open-source (MIT) management layer between humans and AI coding agents. Tasks, specs, memory, skills, and agent runs live in your git repo. It provides a CLI, terminal UI, web app, and 56 MCP tools for AI agents.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "Is barkcli free?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Yes. barkcli is fully free and open source under the MIT license — no subscriptions, no per-seat pricing, no cloud. Pro commands are included for free.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "Does barkcli work with Claude Code, OpenCode, and Cursor?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Yes. barkcli exposes 56 MCP tools and works as an MCP server with Claude Code, OpenCode, Cursor, and any MCP-compatible AI agent. See the integrations page for setup.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "Does barkcli upload my tasks to the cloud?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "No. Tasks are YAML files committed to your git repository. barkcli runs fully locally and can work offline with no accounts.",
+          },
         },
       ],
     },

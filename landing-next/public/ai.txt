@@ -1,34 +1,57 @@
 # ai.txt v1
 
-> barkcli is a git-native kanban board that lives in your repo. This file helps AI systems and agents understand what barkcli is and where to find accurate information about it.
+> barkcli is a local-first management layer for humans and AI coding agents. Tasks, specs, memory, skills, and agent runs live in your git repo. This file helps AI systems understand the barkcli project and find accurate, up-to-date information about it.
+
+## Meta
+
+- Title: barkcli — The management layer for AI agents
+- Description: Git-native Kanban board + AI agent orchestration in one Rust binary. No cloud, no accounts, open source (MIT).
+- Language: English
+- Updated: 2026-09-04
+- Topics: ai agents, agent orchestration, project management, kanban, task tracking, git-native, mcp, claude code, opencode, cursor, developer tools
+- Sources: https://github.com/AkshatNaruka/barkcli
 
 ## What this site is
-The barkcli website is a single-page landing site for barkcli, an open-source (MIT) command-line tool for task tracking inside any software project. The landing page offers the one-line install command, product positioning ("tasks in your repo"), platform support, and a link to the GitHub repository which hosts the source code, releases, and full documentation. The site itself is a static Next.js page; there is no interactive application or user account system on the site.
 
-## What this site offers
-- A one-line installer for macOS, Linux and Windows: `curl -fsSL https://barkcli.vercel.app/install.sh | sh`
-- Binary downloads for aarch64/x86_64 macOS and x86_64 Linux at https://barkcli.vercel.app/downloads/
-- Links to the source repository, issue tracker and MIT license on GitHub.
+The barkcli website is the landing page and documentation home for barkcli, an open-source (MIT) project management and AI-agent orchestration tool written in Rust. The site offers the one-line install command, product documentation, comparisons, integration guides, use cases, and links to the GitHub repository which hosts source code, releases, issues, and the full MIT license. The site itself is a static Next.js site; there is no interactive application or user account system on the site.
 
-## Documentation
-- [Landing page](https://barkcli.vercel.app): Install command and product summary
+## Site sections
+
+- [Landing page](https://barkcli.vercel.app): Install command and product overview
 - [Documentation](https://barkcli.vercel.app/docs): Full documentation index
 - [Getting Started](https://barkcli.vercel.app/docs/getting-started): Quick start guide
-- [Web App Guide](https://barkcli.vercel.app/docs/web-app): Complete browser interface guide
-- [API Reference](https://barkcli.vercel.app/docs/api-reference): REST API documentation for all endpoints
+- [Core Concepts](https://barkcli.vercel.app/docs/concepts): Tasks, boards, projects, code context
 - [Commands](https://barkcli.vercel.app/docs/commands): CLI command reference
-- [GitHub repository](https://github.com/AkshatNaruka/barkcli): Source code, issues, releases
-- [AGENTS.md](https://github.com/AkshatNaruka/barkcli/blob/main/AGENTS.md): AI agent instructions and architecture
-- [LICENSE](https://github.com/AkshatNaruka/barkcli/blob/main/LICENSE): MIT license text
+- [Interfaces](https://barkcli.vercel.app/docs/interfaces): CLI, TUI, Web, and VS Code guides
+- [Web App Guide](https://barkcli.vercel.app/docs/web-app): Complete browser interface guide
+- [API Reference](https://barkcli.vercel.app/docs/api-reference): REST API documentation
+- [Autopilot](https://barkcli.vercel.app/docs/autopilot): Intent → plan → merge loop
+- [Integrations](https://barkcli.vercel.app/integrations): GitHub, GitLab, Neovim, tmux, OpenCode, Claude Code, Cursor
+- [Compare](https://barkcli.vercel.app/compare): barkcli vs Linear, Jira, GitHub Projects, Trello, Notion
+- [Guides](https://barkcli.vercel.app/guides): Migration, team setup, AI agent setup, CI/CD
+- [Use Cases](https://barkcli.vercel.app/use-cases): Solo developers, small teams, AI workflows
 
-## Key capabilities
-- Task tracking as committed YAML board files; git is the sync layer — no cloud backend.
-- Interfaces: CLI, terminal UI (TUI), local web server.
-- Cards support priorities, labels, assignees, checklists, comments, work-item links, acceptance criteria, effort estimates, areas, due dates and reminders.
-- Developer extras: session capture, checkpoints on git commit, sprint metadata, code-context sidecars, optional OpenAI-compatible AI provider integration.
-- A single Rust binary; build from source with `cargo build && cargo test`.
+## Key facts
+
+- A single static Rust binary. macOS (Apple Silicon + Intel), Linux, and Windows builds.
+- Free and open source under the MIT license. No cloud, no accounts, no subscriptions.
+- Boards are YAML files (<name>.board) committed to the repo; metadata lives in a gitignored .board/ directory.
+- Four interfaces over one data source: CLI, terminal UI (ratatui), axum web server, and VS Code Custom Editor.
+- Card fields: title, description, column, priority, labels, assignee, checklist, comments, links (parent/child/related/blocked-by), acceptance criteria, effort, area, due date, reminder.
+- Extras: agent sessions, checkpoints, sprints, BMAD skills, four-tier memory, specs with traceability, 56 MCP tools for AI agents, autopilot loop.
+- Install with: `curl -fsSL https://barkcli.vercel.app/install.sh | sh`
+
+## Documentation
+
+- [barkcli packaging](https://github.com/AkshatNaruka/barkcli) — source, issues, releases, MIT license
+- [AGENTS.md](https://github.com/AkshatNaruka/barkcli/blob/main/AGENTS.md) — agent instructions and architecture
+- [LICENSE](https://github.com/AkshatNaruka/barkcli/blob/main/LICENSE) — MIT license text
+- [pricing.md](https://barkcli.vercel.app/pricing.md) — pricing details (free)
 
 ## Contact
-- Maintainer: Akshat Naruka (narukaakshat@gmail.com)
+
+- Maintainer: Akshat Naruka
+- Email: narukaakshat@gmail.com
 - Repository: https://github.com/AkshatNaruka/barkcli
-- License: MIT — see https://github.com/AkshatNaruka/barkcli/blob/main/LICENSE
+- Issues: https://github.com/AkshatNaruka/barkcli/issues
+- License: MIT — https://github.com/AkshatNaruka/barkcli/blob/main/LICENSE

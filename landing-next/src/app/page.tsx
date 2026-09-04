@@ -18,13 +18,11 @@ import {
   ChevronDown,
   Check,
   Copy,
-  FileCode,
   LayoutDashboard,
   BarChart3,
   Settings,
   Sparkles,
   ArrowRight,
-  Cpu,
   Shield,
   GitMerge,
   Boxes,
@@ -36,6 +34,12 @@ import {
   Brain,
   Layers,
 } from "lucide-react";
+import {
+  OpenCodeLogo,
+  ClaudeCodeLogo,
+  CursorLogo,
+  AnyAgentLogo,
+} from "@/components/AgentLogos";
 
 const INSTALL = "curl -fsSL https://barkcli.vercel.app/install.sh | sh";
 
@@ -480,16 +484,28 @@ function ProductMock() {
         <div className="hidden md:flex flex-col w-48 shrink-0 border-l border-white/10 p-3">
           <div className="text-[10px] font-mono uppercase tracking-widest text-white/30 mb-2">Agents</div>
           {[
-            { name: "opencode-1", task: "OAuth flow", tool: "opencode" },
-            { name: "claude-2", task: "Token storage", tool: "claude" },
-            { name: "human-you", task: "Review queue", tool: "human" },
+            {
+              name: "opencode-1",
+              task: "OAuth flow",
+              tool: "opencode",
+              Logo: OpenCodeLogo,
+            },
+            {
+              name: "claude-2",
+              task: "Token storage",
+              tool: "claude",
+              Logo: ClaudeCodeLogo,
+            },
+            {
+              name: "human-you",
+              task: "Review queue",
+              tool: "human",
+              Logo: AnyAgentLogo,
+            },
           ].map((a) => (
             <div key={a.name} className="py-1.5 border-b border-white/5 last:border-0">
               <div className="flex items-center gap-1.5">
-                <span
-                  className="w-1.5 h-1.5 rounded-full animate-pulse"
-                  style={{ backgroundColor: AGENT_BRAND[a.tool] }}
-                />
+                <a.Logo className="w-3.5 h-3.5 shrink-0" />
                 <span className="text-[11px] font-mono text-white/70">{a.name}</span>
               </div>
               <div className="text-[10px] mt-0.5" style={{ color: AGENT_BRAND[a.tool] }}>
@@ -540,6 +556,20 @@ export default function Home() {
 
   return (
     <div className="min-h-screen w-full bg-black text-white selection:bg-[#B8845C]/30">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            mainEntity: FAQ.map((item) => ({
+              "@type": "Question",
+              name: item.question,
+              acceptedAnswer: { "@type": "Answer", text: item.answer },
+            })),
+          }),
+        }}
+      />
       {/* Hero Section */}
       <section className="relative min-h-screen flex flex-col overflow-hidden">
         {/* Video Background */}
@@ -1037,10 +1067,18 @@ export default function Home() {
             {/* Agent Config Tabs */}
             <div className="flex gap-2 mb-6 overflow-x-auto pb-2 -mx-2 px-2 sm:mx-0 sm:px-0 sm:justify-center sm:flex-wrap">
               {[
-                { id: "claude", label: "Claude Code", icon: Cpu },
-                { id: "opencode", label: "OpenCode", icon: Code },
-                { id: "cursor", label: "Cursor", icon: FileCode },
-                { id: "generic", label: "Any Agent", icon: Terminal },
+                {
+                  id: "claude",
+                  label: "Claude Code",
+                  Logo: ClaudeCodeLogo,
+                },
+                { id: "opencode", label: "OpenCode", Logo: OpenCodeLogo },
+                { id: "cursor", label: "Cursor", Logo: CursorLogo },
+                {
+                  id: "generic",
+                  label: "Any Agent",
+                  Logo: AnyAgentLogo,
+                },
               ].map((agent) => (
                 <button
                   key={agent.id}
@@ -1051,7 +1089,7 @@ export default function Home() {
                       : "border border-white/10 text-white/50 hover:text-white hover:border-white/20 hover:bg-white/5"
                   }`}
                 >
-                  <agent.icon className="w-3.5 h-3.5" />
+                  <agent.Logo className="w-3.5 h-3.5" />
                   {agent.label}
                 </button>
               ))}

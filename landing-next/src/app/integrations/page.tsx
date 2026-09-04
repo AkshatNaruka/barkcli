@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { generatePageMetadata } from "@/lib/seo";
@@ -30,7 +31,19 @@ export default function IntegrationsPage() {
             href={`/integrations/${int.slug}`}
             className="group rounded-xl border border-white/10 bg-white/5 p-6 transition-colors hover:border-white/20 hover:bg-white/10"
           >
-            <div className="mb-3 text-3xl">{int.icon}</div>
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-white/10 bg-black/40">
+              {int.logo ? (
+                <Image
+                  src={int.logo}
+                  alt={`${int.name} logo`}
+                  width={28}
+                  height={28}
+                  className="h-7 w-7 object-contain"
+                />
+              ) : (
+                <span className="text-3xl">{int.icon}</span>
+              )}
+            </div>
             <h2 className="mb-2 text-xl font-semibold text-white group-hover:text-white/90">
               {int.name}
             </h2>

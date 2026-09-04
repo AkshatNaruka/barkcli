@@ -1,24 +1,42 @@
-# barkcli Pricing
+# Pricing — barkcli
 
-> barkcli is free and open source (MIT license).
+> barkcli is fully free and open source under the MIT license. There is no paid tier, no per-seat pricing, no cloud, and no account required. This file is written for human readers and AI agents evaluating the product.
+
+## Summary
+
+| Plan | Price | Licenses | Limits |
+|------|-------|----------|--------|
+| Free (Open Source) | $0 — forever | Unlimited users | Unlimited boards, cards, and projects |
+| Pro features | $0 — included | Unlimited users | Included in the same binary |
+| Enterprise | Custom | N/A | contact: support@barkcli.dev |
+
+There is no pricing tier above Free. Every feature ships in the MIT-licensed binary.
 
 ## Free Tier (Open Source)
 
-- **Price:** $0 — forever
-- **License:** MIT
+- **Price:** $0/month (one-time install, no subscription)
+- **License:** MIT — modify and redistribute freely
+- **Users:** Unlimited (collaboration via git)
+- **Boards:** Unlimited
+- **Cards:** Unlimited
+- **Projects:** Unlimited
 - **Includes:**
   - CLI, Terminal UI, Web App, VS Code Extension
-  - Unlimited boards, cards, and projects
   - Git integration (diff, merge, version control)
   - Code context (symbol search, file mapping)
-  - MCP server for AI coding agents
+  - MCP server for AI coding agents (56 tools)
   - Sessions, checkpoints, sprints
-  - Import/export
-  - Team collaboration via git
+  - Import/export (YAML, JSON)
+  - Timeline: undo, diff, blame, validate, doctor
+  - Memory system with hybrid search
+  - BMAD skills and templates
+  - Team collaboration via git push/pull
 
 ## Pro Features (Included Free)
 
-- **Price:** $0 — included in open source
+While labeled "Pro", these are part of the open source binary at no cost:
+
+- **Price:** $0 — included
 - **Includes:**
   - AI task breakdown (`barkcli ai`)
   - AI acceptance criteria (`barkcli agent propose`)
@@ -26,9 +44,10 @@
   - Sprint velocity tracking
   - Board templates
   - GitHub Issues sync
-  - Memory system with hybrid search
+  - Autopilot loop (intent → plan → review → merge)
+  - Spec traceability and coverage reports
 
-## Enterprise
+## Enterprise / Support
 
 - **Price:** Custom — contact support@barkcli.dev
 - **Includes:**
@@ -37,17 +56,26 @@
   - Training and onboarding
   - SLA guarantees
 
+## Data Ownership
+
+- All data stays in your repository as YAML files (`.board/`).
+- No telemetry, no data leaves your machine unless you push your repo.
+- Works fully offline.
+
 ## Installation
 
 ```bash
-# npm
-npm install -g barkcli
+# One-liner (recommended)
+curl -fsSL https://barkcli.vercel.app/install.sh | sh
 
-# cargo
+# Homebrew
+brew tap AkshatNaruka/barkcli && brew install barkcli
+
+# Cargo
 cargo install barkcli
 
-# binary
-curl -fsSL https://barkcli.vercel.app/install.sh | sh
+# Binary releases
+# https://github.com/AkshatNaruka/barkcli/releases
 ```
 
 ## Source Code
@@ -55,3 +83,4 @@ curl -fsSL https://barkcli.vercel.app/install.sh | sh
 - GitHub: https://github.com/AkshatNaruka/barkcli
 - License: MIT
 - Issues: https://github.com/AkshatNaruka/barkcli/issues
+- Version: 0.3.0
