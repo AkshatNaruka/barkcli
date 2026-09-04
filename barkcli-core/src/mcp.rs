@@ -12,7 +12,7 @@
 //! - `resources/list`: List available resources
 //! - `resources/read`: Read a resource
 //!
-//! # Available Tools
+//! # Available Tools (51)
 //!
 //! ## Board Management
 //! - `board_list`: List all boards
@@ -23,6 +23,7 @@
 //! - `card_create`: Create a new card
 //! - `card_update`: Update a card
 //! - `card_move`: Move card to different column
+//! - `card_comment`: Add comment to a card
 //!
 //! ## Task Management
 //! - `task_list`: List tasks
@@ -31,19 +32,31 @@
 //! - `task_claim`: Claim a task for an agent
 //! - `task_complete`: Mark task as completed
 //! - `task_fail`: Mark task as failed
+//! - `task_block` / `task_unblock` / `task_heartbeat`: Lifecycle helpers
+//! - `progress_note`: Append progress note
 //!
 //! ## Agent Management
 //! - `agent_register`: Register as an agent
 //! - `agent_status`: Get agent status
 //! - `agent_list`: List registered agents
+//! - `agent_heartbeat`: Agent liveness ping
 //!
 //! ## Code Context
 //! - `context_scan`: Scan codebase and build context
 //! - `context_get`: Get context for a card
-//! - `context_sync`: Sync context with git
 //! - `code_search`: Search code symbols
 //! - `callgraph_get`: Get call graph for a file
-//! - `metrics_get`: Get code metrics
+//! - `metrics_get`: Get code metrics (complexity, risk)
+//!
+//! ## Management layer
+//! - `mind_snapshot` / `overview`: Project health
+//! - `skill_list` / `skill_get`: BMAD skills
+//! - `intake`: Classify text → card + spec
+//! - `prime` / `ready` / `packet_get` / `handoff` / `verify`: Agent handoff helpers
+//! - `sprint_list` / `sprint_start` / `sprint_end`: Sprints
+//! - `orchestrate_next` / `orchestrate_cycle`: Dispatch
+//! - `memory_add` / `memory_search` / `memory_list`: Cross-session memory
+//! - `session_spawn` / `session_list` / `session_logs` / `session_kill` / `fleet_status`: Sessions & fleet
 //!
 //! # Usage
 //!

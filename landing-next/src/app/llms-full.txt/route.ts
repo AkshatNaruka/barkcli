@@ -11,14 +11,14 @@ barkcli is a local-first project management tool. Tasks are stored as YAML files
 ### Installation
 
 \`\`\`bash
-# npm
-npm install -g barkcli
+# macOS / Linux
+curl -fsSL https://barkcli.vercel.app/install.sh | sh
 
 # cargo
 cargo install barkcli
 
-# binary
-curl -fsSL https://raw.githubusercontent.com/AkshatNaruka/barkcli/main/install.sh | sh
+# homebrew
+brew tap AkshatNaruka/barkcli && brew install barkcli
 \`\`\`
 
 ### Quick Start
@@ -26,11 +26,14 @@ curl -fsSL https://raw.githubusercontent.com/AkshatNaruka/barkcli/main/install.s
 \`\`\`bash
 barkcli init
 barkcli create my-project
-barkcli my-project add "Set up CI/CD" -p high -l devops
-barkcli my-project list
-barkcli my-project move set-up-cicd doing
+barkcli add "Set up CI/CD" -p high -l devops
+barkcli list
+barkcli move set-up-cicd doing
 barkcli serve --open
 \`\`\`
+
+> Board-agnostic by default (uses default board). Legacy per-board form
+> \`barkcli <board> add/list/...\` still works.
 
 ---
 
@@ -102,14 +105,14 @@ barkcli code "AuthService"
 - \`barkcli init\` — Initialize .board/ directory
 - \`barkcli create <name>\` — Create a board
 
-### Task Management
-- \`barkcli <board> add <title>\` — Add task (-p, -l, -a, -c, -d, --due, --effort)
-- \`barkcli <board> list\` — List tasks (-c, -p, -l filters)
-- \`barkcli <board> show <id>\` — View task details
-- \`barkcli <board> move <id> <column>\` — Move task
-- \`barkcli <board> done <id>\` — Mark as done
-- \`barkcli <board> update <id>\` — Update fields
-- \`barkcli <board> remove <id>\` — Delete task
+### Task Management (board-agnostic; legacy \`barkcli <board> <cmd>\` also works)
+- \`barkcli add <title>\` — Add task (-p, -l, -a, -c, -d, --due, --effort)
+- \`barkcli list\` — List tasks (-c, -p, -l filters)
+- \`barkcli show <id>\` — View task details
+- \`barkcli move <id> <column>\` — Move task
+- \`barkcli done <id>\` — Mark as done
+- \`barkcli update <id>\` — Update fields
+- \`barkcli remove <id>\` — Delete task
 
 ### Board Management
 - \`barkcli boards\` — List boards
@@ -117,14 +120,14 @@ barkcli code "AuthService"
 - \`barkcli status\` — Summary per column
 
 ### Links & Hierarchy
-- \`barkcli <board> link <id> <target> --as parent|child|related|blocked-by\`
-- \`barkcli <board> tree\` — View hierarchy
+- \`barkcli link <id> <target> --as parent|child|related|blocked-by\`
+- \`barkcli tree\` — View hierarchy
 
 ### History & Undo
-- \`barkcli <board> log\` — View history
-- \`barkcli <board> undo\` — Revert last change
-- \`barkcli <board> diff\` — Show changes
-- \`barkcli <board> blame <id>\` — Card change history
+- \`barkcli log\` — View history
+- \`barkcli undo\` — Revert last change
+- \`barkcli diff\` — Show changes
+- \`barkcli blame <id>\` — Card change history
 
 ### Code Context
 - \`barkcli code <query>\` — Search symbols
@@ -134,7 +137,16 @@ barkcli code "AuthService"
 
 ### Interfaces
 - \`barkcli tui\` — Terminal UI
-- \`barkcli serve [--open] [--port] [--token]\` — Web server
+- \`barkcli serve [--open] [--port 4321] [--board] [--host] [--token] [--daemon|--status|--stop|--kill]\` — Web server
+
+### Management layer
+- \`barkcli intake "<text>" [--feature|--bug] [--dry-run]\` — Classify intent → card + spec
+- \`barkcli plan <card> [--tasks] [--auto]\` — Spec + decomposition
+- \`barkcli dispatch\` — Run orchestration cycle
+- \`barkcli review [--all] [--auto]\` — Validate completed work
+- \`barkcli mind sync|show\` + \`barkcli overview\` — Project health
+- \`barkcli skills list|show\` — BMAD skills
+- \`barkcli memory add|search|list|stats\` — 4-tier memory
 
 ### Advanced
 - \`barkcli session list/show/resume\` — Agent sessions
@@ -383,7 +395,7 @@ Free and open source (MIT license). No subscriptions, no per-seat pricing.
 
 - GitHub: https://github.com/AkshatNaruka/barkcli
 - License: MIT
-- Version: 0.2.0
+- Version: 0.3.0
 `;
 
 export async function GET() {

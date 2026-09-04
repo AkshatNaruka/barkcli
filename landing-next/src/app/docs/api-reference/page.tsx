@@ -41,7 +41,7 @@ const sections = [
   {
     title: "Specs Endpoints",
     endpoints: [
-      { method: "GET", path: "/api/specs", desc: "List specs" },
+      { method: "GET", path: "/api/specs?name=", desc: "List specs" },
       { method: "POST", path: "/api/specs", desc: "Create spec" },
       { method: "GET", path: "/api/specs/:id", desc: "Get spec details" },
       { method: "PUT", path: "/api/specs/:id", desc: "Update spec" },
@@ -50,6 +50,7 @@ const sections = [
       { method: "PUT", path: "/api/specs/:id/requirements/:req_id", desc: "Update requirement" },
       { method: "GET", path: "/api/specs/:id/trace", desc: "Traceability view" },
       { method: "GET", path: "/api/specs/coverage", desc: "Coverage report" },
+      { method: "POST", path: "/api/specs/scan-stale", desc: "Scan for stale requirements" },
     ],
   },
   {
@@ -72,7 +73,7 @@ const sections = [
   {
     title: "Import/Export Endpoints",
     endpoints: [
-      { method: "GET", path: "/api/export?format=", desc: "Export board (yaml/json)" },
+      { method: "GET", path: "/api/export?name=&format=", desc: "Export board (yaml/json)" },
       { method: "POST", path: "/api/import", desc: "Import board" },
     ],
   },
@@ -98,19 +99,43 @@ const sections = [
       { method: "POST", path: "/api/agents", desc: "Register agent" },
       { method: "GET", path: "/api/agents/:id", desc: "Get agent" },
       { method: "DELETE", path: "/api/agents/:id", desc: "Remove agent" },
+      { method: "GET", path: "/api/agents/:id/status", desc: "Agent status" },
+      { method: "POST", path: "/api/orchestrate/next", desc: "Dispatch next task" },
       { method: "POST", path: "/api/orchestrate/cycle", desc: "Run orchestration cycle" },
       { method: "GET", path: "/api/orchestrate/status", desc: "Orchestration status" },
     ],
   },
   {
+    title: "Sprints Endpoints",
+    endpoints: [
+      { method: "GET", path: "/api/sprints", desc: "List sprints" },
+      { method: "POST", path: "/api/sprints", desc: "Start sprint" },
+      { method: "POST", path: "/api/sprints/end", desc: "End sprint" },
+    ],
+  },
+  {
+    title: "Mind & Skills Endpoints",
+    endpoints: [
+      { method: "GET", path: "/api/mind", desc: "Mind snapshot (health, blockers, next)" },
+      { method: "GET", path: "/api/mind/digest", desc: "Mind digest markdown" },
+      { method: "GET", path: "/api/skills", desc: "List BMAD skills" },
+      { method: "GET", path: "/api/skills/:id", desc: "Get skill by id" },
+      { method: "GET", path: "/api/docs", desc: "List bundled docs" },
+      { method: "GET", path: "/api/docs/:file", desc: "Get doc file" },
+    ],
+  },
+  {
     title: "Other Endpoints",
     endpoints: [
-      { method: "GET", path: "/api/history", desc: "Operation history" },
-      { method: "GET", path: "/api/sessions", desc: "Agent sessions" },
-      { method: "GET", path: "/api/context", desc: "Code context" },
+      { method: "GET", path: "/api/history?card=&limit=&since=", desc: "Operation history" },
+      { method: "GET", path: "/api/sessions?limit=&since=", desc: "Agent sessions" },
+      { method: "GET", path: "/api/context?name=", desc: "Code context" },
       { method: "POST", path: "/api/context/sync", desc: "Git-aware context refresh" },
-      { method: "GET", path: "/api/code?q=", desc: "Symbol search" },
+      { method: "POST", path: "/api/context/clear", desc: "Clear code context" },
+      { method: "GET", path: "/api/code?q=&top=", desc: "Symbol search" },
       { method: "GET", path: "/api/config", desc: "AI configuration" },
+      { method: "GET", path: "/api/checkpoints?name=", desc: "List checkpoints (see Timeline)" },
+      { method: "GET", path: "/api/diff?name=", desc: "Show diff (see Timeline)" },
       { method: "WS", path: "/ws", desc: "WebSocket for live reload" },
     ],
   },

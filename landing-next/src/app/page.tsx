@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { MCP_TOOL_COUNT } from "@/lib/mcp";
 import {
   FolderOpen,
   CloudOff,
@@ -176,16 +177,16 @@ $ barkcli move deploy-to-production done
 ];
 
 const CODE_FEATURES = [
-  { icon: GitBranch, title: "Call Graphs", metric: "→", desc: "Map function calls across files. Understand impact before you change." },
-  { icon: TestTube, title: "Test Coverage", metric: "87%", desc: "See which tests cover which code. Identify gaps automatically." },
-  { icon: Zap, title: "Complexity", metric: "C-12", desc: "Cyclomatic and cognitive complexity scores. Find risky code early." },
-  { icon: TrendingUp, title: "Risk Score", metric: "0.3", desc: "Combined risk assessment. Prioritize refactoring where it matters." },
+  { icon: GitBranch, title: "Call Graphs", metric: "→", desc: "Map function calls across files via `callgraph_get`. Understand impact before you change." },
+  { icon: TestTube, title: "Test Coverage", metric: "e.g. 87%", desc: "Heuristic test-file mapping via `context_get` — see which cards link to which tests." },
+  { icon: Zap, title: "Complexity", metric: "e.g. C-12", desc: "Cyclomatic + cognitive scores via `metrics_get`. Find risky code early." },
+  { icon: TrendingUp, title: "Risk Score", metric: "e.g. 0.3", desc: "Formula-based risk (complexity, nesting, size) via `metrics_get`." },
 ];
 
 const FAQ = [
   {
     question: "Is barkcli a CLI tool or a web app?",
-    answer: "Both — but think of it as a management layer, not a tool. The same data powers the CLI, terminal UI, VS Code extension, and web app. Humans manage in the web app (Mind, Board, Agents), agents work through 38 MCP tools, and everything syncs through files in your repo.",
+    answer: "Both — but think of it as a management layer, not a tool. The same data powers the CLI, terminal UI, VS Code extension, and web app. Humans manage in the web app (Mind, Board, Agents), agents work through 51 MCP tools, and everything syncs through files in your repo.",
   },
   {
     question: "What makes barkcli different from Jira or Linear?",
@@ -201,7 +202,7 @@ const FAQ = [
   },
   {
     question: "How do AI agents fit in?",
-    answer: "barkcli sits between you and your coding agents. You write intent (intake → plan), agents claim scoped tasks with file context and skills (dispatch), and completed work is validated before it lands (review). Memory persists decisions across sessions. Agents connect via 38 MCP tools — OpenCode, Claude Code, and Cursor all work. The core stays fully usable offline without any AI.",
+    answer: "barkcli sits between you and your coding agents. You write intent (intake → plan), agents claim scoped tasks with file context and skills (dispatch), and completed work is validated before it lands (review). Memory persists decisions across sessions. Agents connect via 51 MCP tools — OpenCode, Claude Code, and Cursor all work. The core stays fully usable offline without any AI.",
   },
   {
     question: "Is it free?",
@@ -381,7 +382,7 @@ function ProductMock() {
         </div>
         <div className="flex-1 text-center">
           <span className="text-[11px] font-mono text-white/30 bg-white/5 border border-white/10 rounded-md px-3 py-1">
-            localhost:3000 — barkcli mind
+            localhost:4321 — barkcli mind
           </span>
         </div>
         <div className="w-10" />
@@ -572,11 +573,33 @@ export default function Home() {
               <a
                 key={link.href}
                 href={link.href}
-                className="text-xs text-white/60 hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-white/5 hidden md:block"
+                className="text-xs text-white/60 hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-white/5 hidden sm:block"
               >
                 {link.label}
               </a>
             ))}
+            <details className="relative sm:hidden">
+              <summary className="text-xs text-white/60 hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-white/5 cursor-pointer list-none">
+                Menu
+              </summary>
+              <div className="absolute right-0 top-full mt-1 min-w-40 rounded-xl border border-white/10 bg-black/95 p-1 backdrop-blur-xl">
+                {[
+                  { href: "#product", label: "Product" },
+                  { href: "#pipeline", label: "How it works" },
+                  { href: "#features", label: "Features" },
+                  { href: "#ai-agent", label: "AI Agent" },
+                  { href: "/docs", label: "Docs" },
+                ].map((link) => (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    className="block text-xs text-white/60 hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-white/5"
+                  >
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+            </details>
             <a
               href="https://github.com/AkshatNaruka/barkcli"
               target="_blank"
@@ -592,7 +615,7 @@ export default function Home() {
         <main className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6">
           <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 mb-6">
             <Sparkles className="w-3 h-3 text-[#B8845C]" />
-            <span className="text-xs text-white/60 font-mono">Open source (MIT) · v0.3.1 · 38 MCP tools</span>
+            <span className="text-xs text-white/60 font-mono">Open source (MIT) · v0.3.0 · {MCP_TOOL_COUNT} MCP tools</span>
           </div>
           <h1 className="text-white text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.05] mb-6">
             The management layer
@@ -701,7 +724,7 @@ export default function Home() {
           {/* Trust stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8 max-w-3xl mx-auto">
             {[
-              { metric: "38", desc: "MCP tools for agents" },
+              { metric: `${MCP_TOOL_COUNT}`, desc: "MCP tools for agents" },
               { metric: "4", desc: "BMAD skills in repo" },
               { metric: "100%", desc: "offline-capable core" },
               { metric: "MIT", desc: "open source forever" },

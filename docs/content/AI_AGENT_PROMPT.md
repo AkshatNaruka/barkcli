@@ -169,7 +169,7 @@ Add to `.claude/settings.json`, `.opencode/config.json`, or `.cursor/mcp.json`:
 }
 ```
 
-### MCP Tools Available (v0.3.0-mvp, 38 tools)
+### MCP Tools Available (51 tools — see `barkcli-core/src/mcp.rs:handle_tools_list`)
 
 | Tool | Description |
 |------|-------------|
@@ -183,21 +183,32 @@ Add to `.claude/settings.json`, `.opencode/config.json`, or `.cursor/mcp.json`:
 | `card_move` | Move card |
 | `card_comment` | Add comment |
 | `task_list` | List tasks in queue |
+| `task_get` | Get task details |
 | `task_create` | Create task |
 | `task_claim` | Claim task |
 | `task_complete` | Complete task |
 | `task_fail` | Fail task |
+| `task_block` / `task_unblock` / `task_heartbeat` | Lifecycle helpers |
+| `progress_note` | Append progress note |
 | `agent_register` | Register as agent |
 | `agent_status` | Get agent stats |
+| `agent_list` | List registered agents |
+| `agent_heartbeat` | Agent liveness ping |
 | `context_scan` | Scan codebase |
 | `context_get` | Get card context |
 | `code_search` | Search code symbols |
-| `metrics_get` | Get code metrics |
+| `callgraph_get` | Get call graph for a file |
+| `metrics_get` | Get code metrics (complexity, risk) |
+| `sprint_list` / `sprint_start` / `sprint_end` | Sprint management |
+| `orchestrate_next` / `orchestrate_cycle` | Dispatch next task / run cycle |
 | `mind_snapshot` | Mind snapshot (board health, blockers, next actions) |
 | `overview` | Human narrative 4-panel overview (from mind) |
 | `skill_list` | List BMAD skills (mvp/planning/scrum-master/test) |
 | `skill_get` | Get skill by id |
 | `intake` | Classify text → card + spec (offline heuristic if no LLM) |
+| `prime` / `ready` / `packet_get` / `handoff` / `verify` | Agent handoff helpers |
+| `session_spawn` / `session_list` / `session_logs` / `session_kill` | Agent sessions |
+| `fleet_status` | Fleet status |
 | `memory_add` / `memory_search` / `memory_list` | Cross-session memory (4 tiers) |
 
 ### Agent Registration

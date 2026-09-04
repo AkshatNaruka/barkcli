@@ -82,7 +82,7 @@ git push`}</code></pre>
         <div className="flex gap-4 text-sm">
           <Link href="/docs/commands/init" className="text-[#B8845C] hover:underline">init command</Link>
           <Link href="/docs/concepts/boards" className="text-[#B8845C] hover:underline">Boards</Link>
-          <Link href="/docs/advanced/configuration" className="text-[#B8845C] hover:underline">Configuration</Link>
+          <Link href="/docs/advanced" className="text-[#B8845C] hover:underline">Advanced</Link>
         </div>
       </div>
     </>

@@ -27,9 +27,9 @@ const features = [
     command: "Navigate to Specs tab",
   },
   {
-    title: "Orchestration",
+    title: "Orchestration (Agents)",
     description: "Agent registry, task queue, and orchestration cycles for AI-powered task management.",
-    command: "Navigate to Orchestrate tab",
+    command: "Navigate to Agents tab",
   },
   {
     title: "Timeline & Tools",
@@ -51,18 +51,21 @@ const shortcuts = [
 ];
 
 const tabs = [
-  { name: "Dashboard", desc: "Overview with stats, sprint progress, recent activity, due-soon cards" },
+  { name: "Mind", desc: "Homepage — health, blockers, stale work, next actions (also reachable as Dashboard)" },
   { name: "Board", desc: "Kanban board with drag-and-drop (switch between board/table/list views)" },
+  { name: "Specs", desc: "Specifications with requirements, status tracking, coverage" },
+  { name: "Sprints", desc: "Start/end sprints, see sprint progress" },
+  { name: "Code", desc: "Search code symbols, see which cards are linked to which files" },
+  { name: "Agents", desc: "Agent registry, task queue, run orchestration cycles (route: agents/orchestrate)" },
+  { name: "Memory", desc: "Cross-session knowledge base, project facts" },
+  { name: "Skills", desc: "BMAD skills versioned in repo (mvp/planning/scrum-master/test)" },
+  { name: "Docs", desc: "Bundled markdown docs served from /api/docs" },
   { name: "Calendar", desc: "Cards organized by due date" },
   { name: "Reports", desc: "Effort by column/area, priority breakdown, sprint burndown charts" },
-  { name: "Code", desc: "Search code symbols, see which cards are linked to which files" },
-  { name: "Activity", desc: "Combined timeline of history entries and agent sessions" },
-  { name: "Sprints", desc: "Start/end sprints, see sprint progress" },
-  { name: "Memory", desc: "Cross-session knowledge base, project facts" },
-  { name: "Specs", desc: "Specifications with requirements, status tracking, coverage" },
-  { name: "Orchestrate", desc: "Agent registry, task queue, run orchestration cycles" },
   { name: "Timeline", desc: "Checkpoints, undo, diff, blame, validate/doctor, import/export" },
+  { name: "Activity", desc: "Combined timeline of history entries and agent sessions" },
   { name: "Settings", desc: "Board config, columns, theme" },
+  { name: "AI Agent", desc: "Copy-paste MCP setup prompt for Claude/OpenCode/Cursor" },
 ];
 
 export default function WebAppGuidePage() {
@@ -149,17 +152,20 @@ export default function WebAppGuidePage() {
         </p>
         <div className="space-y-3">
           <div className="bg-black/50 rounded-lg p-3 font-mono text-sm">
-            <span className="text-[#B8845C]">$</span> barkcli serve --daemon
+            <span className="text-[#B8845C]">$</span> barkcli serve --daemon [--port 4321] [--token mysecret]
           </div>
           <div className="bg-black/50 rounded-lg p-3 font-mono text-sm">
             <span className="text-[#B8845C]">$</span> barkcli serve --status
           </div>
           <div className="bg-black/50 rounded-lg p-3 font-mono text-sm">
-            <span className="text-[#B8845C]">$</span> barkcli serve --stop
+            <span className="text-[#B8845C]">$</span> barkcli serve --stop [--port 4321]
+          </div>
+          <div className="bg-black/50 rounded-lg p-3 font-mono text-sm">
+            <span className="text-[#B8845C]">$</span> barkcli serve --kill [--port 4321]
           </div>
         </div>
         <p className="text-sm text-white/60 mt-4">
-          The daemon writes its PID to <code className="text-white/80">.board/server.pid</code> and watches for file changes.
+          The daemon writes its PID to <code className="text-white/80">.board/server.pid</code> (port/host in <code className="text-white/80">.board/server.json</code>) and watches board files for live WebSocket reload. Default port is <code className="text-white/80">4321</code>. With <code className="text-white/80">--token</code>, pass <code className="text-white/80">?token=</code> or <code className="text-white/80">Authorization: Bearer</code> on /api/* and /ws.
         </p>
       </div>
 
@@ -240,7 +246,7 @@ export default function WebAppGuidePage() {
           </li>
           <li className="flex items-start gap-2">
             <span className="text-[#B8845C]">7.</span>
-            <span>Check the Dashboard — quick overview of project health</span>
+            <span>Check the Mind tab — quick overview of project health</span>
           </li>
         </ul>
       </div>

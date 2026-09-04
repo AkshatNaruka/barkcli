@@ -79,7 +79,7 @@ Human → intake → plan → dispatch → coding agent → review → done
 
 - **OpenCode** — auto-detected, invoked via subprocess
 - **Claude Code** — auto-detected, invoked via subprocess
-- **Any MCP agent** — via `barkcli mcp` (38 tools: board/card/task/agent/context/memory/mind/skills/intake)
+- **Any MCP agent** — via `barkcli mcp` (51 tools: board/card/task/agent/context/memory/mind/skills/intake/prime/ready/session/fleet)
 
 ## Core Commands
 
@@ -111,7 +111,7 @@ Human → intake → plan → dispatch → coding agent → review → done
 
 | Command | Description |
 |---------|-------------|
-| `barkcli mcp` | Start MCP server (38 tools) |
+| `barkcli mcp` | Start MCP server (51 tools) |
 | `barkcli listener` | Poll for tasks and execute them (injects skills) |
 | `barkcli orchestrate cycle` | Run orchestration cycle (= `dispatch`) |
 | `barkcli hooks install` | Install agent hooks (opencode/claude-code) |

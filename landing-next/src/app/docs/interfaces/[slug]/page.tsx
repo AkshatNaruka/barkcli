@@ -90,15 +90,19 @@ q/Esc          Quit/Back`,
     sections: [
       {
         title: "Launch",
-        content: "Start the web server and open in your browser.",
-        code: `barkcli serve --open             # open in browser
+        content: "Start the web server and open in your browser. Default port 4321.",
+        code: `barkcli serve --open             # open in browser (localhost:4321)
 barkcli serve --port 8080        # custom port
-barkcli serve --board backend    # specific board`,
+barkcli serve --board backend    # specific board
+barkcli serve --daemon           # background daemon
+barkcli serve --status           # PID, port, URL
+barkcli serve --stop             # graceful stop`,
       },
       {
-        title: "Dashboard",
-        content: "Overview of all boards, tasks, and recent activity.",
-        code: `Dashboard · Board · Calendar · Reports · Code
+        title: "Mind (homepage)",
+        content: "Health, blockers, stale work, next actions. The sidebar default route.",
+        code: `Mind · Board · Specs · Sprints · Code · Agents
+Memory · Skills · Calendar · Reports · Timeline
 
 Stat cards show:
 - Total tasks
