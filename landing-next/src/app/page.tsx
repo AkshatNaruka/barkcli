@@ -371,6 +371,14 @@ function useInView(ref: React.RefObject<HTMLElement | null>, threshold = 0.1) {
 }
 
 function ProductMock() {
+  // Agent-tool brand colors — same hexes as web/src/lib/agents.ts and barkcli-tui/src/ui.rs.
+  // Claude #D97757 = official Anthropic terracotta, OpenCode #D99C57 = opencode.ai
+  // palette gold, human reviewer = emerald.
+  const AGENT_BRAND: Record<string, string> = {
+    opencode: "#D99C57",
+    claude: "#D97757",
+    human: "#34D399",
+  };
   return (
     <div className="border border-white/10 rounded-2xl overflow-hidden bg-[#0A0A0A] shadow-2xl shadow-black/60">
       {/* Browser chrome */}
@@ -435,16 +443,16 @@ function ProductMock() {
             },
             {
               name: "Doing",
-              tone: "text-sky-400",
+              tone: "text-white/40",
               cards: [
-                { title: "Implement OAuth flow", meta: "IN PROGRESS", metaCls: "text-sky-400 bg-sky-500/10 border-sky-500/30", spec: true, blocked: false },
+                { title: "Implement OAuth flow", meta: "IN PROGRESS", metaCls: "text-white/40 bg-white/5 border-white/10", spec: true, blocked: false },
               ],
             },
             {
               name: "Review",
-              tone: "text-amber-400",
+              tone: "text-white/40",
               cards: [
-                { title: "Store tokens securely", meta: "REVIEW", metaCls: "text-amber-400 bg-amber-500/10 border-amber-500/30", spec: false, blocked: false },
+                { title: "Store tokens securely", meta: "REVIEW", metaCls: "text-white/40 bg-white/5 border-white/10", spec: false, blocked: false },
               ],
             },
           ].map((col) => (
@@ -472,16 +480,21 @@ function ProductMock() {
         <div className="hidden md:flex flex-col w-48 shrink-0 border-l border-white/10 p-3">
           <div className="text-[10px] font-mono uppercase tracking-widest text-white/30 mb-2">Agents</div>
           {[
-            { name: "opencode-1", task: "OAuth flow", tone: "text-amber-400", dot: "bg-amber-400" },
-            { name: "claude-2", task: "Token storage", tone: "text-sky-400", dot: "bg-sky-400" },
-            { name: "human-you", task: "Review queue", tone: "text-green-400", dot: "bg-green-400" },
+            { name: "opencode-1", task: "OAuth flow", tool: "opencode" },
+            { name: "claude-2", task: "Token storage", tool: "claude" },
+            { name: "human-you", task: "Review queue", tool: "human" },
           ].map((a) => (
             <div key={a.name} className="py-1.5 border-b border-white/5 last:border-0">
               <div className="flex items-center gap-1.5">
-                <span className={`w-1.5 h-1.5 rounded-full ${a.dot} animate-pulse`} />
+                <span
+                  className="w-1.5 h-1.5 rounded-full animate-pulse"
+                  style={{ backgroundColor: AGENT_BRAND[a.tool] }}
+                />
                 <span className="text-[11px] font-mono text-white/70">{a.name}</span>
               </div>
-              <div className={`text-[10px] mt-0.5 ${a.tone}`}>{a.task}</div>
+              <div className="text-[10px] mt-0.5" style={{ color: AGENT_BRAND[a.tool] }}>
+                {a.task}
+              </div>
             </div>
           ))}
           <div className="mt-auto pt-2">

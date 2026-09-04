@@ -30,8 +30,9 @@ export function Lozenge({
 }
 
 export function columnTone(col: string): "gray" | "blue" | "amber" | "green" {
+  // Modern neutral columns (Linear-style): only done carries a success tone.
+  // Doing/review intentionally match todo's neutral gray — status color lives
+  // on card badges and dots, not on rainbow column headers.
   if (col === "done") return "green";
-  if (col === "doing") return "blue";
-  if (col === "review") return "amber";
   return "gray";
 }

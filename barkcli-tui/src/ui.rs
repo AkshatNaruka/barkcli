@@ -1,6 +1,6 @@
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Modifier, Style, Stylize},
+    style::{Color, Modifier, Style, Stylize},
     text::{Line, Span, Text},
     widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
     Frame,
@@ -482,6 +482,29 @@ fn draw_code(f: &mut Frame, app: &App, area: Rect) {
 
 // ── Agents ──
 
+/// Brand color for a coding-agent tool, detected from agent id/name.
+/// Same hexes as web/src/lib/agents.ts and the landing-page hero mock:
+/// OpenCode gold #D99C57, Claude terracotta #D97757, Cursor violet #6B5CE7,
+/// Codex green #10A37F, Gemini blue #4285F4, human emerald #34D399.
+fn agent_tool_color(id: &str, name: &str) -> Option<Color> {
+    let hay = format!("{id} {name}").to_lowercase();
+    if hay.contains("opencode") {
+        Some(Color::Rgb(217, 156, 87))
+    } else if hay.contains("claude") {
+        Some(Color::Rgb(217, 119, 87))
+    } else if hay.contains("cursor") {
+        Some(Color::Rgb(107, 92, 231))
+    } else if hay.contains("codex") || hay.contains("openai") {
+        Some(Color::Rgb(16, 163, 127))
+    } else if hay.contains("gemini") {
+        Some(Color::Rgb(66, 133, 244))
+    } else if hay.contains("human") {
+        Some(Color::Rgb(52, 211, 153))
+    } else {
+        None
+    }
+}
+
 fn draw_agents(f: &mut Frame, app: &App, area: Rect) {
     let block = Block::bordered()
         .border_style(Style::new().fg(app.theme_border()))
@@ -527,8 +550,15 @@ fn draw_agents(f: &mut Frame, app: &App, area: Rect) {
             let title_s = Style::default()
                 .fg(app.theme_text())
                 .add_modifier(if sel { Modifier::REVERSED } else { Modifier::empty() });
+            // Agent id carries its coding-agent tool's brand color (matches web + landing).
+            let id_s = match agent_tool_color(&agent.id, &agent.name) {
+                Some(c) => Style::new()
+                    .fg(c)
+                    .add_modifier(if sel { Modifier::REVERSED } else { Modifier::empty() }),
+                None => title_s,
+            };
             lines.push(Line::from(vec![
-                Span::styled(format!(" {} {}", marker, agent.id), title_s),
+                Span::styled(format!(" {} {}", marker, agent.id), id_s),
                 Span::styled(format!("  {:<14}", agent.name), title_s),
                 Span::styled(format!("  {:<10}", agent.role), title_s),
                 Span::styled(format!("  {:<8}", status_label), status_style),
@@ -605,12 +635,18 @@ fn draw_orchestrate(f: &mut Frame, app: &App, area: Rect) {
             let title_s = Style::default()
                 .fg(app.theme_text())
                 .add_modifier(if sel { Modifier::REVERSED } else { Modifier::empty() });
+            // Assigned agent shown in its tool's brand color (matches web + landing).
+            let assignee = task.assigned_agent.clone().unwrap_or_default();
+            let assignee_s = match agent_tool_color(&assignee, "") {
+                Some(c) => Style::new().fg(c),
+                None => Style::new().fg(app.theme_muted()),
+            };
             lines.push(Line::from(vec![
                 Span::styled(format!(" {} {}", marker, task.id), title_s),
                 Span::styled(format!("  {:<14}", task.card_id), title_s),
                 Span::styled(format!("  {:<5}", task.priority), title_s),
                 Span::styled(format!("  {:<10}", status_label), status_style),
-                Span::styled(format!("  {}", task.assigned_agent.clone().unwrap_or_default()), Style::new().fg(app.theme_muted())),
+                Span::styled(format!("  {assignee}"), assignee_s),
             ]));
         }
     }
@@ -909,5 +945,22 @@ fn centered_rect(width: u16, height: u16, r: Rect) -> Rect {
         y: r.y.saturating_add((r.height.saturating_sub(height)) / 2),
         width: width.min(r.width),
         height: height.min(r.height),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn agent_tool_colors_match_web_palette() {
+        // Same hexes as web/src/lib/agents.ts and the landing hero mock.
+        assert_eq!(agent_tool_color("opencode-1", "worker"), Some(Color::Rgb(217, 156, 87)));
+        assert_eq!(agent_tool_color("claude-2", "worker"), Some(Color::Rgb(217, 119, 87)));
+        assert_eq!(agent_tool_color("x", "Cursor Agent"), Some(Color::Rgb(107, 92, 231)));
+        assert_eq!(agent_tool_color("codex-1", ""), Some(Color::Rgb(16, 163, 127)));
+        assert_eq!(agent_tool_color("gemini-1", ""), Some(Color::Rgb(66, 133, 244)));
+        assert_eq!(agent_tool_color("human-you", ""), Some(Color::Rgb(52, 211, 153)));
+        assert_eq!(agent_tool_color("random-9", "helper"), None);
     }
 }

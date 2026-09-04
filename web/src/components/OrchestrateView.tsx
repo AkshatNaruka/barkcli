@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Lozenge } from "./Lozenge";
+import { agentColor } from "../lib/agents";
 
 interface Agent {
   id: string;
@@ -157,12 +158,23 @@ export function OrchestrateView({ boardName }: { boardName: string | null }) {
           ) : agents.length === 0 ? (
             <p className="text-xs text-muted text-center py-8">No agents registered</p>
           ) : (
-            agents.map(a => (
+            agents.map(a => {
+              const brand = agentColor(a.id, a.name);
+              return (
               <div key={a.id} className="p-3 border-b border-border group hover:bg-surface/50">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-medium text-text">{a.name}</p>
-                    <p className="text-[10px] text-muted font-mono">{a.id}</p>
+                    <p className="text-xs font-medium text-text flex items-center gap-1.5">
+                      <span
+                        className="w-1.5 h-1.5 rounded-full shrink-0"
+                        style={{ backgroundColor: brand ?? "var(--muted)" }}
+                        title={brand ? `Brand color: ${brand}` : undefined}
+                      />
+                      {a.name}
+                    </p>
+                    <p className="text-[10px] font-mono mt-0.5" style={brand ? { color: brand } : undefined}>
+                      <span className={brand ? undefined : "text-muted"}>{a.id}</span>
+                    </p>
                   </div>
                   <button
                     onClick={() => handleDeleteAgent(a.id)}
@@ -181,8 +193,8 @@ export function OrchestrateView({ boardName }: { boardName: string | null }) {
                   <span>{a.failed_tasks.length} failed</span>
                 </div>
               </div>
-            ))
-          )}
+              );
+            }))}
         </div>
 
         {/* Orchestration Status */}
@@ -276,7 +288,17 @@ export function OrchestrateView({ boardName }: { boardName: string | null }) {
                   <div className="flex items-center gap-3 mt-1 text-[10px] text-muted">
                     <span className="font-mono">{t.card_id}</span>
                     <span>Priority: {t.priority}</span>
-                    {t.assigned_agent && <span>Agent: {t.assigned_agent}</span>}
+                    {t.assigned_agent && (() => {
+                      const brand = agentColor(t.assigned_agent);
+                      return (
+                        <span>
+                          Agent:{" "}
+                          <span className="font-mono" style={brand ? { color: brand } : undefined}>
+                            {t.assigned_agent}
+                          </span>
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
               ))}
