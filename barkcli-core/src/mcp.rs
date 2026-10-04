@@ -918,6 +918,20 @@ impl McpServer {
                 }
             }),
             serde_json::json!({
+                "name": "memory_brief",
+                "description": "Top memories by importance and recency, for boot context",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "limit": {
+                            "type": "integer",
+                            "description": "Max results (default: 10)"
+                        }
+                    },
+                    "required": []
+                }
+            }),
+            serde_json::json!({
                 "name": "agent_heartbeat",
                 "description": "Send a heartbeat to indicate the agent is alive",
                 "inputSchema": {
@@ -1451,6 +1465,7 @@ impl McpServer {
             "memory_add" => self.tool_memory_add(arguments),
             "memory_search" => self.tool_memory_search(arguments),
             "memory_list" => self.tool_memory_list(arguments),
+            "memory_brief" => self.tool_memory_brief(arguments),
             "agent_heartbeat" => self.tool_agent_heartbeat(arguments),
             "mind_snapshot" => self.tool_mind_snapshot(arguments),
             "overview" => self.tool_overview(arguments),
@@ -2373,8 +2388,9 @@ impl McpServer {
             .ok_or_else(|| anyhow::anyhow!("query required"))?;
         let top = args.get("top").and_then(|v| v.as_u64()).unwrap_or(5) as usize;
 
-        let store = crate::memory::MemoryStore::open(&board_name)?;
-        let results = store.search(query, top);
+        let mut store = crate::memory::MemoryStore::open(&board_name)?;
+        let results = store.search_touch(query, top);
+        let _ = store.save();
 
         let items: Vec<Value> = results.iter().map(|e| {
             serde_json::json!({
@@ -2413,6 +2429,32 @@ impl McpServer {
         Ok(serde_json::json!({
             "count": items.len(),
             "total": store.len(),
+            "memories": items
+        }))
+    }
+
+    fn tool_memory_brief(&self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
+
+        let store = crate::memory::MemoryStore::open(&board_name)?;
+        let entries = store.brief(limit);
+
+        let items: Vec<Value> = entries.iter().map(|e| {
+            serde_json::json!({
+                "id": e.id,
+                "content": e.content,
+                "tier": e.tier.display_name(),
+                "tags": e.tags,
+                "source": e.source,
+                "importance": e.importance,
+                "access_count": e.access_count,
+                "created_at": e.created_at.to_rfc3339(),
+            })
+        }).collect();
+
+        Ok(serde_json::json!({
+            "count": items.len(),
             "memories": items
         }))
     }

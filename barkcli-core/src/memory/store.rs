@@ -56,9 +56,30 @@ pub struct MemoryEntry {
     pub created_at: DateTime<Utc>,
     pub last_accessed: DateTime<Utc>,
     pub access_count: u32,
+    /// Persisted importance signal (0.0-1.0). Higher survives eviction and
+    /// ranks higher in briefs. Defaults to 0.5 for older entries.
+    #[serde(default = "default_importance")]
+    pub importance: f32,
     /// Relevance score (computed during search, not persisted).
     #[serde(skip)]
     pub score: f32,
+}
+
+/// Report from a consolidate pass.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ConsolidationReport {
+    pub promoted: usize,
+    pub compressed: bool,
+    pub evicted: usize,
+}
+
+fn recency_signal(entry: &MemoryEntry) -> f32 {
+    let hours = (chrono::Utc::now() - entry.last_accessed).num_hours() as f32;
+    (-hours / 72.0).exp()
+}
+
+fn default_importance() -> f32 {
+    0.5
 }
 
 impl MemoryEntry {
@@ -73,6 +94,7 @@ impl MemoryEntry {
             created_at: now,
             last_accessed: now,
             access_count: 0,
+            importance: 0.5,
             score: 0.0,
         }
     }
@@ -132,7 +154,21 @@ impl MemoryStore {
     }
 
     /// Add a memory entry with automatic classification.
+    /// Content is redacted (secrets stripped) before storage and exact
+    /// duplicate content is skipped.
     pub fn add(&mut self, mut entry: MemoryEntry) {
+        entry.content = crate::util::redact::redact_text(&entry.content);
+
+        // Skip exact-duplicate content
+        if self
+            .memory
+            .entries
+            .iter()
+            .any(|e| e.content == entry.content)
+        {
+            return;
+        }
+
         // Auto-classify tier if not already set appropriately
         if entry.source.is_some() {
             let classified = TierManager::classify_entry(
@@ -150,6 +186,32 @@ impl MemoryStore {
         let tier = entry.tier;
         self.evict_if_needed(tier);
         self.memory.entries.push(entry);
+    }
+
+    /// Add a candidate memory (used by the ingestion engine). Returns true if
+    /// the entry was inserted (false when it was a duplicate / empty).
+    pub fn add_candidate(
+        &mut self,
+        content: String,
+        tier: MemoryTier,
+        tags: Vec<String>,
+        source: String,
+        importance: f32,
+    ) -> bool {
+        if content.trim().is_empty() {
+            return false;
+        }
+        let mut entry = MemoryEntry::new(content, tier);
+        entry.tags = tags;
+        entry.source = Some(source);
+        entry.importance = importance;
+        let existed = self
+            .memory
+            .entries
+            .iter()
+            .any(|e| e.content == entry.content);
+        self.add(entry);
+        !existed
     }
 
     /// Promote entries that meet criteria to higher tiers.
@@ -190,6 +252,66 @@ impl MemoryStore {
     /// Pure semantic search (TF-IDF cosine similarity only).
     pub fn search_semantic(&self, query: &str, top: usize) -> Vec<&MemoryEntry> {
         crate::memory::search::semantic_search(&self.memory.entries, query, top)
+    }
+
+    /// Search memories and record access on the hits (feedback loop: surfaced
+    /// memories get their access_count/last_accessed bumped, feeding tier
+    /// promotion and recency ranking). Caller should `save()` afterwards.
+    pub fn search_touch(&mut self, query: &str, top: usize) -> Vec<MemoryEntry> {
+        let ranked = crate::memory::search::search_memories(&self.memory.entries, query, top);
+        let ids: Vec<String> = ranked.iter().map(|e| e.id.clone()).collect();
+        for entry in self.memory.entries.iter_mut() {
+            if ids.iter().any(|id| id == &entry.id) {
+                entry.touch();
+            }
+        }
+        let mut touched: Vec<MemoryEntry> = self
+            .memory
+            .entries
+            .iter()
+            .filter(|e| ids.iter().any(|id| id == &e.id))
+            .cloned()
+            .collect();
+        touched.sort_by_key(|e| ids.iter().position(|id| id == &e.id).unwrap_or(usize::MAX));
+        touched
+    }
+
+    /// Run the full maintenance cycle: promote, compress, evict. Called at
+    /// the end of each session ingest.
+    pub fn consolidate(&mut self) -> ConsolidationReport {
+        let promoted = self.promote_entries();
+        // Compress only when short-term accumulates; recent sessions stay as
+        // their own memories instead of being flattened into one blob.
+        let short_count = self
+            .memory
+            .entries
+            .iter()
+            .filter(|e| e.tier == MemoryTier::ShortTerm)
+            .count();
+        let compressed = if short_count > 10 {
+            self.compress_short_term().is_some()
+        } else {
+            false
+        };
+        let evicted = self.evict_stale();
+        ConsolidationReport {
+            promoted,
+            compressed,
+            evicted,
+        }
+    }
+
+    /// Top memories by importance + recency, for agent context injection.
+    pub fn brief(&self, limit: usize) -> Vec<&MemoryEntry> {
+        let mut entries: Vec<&MemoryEntry> = self.memory.entries.iter().collect();
+        entries.sort_by(|a, b| {
+            let a_rank = a.importance * 0.6 + recency_signal(a) * 0.4;
+            let b_rank = b.importance * 0.6 + recency_signal(b) * 0.4;
+            b_rank
+                .partial_cmp(&a_rank)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        entries.into_iter().take(limit).collect()
     }
 
     /// Get memories for a specific tier.
@@ -248,12 +370,21 @@ impl MemoryStore {
             return None;
         }
 
-        // Build a summary from short-term entries
-        let summary = short_term
+        // Build a bounded summary from short-term entries (most recent first,
+        // capped so long sessions don't blow up the artifact).
+        let mut short_sorted = short_term.clone();
+        short_sorted.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        let summary = short_sorted
             .iter()
+            .take(10)
             .map(|e| e.content.as_str())
             .collect::<Vec<_>>()
             .join("; ");
+        let summary = if summary.len() > 2000 {
+            format!("{}…", &summary[..1999])
+        } else {
+            summary
+        };
 
         // Remove short-term entries
         self.memory
@@ -264,6 +395,7 @@ impl MemoryStore {
         let mut entry = MemoryEntry::new(&summary, MemoryTier::LongTerm);
         entry.tags.push("compressed".into());
         entry.tags.push("session-summary".into());
+        entry.importance = 0.6;
         self.memory.entries.push(entry);
 
         Some(summary)

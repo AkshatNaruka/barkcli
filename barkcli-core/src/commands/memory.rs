@@ -26,6 +26,9 @@ pub fn run_memory(args: &[String]) -> Result<()> {
         "compress" => run_compress(rest),
         "clear" | "reset" => run_clear(rest),
         "fact" => run_fact(rest),
+        "ingest" => run_ingest(rest),
+        "consolidate" => run_consolidate(rest),
+        "brief" => run_brief(rest),
         "help" | "--help" | "-h" => {
             print_help();
             Ok(())
@@ -120,9 +123,10 @@ fn run_search(args: &[String]) -> Result<()> {
     }
 
     let board_name = find_board()?;
-    let store = MemoryStore::open(&board_name)?;
+    let mut store = MemoryStore::open(&board_name)?;
 
-    let results = store.search(&query, top);
+    let results = store.search_touch(&query, top);
+    let _ = store.save();
 
     if results.is_empty() {
         println!("{} No memories found for '{}'", style::muted("Search:"), query);
@@ -306,6 +310,81 @@ fn run_clear(args: &[String]) -> Result<()> {
     Ok(())
 }
 
+fn run_ingest(args: &[String]) -> Result<()> {
+    let mut consolidate = true;
+    for a in args {
+        if a == "--no-consolidate" {
+            consolidate = false;
+        }
+    }
+    let board_name = find_board()?;
+    match crate::memory::ingest::ingest(&board_name, consolidate) {
+        Ok(report) => {
+            println!(
+                "{} Ingested {} session(s), {} new memor{}",
+                style::ok("OK"),
+                report.sessions_ingested,
+                report.memories_added,
+                if report.memories_added == 1 { "y" } else { "ies" },
+            );
+            if report.consolidated {
+                println!("  Consolidated tiers (promote/compress/evict)");
+            }
+        }
+        Err(e) => {
+            eprintln!("Ingest failed: {}", e);
+            return Err(e);
+        }
+    }
+    Ok(())
+}
+
+fn run_consolidate(_args: &[String]) -> Result<()> {
+    let board_name = find_board()?;
+    let mut store = MemoryStore::open(&board_name)?;
+    let report = store.consolidate();
+    store.save()?;
+    println!(
+        "{} Consolidated: {} promoted, {} compressed, {} evicted",
+        style::ok("OK"),
+        report.promoted,
+        if report.compressed { "short-term" } else { "none" },
+        report.evicted,
+    );
+    Ok(())
+}
+
+fn run_brief(args: &[String]) -> Result<()> {
+    let mut limit = 10;
+    let mut i = 0;
+    while i < args.len() {
+        if args[i] == "--top" || args[i] == "-n" {
+            i += 1;
+            if let Some(n) = args.get(i).and_then(|s| s.parse().ok()) {
+                limit = n;
+            }
+        }
+        i += 1;
+    }
+    let board_name = find_board()?;
+    let store = MemoryStore::open(&board_name)?;
+    let entries = store.brief(limit);
+    if entries.is_empty() {
+        println!("{} No memories yet", style::muted("Brief:"));
+        return Ok(());
+    }
+    println!("{} Top {} memories:", style::accent("Brief:"), entries.len());
+    for e in entries {
+        println!(
+            "  [{}] {} (importance {:.2})",
+            e.tier.display_name(),
+            truncate(&e.content, 90),
+            e.importance,
+        );
+    }
+    Ok(())
+}
+
 fn run_fact(args: &[String]) -> Result<()> {
     let sub = args.first().map(|s| s.as_str()).unwrap_or("list");
     let rest = &args[1..];
@@ -399,6 +478,9 @@ fn print_help() {
     println!("  clear                     Clear all memories");
     println!("  fact add <text>           Add a project fact");
     println!("  fact list                 List project facts");
+    println!("  ingest                    Pull sessions into memory (auto-run on session end)");
+    println!("  consolidate               Promote/compress/evict tiers");
+    println!("  brief                     Top memories by importance + recency");
     println!();
     println!("Flags:");
     println!("  --tier <tier>             working | short | long | external");

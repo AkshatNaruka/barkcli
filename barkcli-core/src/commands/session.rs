@@ -23,6 +23,12 @@ pub fn run_log(args: &[String]) -> Result<()> {
     }
 
     println!("Session '{}' recorded for board '{}'", entry.id, entry.board);
+
+    // Feed the session into the memory brain (silent on failure).
+    if let Err(err) = crate::memory::ingest::ingest(&entry.board, true) {
+        eprintln!("barkcli memory ingest: {}", err);
+    }
+
     Ok(())
 }
 

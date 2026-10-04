@@ -121,6 +121,7 @@ export interface MemoryEntry {
   created_at: string;
   last_accessed: string;
   access_count: number;
+  importance?: number;
 }
 
 export interface ProjectFact {

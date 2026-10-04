@@ -556,6 +556,28 @@ export async function fetchFacts(name?: string, category?: string): Promise<Proj
   } catch { return []; }
 }
 
+export async function ingestMemory(name?: string): Promise<{ sessions_ingested: number; memories_added: number; consolidated: boolean } | null> {
+  if (isVscode) return null;
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    const res = await fetch(withToken(`/api/memory/ingest?${params.toString()}`), { method: "POST" });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+export async function consolidateMemory(name?: string): Promise<{ promoted: number; compressed: boolean; evicted: number } | null> {
+  if (isVscode) return null;
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    const res = await fetch(withToken(`/api/memory/consolidate?${params.toString()}`), { method: "POST" });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
 // ── Specs API ──
 
 export async function fetchSpecs(name?: string): Promise<Spec[]> {

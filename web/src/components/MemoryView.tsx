@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import type { MemoryEntry, ProjectFact, MemoryTier } from "../lib/types";
-import { fetchMemory, addMemory, deleteMemory, fetchMemoryStats, addFact, fetchFacts } from "../lib/api";
+import { fetchMemory, addMemory, deleteMemory, fetchMemoryStats, addFact, fetchFacts, ingestMemory, consolidateMemory } from "../lib/api";
 
 const TIER_COLORS: Record<string, string> = {
   working: "bg-blue-500/10 text-blue-400 border-blue-500/20",
@@ -31,6 +31,21 @@ export function MemoryView({ boardName }: { boardName: string | null }) {
   const [factCategory, setFactCategory] = useState("convention");
   const [tab, setTab] = useState<"memories" | "facts">("memories");
   const [loading, setLoading] = useState(true);
+  const [brainMsg, setBrainMsg] = useState<string | null>(null);
+
+  const handleIngest = async () => {
+    setBrainMsg("Ingesting sessions…");
+    const r = await ingestMemory(boardName || undefined);
+    setBrainMsg(r ? `Ingested ${r.sessions_ingested} session(s), ${r.memories_added} new memories` : "Ingest failed");
+    load();
+  };
+
+  const handleConsolidate = async () => {
+    setBrainMsg("Consolidating…");
+    const r = await consolidateMemory(boardName || undefined);
+    setBrainMsg(r ? `${r.promoted} promoted, ${r.evicted} evicted` : "Consolidate failed");
+    load();
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -84,6 +99,23 @@ export function MemoryView({ boardName }: { boardName: string | null }) {
             <span>{stats.facts} facts</span>
           </div>
         )}
+      </div>
+
+      {/* Brain controls */}
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          onClick={handleIngest}
+          className="px-3 py-1.5 bg-accent text-white text-xs rounded font-medium hover:bg-accent/80"
+        >
+          Ingest sessions
+        </button>
+        <button
+          onClick={handleConsolidate}
+          className="px-3 py-1.5 bg-card border border-border text-text text-xs rounded font-medium hover:border-border-strong"
+        >
+          Consolidate
+        </button>
+        {brainMsg && <span className="text-xs text-muted">{brainMsg}</span>}
       </div>
 
       {/* Tabs */}
@@ -193,6 +225,14 @@ export function MemoryView({ boardName }: { boardName: string | null }) {
                         {tag}
                       </span>
                     ))}
+                    {typeof m.importance === "number" && (
+                      <span className="text-[10px] text-accent bg-accent/10 px-1.5 py-0.5 rounded">
+                        importance {(m.importance * 100).toFixed(0)}%
+                      </span>
+                    )}
+                    {m.access_count > 0 && (
+                      <span className="text-[10px] text-muted">accessed {m.access_count}x</span>
+                    )}
                     <span className="text-[10px] text-muted ml-auto font-mono">
                       {m.created_at?.slice(0, 10)}
                     </span>

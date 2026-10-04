@@ -114,6 +114,8 @@ pub async fn run(
         .route("/api/memory/stats", get(memory_stats_handler))
         .route("/api/memory/fact", post(add_fact_handler))
         .route("/api/memory/facts", get(list_facts_handler))
+        .route("/api/memory/ingest", post(ingest_memory_handler))
+        .route("/api/memory/consolidate", post(consolidate_memory_handler))
         // Specs endpoints
         .route("/api/specs", get(list_specs_handler).post(create_spec_handler))
         .route("/api/specs/coverage", get(specs_coverage_handler))
@@ -1712,6 +1714,37 @@ async fn delete_memory_handler(
     let _ = state.tx.send("reload".to_string());
 
     Ok(Json(serde_json::json!({ "deleted": removed })))
+}
+
+async fn ingest_memory_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<BoardQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let report = barkcli_core::memory::ingest::ingest(&board_name, true)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({
+        "sessions_ingested": report.sessions_ingested,
+        "memories_added": report.memories_added,
+        "consolidated": report.consolidated,
+    })))
+}
+
+async fn consolidate_memory_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<BoardQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let mut store = MemoryStore::open(&board_name).map_err(|e| ServerError::internal(e.to_string()))?;
+    let report = store.consolidate();
+    store.save().map_err(|e| ServerError::internal(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({
+        "promoted": report.promoted,
+        "compressed": report.compressed,
+        "evicted": report.evicted,
+    })))
 }
 
 #[derive(serde::Serialize)]

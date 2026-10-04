@@ -95,7 +95,7 @@ Audit date: 2026-09-03. Read every crate file listed in §21.
 | G8 | **Listener hard-codes agent invocation** | `listener.rs:461-493` `invoke_opencode` expects `opencode --prompt`, `invoke_claude_code` expects `claude --print` — flags may drift; no streaming, no tool-allow list | Brittle subprocess coupling | Medium |
 | G9 | **Server `claim_task_handler:1127` uses GET query param for agent_id** | `Path(task_id)` + `Query<HashMap>` ; MCP `tool_task_claim:1431` uses proper JSON but server and CLI listener diverge | API inconsistency | Low |
 | G10 | **No roadmap/milestone model** | Only `models/sprint.rs` (name/start/end) | Sprint is too small for planning horizon | Low |
-| G11 | **Memory has no git/session auto-capture** | `memory/store.rs:107-112` requires explicit `add`; no hook feeding session logs → memory | Mind stays empty unless human remembers | Medium |
+| G11 | ~~Memory has no git/session auto-capture~~ **DONE** | `barkcli-core/src/memory/ingest.rs` now extracts memories from sessions (heuristic + optional LLM via `ai/provider.rs`); `commands/session.rs` auto-ingests on session end; `MemoryStore::consolidate()` runs promote/compress/evict | Mind fills automatically | Medium |
 | G12 | **Web UI is monolithic** | `web/src/App.tsx:1-731` single file wires all views; `components/` has 15 views but no `OrchestrateView` live queue | Hard to extend | Low |
 
 ### 2.3 Summary Judgment

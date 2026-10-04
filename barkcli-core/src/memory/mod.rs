@@ -1,4 +1,5 @@
 pub mod embeddings;
+pub mod ingest;
 pub mod search;
 pub mod store;
 pub mod tiers;
