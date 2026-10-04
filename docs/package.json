@@ -5,17 +5,16 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "postbuild": "node scripts/gen-cli-docs.mjs"
+    "start": "next start"
   },
   "dependencies": {
-    "fumadocs-core": "^15.0.0",
-    "fumadocs-mdx": "^11.0.0",
-    "fumadocs-ui": "^15.0.0",
-    "next": "^15.0.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "zod": "^3.24.0"
+    "fumadocs-core": "^16.16.1",
+    "fumadocs-mdx": "^15.4.6",
+    "fumadocs-ui": "^16.16.1",
+    "next": "^16.3.8",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zod": "^4.1.8"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
@@ -25,8 +24,5 @@
     "postcss": "^8.4.0",
     "tailwindcss": "^3.4.0",
     "typescript": "^5.5.0"
-  },
-  "overrides": {
-    "zod": "^3.24.0"
   }
 }
