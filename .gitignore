@@ -17,3 +17,10 @@ docs/.next/
 docs/.source/
 docs/out/
 
+
+# generic
+node_modules/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
