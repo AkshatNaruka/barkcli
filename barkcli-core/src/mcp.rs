@@ -932,6 +932,29 @@ impl McpServer {
                 }
             }),
             serde_json::json!({
+                "name": "brain_graph",
+                "description": "Return the brain knowledge graph (nodes + edges) as JSON",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            }),
+            serde_json::json!({
+                "name": "brain_neighbors",
+                "description": "Return nodes connected to a given node in the brain graph",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "node_id": {
+                            "type": "string",
+                            "description": "Node id (e.g. mem-..., session:..., card:..., agent:...)"
+                        }
+                    },
+                    "required": ["node_id"]
+                }
+            }),
+            serde_json::json!({
                 "name": "agent_heartbeat",
                 "description": "Send a heartbeat to indicate the agent is alive",
                 "inputSchema": {
@@ -1466,6 +1489,8 @@ impl McpServer {
             "memory_search" => self.tool_memory_search(arguments),
             "memory_list" => self.tool_memory_list(arguments),
             "memory_brief" => self.tool_memory_brief(arguments),
+            "brain_graph" => self.tool_brain_graph(arguments),
+            "brain_neighbors" => self.tool_brain_neighbors(arguments),
             "agent_heartbeat" => self.tool_agent_heartbeat(arguments),
             "mind_snapshot" => self.tool_mind_snapshot(arguments),
             "overview" => self.tool_overview(arguments),
@@ -2456,6 +2481,30 @@ impl McpServer {
         Ok(serde_json::json!({
             "count": items.len(),
             "memories": items
+        }))
+    }
+
+    fn tool_brain_graph(&self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let graph = crate::brain::graph::BrainGraph::load(&board_name)?;
+        Ok(serde_json::json!({
+            "nodes": graph.nodes,
+            "edges": graph.edges,
+        }))
+    }
+
+    fn tool_brain_neighbors(&self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let node_id = args
+            .get("node_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("node_id required"))?;
+        let graph = crate::brain::graph::BrainGraph::load(&board_name)?;
+        let neighbors = graph.neighbors(node_id);
+        Ok(serde_json::json!({
+            "node_id": node_id,
+            "count": neighbors.len(),
+            "neighbors": neighbors,
         }))
     }
 

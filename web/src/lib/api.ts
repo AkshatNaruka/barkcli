@@ -578,6 +578,48 @@ export async function consolidateMemory(name?: string): Promise<{ promoted: numb
   } catch { return null; }
 }
 
+// ── Brain API ──
+
+export interface BrainNode {
+  id: string;
+  label: string;
+  kind: "memory" | "fact" | "session" | "card" | "agent";
+  tier?: string;
+  importance: number;
+  access_count: number;
+  tags: string[];
+  created_at: string;
+}
+
+export interface BrainEdge {
+  from: string;
+  to: string;
+  kind: string;
+  weight: number;
+}
+
+export async function fetchBrain(name?: string): Promise<{ nodes: BrainNode[]; edges: BrainEdge[] }> {
+  if (isVscode) return { nodes: [], edges: [] };
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    const res = await fetch(withToken(`/api/brain?${params.toString()}`));
+    if (!res.ok) return { nodes: [], edges: [] };
+    return await res.json();
+  } catch { return { nodes: [], edges: [] }; }
+}
+
+export async function fetchBrainNode(id: string, name?: string): Promise<{ node: BrainNode; neighbors: BrainNode[] } | null> {
+  if (isVscode) return null;
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    const res = await fetch(withToken(`/api/brain/node/${encodeURIComponent(id)}?${params.toString()}`));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
 // ── Specs API ──
 
 export async function fetchSpecs(name?: string): Promise<Spec[]> {

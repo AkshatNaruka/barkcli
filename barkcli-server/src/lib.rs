@@ -116,6 +116,9 @@ pub async fn run(
         .route("/api/memory/facts", get(list_facts_handler))
         .route("/api/memory/ingest", post(ingest_memory_handler))
         .route("/api/memory/consolidate", post(consolidate_memory_handler))
+        // Brain graph endpoints
+        .route("/api/brain", get(brain_graph_handler))
+        .route("/api/brain/node/{id}", get(brain_node_handler))
         // Specs endpoints
         .route("/api/specs", get(list_specs_handler).post(create_spec_handler))
         .route("/api/specs/coverage", get(specs_coverage_handler))
@@ -1745,6 +1748,31 @@ async fn consolidate_memory_handler(
         "compressed": report.compressed,
         "evicted": report.evicted,
     })))
+}
+
+async fn brain_graph_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<BoardQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let graph = barkcli_core::brain::graph::BrainGraph::load(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(serde_json::json!({ "nodes": graph.nodes, "edges": graph.edges })))
+}
+
+async fn brain_node_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Query(query): Query<BoardQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let graph = barkcli_core::brain::graph::BrainGraph::load(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let node = graph
+        .node(&id)
+        .ok_or_else(|| ServerError::bad(format!("node not found: {}", id)))?;
+    let neighbors = graph.neighbors(&id);
+    Ok(Json(serde_json::json!({ "node": node, "neighbors": neighbors })))
 }
 
 #[derive(serde::Serialize)]

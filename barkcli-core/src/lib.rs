@@ -1,5 +1,6 @@
 pub mod agent;
 pub mod ai;
+pub mod brain;
 pub mod cli;
 pub mod code;
 pub mod commands;

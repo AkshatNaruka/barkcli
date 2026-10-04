@@ -273,6 +273,27 @@ impl MemoryStore {
             .cloned()
             .collect();
         touched.sort_by_key(|e| ids.iter().position(|id| id == &e.id).unwrap_or(usize::MAX));
+
+        // Expand by 1-hop graph neighbors (up to 3 extra, dedup by id).
+        if let Ok(graph) = crate::brain::graph::BrainGraph::load(&self.board_name) {
+            let mut neighbor_ids: Vec<String> = Vec::new();
+            for id in &ids {
+                for n in graph.neighbors(id) {
+                    if n.kind == crate::brain::graph::NodeKind::Memory
+                        && !ids.contains(&n.id)
+                        && !neighbor_ids.contains(&n.id)
+                        && neighbor_ids.len() < 3
+                    {
+                        neighbor_ids.push(n.id.clone());
+                    }
+                }
+            }
+            for nid in neighbor_ids {
+                if let Some(e) = self.memory.entries.iter().find(|e| e.id == nid) {
+                    touched.push(e.clone());
+                }
+            }
+        }
         touched
     }
 
@@ -294,6 +315,10 @@ impl MemoryStore {
             false
         };
         let evicted = self.evict_stale();
+        // Keep the brain graph in sync with the memory state.
+        if let Ok(graph) = crate::brain::graph::BrainGraph::build(&self.board_name) {
+            let _ = graph.save(&self.board_name);
+        }
         ConsolidationReport {
             promoted,
             compressed,
@@ -301,14 +326,21 @@ impl MemoryStore {
         }
     }
 
-    /// Top memories by importance + recency, for agent context injection.
+    /// Top memories by importance + graph centrality + recency, for agent
+    /// context injection.
     pub fn brief(&self, limit: usize) -> Vec<&MemoryEntry> {
+        let degree = crate::brain::graph::BrainGraph::load(&self.board_name)
+            .map(|g| g.degree_map())
+            .unwrap_or_default();
+        let max_degree = degree.values().copied().max().unwrap_or(1).max(1) as f32;
         let mut entries: Vec<&MemoryEntry> = self.memory.entries.iter().collect();
         entries.sort_by(|a, b| {
-            let a_rank = a.importance * 0.6 + recency_signal(a) * 0.4;
-            let b_rank = b.importance * 0.6 + recency_signal(b) * 0.4;
-            b_rank
-                .partial_cmp(&a_rank)
+            let rank = |e: &MemoryEntry| {
+                let d = degree.get(&e.id).copied().unwrap_or(0) as f32 / max_degree;
+                e.importance * 0.5 + d * 0.3 + recency_signal(e) * 0.2
+            };
+            rank(b)
+                .partial_cmp(&rank(a))
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
         entries.into_iter().take(limit).collect()

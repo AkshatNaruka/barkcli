@@ -9,6 +9,7 @@
     "concepts/boards",
     "concepts/projects",
     "concepts/code-context",
+    "concepts/brain",
     "commands",
     "commands/init",
     "commands/create",

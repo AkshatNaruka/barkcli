@@ -118,6 +118,7 @@ fn dispatch(cmd: &str, cmd_args: &[String]) -> Result<()> {
         "intake" => commands::intake::run_intake(cmd_args)?,
         "plan" => commands::plan::run_plan(cmd_args)?,
         "memory" | "mem" => commands::memory::run_memory(cmd_args)?,
+        "brain" => commands::brain::run_brain(cmd_args)?,
         "monitor" => commands::monitor::run_monitor(cmd_args)?,
         "review" => commands::review::run_review(cmd_args)?,
         "mind" => commands::mind::run_mind(cmd_args)?,

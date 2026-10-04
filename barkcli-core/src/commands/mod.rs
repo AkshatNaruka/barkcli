@@ -1,7 +1,8 @@
 pub mod card;
-pub mod agenda;
 pub mod agent;
+pub mod agenda;
 pub mod boards;
+pub mod brain;
 pub mod checkpoint;
 pub mod clean;
 pub mod code;

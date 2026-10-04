@@ -28,6 +28,7 @@ const SECTIONS: Section[] = [
     label: "Knowledge",
     items: [
       { route: "memory", label: "Memory", icon: "db" },
+      { route: "brain", label: "Brain", icon: "spark" },
       { route: "skills", label: "Skills", icon: "star" },
       { route: "docs", label: "Docs", icon: "doc" },
     ],

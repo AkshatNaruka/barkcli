@@ -39,6 +39,7 @@ import { SprintView } from "./components/SprintView";
 import { SettingsView } from "./components/SettingsView";
 import { AgentPromptView } from "./components/AgentPromptView";
 import { MemoryView } from "./components/MemoryView";
+import { BrainView } from "./components/BrainView";
 import { SpecsView } from "./components/SpecsView";
 import { OrchestrateView } from "./components/OrchestrateView";
 import { TimelineView } from "./components/TimelineView";
@@ -525,6 +526,9 @@ export function App() {
         {route === "skills" && <SkillsView />}
         {route === "memory" && (
           <MemoryView boardName={boardName} />
+        )}
+        {route === "brain" && (
+          <BrainView boardName={boardName} />
         )}
         {route === "specs" && (
           <SpecsView boardName={boardName} />

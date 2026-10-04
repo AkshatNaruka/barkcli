@@ -11,6 +11,7 @@ export type Route =
   | "activity"
   | "sprints"
   | "memory"
+  | "brain"
   | "specs"
   | "orchestrate"
   | "agents"
@@ -30,6 +31,7 @@ const ROUTES: Route[] = [
   "activity",
   "sprints",
   "memory",
+  "brain",
   "specs",
   "orchestrate",
   "agents",
