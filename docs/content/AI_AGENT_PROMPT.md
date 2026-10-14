@@ -169,7 +169,7 @@ Add to `.claude/settings.json`, `.opencode/config.json`, or `.cursor/mcp.json`:
 }
 ```
 
-### MCP Tools Available (56 tools — see `barkcli-core/src/mcp.rs:handle_tools_list`)
+### MCP Tools Available (66 tools — see `barkcli-core/src/mcp.rs:handle_tools_list`)
 
 | Tool | Description |
 |------|-------------|
@@ -213,6 +213,12 @@ Add to `.claude/settings.json`, `.opencode/config.json`, or `.cursor/mcp.json`:
 | `autopilot_propose` | Propose plan (creates approval gate) |
 | `autopilot_approve` / `autopilot_reject` | Human gate decisions |
 | `packet_claim` | Atomic top-packet claim (ready + claim + Working) |
+| `history_scan` | Group git commits into feature bundles (read-only) |
+| `bundle_list` / `bundle_get` | List/get bundles with filters |
+| `bundle_approve` / `bundle_reject` | Human gate: approve seals, reject redistributes |
+| `bundle_merge` / `bundle_split` | Combine or split bundles at commit boundaries |
+| `bundle_move_commit` | Move a single commit between bundles |
+| `bundle_seal` | Make a bundle immutable |
 | `memory_add` / `memory_search` / `memory_list` | Cross-session memory (4 tiers) |
 
 ### Agent Registration

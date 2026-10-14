@@ -1,3 +1,4 @@
+pub mod bundle;
 pub mod card;
 pub mod agent;
 pub mod agenda;
@@ -14,6 +15,7 @@ pub mod export;
 pub mod fleet;
 pub mod git_ops;
 pub mod handoff;
+pub mod history;
 pub mod hooks;
 pub mod import;
 pub mod init;

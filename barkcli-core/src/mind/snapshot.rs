@@ -10,6 +10,7 @@ use crate::storage::board_file::read_board;
 use crate::storage::history::HistoryEntry;
 use crate::models::session::SessionEntry;
 use crate::memory::store::MemoryEntry;
+use crate::models::bundle::BundleStatus;
 
 /// Board stats by column/priority/label
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,6 +64,16 @@ pub struct MindSnapshot {
     pub recent_sessions: Vec<SessionEntry>,
     pub top_memories: Vec<MemoryEntry>,
     pub velocity: Option<VelocityReport>,
+    pub bundle_stats: Option<BundleStats>,
+}
+
+/// Bundle statistics for mind snapshot.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct BundleStats {
+    pub total: usize,
+    pub open: usize,
+    pub sealed: usize,
+    pub unsorted: usize,
 }
 
 pub fn mind_path(board_name: &str) -> Result<PathBuf> {
@@ -237,6 +248,32 @@ pub fn build(board_name: &str) -> Result<MindSnapshot> {
         sprints.into_iter().find(|s| s.end.is_none())
     };
 
+    // Bundle stats (Smart History Bundles)
+    let bundle_stats = {
+        let root = find_board_dir().ok().and_then(|d| d.parent().map(|p| p.to_path_buf()));
+        let bundles = root
+            .and_then(|r| crate::history::list_bundles(None, None, None).ok())
+            .unwrap_or_default();
+        if bundles.is_empty() {
+            None
+        } else {
+            let total = bundles.len();
+            let open = bundles.iter().filter(|b| b.status == BundleStatus::Open).count();
+            let sealed = bundles.iter().filter(|b| b.status == BundleStatus::Sealed).count();
+            let unsorted = bundles
+                .iter()
+                .filter(|b| b.id.ends_with("-unsorted"))
+                .map(|b| b.commits.len())
+                .sum();
+            Some(crate::mind::snapshot::BundleStats {
+                total,
+                open,
+                sealed,
+                unsorted,
+            })
+        }
+    };
+
     // Velocity
     let velocity = {
         let done_cards: Vec<&crate::models::card::Card> = board.cards.iter().filter(|c| c.column == "done").collect();
@@ -270,6 +307,7 @@ pub fn build(board_name: &str) -> Result<MindSnapshot> {
         recent_sessions,
         top_memories,
         velocity,
+        bundle_stats,
     })
 }
 

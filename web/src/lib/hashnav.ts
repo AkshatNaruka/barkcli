@@ -16,6 +16,7 @@ export type Route =
   | "orchestrate"
   | "agents"
   | "timeline"
+  | "history"
   | "settings"
   | "agent-prompt"
   | "docs";
@@ -36,6 +37,7 @@ const ROUTES: Route[] = [
   "orchestrate",
   "agents",
   "timeline",
+  "history",
   "settings",
   "agent-prompt",
   "docs",

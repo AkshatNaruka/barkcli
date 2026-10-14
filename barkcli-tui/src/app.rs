@@ -47,6 +47,7 @@ pub enum Tab {
     Code,
     Agents,
     Orchestrate,
+    History,
 }
 
 impl Tab {
@@ -60,6 +61,7 @@ impl Tab {
             '6' => Some(Tab::Code),
             '7' => Some(Tab::Agents),
             '8' => Some(Tab::Orchestrate),
+            '9' => Some(Tab::History),
             _ => None,
         }
     }
@@ -73,6 +75,7 @@ impl Tab {
             Tab::Code => "6 Code",
             Tab::Agents => "7 Agents",
             Tab::Orchestrate => "8 Orchestrate",
+            Tab::History => "9 History",
         }
     }
     pub fn next(&self) -> Tab {
@@ -84,12 +87,14 @@ impl Tab {
             Tab::Reports => Tab::Code,
             Tab::Code => Tab::Agents,
             Tab::Agents => Tab::Orchestrate,
-            Tab::Orchestrate => Tab::Board,
+            Tab::Orchestrate => Tab::History,
+            Tab::History => Tab::Board,
         }
     }
     pub fn prev(&self) -> Tab {
         match self {
-            Tab::Board => Tab::Orchestrate,
+            Tab::Board => Tab::History,
+            Tab::History => Tab::Orchestrate,
             Tab::List => Tab::Board,
             Tab::Tree => Tab::List,
             Tab::Agenda => Tab::Tree,
@@ -169,6 +174,7 @@ pub struct App {
     pub list_sort: SortKey,
     pub code_query: String,
     pub code_results: Vec<ScoredFile>,
+    pub history_selected: usize,
     pub status_msg: Option<String>,
     pub link_state: LinkState,
 
@@ -225,6 +231,7 @@ impl App {
             list_sort: SortKey::Priority,
             code_query: String::new(),
             code_results: Vec::new(),
+            history_selected: 0,
             status_msg: None,
             link_state: LinkState::None,
             agents: Vec::new(),
@@ -261,6 +268,7 @@ impl App {
             list_sort: SortKey::Priority,
             code_query: String::new(),
             code_results: Vec::new(),
+            history_selected: 0,
             status_msg: None,
             link_state: LinkState::None,
             agents: Vec::new(),
@@ -354,7 +362,7 @@ impl App {
             Tab::List => self.sorted_cards(),
             Tab::Tree => self.tree_flat(),
             Tab::Agenda => self.agenda_flat(),
-            Tab::Reports | Tab::Code | Tab::Agents | Tab::Orchestrate => Vec::new(),
+            Tab::Reports | Tab::Code | Tab::Agents | Tab::Orchestrate | Tab::History => Vec::new(),
         }
     }
 

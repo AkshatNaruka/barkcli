@@ -43,6 +43,7 @@ import { BrainView } from "./components/BrainView";
 import { SpecsView } from "./components/SpecsView";
 import { OrchestrateView } from "./components/OrchestrateView";
 import { TimelineView } from "./components/TimelineView";
+import { HistoryView } from "./components/HistoryView";
 import { DocsView } from "./components/DocsView";
 import { MindView } from "./components/MindView";
 import { SkillsView } from "./components/SkillsView";
@@ -538,6 +539,9 @@ export function App() {
         )}
         {route === "timeline" && (
           <TimelineView boardName={boardName} />
+        )}
+        {route === "history" && (
+          <HistoryView boardName={boardName} />
         )}
         {board && route === "settings" && (
           <SettingsView

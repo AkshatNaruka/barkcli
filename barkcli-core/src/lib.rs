@@ -4,6 +4,7 @@ pub mod brain;
 pub mod cli;
 pub mod code;
 pub mod commands;
+pub mod history;
 pub mod mcp;
 pub mod memory;
 pub mod mind;

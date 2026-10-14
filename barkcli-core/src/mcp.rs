@@ -1428,6 +1428,183 @@ impl McpServer {
                     "required": ["agent_id"]
                 }
             }),
+            // ── Smart History Bundles ──
+            serde_json::json!({
+                "name": "history_scan",
+                "description": "Scan git commits and group them into bundles (read-only, never modifies history)",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "branch": {
+                            "type": "string",
+                            "description": "Branch to scan (default: current)"
+                        },
+                        "since": {
+                            "type": "string",
+                            "description": "SHA to start from (exclusive)"
+                        },
+                        "all": {
+                            "type": "boolean",
+                            "description": "Scan entire history (default: incremental)"
+                        },
+                        "no_llm": {
+                            "type": "boolean",
+                            "description": "Skip LLM refinement (default: use LLM if available)"
+                        }
+                    },
+                    "required": []
+                }
+            }),
+            serde_json::json!({
+                "name": "bundle_list",
+                "description": "List bundles with optional filters",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "branch": {
+                            "type": "string",
+                            "description": "Filter by branch"
+                        },
+                        "kind": {
+                            "type": "string",
+                            "description": "Filter by kind (feat, fix, refactor, docs, chore, test, mixed)"
+                        },
+                        "status": {
+                            "type": "string",
+                            "description": "Filter by status (open, sealed)"
+                        }
+                    },
+                    "required": []
+                }
+            }),
+            serde_json::json!({
+                "name": "bundle_get",
+                "description": "Get full details of a single bundle including its commits",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "string",
+                            "description": "Bundle ID"
+                        }
+                    },
+                    "required": ["id"]
+                }
+            }),
+            serde_json::json!({
+                "name": "bundle_propose",
+                "description": "Propose a new grouping (dry-run, shows what would change without modifying)",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "branch": {
+                            "type": "string",
+                            "description": "Branch to scan (default: current)"
+                        }
+                    },
+                    "required": []
+                }
+            }),
+            serde_json::json!({
+                "name": "bundle_approve",
+                "description": "Approve a bundle (human gate: marks it sealed and human-approved)",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "string",
+                            "description": "Bundle ID to approve"
+                        }
+                    },
+                    "required": ["id"]
+                }
+            }),
+            serde_json::json!({
+                "name": "bundle_reject",
+                "description": "Reject a bundle and redistribute its commits to Unsorted",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "string",
+                            "description": "Bundle ID to reject"
+                        }
+                    },
+                    "required": ["id"]
+                }
+            }),
+            serde_json::json!({
+                "name": "bundle_merge",
+                "description": "Merge two bundles into one",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "source": {
+                            "type": "string",
+                            "description": "Bundle ID to merge (will be deleted)"
+                        },
+                        "target": {
+                            "type": "string",
+                            "description": "Bundle ID to merge into (kept)"
+                        }
+                    },
+                    "required": ["source", "target"]
+                }
+            }),
+            serde_json::json!({
+                "name": "bundle_split",
+                "description": "Split a bundle at a commit SHA boundary",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "string",
+                            "description": "Bundle ID to split"
+                        },
+                        "sha": {
+                            "type": "string",
+                            "description": "Commit SHA to split at (commits from here go to new bundle)"
+                        }
+                    },
+                    "required": ["id", "sha"]
+                }
+            }),
+            serde_json::json!({
+                "name": "bundle_move_commit",
+                "description": "Move a single commit from one bundle to another",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "sha": {
+                            "type": "string",
+                            "description": "Commit SHA to move"
+                        },
+                        "from": {
+                            "type": "string",
+                            "description": "Source bundle ID"
+                        },
+                        "to": {
+                            "type": "string",
+                            "description": "Target bundle ID"
+                        }
+                    },
+                    "required": ["sha", "from", "to"]
+                }
+            }),
+            serde_json::json!({
+                "name": "bundle_seal",
+                "description": "Seal a bundle (marks it immutable — no further changes allowed)",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "string",
+                            "description": "Bundle ID to seal"
+                        }
+                    },
+                    "required": ["id"]
+                }
+            }),
         ];
 
         JsonRpcResponse {
@@ -1516,6 +1693,17 @@ impl McpServer {
             "autopilot_approve" => self.tool_autopilot_approve(arguments),
             "autopilot_reject" => self.tool_autopilot_reject(arguments),
             "packet_claim" => self.tool_packet_claim(arguments),
+            // Smart History Bundles
+            "history_scan" => self.tool_history_scan(arguments),
+            "bundle_list" => self.tool_bundle_list(arguments),
+            "bundle_get" => self.tool_bundle_get(arguments),
+            "bundle_propose" => self.tool_bundle_propose(arguments),
+            "bundle_approve" => self.tool_bundle_approve(arguments),
+            "bundle_reject" => self.tool_bundle_reject(arguments),
+            "bundle_merge" => self.tool_bundle_merge(arguments),
+            "bundle_split" => self.tool_bundle_split(arguments),
+            "bundle_move_commit" => self.tool_bundle_move_commit(arguments),
+            "bundle_seal" => self.tool_bundle_seal(arguments),
             _ => Err(anyhow::anyhow!("Unknown tool: {}", tool_name)),
         };
 
@@ -3049,6 +3237,227 @@ impl McpServer {
             "priority": top.priority,
             "reason": top.reason,
             "agent_id": agent_id,
+        }))
+    }
+
+    // ── Smart History Bundles ──
+
+    fn tool_history_scan(&self, args: Value) -> Result<Value> {
+        let root = crate::storage::board_dir::find_project_root()?;
+        let branch = args
+            .get("branch")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| crate::history::git::current_branch(&root));
+        let since = args.get("since").and_then(|v| v.as_str()).map(|s| s.to_string());
+        let all = args.get("all").and_then(|v| v.as_bool()).unwrap_or(false);
+        let no_llm = args.get("no_llm").and_then(|v| v.as_bool()).unwrap_or(false);
+
+        let config = crate::history::ScanConfig {
+            branch: branch.clone(),
+            since: if all { None } else { since },
+            max_commits: crate::history::git::DEFAULT_MAX_COMMITS,
+            use_llm: !no_llm,
+            heuristic: crate::history::heuristics::HeuristicConfig::default(),
+        };
+
+        let result = crate::history::scan(&root, &config)?;
+
+        Ok(serde_json::json!({
+            "branch": branch,
+            "commits_processed": result.commits_processed,
+            "bundles_created": result.bundles_created,
+            "bundles_updated": result.bundles_updated,
+            "unsorted_count": result.unsorted_count,
+        }))
+    }
+
+    fn tool_bundle_list(&self, args: Value) -> Result<Value> {
+        let branch = args.get("branch").and_then(|v| v.as_str()).map(|s| s.to_string());
+        let kind = args.get("kind").and_then(|v| v.as_str())
+            .and_then(|k| crate::models::bundle::BundleKind::parse(k));
+        let status = args.get("status").and_then(|v| v.as_str())
+            .and_then(|s| match s {
+                "open" => Some(crate::models::bundle::BundleStatus::Open),
+                "sealed" => Some(crate::models::bundle::BundleStatus::Sealed),
+                _ => None,
+            });
+
+        let bundles = crate::history::list_bundles(branch.as_deref(), kind, status)?;
+
+        let items: Vec<Value> = bundles.iter().map(|b| {
+            serde_json::json!({
+                "id": b.id,
+                "title": b.title,
+                "kind": b.kind.as_str(),
+                "status": b.status.as_str(),
+                "branch": b.branch,
+                "commit_count": b.stats.commits,
+                "first_sha": b.range.as_ref().map(|r| &r.first_sha),
+                "last_sha": b.range.as_ref().map(|r| &r.last_sha),
+                "confidence": b.confidence,
+                "card_id": b.card_id,
+                "source": b.source.as_str(),
+            })
+        }).collect();
+
+        Ok(serde_json::json!({ "bundles": items }))
+    }
+
+    fn tool_bundle_get(&self, args: Value) -> Result<Value> {
+        let id = args.get("id").and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("id required"))?;
+
+        let bundle = crate::history::get_bundle(id)?
+            .ok_or_else(|| anyhow::anyhow!("bundle '{}' not found", id))?;
+
+        let commits: Vec<Value> = bundle.commits.iter().map(|c| {
+            serde_json::json!({
+                "sha": c.sha,
+                "subject": c.subject,
+                "author": c.author,
+                "date": c.date.to_rfc3339(),
+            })
+        }).collect();
+
+        Ok(serde_json::json!({
+            "id": bundle.id,
+            "title": bundle.title,
+            "summary": bundle.summary,
+            "kind": bundle.kind.as_str(),
+            "status": bundle.status.as_str(),
+            "branch": bundle.branch,
+            "confidence": bundle.confidence,
+            "source": bundle.source.as_str(),
+            "card_id": bundle.card_id,
+            "files_touched": bundle.files_touched,
+            "stats": {
+                "commits": bundle.stats.commits,
+                "additions": bundle.stats.additions,
+                "deletions": bundle.stats.deletions,
+            },
+            "range": bundle.range.as_ref().map(|r| {
+                serde_json::json!({
+                    "first_sha": r.first_sha,
+                    "last_sha": r.last_sha,
+                })
+            }),
+            "commits": commits,
+        }))
+    }
+
+    fn tool_bundle_propose(&self, args: Value) -> Result<Value> {
+        let root = crate::storage::board_dir::find_project_root()?;
+        let branch = args.get("branch").and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| crate::history::git::current_branch(&root));
+
+        let config = crate::history::ScanConfig {
+            branch: branch.clone(),
+            since: None,
+            max_commits: crate::history::git::DEFAULT_MAX_COMMITS,
+            use_llm: false,
+            heuristic: crate::history::heuristics::HeuristicConfig::default(),
+        };
+
+        // Dry-run: scan but report what would change
+        let result = crate::history::scan(&root, &config)?;
+
+        Ok(serde_json::json!({
+            "branch": branch,
+            "would_process": result.commits_processed,
+            "would_create": result.bundles_created,
+            "would_update": result.bundles_updated,
+            "note": "This was a dry-run. Use history_scan to apply.",
+        }))
+    }
+
+    fn tool_bundle_approve(&self, args: Value) -> Result<Value> {
+        let id = args.get("id").and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("id required"))?;
+
+        crate::history::approve_bundle(id)?;
+
+        Ok(serde_json::json!({
+            "approved": true,
+            "id": id,
+        }))
+    }
+
+    fn tool_bundle_reject(&self, args: Value) -> Result<Value> {
+        let id = args.get("id").and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("id required"))?;
+
+        let bundle = crate::history::get_bundle(id)?
+            .ok_or_else(|| anyhow::anyhow!("bundle '{}' not found", id))?;
+
+        crate::history::reject_bundle(id, &bundle.branch)?;
+
+        Ok(serde_json::json!({
+            "rejected": true,
+            "id": id,
+            "commits_moved_to": "unsorted",
+        }))
+    }
+
+    fn tool_bundle_merge(&self, args: Value) -> Result<Value> {
+        let source = args.get("source").and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("source required"))?;
+        let target = args.get("target").and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("target required"))?;
+
+        crate::history::merge_bundles(source, target)?;
+
+        Ok(serde_json::json!({
+            "merged": true,
+            "source": source,
+            "target": target,
+        }))
+    }
+
+    fn tool_bundle_split(&self, args: Value) -> Result<Value> {
+        let id = args.get("id").and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("id required"))?;
+        let sha = args.get("sha").and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("sha required"))?;
+
+        let new_id = crate::history::split_bundle(id, sha)?;
+
+        Ok(serde_json::json!({
+            "split": true,
+            "original": id,
+            "new_bundle": new_id,
+            "at_sha": sha,
+        }))
+    }
+
+    fn tool_bundle_move_commit(&self, args: Value) -> Result<Value> {
+        let sha = args.get("sha").and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("sha required"))?;
+        let from = args.get("from").and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("from required"))?;
+        let to = args.get("to").and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("to required"))?;
+
+        crate::history::move_commit(sha, from, to)?;
+
+        Ok(serde_json::json!({
+            "moved": true,
+            "sha": sha,
+            "from": from,
+            "to": to,
+        }))
+    }
+
+    fn tool_bundle_seal(&self, args: Value) -> Result<Value> {
+        let id = args.get("id").and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("id required"))?;
+
+        crate::history::seal_bundle(id)?;
+
+        Ok(serde_json::json!({
+            "sealed": true,
+            "id": id,
         }))
     }
 }

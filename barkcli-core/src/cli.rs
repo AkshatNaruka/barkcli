@@ -137,6 +137,8 @@ fn dispatch(cmd: &str, cmd_args: &[String]) -> Result<()> {
         "session" => handle_session_cmd(cmd_args)?,
         "checkpoint" => handle_checkpoint_cmd(cmd_args)?,
         "hooks" => handle_hooks_cmd(cmd_args)?,
+        "history" => handle_history_cmd(cmd_args)?,
+        "bundle" => handle_bundle_cmd(cmd_args)?,
 
         // Fleet: multi-agent execution (sessions, worktrees, leases)
         "fleet" => commands::fleet::run_fleet(cmd_args)?,
@@ -699,6 +701,38 @@ fn handle_legacy_agent(board_name: &str, args: &[String]) -> Result<()> {
 }
 
 // ─── Helpers ─────────────────────────────────────
+
+fn handle_history_cmd(args: &[String]) -> Result<()> {
+    let sub = args.first().ok_or_else(|| anyhow::anyhow!("usage: barkcli history <scan|watch|install-hooks|uninstall-hooks|tree|validate>"))?;
+    let rest = &args[1..];
+    match sub.as_str() {
+        "scan" => crate::commands::history::run_scan(rest),
+        "watch" => crate::commands::history::run_watch(rest),
+        "install-hooks" => crate::commands::history::run_install_hooks(rest),
+        "uninstall-hooks" => crate::commands::history::run_uninstall_hooks(rest),
+        "tree" => crate::commands::history::run_tree(rest),
+        "validate" => crate::commands::history::run_validate(rest),
+        _ => bail!("unknown history subcommand: {}", sub),
+    }
+}
+
+fn handle_bundle_cmd(args: &[String]) -> Result<()> {
+    let sub = args.first().ok_or_else(|| anyhow::anyhow!("usage: barkcli bundle <list|show|rename|merge|split|move|seal|approve|reject|export>"))?;
+    let rest = &args[1..];
+    match sub.as_str() {
+        "list" | "ls" => crate::commands::bundle::run_list(rest),
+        "show" => crate::commands::bundle::run_show(rest),
+        "rename" => crate::commands::bundle::run_rename(rest),
+        "merge" => crate::commands::bundle::run_merge(rest),
+        "split" => crate::commands::bundle::run_split(rest),
+        "move" => crate::commands::bundle::run_move(rest),
+        "seal" => crate::commands::bundle::run_seal(rest),
+        "approve" => crate::commands::bundle::run_approve(rest),
+        "reject" => crate::commands::bundle::run_reject(rest),
+        "export" => crate::commands::bundle::run_export(rest),
+        _ => bail!("unknown bundle subcommand: {}", sub),
+    }
+}
 
 fn parse_board_flag(args: &[String]) -> Result<(Option<String>, Vec<String>)> {
     let mut board = None;

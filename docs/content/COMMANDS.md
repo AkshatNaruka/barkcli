@@ -341,6 +341,16 @@ barkcli template list
 barkcli template install <name>
 
 # GitHub Sync
+barkcli history scan               # group commits into bundles (read-only)
+barkcli history tree                # show bundle → commit tree
+barkcli history install-hooks       # install git hooks for auto-scan
+barkcli bundle list                 # list bundles with filters
+barkcli bundle show <id>            # bundle detail with commits
+barkcli bundle approve <id>         # approve (human gate, seals bundle)
+barkcli bundle seal <id>            # seal (make immutable)
+barkcli bundle merge <a> <b>        # merge two bundles
+barkcli bundle split <id> <sha>     # split at commit boundary
+barkcli bundle export [--curated-branch <name>]  # changelog or new branch
 barkcli sync --push                # push to GitHub Issues
 barkcli sync --pull                # pull from GitHub Issues
 ```

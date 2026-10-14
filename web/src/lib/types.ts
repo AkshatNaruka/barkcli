@@ -68,6 +68,21 @@ export interface HistoryEntry {
   at: string;
 }
 
+export interface Bundle {
+  id: string;
+  title: string;
+  kind: string;
+  status: string;
+  branch: string;
+  commit_count: number;
+  first_sha: string | null;
+  last_sha: string | null;
+  confidence: number;
+  card_id: string | null;
+  summary?: string;
+  commits?: Array<{ sha: string; subject: string; author: string; date: string }>;
+}
+
 export interface SessionEntry {
   id: string;
   agent: string;

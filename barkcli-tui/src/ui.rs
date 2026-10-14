@@ -121,6 +121,7 @@ fn draw_content(f: &mut Frame, app: &App, area: Rect) {
         Tab::Code => draw_code(f, app, area),
         Tab::Agents => draw_agents(f, app, area),
         Tab::Orchestrate => draw_orchestrate(f, app, area),
+        Tab::History => draw_history(f, app, area),
     }
 }
 
@@ -686,6 +687,7 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
                 Tab::Code => "↑↓/jk sel · / search · Enter open linked card",
                 Tab::Agents => "↑↓/jk sel · Enter detail",
                 Tab::Orchestrate => "↑↓/jk sel · r run cycle · c claim · Enter detail",
+                Tab::History => "↑↓/jk sel · Enter detail · q quit",
             };
             let filter = if app.filter.is_empty() { String::new() } else { format!(" │ filter:{}", app.filter) };
             (format!("{}", tab_hint), filter)
@@ -946,6 +948,41 @@ fn centered_rect(width: u16, height: u16, r: Rect) -> Rect {
         width: width.min(r.width),
         height: height.min(r.height),
     }
+}
+
+// ── History (Smart History Bundles) ──
+
+fn draw_history(f: &mut Frame, app: &App, area: Rect) {
+    use ratatui::widgets::{Block, Borders, List, ListItem, ListState};
+
+    let bundles = barkcli_core::history::list_bundles(None, None, None).unwrap_or_default();
+    let items: Vec<ListItem> = bundles
+        .iter()
+        .map(|b| {
+            let status = if b.is_sealed() { "●" } else { "○" };
+            let line = format!(
+                " {} [{:<7}] {:<30} {} commits  +{}/-{}  {:.0}%",
+                status,
+                b.kind.as_str(),
+                b.title,
+                b.stats.commits,
+                b.stats.additions,
+                b.stats.deletions,
+                b.confidence * 100.0,
+            );
+            ListItem::new(line)
+        })
+        .collect();
+
+    let mut state = ListState::default();
+    if !bundles.is_empty() {
+        state.select(Some(app.history_selected.min(bundles.len().saturating_sub(1))));
+    }
+
+    let list = List::new(items)
+        .block(Block::default().title("Bundles").borders(Borders::ALL))
+        .highlight_symbol("> ");
+    f.render_stateful_widget(list, area, &mut state);
 }
 
 #[cfg(test)]

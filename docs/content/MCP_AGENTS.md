@@ -469,6 +469,69 @@ Run an orchestration cycle (decompose, dispatch, monitor).
 }
 ```
 
+## Smart History Bundles
+
+Bundles are a metadata overlay on git history. They never modify, rewrite, or curate git history directly. All git operations are read-only; any history-curating export creates a new branch.
+
+### History Scanning
+
+#### `history_scan`
+
+Scan git commits and group them into bundles (read-only, never modifies history).
+
+```json
+{
+  "name": "history_scan",
+  "arguments": { "branch": "main", "all": false, "no_llm": false }
+}
+```
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `branch` | string | Branch to scan (default: current) |
+| `all` | boolean | Scan entire history (default: incremental) |
+| `no_llm` | boolean | Skip LLM refinement |
+
+### Bundle Operations
+
+#### `bundle_list` / `bundle_get`
+
+```json
+{ "name": "bundle_list", "arguments": { "branch": "main", "kind": "feat", "status": "open" } }
+{ "name": "bundle_get", "arguments": { "id": "feat-math-library" } }
+```
+
+#### `bundle_approve` / `bundle_reject`
+
+Approve seals a bundle (human gate). Reject redistributes commits to Unsorted.
+
+#### `bundle_merge` / `bundle_split` / `bundle_move_commit`
+
+Combine bundles, split at a commit SHA boundary, or move a single commit between bundles.
+
+#### `bundle_seal`
+
+Mark a bundle immutable — no further changes allowed.
+
+### Curated Branch Export
+
+```bash
+barkcli bundle export --curated-branch my-feature
+```
+
+Creates a NEW branch with one commit per bundle. The original branch is never touched. The export process finds the fork point, creates a new branch, cherry-picks commits bundle by bundle, creates a summary commit per bundle, and returns to the original branch.
+
+### Safety Invariants
+
+1. Never rewrites git history — no amend, rebase, or force-push.
+2. All git operations are read-only — bundles are a metadata overlay.
+3. Curated export creates a new branch — original branch untouched.
+4. Idempotent — re-scanning never duplicates or reshuffles sealed bundles.
+5. Concurrency-safe — file locking via advisory locks.
+6. AI proposes, human approves — low-confidence commits go to Unsorted.
+7. LLM is optional — works fully offline with deterministic heuristics.
+8. Secrets redacted — diffs are redacted before any LLM call.
+
 ## Agent Workflow
 
 ### Typical Workflow for a Coding Agent

@@ -164,6 +164,21 @@ pub async fn run(
         .route("/api/autopilot/approve", post(autopilot_approve_handler))
         .route("/api/autopilot/reject", post(autopilot_reject_handler))
         .route("/api/review", post(review_handler))
+
+        // Smart History Bundles
+        .route("/api/bundles", get(list_bundles_handler))
+        .route("/api/bundles/scan", post(scan_bundles_handler))
+        .route("/api/bundles/tree", get(bundle_tree_handler))
+        .route("/api/bundles/export", get(export_bundles_handler))
+        .route("/api/bundles/export-branch", post(export_branch_handler))
+        .route("/api/bundles/{id}", get(get_bundle_handler).delete(delete_bundle_handler))
+        .route("/api/bundles/{id}/approve", post(approve_bundle_handler))
+        .route("/api/bundles/{id}/reject", post(reject_bundle_handler))
+        .route("/api/bundles/{id}/seal", post(seal_bundle_handler))
+        .route("/api/bundles/{id}/rename", put(rename_bundle_handler))
+        .route("/api/bundles/merge", post(merge_bundles_handler))
+        .route("/api/bundles/split", post(split_bundle_handler))
+        .route("/api/bundles/move", post(move_commit_handler))
         // Skills endpoints (SPEC-004 R2)
         .route("/api/skills", get(list_skills_handler))
         .route("/api/skills/{id}", get(get_skill_handler))
@@ -2920,6 +2935,209 @@ async fn review_handler(
         .map_err(|e| ServerError::bad(e.to_string()))?;
     let _ = state.tx.send("reload".to_string());
     Ok(Json(serde_json::json!({ "board": board_name, "reviewed": true })))
+}
+
+// ── Smart History Bundles ──
+
+async fn list_bundles_handler(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let branch = params.get("branch").map(|s| s.as_str()).filter(|s| !s.is_empty());
+    let kind = params.get("kind").and_then(|s| barkcli_core::models::bundle::BundleKind::parse(s));
+    let status = params.get("status").and_then(|s| match s.as_str() {
+        "open" => Some(barkcli_core::models::bundle::BundleStatus::Open),
+        "sealed" => Some(barkcli_core::models::bundle::BundleStatus::Sealed),
+        _ => None,
+    });
+    let bundles = barkcli_core::history::list_bundles(branch, kind, status)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    Ok(Json(serde_json::json!({ "bundles": bundles })))
+}
+
+async fn scan_bundles_handler(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let root = barkcli_core::storage::board_dir::find_project_root()
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let branch = barkcli_core::history::git::current_branch(&root);
+    let config = barkcli_core::history::ScanConfig {
+        branch,
+        since: None,
+        max_commits: barkcli_core::history::git::DEFAULT_MAX_COMMITS,
+        use_llm: true,
+        heuristic: barkcli_core::history::heuristics::HeuristicConfig::default(),
+    };
+    let result = barkcli_core::history::scan(&root, &config)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({
+        "commits_processed": result.commits_processed,
+        "bundles_created": result.bundles_created,
+        "bundles_updated": result.bundles_updated,
+        "unsorted_count": result.unsorted_count,
+    })))
+}
+
+async fn get_bundle_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let bundle = barkcli_core::history::get_bundle(&id)
+        .map_err(|e| ServerError::bad(e.to_string()))?
+        .ok_or_else(|| ServerError::bad(format!("bundle '{}' not found", id)))?;
+    Ok(Json(serde_json::to_value(&bundle).unwrap()))
+}
+
+async fn delete_bundle_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let bundle = barkcli_core::history::get_bundle(&id)
+        .map_err(|e| ServerError::bad(e.to_string()))?
+        .ok_or_else(|| ServerError::bad(format!("bundle '{}' not found", id)))?;
+    barkcli_core::history::reject_bundle(&id, &bundle.branch)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "rejected": true, "id": id })))
+}
+
+async fn approve_bundle_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    barkcli_core::history::approve_bundle(&id)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "approved": true, "id": id })))
+}
+
+async fn reject_bundle_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let bundle = barkcli_core::history::get_bundle(&id)
+        .map_err(|e| ServerError::bad(e.to_string()))?
+        .ok_or_else(|| ServerError::bad(format!("bundle '{}' not found", id)))?;
+    barkcli_core::history::reject_bundle(&id, &bundle.branch)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "rejected": true, "id": id })))
+}
+
+async fn seal_bundle_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    barkcli_core::history::seal_bundle(&id)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "sealed": true, "id": id })))
+}
+
+async fn rename_bundle_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(req): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let title = req.get("title").and_then(|v| v.as_str())
+        .ok_or_else(|| ServerError::bad("title required"))?;
+    barkcli_core::history::rename_bundle(&id, title)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "renamed": true, "id": id, "title": title })))
+}
+
+async fn merge_bundles_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let source = req.get("source").and_then(|v| v.as_str())
+        .ok_or_else(|| ServerError::bad("source required"))?;
+    let target = req.get("target").and_then(|v| v.as_str())
+        .ok_or_else(|| ServerError::bad("target required"))?;
+    barkcli_core::history::merge_bundles(source, target)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "merged": true, "source": source, "target": target })))
+}
+
+async fn split_bundle_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let id = req.get("id").and_then(|v| v.as_str())
+        .ok_or_else(|| ServerError::bad("id required"))?;
+    let sha = req.get("sha").and_then(|v| v.as_str())
+        .ok_or_else(|| ServerError::bad("sha required"))?;
+    let new_id = barkcli_core::history::split_bundle(id, sha)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "split": true, "new_bundle": new_id })))
+}
+
+async fn move_commit_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let sha = req.get("sha").and_then(|v| v.as_str())
+        .ok_or_else(|| ServerError::bad("sha required"))?;
+    let from = req.get("from").and_then(|v| v.as_str())
+        .ok_or_else(|| ServerError::bad("from required"))?;
+    let to = req.get("to").and_then(|v| v.as_str())
+        .ok_or_else(|| ServerError::bad("to required"))?;
+    barkcli_core::history::move_commit(sha, from, to)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "moved": true, "sha": sha, "from": from, "to": to })))
+}
+
+async fn bundle_tree_handler(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let tree = barkcli_core::history::bundle_tree()
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    Ok(Json(serde_json::json!({ "tree": tree })))
+}
+
+async fn export_bundles_handler(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let root = barkcli_core::storage::board_dir::find_project_root()
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let bundles = barkcli_core::history::list_bundles(None, None, None)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let markdown = barkcli_core::history::llm::generate_changelog(&bundles);
+    if params.get("format").map(|s| s.as_str()) == Some("json") {
+        Ok(Json(serde_json::json!({ "bundles": bundles, "format": "json" })))
+    } else {
+        Ok(Json(serde_json::json!({ "changelog": markdown, "format": "markdown" })))
+    }
+}
+
+async fn export_branch_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let root = barkcli_core::storage::board_dir::find_project_root()
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let new_branch = req.get("new_branch").and_then(|v| v.as_str())
+        .ok_or_else(|| ServerError::bad("new_branch required"))?;
+    let source_branch = req.get("source_branch").and_then(|v| v.as_str())
+        .ok_or_else(|| ServerError::bad("source_branch required"))?;
+    let bundles = barkcli_core::history::list_bundles(Some(source_branch), None, None)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let mut sorted = bundles.clone();
+    sorted.sort_by(|a, b| a.created_at.cmp(&b.created_at));
+    let tip = barkcli_core::history::curated::export_curated_branch(&root, source_branch, new_branch, &sorted)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    Ok(Json(serde_json::json!({
+        "created": true,
+        "branch": new_branch,
+        "tip_sha": tip,
+        "original_branch_untouched": true,
+    })))
 }
 
 async fn list_skills_handler() -> Result<Json<serde_json::Value>, ServerError> {

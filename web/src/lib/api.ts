@@ -45,6 +45,56 @@ function parseBoardYaml(yaml: string): Board {
   return board;
 }
 
+// ── Smart History Bundles ──
+
+export interface Bundle {
+  id: string;
+  title: string;
+  kind: string;
+  status: string;
+  branch: string;
+  commit_count: number;
+  first_sha: string | null;
+  last_sha: string | null;
+  confidence: number;
+  card_id: string | null;
+  summary?: string;
+  commits?: Array<{ sha: string; subject: string; author: string; date: string }>;
+}
+
+export async function fetchBundles(): Promise<{ bundles: Bundle[] }> {
+  const res = await fetch("/api/bundles");
+  if (!res.ok) throw new Error("Failed to fetch bundles");
+  return res.json();
+}
+
+export async function scanBundles(): Promise<void> {
+  const res = await fetch("/api/bundles/scan", { method: "POST" });
+  if (!res.ok) throw new Error("Scan failed");
+}
+
+export async function approveBundle(id: string): Promise<void> {
+  const res = await fetch(`/api/bundles/${id}/approve`, { method: "POST" });
+  if (!res.ok) throw new Error("Approve failed");
+}
+
+export async function rejectBundle(id: string): Promise<void> {
+  const res = await fetch(`/api/bundles/${id}/reject`, { method: "POST" });
+  if (!res.ok) throw new Error("Reject failed");
+}
+
+export async function sealBundle(id: string): Promise<void> {
+  const res = await fetch(`/api/bundles/${id}/seal`, { method: "POST" });
+  if (!res.ok) throw new Error("Seal failed");
+}
+
+export async function fetchBundleTree(): Promise<string> {
+  const res = await fetch("/api/bundles/tree");
+  if (!res.ok) throw new Error("Failed to fetch tree");
+  const data = await res.json();
+  return data.tree || "";
+}
+
 // ── Access token ──
 // The server may require a token (barkcli serve --token X). The CLI opens the
 // browser with ?token=...; we persist it for the tab's lifetime.

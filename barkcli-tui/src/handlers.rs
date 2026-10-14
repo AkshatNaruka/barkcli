@@ -82,7 +82,17 @@ fn handle_normal(app: &mut App, key: KeyEvent) -> Result<()> {
         Tab::Code => handle_code_keys(app, key),
         Tab::Agents => handle_agents_keys(app, key),
         Tab::Orchestrate => handle_orchestrate_keys(app, key),
+        Tab::History => handle_history_keys(app, key),
     }
+}
+
+fn handle_history_keys(app: &mut App, key: KeyEvent) -> Result<()> {
+    match key.code {
+        KeyCode::Up | KeyCode::Char('k') => app.history_selected = app.history_selected.saturating_sub(1),
+        KeyCode::Down | KeyCode::Char('j') => app.history_selected += 1,
+        _ => {}
+    }
+    Ok(())
 }
 
 fn handle_board_keys(app: &mut App, key: KeyEvent) -> Result<()> {

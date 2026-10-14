@@ -39,6 +39,7 @@ const SECTIONS: Section[] = [
       { route: "calendar", label: "Calendar", icon: "calendar" },
       { route: "reports", label: "Reports", icon: "chart" },
       { route: "timeline", label: "Timeline", icon: "clock" },
+      { route: "history", label: "History", icon: "layers" },
       { route: "activity", label: "Activity", icon: "pulse" },
     ],
   },

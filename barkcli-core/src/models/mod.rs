@@ -1,4 +1,5 @@
 pub mod board;
+pub mod bundle;
 pub mod card;
 pub mod column;
 pub mod config;
@@ -8,6 +9,9 @@ pub mod spec;
 pub mod sprint;
 
 pub use board::Board;
+pub use bundle::{
+    Bundle, BundleKind, BundleSource, BundleStats, BundleStatus, CommitRange, CommitRef,
+};
 pub use card::Card;
 pub use column::Column;
 pub use config::Config;
