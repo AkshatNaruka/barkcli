@@ -807,6 +807,13 @@ fn print_usage() {
     println!("  context sync        Git-aware refresh of mapped files");
     println!("  context autosync on/off  Post-commit context sync");
     println!();
+    println!("Git history bundles (read-only on your git history):");
+    println!("  history scan        Group recent commits into named bundles");
+    println!("  history watch       Keep scanning every N seconds");
+    println!("  history validate    Check bundle integrity");
+    println!("  bundle list         Show bundles with diffstats");
+    println!("  bundle export <id>  Replay a bundle onto a new branch");
+    println!();
     println!("Interfaces:");
     println!("  tui                 Terminal kanban");
     println!("  serve               Browser kanban");

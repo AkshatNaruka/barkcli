@@ -3180,21 +3180,23 @@ async fn get_skill_handler(
 // ── Documentation handlers ───────────────────────────────────────────────────
 
 /// List available documentation files (public docs only, no internal/).
+///
+/// Docs live in `docs/content/*.md` in this repo; fall back to `docs/` for
+/// legacy flat layouts.
 async fn list_docs_handler() -> Result<Json<serde_json::Value>, ServerError> {
-    let docs_dir = std::path::Path::new("docs");
+    let docs_dir = docs_content_dir();
     let mut docs = Vec::new();
 
     if docs_dir.is_dir() {
-        let entries = std::fs::read_dir(docs_dir)
+        let entries = std::fs::read_dir(&docs_dir)
             .map_err(|e| ServerError::internal(format!("failed to read docs dir: {}", e)))?;
 
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.is_file() {
+            if path.is_file() && path.extension().and_then(|e| e.to_str()) == Some("md") {
                 if let Some(name) = path.file_stem().and_then(|n| n.to_str()) {
-                    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
                     // Only serve public .md files, exclude internal/ and other dirs
-                    if ext == "md" && !name.starts_with('.') {
+                    if !name.starts_with('.') {
                         // Read first line for title, or use filename
                         let title = std::fs::read_to_string(&path)
                             .ok()
@@ -3224,6 +3226,17 @@ async fn list_docs_handler() -> Result<Json<serde_json::Value>, ServerError> {
     Ok(Json(serde_json::json!({ "docs": docs })))
 }
 
+/// The directory documentation is served from: `docs/content/` when present
+/// (current layout, shared with the fumadocs site), else `docs/` directly.
+fn docs_content_dir() -> std::path::PathBuf {
+    let content = std::path::Path::new("docs").join("content");
+    if content.is_dir() {
+        content
+    } else {
+        std::path::PathBuf::from("docs")
+    }
+}
+
 /// Get a single documentation file by slug (e.g. /api/docs/COMMANDS).
 async fn get_doc_handler(
     Path(file): Path<String>,
@@ -3233,7 +3246,7 @@ async fn get_doc_handler(
         return Err(ServerError::bad("invalid doc filename"));
     }
 
-    let path = std::path::Path::new("docs").join(format!("{}.md", file));
+    let path = docs_content_dir().join(format!("{}.md", file));
 
     if !path.exists() {
         return Err(ServerError::bad(format!("doc '{}' not found", file)));

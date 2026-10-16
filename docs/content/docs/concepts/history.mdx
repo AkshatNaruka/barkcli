@@ -1,0 +1,61 @@
+---
+title: History Bundles
+description: How barkcli turns git commits into named, curated groups — model, lifecycle, safety
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+
+# History Bundles
+
+A History Bundle is a named group of git commits with a kind (feat / fix / chore / docs…), a diffstat, and a confidence score. barkcli reads your repository's history and proposes bundles — you approve, adjust, or ignore them.
+
+<Callout type="info">
+barkcli is strictly **read-only** on git. The one write it ever performs is `bundle export`, which creates a **new** branch. It never amends, rewrites, rebases, or force-pushes.
+</Callout>
+
+## The mental model
+
+1. **Read** — two-pass `git log` (read-only): commit metadata first, then bodies/trailers for selected commits
+2. **Group** — a deterministic heuristic engine scores pairwise similarity (file paths, message structure, time windows, git patch-id identity of twin commits on other branches)
+3. **Refine (optional)** — an LLM pass may rename/rekind bundles, but only after diffs are redacted (secrets removed) and size-capped
+4. **Persist** — one YAML file per bundle under `.board/bundles/`, plus `index.yaml` and a per-branch cursor
+5. **Trust ladder** — unsorted → heuristic/llm → approved → sealed
+
+Anything below the confidence floor lands in the branch's `unsorted` bundle instead of being silently mis-grouped.
+
+## Idempotent + incremental
+
+Each branch tracks a `last_processed_sha` cursor. Re-runs read only new commits, duplicate detection uses commit SHAs, and approved/sealed bundles are never reshuffled. Running `history scan` every morning converges to a stable, readable story instead of churning.
+
+## Confidence & sources
+
+Every bundle records `source`:
+
+| Source | Meaning |
+|--------|---------|
+| `heuristic` | Grouped by the deterministic engine (works fully offline) |
+| `llm` | Refined by an LLM pass (opt-in, redacted input) |
+| `manual override` | You changed the grouping in the web app |
+
+## How humans use them
+
+| Workflow | What you get |
+|----------|--------------|
+| Morning scan on a messy solo repo | A readable "what changed and why" without decoding commit-per-substring |
+| Agent team boards | Agents run `history scan` via hooks; their session log and bundle journal cross-reference |
+| Release write-ups | `bundle export <id>` replays a curated commit set onto a new branch as a reviewable PR |
+| Retro / blame | Confidence + source tell you which groupings were human-approved vs machine-guessed |
+
+## Commands
+
+- [history](/docs/commands/history) — `scan`, `watch`, `validate`, `install-hooks`
+- [bundle](/docs/commands/bundle) — `list`, `show`, `approve`, `seal`, `export`
+
+## Interchange
+
+Flat docs page: [HISTORY.md](/docs/HISTORY-internals) covers the YAML schema and MCP tools (11 exposed, 66 total).
+
+## Related
+
+- [git-workflow guide](/docs/guides/git-workflow) — commits and context mapping
+- [code-context](/docs/concepts/code-context) — commits ↔ files ↔ cards

@@ -6,15 +6,19 @@ import { fetchDocs, fetchDoc, type DocEntry } from "../lib/api";
 
 // Curated display order for docs
 const DOC_ORDER = [
+  "GETTING_STARTED",
+  "TUI",
   "USAGE_MANUAL",
   "COMMANDS",
   "WEB_APP_GUIDE",
   "API_REFERENCE",
   "MCP_AGENTS",
+  "HISTORY",
   "CONTEXT",
   "INTERFACES",
   "ADVANCED",
   "AI_AGENT_PROMPT",
+  "BRAIN",
 ];
 
 function sortDocs(docs: DocEntry[]): DocEntry[] {
@@ -28,15 +32,19 @@ function sortDocs(docs: DocEntry[]): DocEntry[] {
 
 // Short descriptions for each doc
 const DOC_DESCRIPTIONS: Record<string, string> = {
+  GETTING_STARTED: "Install, first project, tour of all interfaces",
+  TUI: "Terminal UI: tabs, shortcuts, themes",
   USAGE_MANUAL: "Getting started and complete usage guide",
   COMMANDS: "Full CLI command reference",
   WEB_APP_GUIDE: "Web app navigation and features",
   API_REFERENCE: "REST API endpoints documentation",
   MCP_AGENTS: "MCP server and agent integration",
+  HISTORY: "History Bundles: git commits as named groups",
   CONTEXT: "Code context and file linking",
   INTERFACES: "TUI, Web, VS Code, and Docker",
   ADVANCED: "Sessions, checkpoints, sprints, hooks",
   AI_AGENT_PROMPT: "Copy-paste prompt for AI agents",
+  BRAIN: "Mind snapshots and project memory",
 };
 
 export function DocsView() {

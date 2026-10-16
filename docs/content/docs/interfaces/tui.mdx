@@ -1,11 +1,11 @@
 ---
 title: Terminal UI
-description: Interactive kanban board in your terminal
+description: Keyboard-first kanban in your terminal — 9 tabs, vim navigation, 3 themes
 ---
 
 # Terminal UI
 
-The TUI provides an interactive kanban board in your terminal with vim-style navigation.
+The TUI is a full-screen, keyboard-first kanban built on a token-based design system modeled after clean CLI conventions: borderless data tables, Unicode box-drawing for confirmations, `>`-prefixed status lines, and spinner feedback in the status bar.
 
 ## Start
 
@@ -13,93 +13,122 @@ The TUI provides an interactive kanban board in your terminal with vim-style nav
 barkcli tui
 ```
 
+With one board you land straight in it; with several boards you get a picker first (`j`/`k` to select, `Enter` to open).
+
+Minimum terminal size is **60×12** — below that, barkcli says so instead of drawing a broken layout.
+
 ## Tabs
 
-| Tab | Key | Description |
-|-----|-----|-------------|
-| Board | `1` | Kanban board view |
-| List | `2` | Flat list sorted by priority |
-| Tree | `3` | Parent-child hierarchy |
-| Agenda | `4` | Today's tasks + upcoming |
-| Reports | `5` | Velocity and statistics |
-| Code | `6` | Code search and context |
-| Agents | `7` | Agent registry |
-| Orchestrate | `8` | Task queue and orchestration |
+Press `1`–`9`. The active tab is highlighted in the header.
 
-## Navigation
+| Tab | Key | Purpose |
+|-----|-----|---------|
+| Board | `1` | Kanban columns × cards |
+| List | `2` | Flat sortable backlog table |
+| Tree | `3` | Parent → child hierarchy |
+| Agenda | `4` | Overdue, due today, next 7 days |
+| Reports | `5` | Sprint burndown + effort stats |
+| Code | `6` | Symbol search mapped to cards |
+| Agents | `7` | Registered agent identities |
+| Orchestrate | `8` | Task queue and cycles |
+| History | `9` | History Bundles from your git log |
 
-### Board View
+The status bar always tells you the current mode and the shortcuts that matter right now:
+
+```
+ NORMAL │ ↑↓/jk sel · ←→/hl col · Enter detail · a add · e edit …
+```
+
+## Board tab
 
 | Key | Action |
 |-----|--------|
-| `h` / `l` | Move between columns |
-| `j` / `k` | Move between cards |
-| `a` | Add new card |
-| `e` | Edit selected card |
-| `d` | Delete card |
-| `H` / `L` | Move card left/right |
-| `/` | Search/filter |
+| `j` / `k`, `↑` / `↓` | Move between cards |
+| `h` / `l`, `←` / `→` | Move between columns |
+| `Enter` | Card detail |
+| `a` | Add card |
+| `e` | Edit card |
+| `d` | Delete card (confirm with `y`) |
+| `H` / `m` | Move card left |
+| `L` | Move card right |
+| `/` | Filter (`col:` `pri:` `label:` `assignee:` with `Tab` completion) |
+
+Detail overlay: `Esc` close · `e` edit fields · `l` link · `u` unlink.
+
+## List tab
+
+| Key | Action |
+|-----|--------|
+| `j` / `k` | Navigate |
+| `p` / `t` / `e` / `u` | Sort by priority / title / effort / due |
+| `a` | Add card |
+| `/` | Filter |
+| `Enter` | Card detail |
+
+## Other tabs
+
+| Tab | Keys |
+|-----|------|
+| Agenda, Tree | `j`/`k` navigate, `Enter` detail |
+| Reports | Read-only dashboards (`q` to quit) |
+| Code | `/` focus search, `j`/`k` navigate results, `Enter` open mapped card — populate with `barkcli context scan` |
+| Agents | `j`/`k` navigate, `Enter` detail |
+| Orchestrate | `j`/`k` navigate, `r` run cycle, `c` claim task, `Enter` detail |
+| History | `j`/`k` navigate bundles, `Enter` bundle overview |
+
+## Global keys
+
+| Key | Action |
+|-----|--------|
+| `1`–`9` | Switch tab |
+| `T` | Cycle theme: Dark → Light → Minimal → Dark |
 | `:` | Command palette |
-| `q` | Quit |
+| `q` / `Esc` | Quit / close overlay |
 
-### List View
+## Command palette
 
-| Key | Action |
-|-----|--------|
-| `j` / `k` | Navigate up/down |
-| `p` | Sort by priority |
-| `t` | Sort by title |
-| `e` | Sort by effort |
-| `u` | Sort by due date |
-| `Enter` | View card details |
+`:`, type, `Tab` autocompletes, `Enter` executes.
 
-### Detail View
+| Command | Action |
+|---------|--------|
+| `new` | Start adding a card |
+| `move <column-id>` | Move the selected card |
+| `filter <text>` | Set (or clear) a filter |
+| `sort priority` / `sort title` | Sort the List tab |
+| `theme dark` / `theme light` / `theme minimal` | Pick a theme |
+| `theme` | Cycle themes |
+| `help` | Shortcut help |
+| `quit` | Quit |
 
-| Key | Action |
-|-----|--------|
-| `l` | Link to another card |
-| `u` | Unlink card |
-| `e` | Edit fields |
-| `q` | Close detail view |
+## Theming
 
-## Command Palette
+Three built-in themes from one token set (colors, symbols, spacing):
 
-Press `:` to open the command palette:
+| Theme | Look |
+|-------|------|
+| `dark` (default) | Deep navy palette, blue accent, Unicode symbols (`▸ ● ✓ █`) |
+| `light` | Near-white palette, blue accent, same Unicode symbols |
+| `minimal` | Monochrome + ASCII fallbacks (`> * x = -`) — CI-safe and screenshot-friendly |
 
-- `:new` — Add new card
-- `:move <column>` — Move card to column
-- `:filter <text>` — Filter cards
-- `:sort` — Sort cards
-- `:theme` — Toggle theme
-- `:help` — Show keybindings
+Switch with `T`, or `:theme <name>` (or plain `:theme` to cycle).
 
-## Theme
+### Colorless terminals
 
-Toggle between dark and light themes:
+Non-TTY environments (CI, pipes) boot the minimal theme automatically. Force it:
 
 ```bash
-:theme
+NO_COLOR=1 barkcli tui           # standard convention
+BARKCLI_NO_COLOR=1 barkcli tui   # barkcli-specific flag
 ```
 
-Or configure in `~/.config/barkcli/config.json`:
+## Contributor notes
 
-```json
-{
-  "theme": "light"
-}
-```
+- Design tokens: `barkcli-tui/src/theme/mod.rs` (`DARK`, `LIGHT`, `MINIMAL`) — one place to rule them all
+- Reusable widgets: `barkcli-tui/src/components/` (borderless tables, box-drawing, status lines)
+- Render smoke tests: every tab × theme × terminal size plus all modal modes run via `TestBackend`
 
-## Example Workflow
+## Related
 
-```
-1. Press 1 to enter Board view
-2. Press h/l to navigate to "Todo" column
-3. Press j to select a card
-4. Press a to add a new card
-5. Type title and press Enter
-6. Press H/L to move card between columns
-7. Press e to edit card details
-8. Press q to close detail view
-9. Press : then type "sort" to reorder
-10. Press q to quit
-```
+- [commands/tui](/docs/commands/tui) — launch flags
+- [interfaces/web-app](/docs/interfaces/web-app) — the browser interface
+- [History Bundles](/docs/concepts/history) — the feature behind Tab 9

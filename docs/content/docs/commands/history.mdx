@@ -1,0 +1,77 @@
+---
+title: history
+description: Group git commits into named bundles — read-only, tucked into your repo
+---
+
+# barkcli history
+
+Turn your git history into **History Bundles**: AI-assisted (deterministic by default) groups of commits with names, kinds, and diffstats. barkcli reads your log read-only — it never amends, rewrites, rewords, or rebases anything.
+
+## Usage
+
+```bash
+barkcli history <command>
+```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `scan` | Group not-yet-bundled commits into bundles |
+| `watch` | Keep scanning every N seconds |
+| `validate` | Check bundle integrity |
+| `install-hooks` | Wire an auto-scan hook into your coding agent |
+
+## Scan
+
+```bash
+barkcli history scan                 # default branch, since the last cursor
+barkcli history scan --since <sha>   # explicit start
+barkcli history scan --all           # everything
+barkcli history scan --branch main   # different branch
+barkcli history scan --no-llm        # skip LLM refinement (offline-safe)
+```
+
+Output:
+
+```
+History: Scanning commits on 'master'...
+OK  84 commits processed, 16 bundles created, 0 updated, 35 unsorted
+```
+
+- **Idempotent + incremental** — a cursor (`last_processed_sha` per branch) means re-runs only read new commits; approved and sealed bundles are never reshuffled.
+- **LLM optional** — deterministic heuristics group everything; an LLM pass can refine names/kinds (redacted + size-capped before it leaves your machine).
+- **Low-confidence commits land in "unsorted"** — nothing is silently mis-grouped.
+
+## Watch
+
+```bash
+barkcli history watch --interval 60
+```
+
+## Validate
+
+```bash
+barkcli history validate
+# All bundles valid.
+```
+
+Catches duplicates, missing SHAs, and cursor drift.
+
+## Where bundles go
+
+Bundle YAML lives in `.board/bundles/` (plus `index.yaml` and a per-branch cursor) — plain files, easy to review and diff. Curating/exporting is the [`bundle`](/docs/commands/bundle) command's job.
+
+## Safety model
+
+| Guarantee | How |
+|-----------|-----|
+| Git history untouched | Only read-only `git log` / `diff` / `show` are ever run |
+| Secrets stay secret | Diffs are redacted and size-capped before any LLM sees them |
+| Works fully offline | Heuristics need no network; LLM opt-in via env |
+| Agent-friendly | Auto-scan hooks for coding agents (opencode, claude-code) |
+
+## Related
+
+- [bundle](/docs/commands/bundle) — curate, export, and inspect bundles
+- [HISTORY.md guide](/docs/concepts/history) — concepts and interchange details

@@ -447,7 +447,7 @@ fn update_palette_matches(app: &mut App) {
 
     let commands = [
         "new", "move ", "filter ", "sort priority", "sort title",
-        "theme dark", "theme light", "help", "quit",
+        "theme dark", "theme light", "theme minimal", "theme", "help", "quit",
     ];
 
     for cmd in commands {

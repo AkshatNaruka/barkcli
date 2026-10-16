@@ -1,0 +1,77 @@
+---
+title: bundle
+description: Inspect, curate, and export History Bundles
+---
+
+# barkcli bundle
+
+Operate on the History Bundles produced by [`history scan`](/docs/commands/history): list, show, approve, seal, and export a curated slice of your git history as a readable, named branch.
+
+## Usage
+
+```bash
+barkcli bundle <command>
+```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `list` | All bundles with kinds, commit counts, and diffstats |
+| `show <id>` | One bundle's commits and details |
+| `approve <id>` | Lock AI assignment for a bundle's commits |
+| `seal <id>` | Freeze a bundle — never touched again by scans |
+| `export <id>` | Create a **new** branch that replays bundle commits in order |
+| `stats` | Aggregate coverage across branches |
+
+## List
+
+```bash
+barkcli bundle list
+```
+
+Output:
+
+```
+Bundles: 15 bundles
+
+  ○ [feat   ] tui                2 commits  +1187/-313  87  2d9f09c5..f2cee442
+  ○ [fix    ] ci                 4 commits  +99/-41     87  2e0cd763..fab6846f
+  ○ [chore  ] docs               2 commits  +6700/-23   60  f13e965a..81563746
+```
+
+Kinds: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, plus a reserved `unsorted` bundle for low-confidence commits.
+
+## Show a bundle
+
+```bash
+barkcli bundle show tui-1
+```
+
+Commit SHAs, subjects, authors, and per-commit diffstats.
+
+## Lifecycle
+
+1. `history scan` creates candidate bundles (source: `heuristic` or `llm`)
+2. Review and **approve** the good ones — scans stop reshuffling approved bundles' commits
+3. **seal** final ones — permanent, no scan can ever touch them
+4. `export` publishes the curated story on a *newly created* branch (never modifies existing history)
+
+## Curated export
+
+```bash
+barkcli bundle export tui-1
+```
+
+Creates a new branch named after the bundle. This is the only write barkcli ever performs on git — read-only everywhere else.
+
+## Behind the scenes
+
+- One YAML file per bundle in `.board/bundles/` + `index.yaml`
+- Schema-versioned (forward compatible)
+- Same atomic-write + file-lock pattern as the rest of barkcli's state, so agents and humans can touch the same repo concurrently
+
+## Related
+
+- [history](/docs/commands/history) — scan, watch, validate
+- [log](/docs/commands/log) — barkcli's own change log

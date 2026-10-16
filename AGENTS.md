@@ -16,8 +16,9 @@ project/
 ├── barkcli-server/      # axum browser server
 ├── web/                 # React + Vite web frontend
 ├── vscode-extension/    # VS Code Custom Editor extension
-├── landing-next/        # Next.js marketing + docs site
-└── docs/                # Documentation (COMMANDS.md, INTERFACES.md, etc.)
+├── landing-next/        # Next.js marketing site
+└── docs/                # Fumadocs docs site (content/docs/**/*.mdx) + flat
+                         # agent/CLI reference set served in-app (content/*.md)
 ```
 
 ## Quick Start for AI Agents

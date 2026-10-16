@@ -54,6 +54,18 @@ barkcli commands are organized by category. Each command includes usage, flags, 
 | [`blame`](/docs/commands/blame) | See who changed what |
 | [`snapshot`](/docs/commands/snapshot) | Save a checkpoint |
 
+## Git History Bundles
+
+Turn git commits into named, curated bundles. Read-only on git — bundles export to a *new* branch only.
+
+| Command | Description |
+|---------|-------------|
+| [`history scan`](/docs/commands/history) | Group recent commits into bundles |
+| [`history watch`](/docs/commands/history) | Keep scanning every N seconds |
+| [`history validate`](/docs/commands/history) | Check bundle integrity |
+| [`bundle list`](/docs/commands/bundle) | Inspect bundles + diffstats |
+| [`bundle export`](/docs/commands/bundle) | Replay a bundle onto a new branch |
+
 ## Calendar & Reminders
 
 | Command | Description |
