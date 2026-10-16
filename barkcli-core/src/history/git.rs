@@ -369,6 +369,17 @@ pub fn commit_exists(root: &Path, sha: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// True when `root` points at a git repository (work tree with a .git dir).
+pub fn is_git_repo(root: &Path) -> bool {
+    Command::new("git")
+        .arg("-C")
+        .arg(root.to_str().unwrap_or("."))
+        .args(["rev-parse", "--is-inside-work-tree"])
+        .output()
+        .map(|o| o.status.success() && String::from_utf8_lossy(&o.stdout).trim() == "true")
+        .unwrap_or(false)
+}
+
 /// Get the current branch name, or empty string if detached HEAD.
 /// Falls back to reading .git/HEAD directly for repos with no commits.
 pub fn current_branch(root: &Path) -> String {
@@ -539,6 +550,22 @@ mod tests {
             .output()
             .unwrap();
         String::from_utf8_lossy(&sha_output.stdout).trim().to_string()
+    }
+
+    #[test]
+    fn is_git_repo_detects_repos_and_plain_dirs() {
+        let repo = tmp_repo();
+        assert!(is_git_repo(&repo), "an initialized git repo is detected");
+
+        // A plain directory is not a git repo.
+        let n = COUNTER.fetch_add(1, Ordering::SeqCst);
+        let plain = std::env::temp_dir().join(format!("bark_hist_plain_{}_{}", std::process::id(), n));
+        fs::create_dir_all(&plain).unwrap();
+        assert!(!is_git_repo(&plain), "plain dir is not a git repo");
+        assert!(!is_git_repo(&std::env::temp_dir().join("definitely-missing-barkcli-tmp")), "missing dir is not a git repo");
+
+        let _ = fs::remove_dir_all(&plain);
+        let _ = fs::remove_dir_all(&repo);
     }
 
     #[test]

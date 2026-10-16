@@ -65,6 +65,14 @@ pub struct ScanResult {
 /// This is idempotent: re-running with the same history produces the same
 /// bundles (no duplicates). Sealed and approved bundles are never modified.
 pub fn scan(root: &Path, config: &ScanConfig) -> Result<ScanResult> {
+    if !git::is_git_repo(root) {
+        anyhow::bail!(
+            "history scan needs a git repository, but '{}' is not one — \
+             cd into your git repo (run `barkcli init` inside it if it has no .board yet) and try again",
+            root.display()
+        );
+    }
+
     let branch = &config.branch;
 
     // Determine where to start reading
