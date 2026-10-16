@@ -27,18 +27,18 @@ export default function TasksPage() {
               </tr>
             </thead>
             <tbody className="text-white/60">
-              <tr className="border-b border-white/5"><td className="py-2 font-mono text-[#B8845C]">id</td><td>string</td><td>Auto-generated from title</td></tr>
-              <tr className="border-b border-white/5"><td className="py-2 font-mono text-[#B8845C]">title</td><td>string</td><td>Human-readable task name</td></tr>
-              <tr className="border-b border-white/5"><td className="py-2 font-mono text-[#B8845C]">column</td><td>string</td><td>Current workflow stage</td></tr>
-              <tr className="border-b border-white/5"><td className="py-2 font-mono text-[#B8845C]">priority</td><td>enum</td><td>high, medium, low</td></tr>
-              <tr className="border-b border-white/5"><td className="py-2 font-mono text-[#B8845C]">description</td><td>string</td><td>Detailed task description</td></tr>
-              <tr className="border-b border-white/5"><td className="py-2 font-mono text-[#B8845C]">labels</td><td>string[]</td><td>Tags for categorization</td></tr>
-              <tr className="border-b border-white/5"><td className="py-2 font-mono text-[#B8845C]">assignee</td><td>string</td><td>Person responsible</td></tr>
-              <tr className="border-b border-white/5"><td className="py-2 font-mono text-[#B8845C]">due</td><td>date</td><td>Due date</td></tr>
-              <tr className="border-b border-white/5"><td className="py-2 font-mono text-[#B8845C]">effort</td><td>number</td><td>Story points or time estimate</td></tr>
-              <tr className="border-b border-white/5"><td className="py-2 font-mono text-[#B8845C]">checklist</td><td>array</td><td>Subtasks with completion status</td></tr>
-              <tr className="border-b border-white/5"><td className="py-2 font-mono text-[#B8845C]">comments</td><td>array</td><td>Discussion threads</td></tr>
-              <tr><td className="py-2 font-mono text-[#B8845C]">links</td><td>array</td><td>Relationships to other tasks</td></tr>
+              <tr className="border-b border-white/5"><td className="py-2 font-mono text-white/80">id</td><td>string</td><td>Auto-generated from title</td></tr>
+              <tr className="border-b border-white/5"><td className="py-2 font-mono text-white/80">title</td><td>string</td><td>Human-readable task name</td></tr>
+              <tr className="border-b border-white/5"><td className="py-2 font-mono text-white/80">column</td><td>string</td><td>Current workflow stage</td></tr>
+              <tr className="border-b border-white/5"><td className="py-2 font-mono text-white/80">priority</td><td>enum</td><td>high, medium, low</td></tr>
+              <tr className="border-b border-white/5"><td className="py-2 font-mono text-white/80">description</td><td>string</td><td>Detailed task description</td></tr>
+              <tr className="border-b border-white/5"><td className="py-2 font-mono text-white/80">labels</td><td>string[]</td><td>Tags for categorization</td></tr>
+              <tr className="border-b border-white/5"><td className="py-2 font-mono text-white/80">assignee</td><td>string</td><td>Person responsible</td></tr>
+              <tr className="border-b border-white/5"><td className="py-2 font-mono text-white/80">due</td><td>date</td><td>Due date</td></tr>
+              <tr className="border-b border-white/5"><td className="py-2 font-mono text-white/80">effort</td><td>number</td><td>Story points or time estimate</td></tr>
+              <tr className="border-b border-white/5"><td className="py-2 font-mono text-white/80">checklist</td><td>array</td><td>Subtasks with completion status</td></tr>
+              <tr className="border-b border-white/5"><td className="py-2 font-mono text-white/80">comments</td><td>array</td><td>Discussion threads</td></tr>
+              <tr><td className="py-2 font-mono text-white/80">links</td><td>array</td><td>Relationships to other tasks</td></tr>
             </tbody>
           </table>
         </div>

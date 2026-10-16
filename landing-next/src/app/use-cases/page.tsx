@@ -60,15 +60,14 @@ export default function UseCasesPage() {
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {useCases.map((uc) => {
-          const Icon = uc.icon;
           return (
             <Link
               key={uc.slug}
               href={`/use-cases/${uc.slug}`}
               className="group rounded-xl border border-white/10 bg-white/5 p-6 transition-colors hover:border-white/20 hover:bg-white/10"
             >
-              <div className="w-10 h-10 rounded-lg bg-[#B8845C]/10 flex items-center justify-center mb-4">
-                <Icon className="w-5 h-5 text-[#B8845C]" />
+              <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center mb-4">
+                <uc.icon className="w-5 h-5 text-white/70" />
               </div>
               <h2 className="mb-2 text-xl font-semibold text-white group-hover:text-white/90 flex items-center gap-2">
                 {uc.title}

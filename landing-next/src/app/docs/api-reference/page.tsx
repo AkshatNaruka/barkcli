@@ -152,13 +152,7 @@ const sections = [
   },
 ];
 
-const methodColors: Record<string, string> = {
-  GET: "bg-green-500/10 text-green-400 border-green-500/20",
-  POST: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  PUT: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-  DELETE: "bg-red-500/10 text-red-400 border-red-500/20",
-  WS: "bg-purple-500/10 text-purple-400 border-purple-500/20",
-};
+const methodBadge = "inline-block px-2 py-0.5 rounded text-xs font-mono border border-white/15 text-white/70 bg-white/5";
 
 export default function ApiReferencePage() {
   return (
@@ -173,7 +167,7 @@ export default function ApiReferencePage() {
       <h1 className="mb-4 text-4xl font-bold tracking-tight">API Reference</h1>
       <p className="mb-8 text-lg text-white/60">
         Complete REST API reference for the barkcli web server.
-        All endpoints require authentication when <code className="text-[#B8845C]">--token</code> is used.
+        All endpoints require authentication when <code className="text-white/90">--token</code> is used.
       </p>
 
       <div className="space-y-8">
@@ -196,9 +190,7 @@ export default function ApiReferencePage() {
                       className={i < section.endpoints.length - 1 ? "border-b border-white/5" : ""}
                     >
                       <td className="px-4 py-2">
-                        <span className={`inline-block px-2 py-0.5 rounded text-xs font-mono border ${methodColors[ep.method] || ""}`}>
-                          {ep.method}
-                        </span>
+                        <span className={methodBadge}>{ep.method}</span>
                       </td>
                       <td className="px-4 py-2 font-mono text-white/80 text-xs">{ep.path}</td>
                       <td className="px-4 py-2 text-white/60">{ep.desc}</td>
@@ -214,16 +206,14 @@ export default function ApiReferencePage() {
       <div className="mt-12 rounded-xl border border-white/10 bg-white/5 p-6">
         <h2 className="mb-3 text-lg font-bold">Authentication</h2>
         <p className="text-sm text-white/60 mb-3">
-          When the server is started with <code className="text-[#B8845C]">--token</code>, all API endpoints require:
+          When the server is started with <code className="text-white/90">--token</code>, all API endpoints require:
         </p>
         <ul className="space-y-2 text-sm text-white/60">
-          <li className="flex items-start gap-2">
-            <span className="text-[#B8845C]">•</span>
-            <span>Query parameter: <code className="text-white/80">?token=mysecret</code></span>
+          <li>
+            <span>Query parameter: <code className="text-white/90">?token=mysecret</code></span>
           </li>
-          <li className="flex items-start gap-2">
-            <span className="text-[#B8845C]">•</span>
-            <span>Header: <code className="text-white/80">Authorization: Bearer mysecret</code></span>
+          <li>
+            <span>Header: <code className="text-white/90">Authorization: Bearer mysecret</code></span>
           </li>
         </ul>
         <p className="text-sm text-white/60 mt-3">
@@ -234,7 +224,7 @@ export default function ApiReferencePage() {
       <div className="mt-8">
         <Link
           href="/docs"
-          className="text-[#B8845C] hover:text-[#B8845C]/80 text-sm transition-colors"
+          className="text-white/70 hover:text-white text-sm transition-colors"
         >
           ← Back to Docs
         </Link>

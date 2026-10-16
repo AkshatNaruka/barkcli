@@ -15,7 +15,7 @@ export const integrations: Integration[] = [
     slug: "github",
     name: "GitHub",
     description: "Sync tasks with GitHub Issues, link PRs to tasks, and auto-close issues on merge.",
-    icon: "🐙",
+    icon: "$",
     setupSteps: [
       "Initialize barkcli in your repo",
       "Tasks are already in your GitHub repo as YAML files",
@@ -34,7 +34,7 @@ export const integrations: Integration[] = [
     slug: "gitlab",
     name: "GitLab",
     description: "Use barkcli with GitLab repos. Tasks live in your repo, independent of the git host.",
-    icon: "🦊",
+    icon: "GL",
     setupSteps: [
       "Initialize barkcli in your GitLab repo",
       "Commit .board directory",
@@ -53,7 +53,7 @@ export const integrations: Integration[] = [
     slug: "neovim",
     name: "Neovim",
     description: "Manage tasks from Neovim with barkcli's full CLI. Terminal-native workflow.",
-    icon: "🟢",
+    icon: "CI",
     setupSteps: [
       "Install barkcli binary",
       "Use :terminal in Neovim",
@@ -72,7 +72,7 @@ export const integrations: Integration[] = [
     slug: "tmux",
     name: "tmux",
     description: "Run barkcli TUI in a tmux pane. Persistent task board across sessions.",
-    icon: "🖥️",
+    icon: ">_",
     setupSteps: [
       "Start a tmux session",
       "Create a new pane for barkcli",
@@ -92,7 +92,7 @@ export const integrations: Integration[] = [
     name: "OpenCode",
     description:
       "Integrate barkcli with OpenCode via MCP so an OpenCode session can read tasks, claim work, update progress, and run orchestration cycles from inside your repo.",
-    icon: "🤖",
+    icon: "AI",
     logo: "/logos/opencode.svg",
     brandColor: "#D99C57",
     setupSteps: [
@@ -114,7 +114,7 @@ export const integrations: Integration[] = [
     name: "Claude Code",
     description:
       "Connect barkcli to Claude Code via MCP so Claude can read your board, link tasks to code, manage memory and specs, and report progress — all with full project context.",
-    icon: "🧠",
+    icon: "AI",
     logo: "/logos/claude-code.svg",
     brandColor: "#D97757",
     setupSteps: [
@@ -136,7 +136,7 @@ export const integrations: Integration[] = [
     name: "Cursor",
     description:
       "Use barkcli alongside Cursor. Tasks live in your repo and Cursor's AI gets full task context through MCP while you manage boards from the terminal.",
-    icon: "📝",
+    icon: "E",
     logo: "/logos/cursor.svg",
     brandColor: "#6B5CE7",
     setupSteps: [

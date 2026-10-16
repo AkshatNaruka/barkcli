@@ -13,7 +13,7 @@ export const useCases: UseCase[] = [
     slug: "solo-developer",
     title: "Solo Developers",
     description: "Manage your personal projects without SaaS subscriptions. Tasks live in your repo, version controlled with your code.",
-    icon: "👤",
+    icon: "SOLO",
     benefits: [
       "No subscription fees — free forever",
       "Tasks travel with your code",
@@ -33,7 +33,7 @@ export const useCases: UseCase[] = [
     slug: "small-team",
     title: "Small Teams (2-10)",
     description: "Collaborate on tasks via git. No server, no admin — just push and pull.",
-    icon: "👥",
+    icon: "TEAM",
     benefits: [
       "Git handles sync — no server needed",
       "Everyone sees the same board",
@@ -54,7 +54,7 @@ export const useCases: UseCase[] = [
     slug: "ai-workflow",
     title: "AI-Assisted Development",
     description: "Give coding agents context about what to build. MCP server exposes tasks to Claude, GPT, and local models.",
-    icon: "🤖",
+    icon: "AI",
     benefits: [
       "MCP server for agent integration",
       "Agents read tasks without API calls",
@@ -74,7 +74,7 @@ export const useCases: UseCase[] = [
     slug: "open-source",
     title: "Open Source Maintainers",
     description: "Track issues, features, and roadmap in the repo itself. Contributors see tasks alongside code.",
-    icon: "📖",
+    icon: "DOC",
     benefits: [
       "Issues live in the repo — no GitHub Issues needed",
       "Contributors see the full picture",
@@ -94,7 +94,7 @@ export const useCases: UseCase[] = [
     slug: "migration-from-linear",
     title: "Migrating from Linear",
     description: "Bring your workflow to the repo. Export from Linear, import to barkcli, keep your team's process.",
-    icon: "🔄",
+    icon: "SYNC",
     benefits: [
       "Keep your column structure",
       "Import existing tasks",
@@ -114,7 +114,7 @@ export const useCases: UseCase[] = [
     slug: "enterprise-alternative",
     title: "Jira Alternative for Dev Teams",
     description: "Replace Jira for engineering tasks. Keep Jira for non-engineering if needed.",
-    icon: "🏢",
+    icon: "ORG",
     benefits: [
       "10-second setup vs hours of Jira config",
       "No server administration",

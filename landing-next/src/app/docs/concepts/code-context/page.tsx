@@ -57,8 +57,8 @@ barkcli context sync`}</code></pre>
               </tr>
             </thead>
             <tbody className="text-white/60">
-              <tr className="border-b border-white/5"><td className="py-2 font-mono text-green-400">clean</td><td>File matches last commit</td></tr>
-              <tr className="border-b border-white/5"><td className="py-2 font-mono text-yellow-400">changed</td><td>File has uncommitted changes</td></tr>
+              <tr className="border-b border-white/5"><td className="py-2 font-mono text-white/80">clean</td><td>File matches last commit</td></tr>
+              <tr className="border-b border-white/5"><td className="py-2 font-mono text-white/80">changed</td><td>File has uncommitted changes</td></tr>
               <tr><td className="py-2 font-mono text-white/40">unknown</td><td>File not tracked by git</td></tr>
             </tbody>
           </table>

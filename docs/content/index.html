@@ -454,7 +454,11 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            color: var(--text-secondary);
+            letter-spacing: -0.02em;
             margin-bottom: 20px;
         }
         
@@ -1106,38 +1110,38 @@
             </div>
             <div class="features-grid">
                 <div class="feature-card fade-in">
-                    <div class="feature-icon">📁</div>
+                    <div class="feature-icon mono">&#60;&#47;&#62;</div>
                     <h3>Git-Native</h3>
                     <p>Tasks are YAML files in your repo. Diff them, merge them, grep them. Version control for your project management.</p>
                     <div class="feature-code">$ git diff main..feature -- *.board</div>
                 </div>
                 <div class="feature-card fade-in">
-                    <div class="feature-icon">☁️</div>
+                    <div class="feature-icon mono">OFF</div>
                     <h3>No Cloud</h3>
                     <p>Works offline. No accounts, no subscriptions, no vendor lock-in. Your data stays in your repo.</p>
                     <div class="feature-code">$ barkcli list  # Works without internet</div>
                 </div>
                 <div class="feature-card fade-in">
-                    <div class="feature-icon">🖥️</div>
+                    <div class="feature-icon mono">>_+</div>
                     <h3>Multi-Interface</h3>
                     <p>CLI, terminal UI, web app, and VS Code extension. Same data, same commands, your choice of interface.</p>
                     <div class="feature-code">$ barkcli tui    # Terminal UI
 $ barkcli serve  # Web app</div>
                 </div>
                 <div class="feature-card fade-in">
-                    <div class="feature-icon">🔍</div>
+                    <div class="feature-icon mono">fn</div>
                     <h3>Code Context</h3>
                     <p>Automatic code analysis with call graphs, test coverage mapping, and complexity metrics.</p>
                     <div class="feature-code">$ barkcli context scan</div>
                 </div>
                 <div class="feature-card fade-in">
-                    <div class="feature-icon">🤖</div>
+                    <div class="feature-icon mono">AI</div>
                     <h3>AI-Ready</h3>
                     <p>MCP server for coding agent integration. Orchestrate task decomposition and agent coordination.</p>
                     <div class="feature-code">$ barkcli mcp  # Start MCP server</div>
                 </div>
                 <div class="feature-card fade-in">
-                    <div class="feature-icon">📖</div>
+                    <div class="feature-icon mono">MIT</div>
                     <h3>Open Source</h3>
                     <p>MIT licensed. Built in Rust. Fast, reliable, and transparent. Contribute or self-host.</p>
                     <div class="feature-code">$ cargo install barkcli</div>
@@ -1241,9 +1245,9 @@ Column:   todo
 <span class="terminal-output">  $ barkcli tui</span>
 
   ┌─ Explorer ──────────────────────────────┐
-  │ 📁 src                                  │
-  │ 📁 tests                                │
-  │ 📋 main.board  ← barkcli custom editor  │
+  │ src                                  │
+  │ tests                                │
+  │ main.board  ← barkcli custom editor  │
   └─────────────────────────────────────────┘
 
   <span class="terminal-output">Open .board files to see your kanban board</span>
@@ -1266,22 +1270,22 @@ Column:   todo
             </div>
             <div class="code-context-grid">
                 <div class="context-card fade-in">
-                    <h4>📊 Call Graphs</h4>
+                    <h4>Call Graphs</h4>
                     <div class="metric">→</div>
                     <p>Map function calls across files. Understand impact before you change.</p>
                 </div>
                 <div class="context-card fade-in">
-                    <h4>🧪 Test Coverage</h4>
+                    <h4>Test Coverage</h4>
                     <div class="metric">87%</div>
                     <p>See which tests cover which code. Identify gaps automatically.</p>
                 </div>
                 <div class="context-card fade-in">
-                    <h4>⚡ Complexity</h4>
+                    <h4>Complexity</h4>
                     <div class="metric">C-12</div>
                     <p>Cyclomatic and cognitive complexity scores. Find risky code early.</p>
                 </div>
                 <div class="context-card fade-in">
-                    <h4>📈 Risk Score</h4>
+                    <h4>Risk Score</h4>
                     <div class="metric">0.3</div>
                     <p>Combined risk assessment. Prioritize refactoring where it matters.</p>
                 </div>

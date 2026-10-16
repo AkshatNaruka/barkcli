@@ -53,11 +53,11 @@ export default function AutopilotGuidePage() {
         plan approval and merge. Agents do everything between. No CLI commands to memorize.
       </p>
 
-      <div className="mb-12 rounded-xl border border-[#B8845C]/20 bg-[#B8845C]/5 p-6">
+      <div className="mb-12 rounded-xl border border-white/10 bg-white/5 p-6">
         <h2 className="mb-3 text-lg font-bold">Fastest start</h2>
         <div className="bg-black/50 rounded-lg p-4 font-mono text-sm space-y-1">
-          <div><span className="text-[#B8845C]">$</span> barkcli init --yes</div>
-          <div><span className="text-[#B8845C]">$</span> barkcli serve --open</div>
+          <div><span className="text-white/40">$</span> barkcli init --yes</div>
+          <div><span className="text-white/40">$</span> barkcli serve --open</div>
         </div>
         <p className="text-sm text-white/60 mt-4">
           Then type intent in the Mind tab. That&apos;s the whole manual.
@@ -68,13 +68,13 @@ export default function AutopilotGuidePage() {
         {steps.map((s) => (
           <div key={s.n} className="rounded-xl border border-white/10 bg-white/5 p-6">
             <div className="flex items-center gap-3 mb-2">
-              <span className="w-7 h-7 rounded-full bg-[#B8845C]/15 border border-[#B8845C]/30 flex items-center justify-center text-sm font-bold text-[#B8845C]">
+              <span className="w-7 h-7 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-sm font-bold text-white/80">
                 {s.n}
               </span>
               <h2 className="text-xl font-bold">{s.title}</h2>
             </div>
             <p className="text-sm text-white/60 mb-3">{s.body}</p>
-            <code className="text-xs text-[#B8845C] bg-black/30 px-2 py-1 rounded font-mono">
+            <code className="text-xs text-white/90 bg-black/30 px-2 py-1 rounded font-mono">
               {s.code}
             </code>
           </div>

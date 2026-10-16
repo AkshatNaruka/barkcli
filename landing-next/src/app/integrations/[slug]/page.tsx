@@ -69,7 +69,7 @@ export default async function IntegrationPage({ params }: PageProps) {
               className="h-10 w-10 object-contain"
             />
           ) : (
-            <span className="text-3xl">{integration.icon}</span>
+            <span className="font-mono text-xl font-semibold text-white/80">{integration.icon}</span>
           )}
         </span>
         <div>

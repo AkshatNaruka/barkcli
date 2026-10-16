@@ -15,28 +15,28 @@ const interfaces = [
     slug: "cli",
     title: "Command Line",
     description: "Full-featured CLI for scripts, automation, and power users.",
-    icon: "⌨️",
+    icon: "$",
     command: 'barkcli add "Fix bug" -p high',
   },
   {
     slug: "tui",
     title: "Terminal UI",
     description: "Interactive kanban board in your terminal with vim-style navigation.",
-    icon: "🖥️",
+    icon: ">_",
     command: "barkcli tui",
   },
   {
     slug: "web",
     title: "Web App",
     description: "Browser-based kanban with drag-and-drop, calendar, and reports.",
-    icon: "🌐",
+    icon: "/",
     command: "barkcli serve --open",
   },
   {
     slug: "vscode",
     title: "VS Code",
     description: "Visual editor for .board files with drag-and-drop kanban.",
-    icon: "📝",
+    icon: "#",
     command: "barkcli vscode-install",
   },
 ];
@@ -63,7 +63,7 @@ export default function InterfacesPage() {
             href={`/docs/interfaces/${iface.slug}`}
             className="group rounded-xl border border-white/10 bg-white/5 p-6 transition-colors hover:border-white/20 hover:bg-white/10"
           >
-            <div className="mb-3 text-3xl">{iface.icon}</div>
+            <div className="mb-3 font-mono text-xl font-semibold text-white/80">{iface.icon}</div>
             <h2 className="mb-2 text-xl font-semibold text-white group-hover:text-white/90">
               {iface.title}
             </h2>

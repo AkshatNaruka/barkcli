@@ -85,16 +85,16 @@ export default function WebAppGuidePage() {
       </p>
 
       {/* Quick Start */}
-      <div className="mb-12 rounded-xl border border-[#B8845C]/20 bg-[#B8845C]/5 p-6">
+      <div className="mb-12 rounded-xl border border-white/10 bg-white/5 p-6">
         <h2 className="mb-3 text-lg font-bold">Quick Start</h2>
         <p className="text-sm text-white/60 mb-4">
           Start the web app with a single command:
         </p>
         <div className="bg-black/50 rounded-lg p-4 font-mono text-sm">
-          <span className="text-[#B8845C]">$</span> barkcli serve --open
+          <span className="text-white/40">$</span> barkcli serve --open
         </div>
         <p className="text-sm text-white/60 mt-4">
-          The app opens at <code className="text-[#B8845C]">http://localhost:4321</code>.
+          The app opens at <code className="text-white/90">http://localhost:4321</code>.
           If no <code className="text-white/80">.board/</code> directory exists, barkcli automatically creates one with a default board.
         </p>
       </div>
@@ -109,7 +109,7 @@ export default function WebAppGuidePage() {
           >
             <h3 className="mb-2 text-lg font-semibold text-white">{feature.title}</h3>
             <p className="text-sm text-white/50 mb-3">{feature.description}</p>
-            <code className="text-xs text-[#B8845C] bg-black/30 px-2 py-1 rounded">
+            <code className="text-xs text-white/90 bg-black/30 px-2 py-1 rounded">
               {feature.command}
             </code>
           </div>
@@ -152,16 +152,16 @@ export default function WebAppGuidePage() {
         </p>
         <div className="space-y-3">
           <div className="bg-black/50 rounded-lg p-3 font-mono text-sm">
-            <span className="text-[#B8845C]">$</span> barkcli serve --daemon [--port 4321] [--token mysecret]
+            <span className="text-white/40">$</span> barkcli serve --daemon [--port 4321] [--token mysecret]
           </div>
           <div className="bg-black/50 rounded-lg p-3 font-mono text-sm">
-            <span className="text-[#B8845C]">$</span> barkcli serve --status
+            <span className="text-white/40">$</span> barkcli serve --status
           </div>
           <div className="bg-black/50 rounded-lg p-3 font-mono text-sm">
-            <span className="text-[#B8845C]">$</span> barkcli serve --stop [--port 4321]
+            <span className="text-white/40">$</span> barkcli serve --stop [--port 4321]
           </div>
           <div className="bg-black/50 rounded-lg p-3 font-mono text-sm">
-            <span className="text-[#B8845C]">$</span> barkcli serve --kill [--port 4321]
+            <span className="text-white/40">$</span> barkcli serve --kill [--port 4321]
           </div>
         </div>
         <p className="text-sm text-white/60 mt-4">
@@ -179,15 +179,15 @@ export default function WebAppGuidePage() {
           </p>
           <ul className="space-y-2 text-sm text-white/60">
             <li className="flex items-start gap-2">
-              <span className="text-[#B8845C]">•</span>
+              <span className="text-white/40">•</span>
               <span><strong className="text-white">Board</strong> — Classic kanban columns with drag-and-drop</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-[#B8845C]">•</span>
+              <span className="text-white/40">•</span>
               <span><strong className="text-white">Table</strong> — Spreadsheet-like view with sortable columns</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-[#B8845C]">•</span>
+              <span className="text-white/40">•</span>
               <span><strong className="text-white">List</strong> — Compact list sorted by priority</span>
             </li>
           </ul>
@@ -197,19 +197,19 @@ export default function WebAppGuidePage() {
           <h3 className="mb-2 text-lg font-semibold">Card Operations</h3>
           <ul className="space-y-2 text-sm text-white/60">
             <li className="flex items-start gap-2">
-              <span className="text-[#B8845C]">•</span>
+              <span className="text-white/40">•</span>
               <span><strong className="text-white">Add</strong> — Click + on column header, press N, or use Cmd+K</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-[#B8845C]">•</span>
+              <span className="text-white/40">•</span>
               <span><strong className="text-white">Edit</strong> — Click any card to open edit form</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-[#B8845C]">•</span>
+              <span className="text-white/40">•</span>
               <span><strong className="text-white">Move</strong> — Drag card to another column</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-[#B8845C]">•</span>
+              <span className="text-white/40">•</span>
               <span><strong className="text-white">Delete</strong> — Delete from card form (with undo toast)</span>
             </li>
           </ul>
@@ -221,31 +221,31 @@ export default function WebAppGuidePage() {
       <div className="rounded-xl border border-white/10 bg-white/5 p-6">
         <ul className="space-y-3 text-sm text-white/60">
           <li className="flex items-start gap-2">
-            <span className="text-[#B8845C]">1.</span>
+            <span className="text-white/40">1.</span>
             <span>Use keyboard shortcuts — they're faster than clicking</span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-[#B8845C]">2.</span>
+            <span className="text-white/40">2.</span>
             <span>Pin important cards — they stay at the top of columns</span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-[#B8845C]">3.</span>
+            <span className="text-white/40">3.</span>
             <span>Add labels — filter cards by label in the board view</span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-[#B8845C]">4.</span>
+            <span className="text-white/40">4.</span>
             <span>Set due dates — see cards on the Calendar tab</span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-[#B8845C]">5.</span>
+            <span className="text-white/40">5.</span>
             <span>Use specs — track requirements alongside cards</span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-[#B8845C]">6.</span>
+            <span className="text-white/40">6.</span>
             <span>Save checkpoints — before major changes</span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="text-[#B8845C]">7.</span>
+            <span className="text-white/40">7.</span>
             <span>Check the Mind tab — quick overview of project health</span>
           </li>
         </ul>

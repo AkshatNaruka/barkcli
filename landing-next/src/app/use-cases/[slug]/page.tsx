@@ -40,7 +40,7 @@ export default async function UseCasePage({ params }: PageProps) {
       />
 
       <div className="mb-8 flex items-center gap-4">
-        <span className="text-5xl">{uc.icon}</span>
+        <span className="font-mono text-sm font-bold uppercase tracking-wider text-white/60 border border-white/15 bg-white/5 rounded-lg px-3 py-2">{uc.icon}</span>
         <h1 className="text-4xl font-bold tracking-tight">{uc.title}</h1>
       </div>
 
@@ -51,7 +51,7 @@ export default async function UseCasePage({ params }: PageProps) {
         <ul className="space-y-2">
           {uc.benefits.map((benefit) => (
             <li key={benefit} className="flex items-start gap-2 text-white/60">
-              <span className="text-green-400">✓</span>
+              <span className="text-white/40">✓</span>
               {benefit}
             </li>
           ))}

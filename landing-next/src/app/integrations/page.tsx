@@ -41,7 +41,7 @@ export default function IntegrationsPage() {
                   className="h-7 w-7 object-contain"
                 />
               ) : (
-                <span className="text-3xl">{int.icon}</span>
+                <span className="font-mono text-xl font-semibold text-white/80">{int.icon}</span>
               )}
             </div>
             <h2 className="mb-2 text-xl font-semibold text-white group-hover:text-white/90">

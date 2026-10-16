@@ -129,8 +129,8 @@ export default function DocsPage() {
               href={section.href}
               className="group rounded-xl border border-white/10 bg-white/5 p-6 transition-colors hover:border-white/20 hover:bg-white/10"
             >
-              <div className="w-10 h-10 rounded-lg bg-[#B8845C]/10 flex items-center justify-center mb-4">
-                <Icon className="w-5 h-5 text-[#B8845C]" />
+              <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center mb-4">
+                <Icon className="w-5 h-5 text-white/70" />
               </div>
               <h2 className="mb-2 text-lg font-semibold text-white group-hover:text-white/90 flex items-center gap-2">
                 {section.title}
@@ -150,7 +150,7 @@ export default function DocsPage() {
             className="rounded-xl border border-white/10 bg-white/5 p-6"
           >
             <h3 className="mb-2 text-lg font-semibold flex items-center gap-2">
-              <HelpCircle className="w-5 h-5 text-[#B8845C]" />
+              <HelpCircle className="w-5 h-5 text-white/60" />
               {faq.question}
             </h3>
             <p className="text-white/60">{faq.answer}</p>

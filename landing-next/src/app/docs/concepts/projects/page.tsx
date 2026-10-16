@@ -68,10 +68,10 @@ git push`}</code></pre>
               </tr>
             </thead>
             <tbody className="text-white/60">
-              <tr className="border-b border-white/5"><td className="py-2 font-mono text-[#B8845C]">BARKCLI_BOARD</td><td>Default board name</td></tr>
-              <tr className="border-b border-white/5"><td className="py-2 font-mono text-[#B8845C]">BARKCLI_TOKEN</td><td>API authentication token</td></tr>
-              <tr className="border-b border-white/5"><td className="py-2 font-mono text-[#B8845C]">OPENAI_API_KEY</td><td>OpenAI API key (for AI features)</td></tr>
-              <tr><td className="py-2 font-mono text-[#B8845C]">ANTHROPIC_API_KEY</td><td>Anthropic API key (for AI features)</td></tr>
+              <tr className="border-b border-white/5"><td className="py-2 font-mono text-white/80">BARKCLI_BOARD</td><td>Default board name</td></tr>
+              <tr className="border-b border-white/5"><td className="py-2 font-mono text-white/80">BARKCLI_TOKEN</td><td>API authentication token</td></tr>
+              <tr className="border-b border-white/5"><td className="py-2 font-mono text-white/80">OPENAI_API_KEY</td><td>OpenAI API key (for AI features)</td></tr>
+              <tr><td className="py-2 font-mono text-white/80">ANTHROPIC_API_KEY</td><td>Anthropic API key (for AI features)</td></tr>
             </tbody>
           </table>
         </div>
