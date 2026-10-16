@@ -117,9 +117,26 @@ pub enum EditField {
 }
 
 #[derive(Clone, Copy, PartialEq)]
-pub enum Theme {
-    Dark,
-    Light,
+pub struct Theme {
+    pub is_light: bool,
+}
+
+impl Theme {
+    pub fn dark() -> Self {
+        Self { is_light: false }
+    }
+    pub fn light() -> Self {
+        Self { is_light: true }
+    }
+
+    /// Get the design tokens for this theme.
+    pub fn tokens(&self) -> &'static crate::theme::Theme {
+        if self.is_light {
+            &crate::theme::LIGHT
+        } else {
+            &crate::theme::DARK
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -176,6 +193,7 @@ pub struct App {
     pub code_results: Vec<ScoredFile>,
     pub history_selected: usize,
     pub status_msg: Option<String>,
+    pub scan_spinner: Option<String>,
     pub link_state: LinkState,
 
     // Agent & orchestration state
@@ -223,7 +241,7 @@ impl App {
             edit_field: EditField::Title,
             edit_card_idx: None,
             should_quit: false,
-            theme: Theme::Dark,
+            theme: Theme::dark(),
             palette_matches: Vec::new(),
             sprints: sprints::read_sprints(name).unwrap_or_default(),
             context: read_context(name).unwrap_or_default(),
@@ -233,6 +251,7 @@ impl App {
             code_results: Vec::new(),
             history_selected: 0,
             status_msg: None,
+            scan_spinner: None,
             link_state: LinkState::None,
             agents: Vec::new(),
             agent_cursor: 0,
@@ -260,7 +279,7 @@ impl App {
             edit_field: EditField::Title,
             edit_card_idx: None,
             should_quit: false,
-            theme: Theme::Dark,
+            theme: Theme::dark(),
             palette_matches: Vec::new(),
             sprints: Vec::new(),
             context: BoardContext::new(),
@@ -270,6 +289,7 @@ impl App {
             code_results: Vec::new(),
             history_selected: 0,
             status_msg: None,
+            scan_spinner: None,
             link_state: LinkState::None,
             agents: Vec::new(),
             agent_cursor: 0,
@@ -801,87 +821,6 @@ impl App {
             is_raw: String::new(),
         }
     }
-
-    // ── Theme ──
-
-    pub fn theme_bg(&self) -> Color {
-        match self.theme {
-            Theme::Dark => Color::Rgb(10, 10, 15),
-            Theme::Light => Color::Rgb(245, 245, 250),
-        }
-    }
-
-    pub fn theme_text(&self) -> Color {
-        match self.theme {
-            Theme::Dark => Color::Rgb(220, 220, 230),
-            Theme::Light => Color::Rgb(30, 30, 40),
-        }
-    }
-
-    pub fn theme_col_bg(&self) -> Color {
-        match self.theme {
-            Theme::Dark => Color::Rgb(18, 18, 28),
-            Theme::Light => Color::Rgb(235, 235, 245),
-        }
-    }
-
-    pub fn theme_card_bg(&self) -> Color {
-        match self.theme {
-            Theme::Dark => Color::Rgb(25, 25, 38),
-            Theme::Light => Color::Rgb(255, 255, 255),
-        }
-    }
-
-    pub fn theme_muted(&self) -> Color {
-        match self.theme {
-            Theme::Dark => Color::Rgb(80, 80, 100),
-            Theme::Light => Color::Rgb(160, 160, 170),
-        }
-    }
-
-    pub fn theme_accent(&self) -> Color {
-        match self.theme {
-            Theme::Dark => Color::Rgb(96, 165, 250),
-            Theme::Light => Color::Rgb(37, 99, 235),
-        }
-    }
-
-    pub fn theme_selection(&self) -> Color {
-        match self.theme {
-            Theme::Dark => Color::Rgb(30, 41, 59),
-            Theme::Light => Color::Rgb(219, 234, 254),
-        }
-    }
-
-    pub fn theme_danger(&self) -> Color {
-        match self.theme {
-            Theme::Dark => Color::Rgb(248, 113, 113),
-            Theme::Light => Color::Rgb(220, 38, 38),
-        }
-    }
-
-    pub fn theme_success(&self) -> Color {
-        match self.theme {
-            Theme::Dark => Color::Rgb(52, 211, 153),
-            Theme::Light => Color::Rgb(5, 150, 105),
-        }
-    }
-
-    pub fn theme_warning(&self) -> Color {
-        match self.theme {
-            Theme::Dark => Color::Rgb(251, 191, 36),
-            Theme::Light => Color::Rgb(217, 119, 6),
-        }
-    }
-
-    pub fn theme_border(&self) -> Color {
-        match self.theme {
-            Theme::Dark => Color::Rgb(60, 60, 80),
-            Theme::Light => Color::Rgb(200, 200, 215),
-        }
-    }
-
-    // ── Agent & Orchestration ──
 
     pub fn load_agents(&mut self) {
         if let Ok(root) = find_project_root() {

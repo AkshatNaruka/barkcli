@@ -1,4 +1,6 @@
 pub mod app;
+pub mod components;
+pub mod theme;
 pub mod ui;
 mod handlers;
 
@@ -16,6 +18,23 @@ use std::io;
 
 use crate::app::App;
 
+/// Check if stdout is a TTY (for CI-aware mode).
+pub fn is_tty() -> bool {
+    use std::io::IsTerminal;
+    std::io::stdout().is_terminal()
+}
+
+/// Check if colors should be disabled (CI/non-TTY mode).
+pub fn colors_enabled() -> bool {
+    if std::env::var("NO_COLOR").is_ok() {
+        return false;
+    }
+    if std::env::var("BARKCLI_NO_COLOR").is_ok() {
+        return false;
+    }
+    is_tty()
+}
+
 pub fn run(board_name: Option<&str>) -> Result<()> {
     let mut app = if let Some(name) = board_name {
         App::from_board_name(name)?
@@ -31,6 +50,12 @@ pub fn run(board_name: Option<&str>) -> Result<()> {
             App::for_picker(boards)
         }
     };
+
+    // CI-aware mode: use minimal theme when not a TTY
+    if !colors_enabled() {
+        app.theme = crate::app::Theme::dark();
+        // Override with minimal symbols (no colors needed)
+    }
 
     enable_raw_mode()?;
     let mut stdout = io::stdout();

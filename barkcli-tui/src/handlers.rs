@@ -167,10 +167,7 @@ fn handle_board_keys(app: &mut App, key: KeyEvent) -> Result<()> {
         }
         KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
         KeyCode::Char('T') => {
-            app.theme = match app.theme {
-                Theme::Dark => Theme::Light,
-                Theme::Light => Theme::Dark,
-            };
+            app.theme = if app.theme.is_light { Theme::dark() } else { Theme::light() };
         }
         _ => {}
     }
@@ -208,10 +205,7 @@ fn handle_list_keys(app: &mut App, key: KeyEvent) -> Result<()> {
         }
         KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
         KeyCode::Char('T') => {
-            app.theme = match app.theme {
-                Theme::Dark => Theme::Light,
-                Theme::Light => Theme::Dark,
-            };
+            app.theme = if app.theme.is_light { Theme::dark() } else { Theme::light() };
         }
         _ => {}
     }
@@ -237,10 +231,7 @@ fn handle_tree_keys(app: &mut App, key: KeyEvent) -> Result<()> {
         }
         KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
         KeyCode::Char('T') => {
-            app.theme = match app.theme {
-                Theme::Dark => Theme::Light,
-                Theme::Light => Theme::Dark,
-            };
+            app.theme = if app.theme.is_light { Theme::dark() } else { Theme::light() };
         }
         _ => {}
     }
@@ -492,11 +483,11 @@ fn exec_palette(app: &mut App) {
         return;
     }
     if cmd == "theme dark" {
-        app.theme = Theme::Dark;
+        app.theme = Theme::dark();
         return;
     }
     if cmd == "theme light" {
-        app.theme = Theme::Light;
+        app.theme = Theme::light();
         return;
     }
     if let Some(rest) = cmd.strip_prefix("move ") {
@@ -741,10 +732,7 @@ fn handle_agents_keys(app: &mut App, key: KeyEvent) -> Result<()> {
         }
         KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
         KeyCode::Char('T') => {
-            app.theme = match app.theme {
-                Theme::Dark => Theme::Light,
-                Theme::Light => Theme::Dark,
-            };
+            app.theme = if app.theme.is_light { Theme::dark() } else { Theme::light() };
         }
         _ => {}
     }
@@ -774,10 +762,7 @@ fn handle_orchestrate_keys(app: &mut App, key: KeyEvent) -> Result<()> {
         }
         KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
         KeyCode::Char('T') => {
-            app.theme = match app.theme {
-                Theme::Dark => Theme::Light,
-                Theme::Light => Theme::Dark,
-            };
+            app.theme = if app.theme.is_light { Theme::dark() } else { Theme::light() };
         }
         _ => {}
     }

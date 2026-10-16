@@ -1,10 +1,12 @@
 use ratatui::{
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style, Stylize},
     text::{Line, Span, Text},
     widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
     Frame,
 };
+
+use crate::components;
 
 use crate::app::{App, AppMode, EditField, SortKey, Tab};
 use barkcli_core::agent::identity::AgentStatus;
@@ -16,7 +18,7 @@ pub fn draw(f: &mut Frame, app: &App) {
     let size = f.area();
     if size.width < 60 || size.height < 12 {
         f.render_widget(
-            Paragraph::new("Terminal too small (min 60×12)").style(Style::new().fg(app.theme_muted())),
+            Paragraph::new("Terminal too small (min 60×12)").style(Style::new().fg(app.theme.tokens().colors.muted)),
             size,
         );
         return;
@@ -30,19 +32,19 @@ pub fn draw(f: &mut Frame, app: &App) {
 fn draw_picker(f: &mut Frame, app: &App, area: Rect) {
     let items: Vec<ListItem> = app.all_boards.iter().enumerate().map(|(i, name)| {
         let style = if i == app.card_focus {
-            Style::new().fg(app.theme_accent()).add_modifier(Modifier::BOLD)
+            Style::new().fg(app.theme.tokens().colors.accent).add_modifier(Modifier::BOLD)
         } else { Style::default() };
         ListItem::new(Line::from(Span::styled(format!("  {}", name), style)))
     }).collect();
     let list = List::new(items)
         .block(Block::bordered().title(" Select a board "))
-        .highlight_style(Style::new().fg(app.theme_accent()).add_modifier(Modifier::BOLD));
+        .highlight_style(Style::new().fg(app.theme.tokens().colors.accent).add_modifier(Modifier::BOLD));
     let h = (app.all_boards.len() + 2).min(area.height.saturating_sub(4) as usize) as u16;
     f.render_widget(list, centered_rect(40, h, area));
 }
 
 fn draw_main(f: &mut Frame, app: &App, area: Rect) {
-    let bg = Paragraph::new("").style(Style::new().bg(app.theme_bg()));
+    let bg = Paragraph::new("").style(Style::new().bg(app.theme.tokens().colors.bg));
     f.render_widget(bg, area);
 
     let chunks = Layout::default()
@@ -85,9 +87,9 @@ fn draw_header(f: &mut Frame, app: &App, area: Rect) {
     let n = app.board.cards.len();
     let right = format!("{} cards ", n);
     let line = Line::from(vec![
-        Span::styled(left, Style::new().bold().fg(app.theme_accent())),
+        Span::styled(left, Style::new().bold().fg(app.theme.tokens().colors.accent)),
         Span::raw(" "),
-        Span::styled(right, Style::new().fg(app.theme_muted())),
+        Span::styled(right, Style::new().fg(app.theme.tokens().colors.muted)),
     ]);
     f.render_widget(Paragraph::new(line), area);
 }
@@ -95,18 +97,18 @@ fn draw_header(f: &mut Frame, app: &App, area: Rect) {
 fn draw_tabbar(f: &mut Frame, app: &App, area: Rect) {
     let tabs: Vec<Tab> = vec![Tab::Board, Tab::List, Tab::Tree, Tab::Agenda, Tab::Reports, Tab::Code, Tab::Agents, Tab::Orchestrate];
     let mut spans: Vec<Span> = Vec::new();
-    spans.push(Span::styled(" ", Style::new().fg(app.theme_muted())));
+    spans.push(Span::styled(" ", Style::new().fg(app.theme.tokens().colors.muted)));
     for tab in tabs {
         let active = app.tab == tab;
         spans.push(Span::styled(
             format!(" {} ", tab.label()),
             if active {
-                Style::new().fg(app.theme_bg()).bg(app.theme_accent()).add_modifier(Modifier::BOLD)
+                Style::new().fg(app.theme.tokens().colors.bg).bg(app.theme.tokens().colors.accent).add_modifier(Modifier::BOLD)
             } else {
-                Style::new().fg(app.theme_muted())
+                Style::new().fg(app.theme.tokens().colors.muted)
             },
         ));
-        spans.push(Span::styled(" ", Style::new().fg(app.theme_muted())));
+        spans.push(Span::styled(" ", Style::new().fg(app.theme.tokens().colors.muted)));
     }
     f.render_widget(Paragraph::new(Line::from(spans)), area);
 }
@@ -136,41 +138,41 @@ fn draw_board(f: &mut Frame, app: &App, area: Rect) {
     for (i, col) in app.board.columns.iter().enumerate() {
         let cards = app.cards_in_column(i);
         let focused = i == app.focused_column;
-        let border = if focused { app.theme_accent() } else { app.theme_border() };
+        let border = if focused { app.theme.tokens().colors.accent } else { app.theme.tokens().colors.border };
         let block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style::new().fg(border))
-            .style(Style::new().bg(app.theme_col_bg()))
+            .style(Style::new().bg(app.theme.tokens().colors.surface))
             .title(format!(" {} ", col.name))
             .title_bottom(format!(" {} ", cards.len()));
 
         let inner = block.inner(chunks[i]);
 
         let items: Vec<ListItem> = if cards.is_empty() {
-            vec![ListItem::new(Line::from(Span::styled("  (no cards)", Style::new().fg(app.theme_muted()))))]
+            vec![ListItem::new(Line::from(Span::styled("  (no cards)", Style::new().fg(app.theme.tokens().colors.muted))))]
         } else {
             cards.iter().enumerate().map(|(j, (_, card))| {
                 let sel = focused && j == app.card_focus;
                 let prefix = if sel { "▸ " } else { "  " };
                 let dot = match card.priority.as_str() {
-                    "high" => Span::styled("●", Style::new().fg(app.theme_danger()).add_modifier(Modifier::BOLD)),
-                    "medium" => Span::styled("●", Style::new().fg(app.theme_warning())),
-                    _ => Span::styled("●", Style::new().fg(app.theme_muted())),
+                    "high" => Span::styled("●", Style::new().fg(app.theme.tokens().colors.danger).add_modifier(Modifier::BOLD)),
+                    "medium" => Span::styled("●", Style::new().fg(app.theme.tokens().colors.warning)),
+                    _ => Span::styled("●", Style::new().fg(app.theme.tokens().colors.muted)),
                 };
-                let title_s = Style::default().fg(app.theme_text())
+                let title_s = Style::default().fg(app.theme.tokens().colors.text)
                     .add_modifier(if sel { Modifier::REVERSED } else { Modifier::empty() });
                 let title_span = Span::styled(format!("{}{} ", prefix, card.title), title_s);
                 let labels_str = if card.labels.is_empty() { String::new() }
                     else { format!("[{}]", card.labels.join(",")) };
                 let mut parts = vec![dot, Span::raw(" "), title_span];
                 if !labels_str.is_empty() {
-                    parts.push(Span::styled(labels_str, Style::new().fg(app.theme_accent())));
+                    parts.push(Span::styled(labels_str, Style::new().fg(app.theme.tokens().colors.accent)));
                 }
                 if let Some(ref a) = card.assignee {
-                    parts.push(Span::styled(format!(" @{}", a), Style::new().fg(app.theme_success())));
+                    parts.push(Span::styled(format!(" @{}", a), Style::new().fg(app.theme.tokens().colors.success)));
                 }
                 if let Some(e) = card.effort {
-                    parts.push(Span::styled(format!(" ⏱{}", e), Style::new().fg(app.theme_muted())));
+                    parts.push(Span::styled(format!(" ⏱{}", e), Style::new().fg(app.theme.tokens().colors.muted)));
                 }
                 ListItem::new(Line::from(parts))
             }).collect()
@@ -192,64 +194,70 @@ fn draw_list(f: &mut Frame, app: &App, area: Rect) {
         SortKey::Effort => "sort:effort (e)",
         SortKey::Due => "sort:due (u)",
     };
-    let block = Block::bordered()
-        .border_style(Style::new().fg(app.theme_border()))
-        .title(" Backlog ")
-        .title_bottom(format!(" {}  {} ", cards.len(), sort_label));
-    let inner = block.inner(area);
+    let theme = app.theme.tokens();
 
-    let header_line = Line::from(vec![
-        Span::styled(" ID ", Style::new().fg(app.theme_muted()).add_modifier(Modifier::BOLD)),
-        Span::styled("PRIO", Style::new().fg(app.theme_muted()).add_modifier(Modifier::BOLD)),
-        Span::styled("  EFF ", Style::new().fg(app.theme_muted()).add_modifier(Modifier::BOLD)),
-        Span::styled("DUE        ", Style::new().fg(app.theme_muted()).add_modifier(Modifier::BOLD)),
-        Span::styled("AREA", Style::new().fg(app.theme_muted()).add_modifier(Modifier::BOLD)),
-        Span::styled("  TITLE", Style::new().fg(app.theme_muted()).add_modifier(Modifier::BOLD)),
-    ]);
+    let headers = ["PRIO", "EFF", "DUE", "AREA", "TITLE"];
+    let alignments = [
+        Alignment::Left,
+        Alignment::Right,
+        Alignment::Left,
+        Alignment::Left,
+        Alignment::Left,
+    ];
 
-    let mut lines = vec![header_line, Line::from(Span::styled(
-        " ".repeat(area.width.min(120) as usize),
-        Style::new().fg(app.theme_border()),
-    ))];
-    for (i, (_, card)) in cards.iter().enumerate() {
-        let sel = i == app.card_focus;
-        let marker = if sel { "▸" } else { " " };
-        let prio = match card.priority.as_str() {
-            "high" => Span::styled("HI", Style::new().fg(app.theme_danger())),
-            "medium" => Span::styled("MD", Style::new().fg(app.theme_warning())),
-            "low" => Span::styled("LO", Style::new().fg(app.theme_muted())),
-            other => Span::styled(other, Style::new().fg(app.theme_muted())),
-        };
-        let eff = if let Some(e) = card.effort { format!("{:>3}", e) } else { "  -".into() };
-        let due = card.due_date.clone().unwrap_or_else(|| "—".into());
-        let due_s = Span::styled(due, Style::new().fg(if card.due_date.is_some() { app.theme_warning() } else { app.theme_muted() }));
-        let area_s = Span::styled(
-            card.area.clone().unwrap_or_default(),
-            Style::new().fg(app.theme_success()),
-        );
-        let title_s = Style::default()
-            .fg(app.theme_text())
-            .add_modifier(if sel { Modifier::REVERSED } else { Modifier::empty() });
-        lines.push(Line::from(vec![
-            Span::styled(format!(" {} {}", marker, card.id), title_s),
-            Span::raw(" "),
-            prio,
-            Span::styled(format!("  {}  ", eff), Style::new().fg(app.theme_muted())),
-            due_s,
-            Span::raw("  "),
-            area_s,
-            Span::styled(format!("  {}", card.title), title_s),
-        ]));
-    }
-    f.render_widget(block, area);
-    f.render_widget(Paragraph::new(Text::from(lines)), inner);
+    let rows: Vec<Vec<String>> = cards
+        .iter()
+        .map(|(_, card)| {
+            let prio = match card.priority.as_str() {
+                "high" => "HI".to_string(),
+                "medium" => "MD".to_string(),
+                "low" => "LO".to_string(),
+                other => other.to_string(),
+            };
+            let eff = if let Some(e) = card.effort {
+                format!("{}", e)
+            } else {
+                "-".to_string()
+            };
+            let due = card.due_date.clone().unwrap_or_else(|| "—".to_string());
+            let area = card.area.clone().unwrap_or_default();
+            let title = card.title.clone();
+            vec![prio, eff, due, area, title]
+        })
+        .collect();
+
+    // Render borderless table
+    components::draw_borderless_table(
+        f,
+        area,
+        &headers,
+        &rows,
+        &alignments,
+        theme.colors.text,
+        theme.colors.muted,
+        theme.colors.muted,
+    );
+
+    // Status line below table
+    let status_area = Rect {
+        x: area.x,
+        y: area.y + area.height.saturating_sub(1),
+        width: area.width,
+        height: 1,
+    };
+    let status = components::StatusMessage::muted(format!(
+        " {} cards  {} ",
+        cards.len(),
+        sort_label
+    ));
+    components::draw_status_line(f, status_area, &status, theme);
 }
 
 // ── Tree ──
 
 fn draw_tree(f: &mut Frame, app: &App, area: Rect) {
     let block = Block::bordered()
-        .border_style(Style::new().fg(app.theme_border()))
+        .border_style(Style::new().fg(app.theme.tokens().colors.border))
         .title(" Hierarchy (parent → child) ");
     let inner = block.inner(area);
 
@@ -268,7 +276,7 @@ fn draw_tree(f: &mut Frame, app: &App, area: Rect) {
         collect_tree_lines(app, root, 0, &card_order, i == app.card_focus, &mut lines);
     }
     if roots.is_empty() {
-        lines.push(Line::from(Span::styled("  (no parent-less cards — nothing linked yet)", Style::new().fg(app.theme_muted()))));
+        lines.push(Line::from(Span::styled("  (no parent-less cards — nothing linked yet)", Style::new().fg(app.theme.tokens().colors.muted))));
     }
     f.render_widget(block, area);
     f.render_widget(Paragraph::new(Text::from(lines)), inner);
@@ -285,19 +293,19 @@ fn collect_tree_lines<'a>(
     let Some(card) = app.card_by_id(id) else { return };
     let indent = "  ".repeat(depth);
     let done = if card.column == "done" {
-        Span::styled("✓", Style::new().fg(app.theme_success()))
+        Span::styled("✓", Style::new().fg(app.theme.tokens().colors.success))
     } else {
-        Span::styled("•", Style::new().fg(app.theme_muted()))
+        Span::styled("•", Style::new().fg(app.theme.tokens().colors.muted))
     };
     let title_s = Style::default()
-        .fg(app.theme_text())
+        .fg(app.theme.tokens().colors.text)
         .add_modifier(if focused { Modifier::REVERSED } else { Modifier::empty() });
     out.push(Line::from(vec![
         Span::raw(indent),
         done,
         Span::raw(" "),
         Span::styled(card.title.clone(), title_s),
-        Span::styled(format!(" [{}]", card.id), Style::new().fg(app.theme_muted())),
+        Span::styled(format!(" [{}]", card.id), Style::new().fg(app.theme.tokens().colors.muted)),
     ]));
 
     let mut children: Vec<String> = card
@@ -317,7 +325,7 @@ fn collect_tree_lines<'a>(
 fn draw_agenda(f: &mut Frame, app: &App, area: Rect) {
     let (overdue, today, next7, later) = app.agenda_sections();
     let block = Block::bordered()
-        .border_style(Style::new().fg(app.theme_border()))
+        .border_style(Style::new().fg(app.theme.tokens().colors.border))
         .title(" Agenda ");
     let inner = block.inner(area);
 
@@ -336,23 +344,23 @@ fn draw_agenda(f: &mut Frame, app: &App, area: Rect) {
     ) {
         lines.push(Line::from(Span::styled(
             title,
-            Style::new().fg(if danger { app.theme_danger() } else { app.theme_accent() }).add_modifier(Modifier::BOLD),
+            Style::new().fg(if danger { app.theme.tokens().colors.danger } else { app.theme.tokens().colors.accent }).add_modifier(Modifier::BOLD),
         )));
         if items.is_empty() {
-            lines.push(Line::from(Span::styled("   (none)", Style::new().fg(app.theme_muted()))));
+            lines.push(Line::from(Span::styled("   (none)", Style::new().fg(app.theme.tokens().colors.muted))));
             return;
         }
         for (_, card) in items {
             let sel = *counter == focus;
             let due = card.due_date.clone().unwrap_or_default();
             let title_s = Style::default()
-                .fg(app.theme_text())
+                .fg(app.theme.tokens().colors.text)
                 .add_modifier(if sel { Modifier::REVERSED } else { Modifier::empty() });
             lines.push(Line::from(vec![
                 Span::styled(if sel { "▸" } else { " " }, title_s),
-                Span::styled(format!(" {} ", due), Style::new().fg(if danger { app.theme_danger() } else { app.theme_warning() })),
+                Span::styled(format!(" {} ", due), Style::new().fg(if danger { app.theme.tokens().colors.danger } else { app.theme.tokens().colors.warning })),
                 Span::styled(card.title.clone(), title_s),
-                Span::styled(format!(" [{}]", card.id), Style::new().fg(app.theme_muted())),
+                Span::styled(format!(" [{}]", card.id), Style::new().fg(app.theme.tokens().colors.muted)),
             ]));
             *counter += 1;
         }
@@ -371,31 +379,33 @@ fn draw_agenda(f: &mut Frame, app: &App, area: Rect) {
 // ── Reports ──
 
 fn draw_reports(f: &mut Frame, app: &App, area: Rect) {
-    let block = Block::bordered()
-        .border_style(Style::new().fg(app.theme_border()))
-        .title(" Reports ");
-    let inner = block.inner(area);
-
+    let theme = app.theme.tokens();
     let mut lines: Vec<Line> = Vec::new();
 
     // Sprint burndown
     let burndowns = app.sprint_burndowns();
-    lines.push(Line::from(Span::styled(" Sprints", Style::new().fg(app.theme_accent()).add_modifier(Modifier::BOLD))));
+    lines.push(Line::from(Span::styled(
+        " Sprints",
+        Style::new().fg(theme.colors.accent).add_modifier(Modifier::BOLD),
+    )));
     if burndowns.is_empty() {
-        lines.push(Line::from(Span::styled("   (no sprints — barkcli sprint start <name>)", Style::new().fg(app.theme_muted()))));
+        lines.push(Line::from(Span::styled(
+            "   (no sprints — barkcli sprint start <name>)",
+            Style::new().fg(theme.colors.muted),
+        )));
     }
     for b in &burndowns {
         let marker = match b.state.as_str() {
-            "active" => "●",
-            "ended" => "○",
-            _ => "◇",
+            "active" => theme.symbols.active_indicator,
+            "ended" => theme.symbols.inactive_indicator,
+            _ => '◇',
         };
         let pct = if b.effort_total > 0 { (b.effort_done as f64 / b.effort_total as f64 * 100.0) as u32 } else { 0 };
-        let bar = bar_chart(pct, 24);
-        let color = if b.state == "active" { app.theme_success() } else { app.theme_muted() };
+        let bar = bar_chart(pct, 24, theme);
+        let color = if b.state == "active" { theme.colors.success } else { theme.colors.muted };
         lines.push(Line::from(vec![
             Span::styled(format!("  {} {}", marker, b.name), Style::new().fg(color).add_modifier(Modifier::BOLD)),
-            Span::styled(format!("  {}/{} done · {}/{} effort · {}%", b.done, b.total, b.effort_done, b.effort_total, pct), Style::new().fg(app.theme_muted())),
+            Span::styled(format!("  {}/{} done · {}/{} effort · {}%", b.done, b.total, b.effort_done, b.effort_total, pct), Style::new().fg(theme.colors.muted)),
             Span::styled(bar, Style::new().fg(color)),
         ]));
     }
@@ -404,13 +414,16 @@ fn draw_reports(f: &mut Frame, app: &App, area: Rect) {
     // Effort by column
     let columns = app.report_columns();
     let max_effort = columns.iter().map(|r| r.effort).max().unwrap_or(1).max(1);
-    lines.push(Line::from(Span::styled(" Effort by column", Style::new().fg(app.theme_accent()).add_modifier(Modifier::BOLD))));
+    lines.push(Line::from(Span::styled(
+        " Effort by column",
+        Style::new().fg(theme.colors.accent).add_modifier(Modifier::BOLD),
+    )));
     for r in &columns {
         let pct = (r.effort as f64 / max_effort as f64 * 100.0) as u32;
         lines.push(Line::from(vec![
-            Span::styled(format!("  {:<12}", r.label), Style::new().fg(app.theme_text())),
-            Span::styled(bar_chart(pct, 30), Style::new().fg(app.theme_accent())),
-            Span::styled(format!("  {} pts / {} cards", r.effort, r.count), Style::new().fg(app.theme_muted())),
+            Span::styled(format!("  {:<12}", r.label), Style::new().fg(theme.colors.text)),
+            Span::styled(bar_chart(pct, 30, theme), Style::new().fg(theme.colors.accent)),
+            Span::styled(format!("  {} pts / {} cards", r.effort, r.count), Style::new().fg(theme.colors.muted)),
         ]));
     }
     lines.push(Line::from(Span::raw("")));
@@ -418,28 +431,36 @@ fn draw_reports(f: &mut Frame, app: &App, area: Rect) {
     // Effort by area
     let areas = app.report_areas();
     let max_area = areas.iter().map(|r| r.effort).max().unwrap_or(1).max(1);
-    lines.push(Line::from(Span::styled(" Effort by area", Style::new().fg(app.theme_accent()).add_modifier(Modifier::BOLD))));
+    lines.push(Line::from(Span::styled(
+        " Effort by area",
+        Style::new().fg(theme.colors.accent).add_modifier(Modifier::BOLD),
+    )));
     if areas.is_empty() {
-        lines.push(Line::from(Span::styled("   (no areas)", Style::new().fg(app.theme_muted()))));
+        lines.push(Line::from(Span::styled(
+            "   (no areas)",
+            Style::new().fg(theme.colors.muted),
+        )));
     }
     for r in &areas {
         let pct = (r.effort as f64 / max_area as f64 * 100.0) as u32;
         lines.push(Line::from(vec![
-            Span::styled(format!("  {:<12}", r.label), Style::new().fg(app.theme_text())),
-            Span::styled(bar_chart(pct, 30), Style::new().fg(app.theme_warning())),
-            Span::styled(format!("  {} pts / {} cards", r.effort, r.count), Style::new().fg(app.theme_muted())),
+            Span::styled(format!("  {:<12}", r.label), Style::new().fg(theme.colors.text)),
+            Span::styled(bar_chart(pct, 30, theme), Style::new().fg(theme.colors.warning)),
+            Span::styled(format!("  {} pts / {} cards", r.effort, r.count), Style::new().fg(theme.colors.muted)),
         ]));
     }
 
-    f.render_widget(block, area);
-    f.render_widget(Paragraph::new(Text::from(lines)), inner);
+    let p = Paragraph::new(Text::from(lines));
+    f.render_widget(p, area);
 }
 
-fn bar_chart(pct: u32, width: u16) -> String {
+fn bar_chart(pct: u32, width: u16, theme: &crate::theme::Theme) -> String {
     let filled = ((pct as u16 * width) / 100).min(width);
-    let mut s = String::with_capacity(width as usize);
+    let full = theme.symbols.bar_full;
+    let empty = theme.symbols.bar_empty;
+    let mut s = String::with_capacity(width as usize * 2);
     for i in 0..width {
-        s.push(if i < filled { '█' } else { '░' });
+        s.push(if i < filled { full } else { empty });
     }
     s
 }
@@ -448,7 +469,7 @@ fn bar_chart(pct: u32, width: u16) -> String {
 
 fn draw_code(f: &mut Frame, app: &App, area: Rect) {
     let block = Block::bordered()
-        .border_style(Style::new().fg(app.theme_border()))
+        .border_style(Style::new().fg(app.theme.tokens().colors.border))
         .title(" Code search (press / to search) ");
     let inner = block.inner(area);
 
@@ -456,22 +477,22 @@ fn draw_code(f: &mut Frame, app: &App, area: Rect) {
     if app.code_results.is_empty() {
         lines.push(Line::from(Span::styled(
             "  Press / and type a symbol (e.g. verify_token). Matches show files + linked cards.",
-            Style::new().fg(app.theme_muted()),
+            Style::new().fg(app.theme.tokens().colors.muted),
         )));
     }
     for (i, hit) in app.code_results.iter().enumerate() {
         let sel = i == app.card_focus;
         let s = Style::default()
-            .fg(if sel { app.theme_accent() } else { app.theme_text() })
+            .fg(if sel { app.theme.tokens().colors.accent } else { app.theme.tokens().colors.text })
             .add_modifier(if sel { Modifier::REVERSED } else { Modifier::empty() });
         let mut spans = vec![Span::styled(format!("  {} ", hit.path), s)];
         for sym in &hit.matched_symbols {
-            spans.push(Span::styled(format!(" [{}]", sym), Style::new().fg(app.theme_warning())));
+            spans.push(Span::styled(format!(" [{}]", sym), Style::new().fg(app.theme.tokens().colors.warning)));
         }
             if let Some(ids) = app.context.index.get(&hit.path) {
                 if !ids.is_empty() {
                     let joined: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
-                    spans.push(Span::styled(format!(" → {}", joined.join(", ")), Style::new().fg(app.theme_success())));
+                    spans.push(Span::styled(format!(" → {}", joined.join(", ")), Style::new().fg(app.theme.tokens().colors.success)));
                 }
             }
         lines.push(Line::from(spans));
@@ -508,7 +529,7 @@ fn agent_tool_color(id: &str, name: &str) -> Option<Color> {
 
 fn draw_agents(f: &mut Frame, app: &App, area: Rect) {
     let block = Block::bordered()
-        .border_style(Style::new().fg(app.theme_border()))
+        .border_style(Style::new().fg(app.theme.tokens().colors.border))
         .title(" Agents ");
     let inner = block.inner(area);
 
@@ -516,31 +537,31 @@ fn draw_agents(f: &mut Frame, app: &App, area: Rect) {
 
     // Header
     lines.push(Line::from(vec![
-        Span::styled(" ID ", Style::new().fg(app.theme_muted()).add_modifier(Modifier::BOLD)),
-        Span::styled("NAME           ", Style::new().fg(app.theme_muted()).add_modifier(Modifier::BOLD)),
-        Span::styled("ROLE       ", Style::new().fg(app.theme_muted()).add_modifier(Modifier::BOLD)),
-        Span::styled("STATUS   ", Style::new().fg(app.theme_muted()).add_modifier(Modifier::BOLD)),
-        Span::styled("TASKS", Style::new().fg(app.theme_muted()).add_modifier(Modifier::BOLD)),
+        Span::styled(" ID ", Style::new().fg(app.theme.tokens().colors.muted).add_modifier(Modifier::BOLD)),
+        Span::styled("NAME           ", Style::new().fg(app.theme.tokens().colors.muted).add_modifier(Modifier::BOLD)),
+        Span::styled("ROLE       ", Style::new().fg(app.theme.tokens().colors.muted).add_modifier(Modifier::BOLD)),
+        Span::styled("STATUS   ", Style::new().fg(app.theme.tokens().colors.muted).add_modifier(Modifier::BOLD)),
+        Span::styled("TASKS", Style::new().fg(app.theme.tokens().colors.muted).add_modifier(Modifier::BOLD)),
     ]));
     lines.push(Line::from(Span::styled(
         " ".repeat(area.width.min(80) as usize),
-        Style::new().fg(app.theme_border()),
+        Style::new().fg(app.theme.tokens().colors.border),
     )));
 
     if app.agents.is_empty() {
         lines.push(Line::from(Span::styled(
             "  No agents registered. Run: barkcli mcp",
-            Style::new().fg(app.theme_muted()),
+            Style::new().fg(app.theme.tokens().colors.muted),
         )));
     } else {
         for (i, agent) in app.agents.iter().enumerate() {
             let sel = i == app.agent_cursor;
             let marker = if sel { "▸" } else { " " };
             let status_style = match agent.status {
-                AgentStatus::Idle => Style::new().fg(app.theme_success()),
-                AgentStatus::Working => Style::new().fg(app.theme_warning()),
-                AgentStatus::Paused => Style::new().fg(app.theme_muted()),
-                AgentStatus::Error => Style::new().fg(app.theme_danger()),
+                AgentStatus::Idle => Style::new().fg(app.theme.tokens().colors.success),
+                AgentStatus::Working => Style::new().fg(app.theme.tokens().colors.warning),
+                AgentStatus::Paused => Style::new().fg(app.theme.tokens().colors.muted),
+                AgentStatus::Error => Style::new().fg(app.theme.tokens().colors.danger),
             };
             let status_label = match agent.status {
                 AgentStatus::Idle => "idle",
@@ -549,7 +570,7 @@ fn draw_agents(f: &mut Frame, app: &App, area: Rect) {
                 AgentStatus::Error => "error",
             };
             let title_s = Style::default()
-                .fg(app.theme_text())
+                .fg(app.theme.tokens().colors.text)
                 .add_modifier(if sel { Modifier::REVERSED } else { Modifier::empty() });
             // Agent id carries its coding-agent tool's brand color (matches web + landing).
             let id_s = match agent_tool_color(&agent.id, &agent.name) {
@@ -563,7 +584,7 @@ fn draw_agents(f: &mut Frame, app: &App, area: Rect) {
                 Span::styled(format!("  {:<14}", agent.name), title_s),
                 Span::styled(format!("  {:<10}", agent.role), title_s),
                 Span::styled(format!("  {:<8}", status_label), status_style),
-                Span::styled(format!("  {}", agent.completed_tasks.len()), Style::new().fg(app.theme_muted())),
+                Span::styled(format!("  {}", agent.completed_tasks.len()), Style::new().fg(app.theme.tokens().colors.muted)),
             ]));
         }
     }
@@ -576,7 +597,7 @@ fn draw_agents(f: &mut Frame, app: &App, area: Rect) {
 
 fn draw_orchestrate(f: &mut Frame, app: &App, area: Rect) {
     let block = Block::bordered()
-        .border_style(Style::new().fg(app.theme_border()))
+        .border_style(Style::new().fg(app.theme.tokens().colors.border))
         .title(" Orchestrate ");
     let inner = block.inner(area);
 
@@ -586,42 +607,42 @@ fn draw_orchestrate(f: &mut Frame, app: &App, area: Rect) {
     if let Some(ref status) = app.orchestration_status {
         lines.push(Line::from(vec![
             Span::styled("Status: ", Style::new().bold()),
-            Span::styled(status.clone(), Style::new().fg(app.theme_success())),
+            Span::styled(status.clone(), Style::new().fg(app.theme.tokens().colors.success)),
         ]));
         lines.push(Line::from(Span::raw("")));
     }
 
     // Task queue header
     lines.push(Line::from(vec![
-        Span::styled(" ID ", Style::new().fg(app.theme_muted()).add_modifier(Modifier::BOLD)),
-        Span::styled("CARD           ", Style::new().fg(app.theme_muted()).add_modifier(Modifier::BOLD)),
-        Span::styled("PRIO  ", Style::new().fg(app.theme_muted()).add_modifier(Modifier::BOLD)),
-        Span::styled("STATUS      ", Style::new().fg(app.theme_muted()).add_modifier(Modifier::BOLD)),
-        Span::styled("ASSIGNED", Style::new().fg(app.theme_muted()).add_modifier(Modifier::BOLD)),
+        Span::styled(" ID ", Style::new().fg(app.theme.tokens().colors.muted).add_modifier(Modifier::BOLD)),
+        Span::styled("CARD           ", Style::new().fg(app.theme.tokens().colors.muted).add_modifier(Modifier::BOLD)),
+        Span::styled("PRIO  ", Style::new().fg(app.theme.tokens().colors.muted).add_modifier(Modifier::BOLD)),
+        Span::styled("STATUS      ", Style::new().fg(app.theme.tokens().colors.muted).add_modifier(Modifier::BOLD)),
+        Span::styled("ASSIGNED", Style::new().fg(app.theme.tokens().colors.muted).add_modifier(Modifier::BOLD)),
     ]));
     lines.push(Line::from(Span::styled(
         " ".repeat(area.width.min(80) as usize),
-        Style::new().fg(app.theme_border()),
+        Style::new().fg(app.theme.tokens().colors.border),
     )));
 
     if app.task_queue.is_empty() {
         lines.push(Line::from(Span::styled(
             "  No tasks in queue. Run: barkcli orchestrate cycle <board> <role>",
-            Style::new().fg(app.theme_muted()),
+            Style::new().fg(app.theme.tokens().colors.muted),
         )));
     } else {
         for (i, task) in app.task_queue.iter().enumerate() {
             let sel = i == app.task_cursor;
             let marker = if sel { "▸" } else { " " };
             let status_style = match task.status {
-                TaskStatus::Pending => Style::new().fg(app.theme_muted()),
-                TaskStatus::Assigned => Style::new().fg(app.theme_warning()),
-                TaskStatus::InProgress => Style::new().fg(app.theme_accent()),
-                TaskStatus::Blocked => Style::new().fg(app.theme_danger()),
-                TaskStatus::NeedsInput => Style::new().fg(app.theme_warning()),
-                TaskStatus::Completed => Style::new().fg(app.theme_success()),
-                TaskStatus::Failed => Style::new().fg(app.theme_danger()),
-                TaskStatus::Cancelled => Style::new().fg(app.theme_muted()),
+                TaskStatus::Pending => Style::new().fg(app.theme.tokens().colors.muted),
+                TaskStatus::Assigned => Style::new().fg(app.theme.tokens().colors.warning),
+                TaskStatus::InProgress => Style::new().fg(app.theme.tokens().colors.accent),
+                TaskStatus::Blocked => Style::new().fg(app.theme.tokens().colors.danger),
+                TaskStatus::NeedsInput => Style::new().fg(app.theme.tokens().colors.warning),
+                TaskStatus::Completed => Style::new().fg(app.theme.tokens().colors.success),
+                TaskStatus::Failed => Style::new().fg(app.theme.tokens().colors.danger),
+                TaskStatus::Cancelled => Style::new().fg(app.theme.tokens().colors.muted),
             };
             let status_label = match task.status {
                 TaskStatus::Pending => "pending",
@@ -634,13 +655,13 @@ fn draw_orchestrate(f: &mut Frame, app: &App, area: Rect) {
                 TaskStatus::Cancelled => "cancelled",
             };
             let title_s = Style::default()
-                .fg(app.theme_text())
+                .fg(app.theme.tokens().colors.text)
                 .add_modifier(if sel { Modifier::REVERSED } else { Modifier::empty() });
             // Assigned agent shown in its tool's brand color (matches web + landing).
             let assignee = task.assigned_agent.clone().unwrap_or_default();
             let assignee_s = match agent_tool_color(&assignee, "") {
                 Some(c) => Style::new().fg(c),
-                None => Style::new().fg(app.theme_muted()),
+                None => Style::new().fg(app.theme.tokens().colors.muted),
             };
             lines.push(Line::from(vec![
                 Span::styled(format!(" {} {}", marker, task.id), title_s),
@@ -721,20 +742,23 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
     };
 
     let status_msg = app.status_msg.clone().unwrap_or_default();
-    let rest = if status_msg.is_empty() {
+    let spinner = app.scan_spinner.clone().unwrap_or_default();
+    let rest = if !spinner.is_empty() {
+        format!("{}  {}{}{}", hint, spinner, if status_msg.is_empty() { String::new() } else { format!("  {}", status_msg) }, filter_info)
+    } else if status_msg.is_empty() {
         format!("{}{}", hint, filter_info)
     } else {
         format!("{}  {}", hint, status_msg)
     };
 
-    let style = Style::new().fg(app.theme_text()).bg(app.theme_col_bg());
-    let mode_style = Style::new().fg(app.theme_accent()).add_modifier(Modifier::BOLD).bg(app.theme_col_bg());
-    let line = Line::from(vec![
-        Span::styled(format!(" {} ", mode_str), mode_style),
-        Span::styled(" │ ", style),
-        Span::styled(rest, style),
-    ]);
-    f.render_widget(Paragraph::new(line), area);
+    let theme = app.theme.tokens();
+    let line = components::format_status_bar(
+        &format!(" {} ", mode_str),
+        &rest,
+        theme,
+    );
+    let p = Paragraph::new(line).style(Style::new().bg(theme.colors.surface));
+    f.render_widget(p, area);
 }
 
 // ── Detail overlay ──
@@ -745,7 +769,7 @@ fn draw_detail_overlay(f: &mut Frame, area: Rect, app: &App, card: &Card) {
     let detail = centered_rect(w, h, area);
 
     let mut lines = Vec::new();
-    lines.push(Line::from(Span::styled(" Card Detail  (l link · u unlink · e edit · Esc close)", Style::new().bold().fg(app.theme_accent()))));
+    lines.push(Line::from(Span::styled(" Card Detail  (l link · u unlink · e edit · Esc close)", Style::new().bold().fg(app.theme.tokens().colors.accent))));
     lines.push(Line::from(Span::raw("")));
     lines.push(Line::from(vec![
         Span::styled("ID:      ", Style::new().bold()), Span::raw(&card.id),
@@ -776,13 +800,13 @@ fn draw_detail_overlay(f: &mut Frame, area: Rect, app: &App, card: &Card) {
     if !card.labels.is_empty() {
         lines.push(Line::from(vec![
             Span::styled("Labels:  ", Style::new().bold()),
-            Span::styled(card.labels.join(", "), Style::new().fg(app.theme_accent())),
+            Span::styled(card.labels.join(", "), Style::new().fg(app.theme.tokens().colors.accent)),
         ]));
     }
     if let Some(ref a) = card.assignee {
         lines.push(Line::from(vec![
             Span::styled("Assignee:", Style::new().bold()),
-            Span::styled(format!(" {}", a), Style::new().fg(app.theme_success())),
+            Span::styled(format!(" {}", a), Style::new().fg(app.theme.tokens().colors.success)),
         ]));
     }
 
@@ -793,8 +817,8 @@ fn draw_detail_overlay(f: &mut Frame, area: Rect, app: &App, card: &Card) {
             let name = app.card_by_id(&l.target).map(|c| c.title.clone()).unwrap_or_default();
             lines.push(Line::from(vec![
                 Span::raw(format!("   {:<10}", l.ty.to_string())),
-                Span::styled(&l.target, Style::new().fg(app.theme_warning())),
-                if name.is_empty() { Span::raw("") } else { Span::styled(format!("  {}", name), Style::new().fg(app.theme_muted())) },
+                Span::styled(&l.target, Style::new().fg(app.theme.tokens().colors.warning)),
+                if name.is_empty() { Span::raw("") } else { Span::styled(format!("  {}", name), Style::new().fg(app.theme.tokens().colors.muted)) },
             ]));
         }
     }
@@ -837,10 +861,10 @@ fn draw_detail_overlay(f: &mut Frame, area: Rect, app: &App, card: &Card) {
                     _ => "?",
                 };
                 let status_color = match f.status.as_str() {
-                    "clean" => app.theme_success(),
-                    "changed" => app.theme_warning(),
-                    "stale" => app.theme_danger(),
-                    _ => app.theme_muted(),
+                    "clean" => app.theme.tokens().colors.success,
+                    "changed" => app.theme.tokens().colors.warning,
+                    "stale" => app.theme.tokens().colors.danger,
+                    _ => app.theme.tokens().colors.muted,
                 };
                 lines.push(Line::from(vec![
                     Span::styled(format!("   {} ", status), Style::new().fg(status_color)),
@@ -849,7 +873,7 @@ fn draw_detail_overlay(f: &mut Frame, area: Rect, app: &App, card: &Card) {
             }
             if let Some(ai) = &ctx.ai {
                 lines.push(Line::from(vec![
-                    Span::styled("   ai: ", Style::new().fg(app.theme_accent())),
+                    Span::styled("   ai: ", Style::new().fg(app.theme.tokens().colors.accent)),
                     Span::raw(ai.summary.clone()),
                 ]));
             }
@@ -857,7 +881,7 @@ fn draw_detail_overlay(f: &mut Frame, area: Rect, app: &App, card: &Card) {
     }
 
     lines.push(Line::from(Span::raw("")));
-    let ts_style = Style::new().fg(app.theme_muted());
+    let ts_style = Style::new().fg(app.theme.tokens().colors.muted);
     lines.push(Line::from(vec![
         Span::styled("Created: ", ts_style),
         Span::styled(card.created_at.format("%Y-%m-%d %H:%M UTC").to_string(), ts_style),
@@ -868,7 +892,7 @@ fn draw_detail_overlay(f: &mut Frame, area: Rect, app: &App, card: &Card) {
     ]));
 
     let p = Paragraph::new(Text::from(lines))
-        .block(Block::bordered().border_style(Style::new().fg(app.theme_accent())).style(Style::new().bg(app.theme_card_bg())))
+        .block(Block::bordered().border_style(Style::new().fg(app.theme.tokens().colors.accent)).style(Style::new().bg(app.theme.tokens().colors.card)))
         .wrap(Wrap { trim: false });
     f.render_widget(p, detail);
 }
@@ -876,7 +900,7 @@ fn draw_detail_overlay(f: &mut Frame, area: Rect, app: &App, card: &Card) {
 fn draw_prompt(f: &mut Frame, app: &App, area: Rect, prompt: &str, value: &str) {
     let r = centered_rect(area.width.min(64), 3, area);
     let s = if value.is_empty() { prompt.to_string() } else { format!("{}: {}█", prompt, value) };
-    let p = Paragraph::new(s).block(Block::bordered().border_style(Style::new().fg(app.theme_accent())));
+    let p = Paragraph::new(s).block(Block::bordered().border_style(Style::new().fg(app.theme.tokens().colors.accent)));
     f.render_widget(p, r);
 }
 
@@ -885,12 +909,12 @@ fn draw_edit_overlay(f: &mut Frame, area: Rect, app: &App) {
     let r = centered_rect(w, 12, area);
 
     let hl = |f: EditField| -> Style {
-        if app.edit_field == f { Style::new().fg(app.theme_warning()).add_modifier(Modifier::REVERSED) }
+        if app.edit_field == f { Style::new().fg(app.theme.tokens().colors.warning).add_modifier(Modifier::REVERSED) }
         else { Style::default() }
     };
     let val = if app.edit_buffer.is_empty() { "<empty>" } else { &app.edit_buffer };
     let lines = vec![
-        Line::from(Span::styled(" Edit Card  (Tab next · Enter save · Esc cancel)", Style::new().bold().fg(app.theme_accent()))),
+        Line::from(Span::styled(" Edit Card  (Tab next · Enter save · Esc cancel)", Style::new().bold().fg(app.theme.tokens().colors.accent))),
         Line::from(Span::raw("")),
         Line::from(vec![Span::styled("  Title:       ", hl(EditField::Title)), Span::styled(val, hl(EditField::Title))]),
         Line::from(vec![Span::styled("  Description: ", hl(EditField::Description)), Span::styled(val, hl(EditField::Description))]),
@@ -899,11 +923,11 @@ fn draw_edit_overlay(f: &mut Frame, area: Rect, app: &App) {
         Line::from(vec![Span::styled("  Assignee:    ", hl(EditField::Assignee)), Span::styled(val, hl(EditField::Assignee))]),
         Line::from(Span::raw("")),
         Line::from(Span::styled("  [ Save & Finish ]", if app.edit_field == EditField::Done {
-            Style::new().fg(app.theme_warning()).add_modifier(Modifier::REVERSED)
-        } else { Style::new().fg(app.theme_muted()) })),
+            Style::new().fg(app.theme.tokens().colors.warning).add_modifier(Modifier::REVERSED)
+        } else { Style::new().fg(app.theme.tokens().colors.muted) })),
     ];
     let p = Paragraph::new(Text::from(lines))
-        .block(Block::bordered().border_style(Style::new().fg(app.theme_accent())).style(Style::new().bg(app.theme_card_bg())));
+        .block(Block::bordered().border_style(Style::new().fg(app.theme.tokens().colors.accent)).style(Style::new().bg(app.theme.tokens().colors.card)));
     f.render_widget(p, r);
 }
 
@@ -916,28 +940,28 @@ fn draw_palette(f: &mut Frame, area: Rect, app: &App) {
         Line::from(Span::styled(format!(" :{}█", app.edit_buffer), Style::new().bold())),
     ];
     for m in &app.palette_matches {
-        lines.push(Line::from(Span::styled(format!("  {}", m), Style::new().fg(app.theme_warning()))));
+        lines.push(Line::from(Span::styled(format!("  {}", m), Style::new().fg(app.theme.tokens().colors.warning))));
     }
     if app.palette_matches.is_empty() && !app.edit_buffer.is_empty() {
-        lines.push(Line::from(Span::styled("  (no matches)", Style::new().fg(app.theme_muted()))));
+        lines.push(Line::from(Span::styled("  (no matches)", Style::new().fg(app.theme.tokens().colors.muted))));
     }
     let p = Paragraph::new(Text::from(lines))
-        .block(Block::bordered().border_style(Style::new().fg(app.theme_accent())).style(Style::new().bg(app.theme_card_bg())));
+        .block(Block::bordered().border_style(Style::new().fg(app.theme.tokens().colors.accent)).style(Style::new().bg(app.theme.tokens().colors.card)));
     f.render_widget(p, r);
 }
 
 fn draw_confirm_overlay(f: &mut Frame, area: Rect, app: &App) {
-    let r = centered_rect(30, 3, area);
-    let p = Paragraph::new(" Delete card? (y/n) ")
-        .block(Block::bordered().border_style(Style::new().fg(app.theme_danger())).style(Style::new().bg(app.theme_card_bg())));
-    f.render_widget(p, r);
+    let theme = app.theme.tokens();
+    let message = "Delete this card? This action cannot be undone.";
+    let hints = [("y", "Yes, delete"), ("n", "No, cancel")];
+    components::draw_confirm_box(f, area, message, &hints, theme.colors.danger);
 }
 
 fn priority_span<'a>(app: &App, p: &'a str) -> Span<'a> {
     match p {
-        "high" => Span::styled("high", Style::new().fg(app.theme_danger()).add_modifier(Modifier::BOLD)),
-        "medium" => Span::styled("medium", Style::new().fg(app.theme_warning())),
-        _ => Span::styled(p, Style::new().fg(app.theme_muted())),
+        "high" => Span::styled("high", Style::new().fg(app.theme.tokens().colors.danger).add_modifier(Modifier::BOLD)),
+        "medium" => Span::styled("medium", Style::new().fg(app.theme.tokens().colors.warning)),
+        _ => Span::styled(p, Style::new().fg(app.theme.tokens().colors.muted)),
     }
 }
 
