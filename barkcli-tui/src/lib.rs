@@ -51,10 +51,9 @@ pub fn run(board_name: Option<&str>) -> Result<()> {
         }
     };
 
-    // CI-aware mode: use minimal theme when not a TTY
+    // CI-aware mode: use the minimal monochrome theme when not a TTY
     if !colors_enabled() {
-        app.theme = crate::app::Theme::dark();
-        // Override with minimal symbols (no colors needed)
+        app.theme = crate::app::Theme::minimal();
     }
 
     enable_raw_mode()?;

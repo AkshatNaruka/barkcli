@@ -51,6 +51,19 @@ pub enum Tab {
 }
 
 impl Tab {
+    /// All tabs in display order (used by T-key cycling and smoke tests).
+    pub const ALL: [Tab; 9] = [
+        Tab::Board,
+        Tab::List,
+        Tab::Tree,
+        Tab::Agenda,
+        Tab::Reports,
+        Tab::Code,
+        Tab::Agents,
+        Tab::Orchestrate,
+        Tab::History,
+    ];
+
     pub fn from_key(c: char) -> Option<Tab> {
         match c {
             '1' => Some(Tab::Board),
@@ -116,25 +129,57 @@ pub enum EditField {
     Done,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum ThemeVariant {
+    Dark,
+    Light,
+    Minimal,
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Theme {
-    pub is_light: bool,
+    pub variant: ThemeVariant,
 }
 
 impl Theme {
     pub fn dark() -> Self {
-        Self { is_light: false }
+        Self { variant: ThemeVariant::Dark }
     }
     pub fn light() -> Self {
-        Self { is_light: true }
+        Self { variant: ThemeVariant::Light }
+    }
+    pub fn minimal() -> Self {
+        Self { variant: ThemeVariant::Minimal }
+    }
+
+    pub fn is_light(&self) -> bool {
+        self.variant == ThemeVariant::Light
+    }
+
+    /// Advance to the next theme: Dark → Light → Minimal → Dark.
+    pub fn next(&self) -> Self {
+        match self.variant {
+            ThemeVariant::Dark => Self::light(),
+            ThemeVariant::Light => Self::minimal(),
+            ThemeVariant::Minimal => Self::dark(),
+        }
+    }
+
+    /// Human-readable theme name (shown in the status bar / command palette).
+    pub fn label(&self) -> &'static str {
+        match self.variant {
+            ThemeVariant::Dark => "dark",
+            ThemeVariant::Light => "light",
+            ThemeVariant::Minimal => "minimal",
+        }
     }
 
     /// Get the design tokens for this theme.
     pub fn tokens(&self) -> &'static crate::theme::Theme {
-        if self.is_light {
-            &crate::theme::LIGHT
-        } else {
-            &crate::theme::DARK
+        match self.variant {
+            ThemeVariant::Light => &crate::theme::LIGHT,
+            ThemeVariant::Minimal => &crate::theme::MINIMAL,
+            ThemeVariant::Dark => &crate::theme::DARK,
         }
     }
 }
@@ -274,6 +319,59 @@ impl App {
             filter: String::new(),
             filter_query: ParsedQuery::default(),
             mode: AppMode::BoardPicker,
+            tab: Tab::Board,
+            edit_buffer: String::new(),
+            edit_field: EditField::Title,
+            edit_card_idx: None,
+            should_quit: false,
+            theme: Theme::dark(),
+            palette_matches: Vec::new(),
+            sprints: Vec::new(),
+            context: BoardContext::new(),
+            detail_card_id: None,
+            list_sort: SortKey::Priority,
+            code_query: String::new(),
+            code_results: Vec::new(),
+            history_selected: 0,
+            status_msg: None,
+            scan_spinner: None,
+            link_state: LinkState::None,
+            agents: Vec::new(),
+            agent_cursor: 0,
+            task_queue: Vec::new(),
+            task_cursor: 0,
+            orchestration_status: None,
+        }
+    }
+
+    #[cfg(test)]
+    pub fn for_test() -> Self {
+        let mut board = Board::new("test-board");
+        let mk = |id: &str, title: &str, column: &str| Card {
+            id: id.into(),
+            title: title.into(),
+            column: column.into(),
+            ..Default::default()
+        };
+        board.cards.push(mk("b1", "Fix login bug", "todo"));
+        board.cards.push(mk("b2", "Add dark mode toggle to settings page", "doing"));
+        board.cards.push(mk("b3", "Write docs", "done"));
+        board.cards[0].priority = "high".into();
+        board.cards[0].due_date = Some("2026-10-20".into());
+        board.cards[0].effort = Some(3);
+        board.cards[0].area = Some("web".into());
+        board.cards[1].due_date = Some("2026-01-01".into());
+        board.cards[2].effort = Some(1);
+        board.cards[2].area = Some("docs".into());
+        App {
+            board,
+            board_name: "test-board".to_string(),
+            all_boards: Vec::new(),
+            focused_column: 0,
+            card_focus: 0,
+            filter: String::new(),
+            filter_query: ParsedQuery::default(),
+            mode: AppMode::Normal,
             tab: Tab::Board,
             edit_buffer: String::new(),
             edit_field: EditField::Title,

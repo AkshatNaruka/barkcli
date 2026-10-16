@@ -95,7 +95,7 @@ fn draw_header(f: &mut Frame, app: &App, area: Rect) {
 }
 
 fn draw_tabbar(f: &mut Frame, app: &App, area: Rect) {
-    let tabs: Vec<Tab> = vec![Tab::Board, Tab::List, Tab::Tree, Tab::Agenda, Tab::Reports, Tab::Code, Tab::Agents, Tab::Orchestrate];
+    let tabs: Vec<Tab> = crate::app::Tab::ALL.to_vec();
     let mut spans: Vec<Span> = Vec::new();
     spans.push(Span::styled(" ", Style::new().fg(app.theme.tokens().colors.muted)));
     for tab in tabs {
@@ -743,12 +743,14 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
 
     let status_msg = app.status_msg.clone().unwrap_or_default();
     let spinner = app.scan_spinner.clone().unwrap_or_default();
-    let rest = if !spinner.is_empty() {
-        format!("{}  {}{}{}", hint, spinner, if status_msg.is_empty() { String::new() } else { format!("  {}", status_msg) }, filter_info)
-    } else if status_msg.is_empty() {
+    // Transient feedback (spinner / status message) leads the line so it is
+    // always visible on narrow terminals; hints follow and truncate naturally.
+    let spinner_part = if spinner.is_empty() { String::new() } else { format!("{} ", spinner) };
+    let status_part = if status_msg.is_empty() { String::new() } else { format!("{}{}  ", spinner_part, status_msg) };
+    let rest = if status_part.is_empty() {
         format!("{}{}", hint, filter_info)
     } else {
-        format!("{}  {}", hint, status_msg)
+        format!("{}{}{}", status_part, hint, filter_info)
     };
 
     let theme = app.theme.tokens();
@@ -1012,6 +1014,8 @@ fn draw_history(f: &mut Frame, app: &App, area: Rect) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app::{Theme, ThemeVariant};
+    use ratatui::{backend::TestBackend, Terminal};
 
     #[test]
     fn agent_tool_colors_match_web_palette() {
@@ -1023,5 +1027,147 @@ mod tests {
         assert_eq!(agent_tool_color("gemini-1", ""), Some(Color::Rgb(66, 133, 244)));
         assert_eq!(agent_tool_color("human-you", ""), Some(Color::Rgb(52, 211, 153)));
         assert_eq!(agent_tool_color("random-9", "helper"), None);
+    }
+
+    fn renders_without_panic(app: &App, width: u16, height: u16) {
+        let backend = TestBackend::new(width, height);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+        terminal.draw(|f| draw(f, app)).expect("draw");
+        // The render buffer must be addressable (guarantees the draw wrote a valid frame).
+        assert!(terminal.backend().buffer().area.width == width);
+    }
+
+    /// Every tab renders cleanly with every theme at terminal sizes from the
+    /// minimum (60×12, enforced by draw()) up to large. Catches panics from
+    /// out-of-range indices, bad layout constraints, and column arithmetic.
+    #[test]
+    fn smoke_all_tabs_all_themes_all_sizes() {
+        let sizes: [(u16, u16); 5] = [(60, 12), (80, 24), (100, 30), (140, 40), (220, 55)];
+        let themes: [Theme; 3] = [Theme::dark(), Theme::light(), Theme::minimal()];
+        for tab in crate::app::Tab::ALL {
+            for theme in themes {
+                let mut app = App::for_test();
+                app.tab = tab;
+                app.theme = theme;
+                for (w, h) in sizes {
+                    renders_without_panic(&app, w, h);
+                }
+            }
+        }
+    }
+
+    /// Overlays and modal modes render without panicking, including with a
+    /// long status message on the smallest allowed terminal.
+    #[test]
+    fn smoke_all_modes_overlay_and_truncation() {
+        let modes = [
+            AppMode::Normal,
+            AppMode::FilterInput,
+            AppMode::CommandPalette,
+            AppMode::AddingTitle,
+            AppMode::EditingCard,
+            AppMode::ViewingDetail,
+            AppMode::ConfirmDelete,
+            AppMode::BoardPicker,
+            AppMode::CodeSearch,
+            AppMode::LinkTarget,
+            AppMode::LinkKind,
+            AppMode::UnlinkTarget,
+            AppMode::AgentDetail,
+            AppMode::OrchestrateTask,
+        ];
+        for mode in modes {
+            let mut app = App::for_test();
+            app.mode = mode;
+            app.status_msg = Some("x".repeat(500)); // worst-case status truncation
+            renders_without_panic(&app, 60, 12);
+            renders_without_panic(&app, 200, 50);
+        }
+    }
+
+    /// Spinner + status + filter info co-render in the status bar.
+    /// Transient feedback must be visible even on the smallest terminal.
+    #[test]
+    fn smoke_status_bar_with_spinner() {
+        let mut app = App::for_test();
+        app.scan_spinner = Some("⠋".to_string());
+        app.status_msg = Some("scanning git history…".to_string());
+        app.filter = "is:todo pri:high".to_string();
+        app.parse_query();
+        renders_without_panic(&app, 60, 12);
+        // Feedback leads the status line → visible even at minimum width.
+        let text = rendered_text(&app, 80, 24);
+        assert!(text.contains("⠋ scanning git history…"), "spinner+status lead the line");
+    }
+
+    /// Theme cycle: Dark → Light → Minimal → Dark.
+    #[test]
+    fn theme_cycles_through_all_variants() {
+        let t = Theme::dark();
+        assert_eq!(t.variant, ThemeVariant::Dark);
+        assert_eq!(t.label(), "dark");
+        let t2 = t.next();
+        assert_eq!(t2.variant, ThemeVariant::Light);
+        assert_eq!(t2.label(), "light");
+        assert!(t2.is_light());
+        let t3 = t2.next();
+        assert_eq!(t3.variant, ThemeVariant::Minimal);
+        assert_eq!(t3.label(), "minimal");
+        // Minimal maps to the monochrome token set.
+        assert_eq!(t3.tokens().colors.text, ratatui::style::Color::Reset);
+        let t4 = t3.next();
+        assert_eq!(t4.variant, ThemeVariant::Dark);
+        // Tokens are correct per variant.
+        assert_eq!(t.tokens().colors.bg, crate::theme::DARK.colors.bg);
+        assert_eq!(t2.tokens().colors.bg, crate::theme::LIGHT.colors.bg);
+        assert_eq!(t3.tokens().colors.bg, crate::theme::MINIMAL.colors.bg);
+    }
+
+    fn rendered_text(app: &App, width: u16, height: u16) -> String {
+        let backend = TestBackend::new(width, height);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+        terminal.draw(|f| draw(f, app)).expect("draw");
+        terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .map(|c| c.symbol().to_string())
+            .collect()
+    }
+
+    /// Board view actually shows column titles, card titles, and the active mode.
+    #[test]
+    fn board_view_renders_expected_content() {
+        let app = App::for_test();
+        let text = rendered_text(&app, 120, 35);
+        assert!(text.contains("Fix login bug"), "board must show card title");
+        assert!(text.contains("Write docs"), "board must show second card");
+        assert!(text.contains("NORMAL"), "status bar must show mode");
+        // Tab bar must list all 9 tabs, including the newest History tab.
+        assert!(text.contains("9 History"), "tab bar must include History");
+    }
+
+    /// List view (borderless table) shows header row and card titles.
+    #[test]
+    fn list_view_renders_header_and_rows() {
+        let mut app = App::for_test();
+        app.tab = crate::app::Tab::List;
+        let text = rendered_text(&app, 120, 35);
+        assert!(text.contains("PRIO"), "list header present");
+        assert!(text.contains("Fix login bug"), "list rows present");
+        assert!(text.contains("HI"), "priority badge rendered");
+    }
+
+    /// Minimal theme renders and keeps visible text (no corruption in CI mode).
+    #[test]
+    fn minimal_theme_renders_ascii_symbols() {
+        let mut app = App::for_test();
+        app.theme = Theme::minimal();
+        app.scan_spinner = Some("-".to_string());
+        app.status_msg = Some("working".to_string());
+        let text = rendered_text(&app, 220, 30);
+        assert!(text.contains("- working"), "minimal theme keeps status + ascii spinner");
+        assert!(text.contains("9 History"), "minimal theme keeps tab bar intact");
     }
 }

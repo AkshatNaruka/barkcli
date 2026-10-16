@@ -167,7 +167,7 @@ fn handle_board_keys(app: &mut App, key: KeyEvent) -> Result<()> {
         }
         KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
         KeyCode::Char('T') => {
-            app.theme = if app.theme.is_light { Theme::dark() } else { Theme::light() };
+            app.theme = app.theme.next();
         }
         _ => {}
     }
@@ -205,7 +205,7 @@ fn handle_list_keys(app: &mut App, key: KeyEvent) -> Result<()> {
         }
         KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
         KeyCode::Char('T') => {
-            app.theme = if app.theme.is_light { Theme::dark() } else { Theme::light() };
+            app.theme = app.theme.next();
         }
         _ => {}
     }
@@ -231,7 +231,7 @@ fn handle_tree_keys(app: &mut App, key: KeyEvent) -> Result<()> {
         }
         KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
         KeyCode::Char('T') => {
-            app.theme = if app.theme.is_light { Theme::dark() } else { Theme::light() };
+            app.theme = app.theme.next();
         }
         _ => {}
     }
@@ -490,6 +490,15 @@ fn exec_palette(app: &mut App) {
         app.theme = Theme::light();
         return;
     }
+    if cmd == "theme minimal" {
+        app.theme = Theme::minimal();
+        return;
+    }
+    if cmd == "theme" {
+        app.theme = app.theme.next();
+        app.status_msg = Some(format!("theme: {}", app.theme.label()));
+        return;
+    }
     if let Some(rest) = cmd.strip_prefix("move ") {
         let col_id = rest.trim();
         if let Some(col_idx) = app.board.columns.iter().position(|c| c.id == col_id) {
@@ -732,7 +741,7 @@ fn handle_agents_keys(app: &mut App, key: KeyEvent) -> Result<()> {
         }
         KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
         KeyCode::Char('T') => {
-            app.theme = if app.theme.is_light { Theme::dark() } else { Theme::light() };
+            app.theme = app.theme.next();
         }
         _ => {}
     }
@@ -762,7 +771,7 @@ fn handle_orchestrate_keys(app: &mut App, key: KeyEvent) -> Result<()> {
         }
         KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
         KeyCode::Char('T') => {
-            app.theme = if app.theme.is_light { Theme::dark() } else { Theme::light() };
+            app.theme = app.theme.next();
         }
         _ => {}
     }
