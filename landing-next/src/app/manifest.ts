@@ -1,5 +1,8 @@
 import type { MetadataRoute } from "next";
 
+// Required for `output: "export"` (GitHub Pages) — the route is static either way.
+export const dynamic = "force-static";
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "barkcli — Git-native task management",

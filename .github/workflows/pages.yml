@@ -1,12 +1,20 @@
-name: Deploy Web App to GitHub Pages
+name: Deploy Site to GitHub Pages
 
-# Deploys the barkcli web app (web/) as a static site. No backend lives on
-# Pages, so web/src/lib/demo.ts serves an interactive in-browser demo board.
+# Deploys the barkcli marketing site (landing-next/, statically exported) at
+# the Pages root, with the interactive web-app preview (web/ + demo mode)
+# mounted under /app/. On the Vercel deployment of the same landing site the
+# preview link stays hidden — it only exists in Pages builds (NEXT_PUBLIC_PAGES).
+#
+# The landing export uses basePath=/barkcli so framework assets are prefixed
+# correctly, but plain <a href="/docs"> links and the webmanifest icon paths
+# are not — a perl pass rewrites those without double-prefixing /barkcli/…
+# URLs that Next already emitted.
 on:
   push:
     branches: [main, master]
     paths:
       - "web/**"
+      - "landing-next/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -29,13 +37,41 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: |
+            web/package-lock.json
+            landing-next/package-lock.json
 
-      - name: Build web app (Pages base path derived from repo name)
+      - name: Build web app preview (mounted under /app/)
         working-directory: web
         run: |
           npm ci
+          PAGES_BASE=/barkcli/app/ npm run build
+
+      - name: Export landing site (static)
+        working-directory: landing-next
+        env:
+          PAGES_BUILD: "1"
+          # GITHUB_REPOSITORY is set by Actions automatically → basePath /barkcli
+          NEXT_PUBLIC_BASE_PATH: /barkcli
+          NEXT_PUBLIC_PAGES: "1"
+        run: |
+          npm ci
           npm run build
+
+      - name: Prefix site-root links in exported HTML
+        run: |
+          find landing-next/out -name '*.html' -print0 | xargs -0 \
+            perl -pi -e 's{(href|src)="/(?!barkcli/)}{$1="/barkcli/}g'
+          # Webmanifest: icon paths + start_url don't get basePath applied.
+          perl -pi -e 's/"start_url":"\/(?!barkcli)/"start_url":"\/barkcli\//g; s/"src":"\/(?!barkcli)/"src":"\/barkcli\//g' \
+            landing-next/out/manifest.webmanifest
+
+      - name: Assemble site (landing at root + preview under /app/)
+        run: |
+          mkdir -p site/app
+          cp -R landing-next/out/. site/
+          cp -R web/dist/. site/app/
+          touch site/.nojekyll
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -43,7 +79,7 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: web/dist
+          path: site
 
   deploy:
     needs: build

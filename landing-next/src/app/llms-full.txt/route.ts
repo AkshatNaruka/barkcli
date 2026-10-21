@@ -1,3 +1,6 @@
+// Required for `output: "export"` (GitHub Pages) — the handler serves static text either way.
+export const dynamic = "force-static";
+
 const llmsFull = `# barkcli — Complete Documentation
 
 > Git-native task management for developers. Tasks are YAML files in your git repo.

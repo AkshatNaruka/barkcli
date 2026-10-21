@@ -15,7 +15,7 @@ You decide *what* gets built. Agents propose plans, do the work, and report back
 [![Version](https://img.shields.io/github/v/release/AkshatNaruka/barkcli)](https://github.com/AkshatNaruka/barkcli/releases)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-[Install](#install) · [Quick Start](#quick-start) · [Live Web Demo](https://akshatnaruka.github.io/barkcli/) · [Docs](https://barkcli.vercel.app/docs) · [Web App](https://barkcli.vercel.app) · [Comparisons](https://barkcli.vercel.app/compare) · [Discussions](https://github.com/AkshatNaruka/barkcli/discussions)
+[Install](#install) · [Quick Start](#quick-start) · [Docs](https://barkcli.vercel.app/docs) · [Web App](https://barkcli.vercel.app) · [Live Site](https://akshatnaruka.github.io/barkcli/) · [Live Web Demo](https://akshatnaruka.github.io/barkcli/app/) · [Comparisons](https://barkcli.vercel.app/compare) · [Discussions](https://github.com/AkshatNaruka/barkcli/discussions)
 
 </div>
 

@@ -4,6 +4,9 @@ import { comparisons } from "@/lib/comparisons";
 import { useCases } from "@/lib/usecases";
 import { integrations } from "@/lib/integrations";
 
+// Required for `output: "export"` (GitHub Pages) — the route is static either way.
+export const dynamic = "force-static";
+
 const BASE_URL = "https://barkcli.vercel.app";
 
 export default function sitemap(): MetadataRoute.Sitemap {

@@ -43,6 +43,19 @@ import {
 
 const INSTALL = "curl -fsSL https://barkcli.vercel.app/install.sh | sh";
 
+// Hosted GitHub Pages build: link to the interactive board preview served
+// at /app/ (see .github/workflows/pages.yml). Hidden on the Vercel deploy.
+const ON_PAGES = process.env.NEXT_PUBLIC_PAGES === "1";
+const BASE = process.env.NEXT_PUBLIC_BASE_PATH || "";
+const NAV_LINKS = [
+  { href: "#product", label: "Product" },
+  { href: "#pipeline", label: "How it works" },
+  { href: "#features", label: "Features" },
+  { href: "#ai-agent", label: "AI Agent" },
+  { href: "/docs", label: "Docs" },
+  ...(ON_PAGES ? [{ href: `${BASE}/app/`, label: "Live preview" }] : []),
+];
+
 const VIDEO_URL =
   "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260405_171521_25968ba2-b594-4b32-aab7-f6b69398a6fa.mp4";
 
@@ -606,13 +619,7 @@ export default function Home() {
             </span>
           </a>
           <nav className="flex items-center gap-1">
-            {[
-              { href: "#product", label: "Product" },
-              { href: "#pipeline", label: "How it works" },
-              { href: "#features", label: "Features" },
-              { href: "#ai-agent", label: "AI Agent" },
-              { href: "/docs", label: "Docs" },
-            ].map((link) => (
+            {NAV_LINKS.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
@@ -626,13 +633,7 @@ export default function Home() {
                 Menu
               </summary>
               <div className="absolute right-0 top-full mt-1 min-w-40 rounded-xl border border-white/10 bg-black/95 p-1 backdrop-blur-xl">
-                {[
-                  { href: "#product", label: "Product" },
-                  { href: "#pipeline", label: "How it works" },
-                  { href: "#features", label: "Features" },
-                  { href: "#ai-agent", label: "AI Agent" },
-                  { href: "/docs", label: "Docs" },
-                ].map((link) => (
+                {NAV_LINKS.map((link) => (
                   <a
                     key={link.href}
                     href={link.href}
@@ -746,6 +747,14 @@ export default function Home() {
           >
             Docs
           </a>
+          {ON_PAGES && (
+            <>
+              <span className="opacity-40">·</span>
+              <a href={`${BASE}/app/`} className="hover:text-white transition-colors">
+                Live preview
+              </a>
+            </>
+          )}
           <span className="opacity-40">·</span>
           <a
             href="https://github.com/AkshatNaruka/barkcli"

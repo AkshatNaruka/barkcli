@@ -1,3 +1,6 @@
+// Required for `output: "export"` (GitHub Pages) — the handler serves static text either way.
+export const dynamic = "force-static";
+
 const llmsTxt = `# barkcli
 
 > The management layer between humans and AI coding agents. Tasks, specs, memory, skills, and agent runs live in your git repo. No cloud, no accounts, open source (MIT), built in Rust.

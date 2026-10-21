@@ -1,5 +1,8 @@
 import { ImageResponse } from "next/og";
 
+// Required for `output: "export"` (GitHub Pages) — the image is only re-rendered statically.
+export const dynamic = "force-static";
+
 export const alt =
   "barkcli — Tasks in your repo. Git-native kanban board: CLI, TUI, and web app.";
 export const size = { width: 1200, height: 630 };
