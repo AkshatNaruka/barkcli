@@ -23,6 +23,7 @@ import {
   type GitInfo,
 } from "./lib/api";
 import { useRoute, type Route } from "./lib/hashnav";
+import { isDemoMode } from "./lib/demo";
 import { Icon } from "./components/Icon";
 import { BoardView } from "./components/BoardView";
 import { TableView } from "./components/TableView";
@@ -51,6 +52,9 @@ import { SkillsView } from "./components/SkillsView";
 function isBlockedCard(c: Card): boolean {
   return Boolean(c.blocked_by) || c.links.some((l) => l.ty === "blocked-by");
 }
+
+// Static-hosting mode indicator (GitHub Pages demo data — see lib/demo.ts)
+const DEMO_MODE = isDemoMode();
 
 function CardHistoryModal({ cardId, entries, onClose }: { cardId: string; entries: any[]; onClose: () => void }) {
   return (
@@ -471,6 +475,14 @@ export function App() {
           {gitInfo && (
             <span className="hidden lg:inline text-[10px] text-muted font-mono border border-border rounded px-1.5 py-0.5 truncate max-w-[220px]">
               {gitInfo.branch} · {gitInfo.lastCommit}
+            </span>
+          )}
+          {DEMO_MODE && (
+            <span
+              className="hidden sm:inline text-[10px] font-mono text-muted bg-surface border border-border rounded px-1.5 py-0.5 shrink-0"
+              title="Demo data — no local barkcli server; changes persist in this browser only"
+            >
+              demo
             </span>
           )}
           <ThemeDropdown />

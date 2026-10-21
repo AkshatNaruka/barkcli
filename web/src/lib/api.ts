@@ -16,6 +16,7 @@ import type {
   BlameEntry,
 } from "./types";
 import { load as yamlParse, dump as yamlDump } from "js-yaml";
+import { isDemoMode, getDemoCardHistory, onDemoChange } from "./demo";
 
 // js-yaml parses ISO timestamps (due_date, created_at, ...) into Date objects.
 // Convert them back to ISO strings so the UI can treat them as strings.
@@ -317,6 +318,11 @@ export function connectWs(onReload: (version: number) => void): () => void {
     reloadCallback = onReload;
     return () => { reloadCallback = null; };
   }
+  if (isDemoMode()) {
+    // Demo mode (GitHub Pages / static hosting): no server to watch;
+    // reloads come from the in-browser demo store instead.
+    return onDemoChange(onReload);
+  }
   // Browser mode: WebSocket-based reload
   const proto = location.protocol === "https:" ? "wss" : "ws";
   try {
@@ -453,10 +459,15 @@ export function getGitInfo(): Promise<GitInfo> {
 }
 
 export function getCardHistory(cardId: string): Promise<any[]> {
-  return new Promise((resolve) => {
+  if (isDemoMode()) return Promise.resolve(getDemoCardHistory(cardId));
+  if (isVscode && vscodeApi) {
     requestCardHistory(cardId);
-    historyResolves.set(cardId, resolve);
-  });
+    return new Promise((resolve) => {
+      historyResolves.set(cardId, resolve);
+    });
+  }
+  // Plain browser mode: fall back to the HTTP history endpoint.
+  return fetchHistory(cardId, 50);
 }
 
 // ── Sprints (VS Code mode) ──
