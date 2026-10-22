@@ -56,6 +56,63 @@ function isBlockedCard(c: Card): boolean {
 // Static-hosting mode indicator (GitHub Pages demo data — see lib/demo.ts)
 const DEMO_MODE = isDemoMode();
 
+// ── Installable web app (Notion/Linear-style) ────────────────────────────
+// Surfaces the browser's native install flow as a header button. Only shows
+// when the page is actually installable (manifest + service worker + HTTPS):
+// Chrome/Edge fire beforeinstallprompt; Safari installs via its share menu,
+// so the button stays hidden there.
+
+interface InstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+}
+
+function InstallButton() {
+  const [promptEvent, setPromptEvent] = useState<InstallPromptEvent | null>(null);
+  const [installed, setInstalled] = useState(false);
+
+  useEffect(() => {
+    const onPrompt = (e: Event) => {
+      e.preventDefault(); // suppress the browser's own mini-infobar
+      setPromptEvent(e as InstallPromptEvent);
+    };
+    const onInstalled = () => {
+      setInstalled(true);
+      setPromptEvent(null);
+    };
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
+  }, []);
+
+  if (!promptEvent || installed) return null;
+
+  const install = async () => {
+    const ev = promptEvent;
+    setPromptEvent(null);
+    try {
+      await ev.prompt();
+      await ev.userChoice;
+    } catch {
+      /* browser dismissed the dialog — nothing to do */
+    }
+  };
+
+  return (
+    <button
+      onClick={install}
+      className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono text-text bg-surface border border-border hover:border-border-strong rounded px-1.5 py-0.5 shrink-0 transition-colors"
+      title="Install as an app — own window, dock icon, works offline"
+    >
+      <Icon name="download" size={11} />
+      install
+    </button>
+  );
+}
+
 function CardHistoryModal({ cardId, entries, onClose }: { cardId: string; entries: any[]; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
@@ -485,6 +542,7 @@ export function App() {
               demo
             </span>
           )}
+          <InstallButton />
           <ThemeDropdown />
         </div>
       </header>

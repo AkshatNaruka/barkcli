@@ -73,6 +73,8 @@ const PATHS: Record<string, React.ReactNode> = {
   arrowUp: <path d="M12 19V5M5 12l7-7 7 7" />,
   arrowFlat: <path d="M5 12h14" />,
   arrowDown: <path d="M12 5v14M5 12l7 7 7-7" />,
+  download: <path d="M12 4v10M7.5 10.5L12 15l4.5-4.5" />,
+  downloadTray: <path d="M4 17v3h16v-3" />,
 };
 
 // Icons composed of multiple sub-paths.
@@ -101,6 +103,7 @@ const GROUPS: Record<string, string[]> = {
   inbox: ["inbox", "inboxSlot"],
   flag: ["flag", "flagWave"],
   link: ["link", "linkUnder"],
+  download: ["download", "downloadTray"],
 };
 
 export type IconName =
@@ -109,7 +112,8 @@ export type IconName =
   | "check" | "refresh" | "bell" | "gear" | "robot" | "doc" | "chart"
   | "board" | "spark" | "layers" | "cycle" | "code" | "db" | "star"
   | "chevL" | "chevR" | "flag" | "link" | "moon" | "sun" | "monitor"
-  | "x" | "users" | "inbox" | "arrowUp" | "arrowFlat" | "arrowDown";
+  | "x" | "users" | "inbox" | "arrowUp" | "arrowFlat" | "arrowDown"
+  | "download";
 
 function partsFor(name: IconName): React.ReactNode[] {
   if (name === "blocked") return [PATHS["blocked"], PATHS["blockedBar"]];
