@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & ideas
+    url: https://github.com/AkshatNaruka/barkcli/discussions
+    about: Usage questions and open-ended ideas — start here before filing an issue.
+  - name: Documentation
+    url: https://barkcli.vercel.app/docs
+    about: Usage manual, full command reference, and API docs.
+  - name: Live web demo
+    url: https://akshatnaruka.github.io/barkcli/app/
+    about: Try the web app with demo data before installing.

@@ -6,6 +6,8 @@
 
 You decide *what* gets built. Agents propose plans, do the work, and report back. barkcli runs the pipeline: **intake → plan → dispatch → review → merge**. Tasks, specs, memory, skills, and agent runs live in your repo — no cloud, no accounts, no subscriptions.
 
+<img src=".github/assets/social-card@2x.png" alt="barkcli — the management layer for AI agents" width="640" />
+
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Crate](https://img.shields.io/crates/v/barkcli)](https://crates.io/crates/barkcli)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org)
@@ -13,6 +15,7 @@ You decide *what* gets built. Agents propose plans, do the work, and report back
 [![Linux](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#)
 [![Windows](https://img.shields.io/badge/platform-Windows-lightgrey.svg)](#)
 [![Version](https://img.shields.io/github/v/release/AkshatNaruka/barkcli)](https://github.com/AkshatNaruka/barkcli/releases)
+[![CI](https://github.com/AkshatNaruka/barkcli/actions/workflows/ci.yml/badge.svg)](https://github.com/AkshatNaruka/barkcli/actions/workflows/ci.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 [Install](#install) · [Quick Start](#quick-start) · [Docs](https://barkcli.vercel.app/docs) · [Web App](https://barkcli.vercel.app) · [Live Site](https://akshatnaruka.github.io/barkcli/) · [Live Web Demo](https://akshatnaruka.github.io/barkcli/app/) · [Comparisons](https://barkcli.vercel.app/compare) · [Discussions](https://github.com/AkshatNaruka/barkcli/discussions)
@@ -25,6 +28,7 @@ You decide *what* gets built. Agents propose plans, do the work, and report back
 
 - [Why barkcli?](#why-barkcli)
 - [Features](#features)
+- [Screenshots](#screenshots)
 - [Install](#install)
 - [Quick Start](#quick-start)
 - [The Autopilot Loop](#the-autopilot-loop)
@@ -68,6 +72,16 @@ Like `.git` but for Kanban boards. Project management for the terminal era — a
 | 🎯 **Code Context** | Symbol search (`barkcli code`), file-to-card mapping, git-aware refresh. |
 | ⏱ **Timeline** | Checkpoints, undo, diff, blame, validate, doctor. Your board, version-controlled. |
 | 🔀 **Import/Export** | YAML and JSON. Migrate from Linear, Jira, Trello, GitHub Projects. |
+
+---
+
+## Screenshots
+
+| **Mind — the compiled project snapshot** | **Board — git-native Kanban** |
+|:---:|:---:|
+| ![](.github/assets/mind-dark.png) | ![](.github/assets/board-light.png) |
+
+Try it live without installing — [**the Web demo**](https://akshatnaruka.github.io/barkcli/app/) runs the full interface on demo data (every interaction works), or take the tour in the [docs](https://barkcli.vercel.app/docs).
 
 ---
 
@@ -323,6 +337,8 @@ barkcli is open source (MIT) and welcomes contributions of all kinds — code, d
 3. Commit your changes (stem from a board card if you like).
 4. Open a [pull request](https://github.com/AkshatNaruka/barkcli/pulls).
 
+Full environment setup, project layout, commit conventions, and PR guidelines live in **[CONTRIBUTING.md](CONTRIBUTING.md)** — and if you're new, start with a [good first issue](https://github.com/AkshatNaruka/barkcli/labels/good%20first%20issue).
+
 **Not ready to code?** You can still help: star the repo, report [issues](https://github.com/AkshatNaruka/barkcli/issues), answer [discussions](https://github.com/AkshatNaruka/barkcli/discussions), or improve [docs](https://barkcli.vercel.app/docs).
 
 ---
@@ -334,9 +350,23 @@ barkcli is open source (MIT) and welcomes contributions of all kinds — code, d
 - **Issues**: <https://github.com/AkshatNaruka/barkcli/issues>
 - **X / Twitter**: [@probiex007](https://x.com/probiex007)
 - **Maintainer**: [Akshat Naruka](https://github.com/AkshatNaruka)
+- **Conduct**: read the [Code of Conduct](CODE_OF_CONDUCT.md) before participating
+- **Security**: report vulnerabilities privately via [SECURITY.md](SECURITY.md) — never as a public issue
 
 ---
 
 ## License
 
 [MIT](LICENSE) © 2026 [Akshat Naruka](https://github.com/AkshatNaruka). Free to use, modify, and distribute. No cloud, no accounts, no lock-in — every commit is yours.
+
+---
+
+## Star History
+
+<a href="https://www.star-history.com/#AkshatNaruka/barkcli&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=AkshatNaruka/barkcli&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=AkshatNaruka/barkcli&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=AkshatNaruka/barkcli&type=Date" />
+ </picture>
+</a>
