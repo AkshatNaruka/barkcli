@@ -111,11 +111,11 @@ export function Sidebar({
       )}
 
       {/* Sections — independent scroll */}
-      <nav className="flex-1 overflow-y-auto py-2">
+      <nav className="flex-1 overflow-y-auto py-2 px-1.5">
         {SECTIONS.map((sec) => (
           <div key={sec.label} className="mb-1">
             {!collapsed && (
-              <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-muted">{sec.label}</div>
+              <div className="px-2.5 pt-2 pb-1 text-[10px] uppercase tracking-wider text-muted">{sec.label}</div>
             )}
             {sec.items.map((item) => {
               const badge = badgeFor(item.route);
@@ -125,20 +125,18 @@ export function Sidebar({
                   key={item.route}
                   onClick={() => onNavigate(item.route)}
                   title={item.label}
-                  className={`w-full flex items-center gap-2.5 px-3 py-[7px] text-[13px] transition-colors ${
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-[7px] text-[13px] transition-colors rounded-md ${
                     active
-                      ? "text-text bg-card border-l-2 border-accent font-medium"
-                      : "text-muted hover:text-text hover:bg-surface border-l-2 border-transparent"
+                      ? "text-text bg-card font-medium"
+                      : "text-muted hover:text-text hover:bg-surface"
                   }`}
                 >
                   <span className="shrink-0 flex"><Icon name={item.icon} size={15} /></span>
                   {!collapsed && <span className="flex-1 text-left truncate">{item.label}</span>}
                   {!collapsed && badge > 0 && (
                     <span
-                      className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full shrink-0 ${
-                        item.route === "mind"
-                          ? "text-danger bg-danger-soft"
-                          : "text-muted bg-card border border-border"
+                      className={`text-[10px] font-mono shrink-0 ${
+                        item.route === "mind" ? "text-danger" : "text-muted"
                       }`}
                     >
                       {badge}
@@ -152,16 +150,16 @@ export function Sidebar({
       </nav>
 
       {/* Utility pinned bottom */}
-      <div className="border-t border-border py-2 shrink-0">
+      <div className="border-t border-border py-2 px-1.5 shrink-0">
         {UTILITY.map((item) => (
           <button
             key={item.route}
             onClick={() => onNavigate(item.route)}
             title={item.label}
-            className={`w-full flex items-center gap-2.5 px-3 py-[7px] text-[13px] transition-colors ${
+            className={`w-full flex items-center gap-2.5 px-2.5 py-[7px] text-[13px] transition-colors rounded-md ${
               isActive(item.route)
-                ? "text-text bg-card border-l-2 border-accent font-medium"
-                : "text-muted hover:text-text hover:bg-surface border-l-2 border-transparent"
+                ? "text-text bg-card font-medium"
+                : "text-muted hover:text-text hover:bg-surface"
             }`}
           >
             <span className="shrink-0 flex"><Icon name={item.icon} size={15} /></span>

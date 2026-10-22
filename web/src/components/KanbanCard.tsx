@@ -103,9 +103,9 @@ export const KanbanCard = React.memo(function KanbanCard({ card, isOverlay, onEd
             </span>
             <span className="text-muted font-mono">{checklistPct}%</span>
           </div>
-          <div className="h-1 rounded-full bg-surface overflow-hidden">
+          <div className="h-[3px] rounded-full bg-[color-mix(in_srgb,var(--border)_55%,transparent)] overflow-hidden">
             <div
-              className={`h-full rounded-full ${checklistDone === checklistTotal ? "bg-success" : "bg-accent"}`}
+              className={`h-full rounded-full ${checklistDone === checklistTotal ? "bg-success" : "bg-accent/70"}`}
               style={{ width: `${checklistPct}%` }}
             />
           </div>

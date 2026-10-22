@@ -69,7 +69,7 @@ export function CommandPalette({ board, onClose, onAddCard, onEditCard }: Props)
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15%] bg-black/60" onClick={onClose}>
-      <div className="bg-card border border-border rounded-xl shadow-[var(--shadow)] w-full max-w-lg overflow-hidden" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-card border border-border rounded-xl dialog-elevated w-full max-w-lg overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <input
           autoFocus
           value={query}

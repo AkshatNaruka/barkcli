@@ -4,7 +4,7 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import type { Card, Column } from "../lib/types";
 import { SortableCard } from "./SortableCard";
 import { Icon } from "./Icon";
-import { Lozenge, columnTone } from "./Lozenge";
+import { columnTone } from "./Lozenge";
 
 interface Props {
   column: Column;
@@ -25,21 +25,26 @@ export const KanbanColumn = React.memo(function KanbanColumn({ column, cards, on
 
   return (
     <div
-      className="flex flex-col bg-surface rounded-lg min-w-[280px] max-w-[320px] flex-shrink-0 border border-border"
+      className="flex flex-col bg-surface rounded-xl min-w-[280px] max-w-[320px] flex-shrink-0"
     >
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <div className="flex items-center gap-2">
-          <Lozenge tone={columnTone(column.id)}>{column.name}</Lozenge>
+      <div className="flex items-center justify-between px-4 pt-3 pb-1.5">
+        <div className="flex items-center gap-2 min-w-0">
+          <span
+            className={`w-2 h-2 rounded-full shrink-0 ${
+              columnTone(column.id) === "green"
+                ? "bg-success"
+                : "bg-[color-mix(in_srgb,var(--muted)_50%,transparent)]"
+            }`}
+          />
+          <span className="text-[13px] font-medium text-text truncate">{column.name}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {pinned > 0 && (
             <span className="text-[10px] text-muted inline-flex items-center gap-0.5" title="Pinned cards">
               <Icon name="pin" size={11} />{pinned}
             </span>
           )}
-          <span className="text-xs text-muted bg-card border border-border px-2 py-0.5 rounded-full">
-            {cards.length}
-          </span>
+          <span className="text-xs text-muted font-mono">{cards.length}</span>
         </div>
       </div>
       <div
@@ -68,7 +73,7 @@ export const KanbanColumn = React.memo(function KanbanColumn({ column, cards, on
         </SortableContext>
         <button
           onClick={onAdd}
-          className="text-xs text-muted hover:text-text py-2 text-center rounded hover:bg-card transition-colors shrink-0"
+          className="text-xs text-muted hover:text-text py-2 mt-0.5 text-center rounded-md hover:bg-card transition-colors shrink-0"
         >
           + Add card
         </button>
