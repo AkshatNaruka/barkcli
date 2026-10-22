@@ -2,8 +2,8 @@ import React from "react";
 import type { Board as BoardType, Card } from "../lib/types";
 import { Avatar } from "./Avatar";
 import { PriorityBadge } from "./PriorityBadge";
+import { LabelChip } from "./LabelChip";
 import { Icon } from "./Icon";
-import { labelClasses } from "../lib/labels";
 
 interface Props {
   board: BoardType;
@@ -36,7 +36,7 @@ export function ListView({ board, onEditCard, onDeleteCard, onMoveCard }: Props)
             <div className="flex flex-wrap items-center gap-1 mt-1.5">
               <PriorityBadge priority={card.priority} />
               {card.labels.slice(0, 3).map((l) => (
-                <span key={l} className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${labelClasses(l)}`}>{l}</span>
+                <LabelChip key={l} name={l} />
               ))}
             </div>
           </div>

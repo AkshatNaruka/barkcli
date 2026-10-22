@@ -82,7 +82,7 @@ export function MindView({ boardName }: { boardName: string | null }) {
   return (
     <div className="h-full overflow-y-auto p-4 space-y-4">
       {/* Intent box — the human's steering wheel. No CLI needed. */}
-      <div className="bg-surface border border-border rounded-lg p-3">
+      <div>
         <h3 className="text-xs font-semibold text-muted mb-2">What should get done?</h3>
         <div className="flex gap-2">
           <input
@@ -91,12 +91,12 @@ export function MindView({ boardName }: { boardName: string | null }) {
             onChange={e => setIntent(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter") submit(); }}
             placeholder="Describe intent in plain language — e.g. Add Google OAuth"
-            className="flex-1 bg-card border border-border rounded px-3 py-2 text-sm text-text placeholder:text-muted focus:outline-none focus:border-accent"
+            className="flex-1 bg-card border border-transparent rounded-md px-3 py-2 text-sm text-text placeholder:text-muted/70 focus:outline-none focus:border-accent/50"
           />
           <select
             value={intentKind}
             onChange={e => setIntentKind(e.target.value)}
-            className="bg-card border border-border rounded px-2 py-2 text-xs text-text"
+            className="bg-card border border-transparent rounded-md px-2 py-2 text-xs text-text hover:border-border"
           >
             <option value="auto">Auto</option>
             <option value="feature">Feature</option>
@@ -105,7 +105,7 @@ export function MindView({ boardName }: { boardName: string | null }) {
           <button
             onClick={submit}
             disabled={!intent.trim() || submitting}
-            className="px-4 py-2 bg-accent text-white text-sm rounded font-medium hover:bg-accent/90 disabled:opacity-50"
+            className="px-4 py-2 bg-accent text-white text-sm rounded-md font-medium hover:bg-accent/90 disabled:opacity-50"
           >
             {submitting ? "Adding…" : "Add"}
           </button>
@@ -114,10 +114,10 @@ export function MindView({ boardName }: { boardName: string | null }) {
 
       {/* Autopilot gate — human decisions surface here, agents do the rest. */}
       {auto && (
-        <div className={`border rounded-lg p-3 ${auto.needs_human ? "bg-accent/5 border-accent/30" : "bg-surface border-border"}`}>
+        <div className={`rounded-lg p-3 ${auto.needs_human ? "bg-accent-soft" : "bg-card"}`}>
           <div className="flex items-center justify-between mb-1">
             <h3 className="text-xs font-semibold text-muted">Autopilot · {auto.phase_label}</h3>
-            <div className="flex gap-3 text-[11px] text-muted font-mono">
+            <div className="flex gap-3 text-[11px] text-muted">
               <span title="Todo cards without a plan">unplanned {auto.counts.todo_unplanned}</span>
               <span title="Plans awaiting your approval">proposals {auto.counts.pending_proposals}</span>
               <span title="Queued tasks">queued {auto.counts.queue_pending + auto.counts.queue_active}</span>
@@ -168,7 +168,7 @@ export function MindView({ boardName }: { boardName: string | null }) {
                 <button
                   onClick={() => act(() => rejectPlan(proposal.card_id, undefined, boardName || undefined))}
                   disabled={acting}
-                  className="text-xs px-3 py-1.5 rounded border border-border text-muted hover:text-text disabled:opacity-50"
+                  className="text-xs px-3 py-1.5 rounded-md text-muted hover:text-text hover:bg-surface disabled:opacity-50"
                 >
                   Reject
                 </button>
@@ -192,7 +192,10 @@ export function MindView({ boardName }: { boardName: string | null }) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-text">Mind — {snap.board_name}</h2>
-          <span className="text-xs text-muted font-mono">{snap.generated_at?.slice(0, 16)} · live via WS</span>
+          <span className="text-xs text-muted inline-flex items-center gap-2">
+            {snap.generated_at?.slice(0, 16)}
+            <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" /> Live</span>
+          </span>
         </div>
         <div className="flex gap-2">
           <button
@@ -201,7 +204,7 @@ export function MindView({ boardName }: { boardName: string | null }) {
               await load();
               setSyncing(false);
             }}
-            className="text-xs px-3 py-1.5 rounded border border-border hover:border-border-strong text-muted hover:text-text inline-flex items-center gap-1.5"
+            className="text-xs px-3 py-1.5 rounded-md text-muted hover:text-text hover:bg-surface inline-flex items-center gap-1.5"
           >
             <Icon name="refresh" size={13} />
             {syncing ? "Syncing…" : "Sync"}

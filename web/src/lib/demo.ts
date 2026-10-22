@@ -148,11 +148,11 @@ function seedBoards(): Record<string, Board> {
   dev.description = "Git-native kanban that lives in your repo — CLI, TUI, web and VS Code from one binary.";
   dev.cards = [
     card({
-      id: "demo-mode", title: "GitHub Pages demo mode", column: "doing", priority: "high",
-      labels: ["web", "demo"], effort: 3, area: "web", pinned: true,
+      id: "demo-hosting", title: "Static demo hosting", column: "doing", priority: "high",
+      labels: ["web", "server"], effort: 3, area: "web", pinned: true,
       description: "Serve the web app on a static host behind an in-browser demo API — writes persist to localStorage.",
       checklist: [
-        { text: "Detect static hosting / ?demo=1", done: true },
+        { text: "Detect static hosting automatically", done: true },
         { text: "Serve boards, sprints, memory, specs, docs", done: true },
         { text: "Keep every write interactive (no backend)", done: true },
       ],

@@ -23,7 +23,6 @@ import {
   type GitInfo,
 } from "./lib/api";
 import { useRoute, type Route } from "./lib/hashnav";
-import { isDemoMode } from "./lib/demo";
 import { Icon } from "./components/Icon";
 import { BoardView } from "./components/BoardView";
 import { TableView } from "./components/TableView";
@@ -52,9 +51,6 @@ import { SkillsView } from "./components/SkillsView";
 function isBlockedCard(c: Card): boolean {
   return Boolean(c.blocked_by) || c.links.some((l) => l.ty === "blocked-by");
 }
-
-// Static-hosting mode indicator (GitHub Pages demo data — see lib/demo.ts)
-const DEMO_MODE = isDemoMode();
 
 // ── Installable web app (Notion/Linear-style) ────────────────────────────
 // Surfaces the browser's native install flow as a header button. Only shows
@@ -534,14 +530,6 @@ export function App() {
               {gitInfo.branch} · {gitInfo.lastCommit}
             </span>
           )}
-          {DEMO_MODE && (
-            <span
-              className="hidden sm:inline text-[10px] font-mono text-muted bg-surface border border-border rounded px-1.5 py-0.5 shrink-0"
-              title="Demo data — no local barkcli server; changes persist in this browser only"
-            >
-              demo
-            </span>
-          )}
           <InstallButton />
           <ThemeDropdown />
         </div>
@@ -779,10 +767,10 @@ function BoardPage({
               key={chip.id}
               onClick={() => toggleChip(chip.id)}
               title={`Quick filter: ${chip.label}`}
-              className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-full border transition-colors ${
+              className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-full transition-colors ${
                 on
-                  ? "text-accent border-accent/50 bg-accent-soft font-medium"
-                  : "text-muted border-border hover:text-text"
+                  ? "text-accent bg-accent-soft font-medium"
+                  : "text-muted hover:text-text hover:bg-surface"
               }`}
             >
               <Icon name={chip.icon} size={12} />

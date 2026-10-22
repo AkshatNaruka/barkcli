@@ -4,7 +4,7 @@ import { Avatar } from "./Avatar";
 import { PriorityBadge } from "./PriorityBadge";
 import { Icon } from "./Icon";
 import { Lozenge } from "./Lozenge";
-import { labelClasses } from "../lib/labels";
+import { LabelChip } from "./LabelChip";
 
 interface Props {
   card: Card;
@@ -116,7 +116,7 @@ export const KanbanCard = React.memo(function KanbanCard({ card, isOverlay, onEd
       <div className="flex flex-wrap items-center gap-1.5 mt-2">
         <PriorityBadge priority={card.priority} />
         {card.labels.slice(0, 3).map((l) => (
-          <span key={l} className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${labelClasses(l)}`}>{l}</span>
+          <LabelChip key={l} name={l} />
         ))}
         {card.labels.length > 3 && (
           <span className="text-[10px] text-muted">+{card.labels.length - 3}</span>
@@ -137,7 +137,7 @@ export const KanbanCard = React.memo(function KanbanCard({ card, isOverlay, onEd
             </span>
           )}
           {(card as any).spec_id && (
-            <span className="text-[10px] font-mono text-accent bg-accent/10 border border-accent/20 px-1 py-0 rounded inline-flex items-center gap-0.5" title={`Spec: ${(card as any).spec_id}`}>
+            <span className="text-[10px] font-mono text-accent bg-accent/10 px-1 py-0 rounded inline-flex items-center gap-0.5" title={`Spec: ${(card as any).spec_id}`}>
               <Icon name="link" size={10} />{(card as any).spec_id.slice(0, 12)}
             </span>
           )}

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import type { Board as BoardType, Card } from "../lib/types";
 import { Avatar } from "./Avatar";
 import { PriorityBadge } from "./PriorityBadge";
-import { labelClasses } from "../lib/labels";
+import { LabelChip } from "./LabelChip";
 
 interface Props {
   board: BoardType;
@@ -90,7 +90,7 @@ export function TableView({ board, onEditCard, onDeleteCard, onMoveCard }: Props
               <td className="p-2">
                 <div className="flex flex-wrap gap-1">
                   {card.labels.slice(0, 3).map((l) => (
-                    <span key={l} className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${labelClasses(l)}`}>{l}</span>
+                    <LabelChip key={l} name={l} />
                   ))}
                 </div>
               </td>

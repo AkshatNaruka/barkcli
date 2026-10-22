@@ -3,11 +3,11 @@ import React from "react";
 // ── Jira/Azure-style status lozenge: uppercase micro pill ──
 
 const TONES: Record<string, string> = {
-  gray: "text-muted bg-surface border-border",
-  blue: "text-accent bg-accent-soft border-accent/30",
-  amber: "text-warning bg-warning-soft border-warning/30",
-  green: "text-success bg-success-soft border-success/30",
-  red: "text-danger bg-danger-soft border-danger/30",
+  gray: "text-muted bg-surface",
+  blue: "text-accent bg-accent-soft",
+  amber: "text-warning bg-warning-soft",
+  green: "text-success bg-success-soft",
+  red: "text-danger bg-danger-soft",
 };
 
 export function Lozenge({
@@ -22,7 +22,7 @@ export function Lozenge({
   return (
     <span
       title={title}
-      className={`inline-flex items-center text-[10px] font-semibold uppercase tracking-wide px-1.5 py-px rounded border ${TONES[tone]}`}
+      className={`inline-flex items-center text-[10px] font-semibold uppercase tracking-wide px-1.5 py-px rounded ${TONES[tone]}`}
     >
       {children}
     </span>
