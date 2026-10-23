@@ -55,7 +55,7 @@ export function ActivityView({ boardName }: { boardName: string | null }) {
 
   return (
     <div className="h-full overflow-auto">
-      <div className="max-w-3xl mx-auto p-4 space-y-4">
+      <div className="w-full max-w-[1600px] mx-auto p-4 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-text">Activity</h2>
           <div className="flex bg-surface rounded-md p-0.5">

@@ -80,7 +80,7 @@ export function ReportsView({ board, sprints }: { board: BoardType; sprints: Spr
 
   return (
     <div className="h-full overflow-auto">
-      <div className="max-w-5xl mx-auto p-4 space-y-6">
+      <div className="w-full max-w-[1600px] mx-auto p-4 space-y-6">
         {/* Sprint burndown */}
         <Section title="Sprint burndown">
           {report.sprintRows.length === 0 && (

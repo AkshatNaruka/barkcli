@@ -135,7 +135,7 @@ export function HistoryView({ boardName }: { boardName: string | null }) {
   const regular = filtered.filter((b) => !b.id.endsWith("-unsorted"));
 
   return (
-    <div className="p-4 max-w-4xl mx-auto">
+    <div className="w-full max-w-[1600px] mx-auto p-4">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-text">History</h2>
         <button

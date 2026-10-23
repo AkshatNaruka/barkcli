@@ -64,9 +64,9 @@ export function CodeView({
 
   return (
     <div className="h-full overflow-auto">
-      <div className="max-w-5xl mx-auto p-4 space-y-6">
+      <div className="w-full max-w-[1600px] mx-auto p-4 grid gap-4 xl:grid-cols-2 items-start">
         {/* Search */}
-        <div className="bg-surface rounded-lg p-4">
+        <div className="bg-surface rounded-lg p-4 min-w-0">
           <h3 className="text-xs font-semibold text-text mb-3">Symbol search</h3>
           <input
             value={query}
@@ -103,7 +103,7 @@ export function CodeView({
         </div>
 
         {/* Context coverage */}
-        <div className="bg-surface rounded-lg p-4">
+        <div className="bg-surface rounded-lg p-4 min-w-0">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-xs font-semibold text-text">Code context coverage</h3>
             <div className="flex items-center gap-2">
