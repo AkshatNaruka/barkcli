@@ -141,7 +141,7 @@ export function DocsView() {
               onClick={() => setActiveDoc(doc.slug)}
               className={`w-full text-left px-3 py-2 text-xs transition-colors ${
                 activeDoc === doc.slug
-                  ? "bg-accent/10 text-accent border-r-2 border-accent"
+                  ? "bg-accent-soft text-accent-text"
                   : "text-muted-strong hover:text-text hover:bg-card"
               }`}
             >

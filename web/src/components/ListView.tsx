@@ -24,7 +24,7 @@ export function ListView({ board, onEditCard, onDeleteCard, onMoveCard }: Props)
         <div className="text-center py-12 text-muted">
           <div className="flex justify-center mb-3 text-muted"><Icon name="inbox" size={36} /></div>
           <p className="text-sm">No cards yet</p>
-          <p className="text-xs mt-1">Press N or use ⌘K → New card</p>
+          <p className="text-xs mt-1">Press N or ⌘K for a new card</p>
         </div>
       )}
       {sorted.map((card) => (

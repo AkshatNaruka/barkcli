@@ -87,7 +87,7 @@ export function ActivityView({ boardName }: { boardName: string | null }) {
                   <span className="text-muted font-mono shrink-0 mt-0.5">{item.at?.slice(11, 19)}</span>
                   {item.kind === "session" ? (
                     <>
-                      <span className="text-accent bg-accent/10 px-1.5 rounded font-mono text-[10px] shrink-0">session</span>
+                      <span className="text-accent-text bg-accent-soft px-1.5 rounded font-mono text-[10px] shrink-0">session</span>
                       <span className="text-muted-strong min-w-0 break-words">
                         <span className="text-accent-text font-mono">{item.agent}</span> · {item.text}
                       </span>

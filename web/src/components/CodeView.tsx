@@ -92,7 +92,7 @@ export function CodeView({
                   <button
                     key={id}
                     onClick={() => { const c = cardById[id]; if (c) onEditCard(c); }}
-                    className="text-[10px] font-mono bg-accent/10 text-accent px-1.5 py-0.5 rounded hover:bg-accent/20 shrink-0"
+                    className="text-[10px] font-mono bg-accent-soft text-accent-text px-1.5 py-0.5 rounded hover:opacity-80 transition-opacity shrink-0"
                   >
                     {id}
                   </button>

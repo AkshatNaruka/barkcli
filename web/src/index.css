@@ -141,11 +141,12 @@ h1, h2, h3 {
   background: var(--accent-soft);
 }
 
-/* Keyboard-first: focus must always be visible (DESIGN.md §4) */
+/* Keyboard-first: focus must always be visible (DESIGN.md §4)
+   Soft accent edge instead of a hard bright frame — still unmistakable. */
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 1.5px solid color-mix(in srgb, var(--accent) 75%, transparent);
   outline-offset: 1px;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 /* Multi-layer dialog shadow for palette + drawers (DESIGN.md §4) */
@@ -190,3 +191,32 @@ h1, h2, h3 {
 [data-theme="light"] .docs-content .hljs-meta { color: var(--text); }
 [data-theme="light"] .docs-content .hljs-comment { color: var(--muted); font-style: italic; }
 
+
+/* Native select popup follows the active theme (appearance-none controls) */
+select option { background: var(--card); color: var(--text); }
+
+/* ── Brain: React Flow chrome, re-skinned to app tokens ── */.react-flow { --xy-background-color: transparent; }
+.react-flow__attribution {
+  background: transparent;
+  color: color-mix(in srgb, var(--muted) 55%, transparent);
+  font-size: 9px;
+}
+.react-flow__controls {
+  box-shadow: none;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.react-flow__controls-button {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  width: 26px;
+  height: 26px;
+}
+.react-flow__controls-button svg { fill: var(--muted); }
+.react-flow__controls-button:hover { background: var(--card-hover); }
+.react-flow__controls-button:hover svg { fill: var(--text); }
+.react-flow__controls-button:disabled { background: var(--card); }
+.react-flow__minimap { border-radius: 10px; }
+.react-flow__edge { pointer-events: none; }
+.react-flow__edge-path { stroke-linecap: round; }
+.react-flow__node { cursor: pointer; }

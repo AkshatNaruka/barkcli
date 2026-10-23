@@ -191,7 +191,7 @@ export function CalendarView({ board, sprints, onEditCard, onAddCard }: Props) {
                   style={{ borderLeftColor: color, borderLeftWidth: 3 }}
                   title={`${s.start || "?"} → ${s.end || "?"}`}
                 >
-                  {ended ? "○" : "●"} {s.name}
+                  <span className={`w-1.5 h-1.5 rounded-full inline-block ${ended ? "bg-muted" : "bg-success"} mr-1 align-[1px]`} />{s.name}
                   {s.end ? ` · ${s.end}` : ""}
                 </button>
               );
@@ -281,11 +281,11 @@ export function CalendarView({ board, sprints, onEditCard, onAddCard }: Props) {
 
       {/* Day modal */}
       {dayModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setDayModal(null)}>
-          <div className="bg-card rounded-xl border border-border shadow-2xl w-full max-w-md mx-4 max-h-[70vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--scrim)] backdrop-blur-[2px]" onClick={() => setDayModal(null)}>
+          <div className="bg-card rounded-xl shadow-[var(--shadow)] w-full max-w-md mx-4 max-h-[70vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
               <h3 className="font-semibold text-text">{dayModal}</h3>
-              <button onClick={() => setDayModal(null)} className="text-muted hover:text-text">✕</button>
+              <button onClick={() => setDayModal(null)} className="text-muted hover:text-text" title="Close"><Icon name="x" size={13} /></button>
             </div>
             <div className="p-4 space-y-2">
               {modalCards.length === 0 ? (
@@ -308,7 +308,7 @@ export function CalendarView({ board, sprints, onEditCard, onAddCard }: Props) {
                         <span className="text-[10px] font-medium px-1.5 py-0.5 rounded text-muted">{sprintNameOf(c)}</span>
                       )}
                       {checkProgress(c) && (
-                        <span className="text-[10px] text-muted font-mono">✓ {checkProgress(c)}</span>
+                        <span className="text-[10px] text-muted inline-flex items-center gap-1"><Icon name="check" size={10} className="text-success" /> {checkProgress(c)}</span>
                       )}
                     </div>
                   </button>
@@ -390,9 +390,9 @@ function AgendaItem({ card, sprints, onEditCard }: { card: Card; sprints: Sprint
               <span className={`text-[10px] ${card.priority === "high" ? "text-danger" : "text-muted"}`}>{card.priority}</span>
             )}
             {sprint && (
-              <span className="text-[10px] text-muted rounded px-1 bg-surface border border-border">{sprint}</span>
+              <span className="text-[10px] text-muted rounded px-1 bg-surface">{sprint}</span>
             )}
-            {progress && <span className="text-[10px] text-muted font-mono ml-auto">✓ {progress}</span>}
+            {progress && <span className="text-[10px] text-muted inline-flex items-center gap-1 ml-auto"><Icon name="check" size={10} className="text-success" /> {progress}</span>}
           </div>
         </div>
       </div>

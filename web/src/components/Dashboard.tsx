@@ -176,7 +176,7 @@ export function Dashboard({
                 <div key={i} className="flex items-start gap-2 text-xs border-b border-border/50 pb-2 last:border-0">
                   <span className="text-muted font-mono shrink-0">{t.at?.slice(11, 19)}</span>
                   {t.kind === "session" ? (
-                    <span className="text-accent bg-accent/10 px-1 rounded font-mono text-[10px] shrink-0">session</span>
+                    <span className="text-accent-text bg-accent-soft px-1 rounded font-mono text-[10px] shrink-0">session</span>
                   ) : (
                     <span className="text-muted-strong bg-bg px-1 rounded font-mono text-[10px] shrink-0">{t.op}</span>
                   )}

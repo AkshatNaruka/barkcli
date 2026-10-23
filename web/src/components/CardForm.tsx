@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import type {
   Card,
   CardContext,
@@ -8,6 +8,7 @@ import type {
   LinkType,
 } from "../lib/types";
 import { Icon } from "./Icon";
+import { QuietSelect } from "./QuietSelect";
 
 interface Props {
   card?: Card;
@@ -23,10 +24,21 @@ interface Props {
   onOpenFile?: (path: string, line?: number) => void;
 }
 
-const inputCls =
-  "w-full px-3 py-2 rounded-lg bg-surface border border-border text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent placeholder:text-muted transition-colors";
+// ── Field language: ghost fields (no borders), soft focus ring ─────────────
+const field =
+  "w-full bg-surface rounded-md px-3 py-2 text-sm text-text placeholder:text-muted/70 focus:outline-none focus:ring-1 focus:ring-accent transition-shadow";
+const fieldSm =
+  "w-full bg-surface rounded-md px-2.5 py-1.5 text-xs text-text placeholder:text-muted/70 focus:outline-none focus:ring-1 focus:ring-accent transition-shadow";
+const fieldName =
+  "block text-[11px] text-muted mb-1.5";
+const secLabel =
+  "block text-[11px] text-muted";
+const iconGhost =
+  "text-muted hover:text-danger transition-colors shrink-0";
+const addRow =
+  "inline-flex items-center gap-1.5 text-xs text-muted hover:text-accent transition-colors";
 
-type Tab = "details" | "acceptance" | "links" | "code" | "spec";
+type Reveal = "checklist" | "acceptance" | "links" | "more";
 
 export function CardForm({
   card,
@@ -41,7 +53,6 @@ export function CardForm({
   onDelete,
   onOpenFile,
 }: Props) {
-  const [tab, setTab] = useState<Tab>("details");
   const [title, setTitle] = useState(card?.title || "");
   const [desc, setDesc] = useState(card?.description || "");
   const [column, setColumn] = useState(card?.column || defaultColumn || columns[0]?.id || "");
@@ -57,14 +68,39 @@ export function CardForm({
   const [newItem, setNewItem] = useState("");
   const [showAuthors, setShowAuthors] = useState(false);
 
-  // Acceptance criteria
   const [acceptance, setAcceptance] = useState<string[]>(card?.acceptance_criteria || []);
   const [newAc, setNewAc] = useState("");
 
-  // Links
   const [links, setLinks] = useState<CardLink[]>(card?.links || []);
   const [linkTarget, setLinkTarget] = useState("");
   const [linkType, setLinkType] = useState<LinkType>("child");
+
+  const [reveal, setReveal] = useState<Set<Reveal>>(() => {
+    const r = new Set<Reveal>();
+    if (checklist.length > 1 || card?.checklist?.length) r.add("checklist");
+    if (acceptance.length > 0) r.add("acceptance");
+    if (links.length > 0) r.add("links");
+    if (card?.remind_at || card?.effort || card?.area || (card as any)?.spec_id) r.add("more");
+    return r;
+  });
+
+  const titleRef = useRef<HTMLInputElement>(null);
+  const newItemRef = useRef<HTMLInputElement>(null);
+  const newAcRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    titleRef.current?.focus();
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onCancel]);
+
+  const toggleReveal = (k: Reveal) =>
+    setReveal((s) => {
+      const n = new Set(s);
+      if (n.has(k)) n.delete(k); else n.add(k);
+      return n;
+    });
 
   const filteredAuthors = authors.filter((a) =>
     assignee ? a.toLowerCase().includes(assignee.toLowerCase()) : true
@@ -82,9 +118,8 @@ export function CardForm({
 
   const addLink = () => {
     if (!linkTarget) return;
-    const ty: LinkType = linkType;
     // mirror convention: `--as child` on id → id's parent is target
-    const primary: LinkType = ty === "child" ? "parent" : ty === "parent" ? "child" : ty;
+    const primary: LinkType = linkType === "child" ? "parent" : linkType === "parent" ? "child" : linkType;
     const next: CardLink = { ty: primary, target: linkTarget };
     if (!links.some((l) => l.ty === primary && l.target === linkTarget)) {
       setLinks([...links, next]);
@@ -122,6 +157,7 @@ export function CardForm({
     if (!newItem.trim()) return;
     setChecklist([...checklist, { text: newItem.trim(), done: false }]);
     setNewItem("");
+    newItemRef.current?.focus();
   };
 
   const toggleChecklistItem = (idx: number) => {
@@ -136,6 +172,7 @@ export function CardForm({
     if (!newAc.trim()) return;
     setAcceptance([...acceptance, newAc.trim()]);
     setNewAc("");
+    newAcRef.current?.focus();
   };
 
   const removeAc = (idx: number) => {
@@ -145,277 +182,358 @@ export function CardForm({
   const cardTitle = (id: string) =>
     allCards.find((c) => c.id === id)?.title || id;
 
-  const tabCls = (t: Tab) =>
-    `px-3 py-1.5 text-xs rounded-md font-medium transition-colors ${
-      tab === t ? "bg-accent text-white" : "text-muted hover:text-text hover:bg-surface"
-    }`;
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSubmit(e);
+  };
+
+  const showChecklist = checklist.length > 0 || reveal.has("checklist");
+  const showAcceptance = acceptance.length > 0 || reveal.has("acceptance");
+  const showLinks = links.length > 0 || reveal.has("links");
+  const showMore = reveal.has("more");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onCancel}>
-      <div className="bg-card rounded-xl shadow-[var(--shadow)] w-full max-w-lg mx-4 p-6 border border-border max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-lg font-bold mb-2 text-text">{card ? "Edit Card" : "New Card"}</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--scrim)] backdrop-blur-[2px]" onClick={onCancel}>
+      <div
+        className="bg-card rounded-xl shadow-[var(--shadow)] w-full max-w-lg mx-4 p-5 max-h-[88vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <form onSubmit={handleSubmit} onKeyDown={onKeyDown} className="flex flex-col gap-3">
+          {/* Hero: title + description, placeholder-driven (Linear pattern) */}
+          <input
+            ref={titleRef}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full bg-transparent text-base font-medium text-text placeholder:text-muted/60 focus:outline-none"
+            placeholder={card ? "Title" : "Card title"}
+          />
+          <textarea
+            value={desc}
+            onChange={(e) => setDesc(e.target.value)}
+            className={`${field} border-0 resize-none h-16`}
+            rows={2}
+            placeholder="Description…"
+          />
 
-        <div className="flex gap-1 mb-4 border-b border-border pb-3">
-          <button type="button" className={tabCls("details")} onClick={() => setTab("details")}>Details</button>
-          <button type="button" className={tabCls("acceptance")} onClick={() => setTab("acceptance")}>Acceptance</button>
-          <button type="button" className={tabCls("links")} onClick={() => setTab("links")}>Links</button>
-          <button type="button" className={tabCls("code")} onClick={() => setTab("code")}>Code</button>
-          <button type="button" className={tabCls("spec")} onClick={() => setTab("spec")}>Spec</button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          {tab === "details" && (
-            <>
-              <div>
-                <label className="block text-xs font-medium text-muted mb-1">Title *</label>
-                <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)}
-                  className={inputCls} placeholder="Card title" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted mb-1">Description</label>
-                <textarea value={desc} onChange={(e) => setDesc(e.target.value)}
-                  className={`${inputCls} resize-none`} rows={2} placeholder="Optional description" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-muted mb-1">Column</label>
-                  <select value={column} onChange={(e) => setColumn(e.target.value)}
-                    className={inputCls}>
-                    {columns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted mb-1">Priority</label>
-                  <select value={priority} onChange={(e) => setPriority(e.target.value)}
-                    className={inputCls}>
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted mb-1">Labels (comma-separated)</label>
-                <input value={labels} onChange={(e) => setLabels(e.target.value)}
-                  className={inputCls} placeholder="bug, frontend, urgent" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="relative">
-                  <label className="block text-xs font-medium text-muted mb-1">Assignee</label>
-                  <input value={assignee} onChange={(e) => { setAssignee(e.target.value); setShowAuthors(true); }}
-                    onFocus={() => setShowAuthors(true)} onBlur={() => setTimeout(() => setShowAuthors(false), 200)}
-                    className={inputCls} placeholder="Username" />
-                  {showAuthors && filteredAuthors.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 z-30 bg-card border border-border rounded-lg mt-1 overflow-hidden shadow-[var(--shadow)]">
-                      {filteredAuthors.map((a) => (
-                        <button key={a} type="button" onMouseDown={() => { setAssignee(a); setShowAuthors(false); }}
-                          className="w-full text-left px-3 py-1.5 text-sm text-text hover:bg-surface">{a}</button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted mb-1">Due date</label>
-                  <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
-                    className={inputCls} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted mb-1">Remind at</label>
-                  <input type="datetime-local" value={remindAt} onChange={(e) => setRemindAt(e.target.value)}
-                    className={inputCls} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted mb-1">Effort (points)</label>
-                  <input type="number" min={0} value={effort} onChange={(e) => setEffort(e.target.value)}
-                    className={inputCls} placeholder="3" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted mb-1">Area</label>
-                <input value={area} onChange={(e) => setArea(e.target.value)}
-                  className={inputCls} placeholder="frontend, backend, ..." />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted mb-1">Spec ID</label>
-                <input value={specId} onChange={(e) => setSpecId(e.target.value)}
-                  className={inputCls} placeholder="auto: same as card id or spec" />
-                <p className="text-[11px] text-muted mt-1">O(1) traceability — links card → spec → tasks. Auto-filled by <code>intake</code>/<code>plan</code>.</p>
-              </div>
-
-              {/* Checklist */}
-              <div>
-                <label className="block text-xs font-medium text-muted mb-1">Checklist</label>
-                <div className="space-y-1.5 mb-2 max-h-32 overflow-y-auto">
-                  {checklist.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <button type="button" onClick={() => toggleChecklistItem(idx)}
-                        className={`text-xs ${item.done ? "text-success" : "text-muted"} hover:text-text`}>
-                        {item.done ? "☑" : "☐"}
-                      </button>
-                      <span className={`flex-1 text-xs ${item.done ? "text-muted line-through" : "text-text"}`}>{item.text}</span>
-                      <button type="button" onClick={() => removeChecklistItem(idx)} className="text-muted hover:text-danger text-xs">✕</button>
-                    </div>
+          {/* Meta: the four questions asked of every card */}
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+            <div>
+              <span className={fieldName}>Column</span>
+              <QuietSelect
+                value={column}
+                onChange={(e) => setColumn(e.target.value)}
+                className="w-full bg-surface px-2.5 py-1.5 text-xs text-text"
+              >
+                {columns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </QuietSelect>
+            </div>
+            <div>
+              <span className={fieldName}>Priority</span>
+              <QuietSelect
+                value={priority}
+                onChange={(e) => setPriority(e.target.value)}
+                className="w-full bg-surface px-2.5 py-1.5 text-xs text-text"
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </QuietSelect>
+            </div>
+            <div>
+              <span className={fieldName}>Due date</span>
+              <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
+                className={`${fieldSm} py-1.5`} />
+            </div>
+            <div className="relative">
+              <span className={fieldName}>Assignee</span>
+              <input
+                value={assignee}
+                onChange={(e) => { setAssignee(e.target.value); setShowAuthors(true); }}
+                onFocus={() => setShowAuthors(true)}
+                onBlur={() => setTimeout(() => setShowAuthors(false), 200)}
+                className={fieldSm}
+                placeholder="Unassigned"
+              />
+              {showAuthors && filteredAuthors.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-30 bg-card rounded-md mt-1 overflow-hidden shadow-[var(--shadow)]">
+                  {filteredAuthors.map((a) => (
+                    <button key={a} type="button" onMouseDown={() => { setAssignee(a); setShowAuthors(false); }}
+                      className="w-full text-left px-3 py-1.5 text-xs text-text hover:bg-surface">{a}</button>
                   ))}
                 </div>
-                <div className="flex gap-2">
-                  <input value={newItem} onChange={(e) => setNewItem(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addChecklistItem(); } }}
-                    className={`${inputCls} !py-1.5 !text-xs`}
-                    placeholder="Add checklist item" />
-                  <button type="button" onClick={addChecklistItem} className="px-3 py-1.5 text-xs rounded bg-surface border border-border text-text hover:border-border-strong">Add</button>
-                </div>
-              </div>
-
-              {/* Comments display (read-only in form) */}
-              {card && card.comments.length > 0 && (
-                <div>
-                  <label className="block text-xs font-medium text-muted mb-1">Comments ({card.comments.length})</label>
-                  <div className="space-y-2 max-h-24 overflow-y-auto">
-                    {card.comments.map((c, i) => (
-                      <div key={i} className="text-xs">
-                        <span className="text-muted-strong font-medium">{c.author}</span>
-                        <span className="text-muted ml-2">{c.at?.slice(0, 10)}</span>
-                        <p className="text-text mt-0.5">{c.text}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
               )}
-            </>
+            </div>
+            <div className="col-span-2">
+              <span className={fieldName}>Labels</span>
+              <input value={labels} onChange={(e) => setLabels(e.target.value)}
+                className={fieldSm} placeholder="bug, web, server…" />
+            </div>
+          </div>
+
+          {/* Rarely-needed fields behind one quiet disclosure */}
+          <button type="button" onClick={() => toggleReveal("more")} className={`${addRow} self-start mt-0.5`}>
+            <span className={`${reveal.has("more") ? "rotate-90" : ""} transition-transform flex`}>
+              <Icon name="chevR" size={12} />
+            </span>
+            {reveal.has("more") ? "Less" : "More options"}
+          </button>
+          {showMore && (
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+              <div>
+                <span className={fieldName}>Remind at</span>
+                <input type="datetime-local" value={remindAt} onChange={(e) => setRemindAt(e.target.value)}
+                  className={fieldSm} />
+              </div>
+              <div>
+                <span className={fieldName}>Effort (points)</span>
+                <input type="number" min={0} value={effort} onChange={(e) => setEffort(e.target.value)}
+                  className={fieldSm} placeholder="—" />
+              </div>
+              <div>
+                <span className={fieldName}>Area</span>
+                <input value={area} onChange={(e) => setArea(e.target.value)}
+                  className={fieldSm} placeholder="web, rust…" />
+              </div>
+              <div>
+                <span className={fieldName}>Spec ID</span>
+                <input value={specId} onChange={(e) => setSpecId(e.target.value)}
+                  className={fieldSm} placeholder="auto from intake" />
+              </div>
+            </div>
           )}
 
-          {tab === "acceptance" && (
-            <>
-              <p className="text-xs text-muted">Acceptance criteria — what "done" means for this PBI.</p>
-              <div className="space-y-1.5 max-h-56 overflow-y-auto">
+          {/* ── Attached work: checklist ─────────────────────────────── */}
+          {showChecklist && (
+            <section>
+              <div className="flex items-center gap-2 mb-1.5">
+                <Icon name="subtasks" size={12} className="text-muted" />
+                <span className={secLabel}>Checklist{checklist.length > 0 ? ` · ${checklist.filter((c) => c.done).length}/${checklist.length}` : ""}</span>
+              </div>
+              <div className="space-y-1 max-h-32 overflow-y-auto">
+                {checklist.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-2 group">
+                    <button type="button" onClick={() => toggleChecklistItem(idx)}
+                      className={`w-3.5 h-3.5 rounded-[4px] flex items-center justify-center shrink-0 transition-colors ${item.done ? "bg-success text-black" : "bg-transparent ring-1 ring-inset ring-[var(--border-strong)] hover:ring-muted"}`}>
+                      {item.done && <Icon name="check" size={9} />}
+                    </button>
+                    <span className={`flex-1 text-xs truncate ${item.done ? "text-muted line-through" : "text-text"}`}>{item.text}</span>
+                    <button type="button" onClick={() => removeChecklistItem(idx)} className={`${iconGhost} opacity-0 group-hover:opacity-100`}>
+                      <Icon name="x" size={11} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <input
+                ref={newItemRef}
+                value={newItem}
+                onChange={(e) => setNewItem(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addChecklistItem(); } }}
+                className={`${fieldSm} mt-1.5`}
+                placeholder="Add item, Enter to save…"
+              />
+            </section>
+          )}
+
+          {/* ── Acceptance criteria ──────────────────────────────────── */}
+          {showAcceptance && (
+            <section>
+              <div className="flex items-center gap-2 mb-1.5">
+                <Icon name="check" size={12} className="text-muted" />
+                <span className={secLabel}>Acceptance{acceptance.length > 0 ? ` · ${acceptance.length}` : ""}</span>
+              </div>
+              <div className="space-y-1 max-h-40 overflow-y-auto">
                 {acceptance.map((ac, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <span className="text-accent text-xs">☐</span>
+                  <div key={idx} className="flex items-start gap-2 group">
+                    <span className="w-1.5 h-1.5 rounded-[2px] bg-accent mt-[5px] shrink-0" />
                     <span className="flex-1 text-xs text-text">{ac}</span>
-                    <button type="button" onClick={() => removeAc(idx)} className="text-muted hover:text-danger text-xs">✕</button>
+                    <button type="button" onClick={() => removeAc(idx)} className={`${iconGhost} opacity-0 group-hover:opacity-100`}>
+                      <Icon name="x" size={11} />
+                    </button>
                   </div>
                 ))}
-                {acceptance.length === 0 && (
-                  <p className="text-xs text-muted">No criteria yet.</p>
-                )}
               </div>
-              <div className="flex gap-2">
-                <input value={newAc} onChange={(e) => setNewAc(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addAc(); } }}
-                  className={`${inputCls} !py-1.5 !text-xs`} placeholder="e.g. Users can log in" />
-                <button type="button" onClick={addAc} className="px-3 py-1.5 text-xs rounded bg-surface border border-border text-text hover:border-border-strong">Add</button>
-              </div>
-            </>
+              <input
+                ref={newAcRef}
+                value={newAc}
+                onChange={(e) => setNewAc(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addAc(); } }}
+                className={`${fieldSm} mt-1.5`}
+                placeholder="e.g. Users can log in"
+              />
+            </section>
           )}
 
-          {tab === "links" && (
-            <>
-              <p className="text-xs text-muted">Work item links. A parent task links to its child tasks.</p>
-              <div className="space-y-1.5 max-h-40 overflow-y-auto">
+          {/* ── Links ────────────────────────────────────────────────── */}
+          {showLinks && (
+            <section>
+              <div className="flex items-center gap-2 mb-1.5">
+                <Icon name="link" size={12} className="text-muted" />
+                <span className={secLabel}>Linked cards{links.length > 0 ? ` · ${links.length}` : ""}</span>
+              </div>
+              <div className="space-y-1 max-h-36 overflow-y-auto">
                 {links.map((l, idx) => (
-                  <div key={idx} className="flex items-center gap-2 text-xs">
-                    <span className="px-1.5 py-0.5 rounded bg-surface border border-border text-muted">{l.ty}</span>
-                    <span className="flex-1 text-text truncate">{cardTitle(l.target)}</span>
-                    <button type="button" onClick={() => removeLink(idx)} className="text-muted hover:text-danger">✕</button>
+                  <div key={idx} className="flex items-center gap-2 group">
+                    <span className="text-[10px] text-muted shrink-0">{l.ty}</span>
+                    <span className="flex-1 text-xs text-text truncate">{cardTitle(l.target)}</span>
+                    <button type="button" onClick={() => removeLink(idx)} className={`${iconGhost} opacity-0 group-hover:opacity-100`}>
+                      <Icon name="x" size={11} />
+                    </button>
                   </div>
                 ))}
-                {links.length === 0 && <p className="text-xs text-muted">No links.</p>}
               </div>
-              <div className="flex gap-2">
-                <select value={linkType} onChange={(e) => setLinkType(e.target.value as LinkType)}
-                  className={`${inputCls} !w-32 !py-1.5 !text-xs`}>
+              <div className="flex gap-2 mt-1.5">
+                <QuietSelect
+                  value={linkType}
+                  onChange={(e) => setLinkType(e.target.value as LinkType)}
+                  className="w-28 bg-surface px-2 py-1.5 text-xs text-text shrink-0"
+                >
                   <option value="child">child</option>
                   <option value="parent">parent</option>
                   <option value="related">related</option>
                   <option value="blocked-by">blocked-by</option>
-                </select>
-                <select value={linkTarget} onChange={(e) => setLinkTarget(e.target.value)}
-                  className={`${inputCls} flex-1 !py-1.5 !text-xs`}>
+                </QuietSelect>
+                <QuietSelect
+                  value={linkTarget}
+                  onChange={(e) => setLinkTarget(e.target.value)}
+                  className="flex-1 min-w-0 bg-surface px-2 py-1.5 text-xs text-text"
+                >
                   <option value="">Select card…</option>
                   {linkableCards.map((c) => (
                     <option key={c.id} value={c.id}>{c.title}</option>
                   ))}
-                </select>
-                <button type="button" onClick={addLink} className="px-3 py-1.5 text-xs rounded bg-surface border border-border text-text hover:border-border-strong">Link</button>
+                </QuietSelect>
+                <button type="button" onClick={addLink}
+                  disabled={!linkTarget}
+                  className="px-2.5 py-1.5 text-xs rounded-md bg-transparent text-accent hover:bg-accent-soft disabled:opacity-40 transition-colors shrink-0">
+                  Link
+                </button>
               </div>
-            </>
+            </section>
           )}
 
-          {tab === "code" && (
-            <>
-              {!card ? (
-                <p className="text-xs text-muted">Save the card first, then map it to code from the CLI: <code>barkcli context scan</code>.</p>
-              ) : context && context.files.length > 0 ? (
-                <>
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                    {context.files.map((f) => (
-                      <div key={f.path} className="flex items-center gap-2 text-xs">
-                        <span className={`shrink-0 ${statusColor(f.status)}`}>{statusDot(f.status)}</span>
-                        <button
-                          type="button"
-                          onClick={() => onOpenFile?.(f.path)}
-                          className="flex-1 text-left font-mono text-text hover:text-accent truncate"
-                          title="Open in editor"
-                        >
-                          {f.path}
-                        </button>
-                        {f.last_commit && <span className="text-muted shrink-0">@{f.last_commit}</span>}
-                      </div>
-                    ))}
-                  </div>
-                  {context.files.some((f) => f.symbols.length > 0) && (
-                    <p className="text-xs text-muted">
-                      Symbols:{" "}
-                      {context.files.flatMap((f) => f.symbols).slice(0, 12).join(", ")}
-                      {context.files.flatMap((f) => f.symbols).length > 12 ? "…" : ""}
-                    </p>
-                  )}
-                  {context.sessions.length > 0 && (
-                    <p className="text-xs text-muted">Sessions: {context.sessions.join(", ")}</p>
-                  )}
-                  {context.ai && (
-                    <div className="rounded-lg bg-surface border border-border p-3">
-                      <p className="text-xs font-medium text-muted mb-1">
-                        AI context · {context.ai.model || "model"} · {context.ai.at?.slice(0, 10)} · {(context.ai.confidence * 100).toFixed(0)}%
-                      </p>
-                      <p className="text-xs text-text whitespace-pre-wrap">{context.ai.summary}</p>
-                      {context.ai.next_steps.length > 0 && (
-                        <>
-                          <p className="text-xs font-medium text-muted mt-2 mb-1">Next steps:</p>
-                          <ul className="text-xs text-text space-y-0.5">
-                            {context.ai.next_steps.map((s, i) => <li key={i}>• {s}</li>)}
-                          </ul>
-                        </>
-                      )}
-                    </div>
-                  )}
-                  <p className="text-xs text-muted">Last synced: {context.last_sync_commit || "never"} · Run <code>barkcli context sync</code> or scan to update.</p>
-                </>
-              ) : (
-                <p className="text-xs text-muted">
-                  No code mapped yet. From the CLI: <code>barkcli context scan</code> (auto) or{" "}
-                  <code>barkcli context link {card?.id} src/file.rs</code> (manual).
-                </p>
+          {/* ── Attach-row: quiet expands for empty sections ────────── */}
+          {!(showChecklist && showAcceptance && showLinks) && (
+            <div className="flex gap-4">
+              {!reveal.has("checklist") && checklist.length === 0 && (
+                <button type="button" onClick={() => toggleReveal("checklist")} className={addRow}>
+                  <Icon name="subtasks" size={12} /> Checklist
+                </button>
               )}
-            </>
+              {!reveal.has("acceptance") && acceptance.length === 0 && (
+                <button type="button" onClick={() => toggleReveal("acceptance")} className={addRow}>
+                  <Icon name="check" size={12} /> Acceptance
+                </button>
+              )}
+              {!reveal.has("links") && links.length === 0 && (
+                <button type="button" onClick={() => toggleReveal("links")} className={addRow}>
+                  <Icon name="link" size={12} /> Link
+                </button>
+              )}
+            </div>
           )}
 
-          {tab === "spec" && (
+          {/* ── Comments (read-only in the form) ─────────────────────── */}
+          {card && card.comments.length > 0 && (
+            <section>
+              <div className="flex items-center gap-2 mb-1.5">
+                <Icon name="comment" size={12} className="text-muted" />
+                <span className={secLabel}>Comments · {card.comments.length}</span>
+              </div>
+              <div className="space-y-2 max-h-24 overflow-y-auto">
+                {card.comments.map((c, i) => (
+                  <div key={i} className="text-xs">
+                    <span className="text-muted-strong font-medium">{c.author}</span>
+                    <span className="text-muted ml-2">{c.at?.slice(0, 10)}</span>
+                    <p className="text-text mt-0.5">{c.text}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ── Code mapping (edit mode only; updates via CLI) ───────── */}
+          {card && (
+            <CodeSection context={context} cardId={card.id} onOpenFile={onOpenFile} />
+          )}
+
+          {/* ── Spec (only when linked) ──────────────────────────────── */}
+          {(specId || (card as any)?.spec_id) && (
             <SpecTab cardId={card?.id} specId={specId || (card as any)?.spec_id} />
           )}
 
-          <div className="flex justify-between mt-2">
-            {onDelete && (
-              <button type="button" onClick={onDelete} className="px-3 py-2 text-sm text-danger hover:bg-danger-soft rounded-lg">Delete</button>
-            )}
-            <div className="flex gap-2 ml-auto">
-              <button type="button" onClick={onCancel} className="px-4 py-2 text-sm rounded-lg border border-border text-text hover:bg-surface">Cancel</button>
-              <button type="submit" className="px-4 py-2 text-sm rounded-lg bg-accent text-white hover:bg-accent-hover font-medium">{card ? "Save" : "Add"}</button>
+          {/* ── Footer ───────────────────────────────────────────────── */}
+          <div className="flex items-center justify-between mt-2">
+            {onDelete && card ? (
+              <button type="button" onClick={onDelete} className="px-2.5 py-1.5 text-xs text-danger hover:bg-danger-soft rounded-md transition-colors">Delete</button>
+            ) : <span />}
+            <div className="flex items-center gap-1.5">
+              <button type="button" onClick={onCancel} className="px-3 py-1.5 text-xs text-muted hover:text-text rounded-md transition-colors">Cancel</button>
+              <button type="submit" className="px-3.5 py-1.5 text-xs rounded-md bg-accent text-white hover:bg-accent-hover font-medium transition-colors">
+                {card ? "Save" : "Add"}
+              </button>
             </div>
           </div>
         </form>
       </div>
     </div>
+  );
+}
+
+function CodeSection({ context, cardId, onOpenFile }: { context: CardContext | null; cardId: string; onOpenFile?: (path: string, line?: number) => void }) {
+  const hasFiles = Boolean(context && context.files.length > 0);
+  return (
+    <section>
+      <div className="flex items-center gap-2 mb-1.5">
+        <Icon name="code" size={12} className="text-muted" />
+        <span className={secLabel}>Code</span>
+      </div>
+      {hasFiles ? (
+        <>
+          <div className="space-y-1 max-h-44 overflow-y-auto">
+            {context!.files.map((f) => (
+              <div key={f.path} className="flex items-center gap-2 text-xs">
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusColor(f.status)}`} title={f.status} />
+                <button
+                  type="button"
+                  onClick={() => onOpenFile?.(f.path)}
+                  className="flex-1 text-left font-mono text-text hover:text-accent truncate"
+                  title="Open in editor"
+                >
+                  {f.path}
+                </button>
+                {f.last_commit && <span className="text-muted shrink-0">@{f.last_commit}</span>}
+              </div>
+            ))}
+          </div>
+          {context!.files.some((f) => f.symbols.length > 0) && (
+            <p className="text-[11px] text-muted mt-1.5">
+              Symbols: {context!.files.flatMap((f) => f.symbols).slice(0, 12).join(", ")}
+              {context!.files.flatMap((f) => f.symbols).length > 12 ? "…" : ""}
+            </p>
+          )}
+          {context!.sessions.length > 0 && (
+            <p className="text-[11px] text-muted mt-1">Sessions: {context!.sessions.join(", ")}</p>
+          )}
+          {context!.ai && (
+            <div className="rounded-lg bg-surface p-3 mt-2">
+              <p className="text-[11px] font-medium text-muted mb-1">
+                AI context · {context!.ai.model || "model"} · {context!.ai.at?.slice(0, 10)} · {(context!.ai.confidence * 100).toFixed(0)}%
+              </p>
+              <p className="text-xs text-text whitespace-pre-wrap">{context!.ai.summary}</p>
+              {context!.ai.next_steps.length > 0 && (
+                <ul className="text-xs text-text space-y-0.5 mt-1.5">
+                  {context!.ai.next_steps.map((s, i) => <li key={i}>{s}</li>)}
+                </ul>
+              )}
+            </div>
+          )}
+          <p className="text-[11px] text-muted mt-1.5">Last synced: {context!.last_sync_commit || "never"} · <code>barkcli context sync</code> to update.</p>
+        </>
+      ) : (
+        <p className="text-[11px] text-muted">
+          No code mapped. Run <code>barkcli context scan</code>, or link manually: <code>barkcli context link {cardId} src/file.rs</code>.
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -434,83 +552,69 @@ function SpecTab({ cardId, specId }: { cardId?: string; specId?: string }) {
     });
   }, [specId]);
 
-  if (!specId) {
-    return (
-      <p className="text-xs text-muted">
-        No spec linked. Set a Spec ID in Details, or run <code>barkcli intake "…"</code> to
-        auto-create card + spec{cardId ? <> for <code>{cardId}</code></> : null}.
-      </p>
-    );
-  }
-  if (loading) return <p className="text-xs text-muted">Loading spec…</p>;
-  if (!spec) {
-    return (
-      <p className="text-xs text-muted">
-        Spec <code className="font-mono">{specId}</code> not found on this board.
-      </p>
-    );
-  }
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-semibold text-text">{spec.title}</span>
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface border border-border text-muted font-mono">
-          {spec.status}
-        </span>
+    <section>
+      <div className="flex items-center gap-2 mb-1.5">
+        <Icon name="layers" size={12} className="text-muted" />
+        <span className={secLabel}>Spec</span>
       </div>
-      {spec.description && <p className="text-xs text-muted">{spec.description}</p>}
-      <div className="space-y-1.5 max-h-56 overflow-y-auto">
-        {(spec.requirements || []).map((r: any) => (
-          <div key={r.id} className="rounded-lg bg-surface border border-border p-2">
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-accent">◈</span>
-              <span className="flex-1 text-text font-medium">{r.title}</span>
-              <span className="text-[10px] text-muted font-mono">{r.status}</span>
-            </div>
-            {(r.acceptance_criteria || []).length > 0 && (
-              <ul className="mt-1 space-y-0.5">
-                {r.acceptance_criteria.map((ac: string, i: number) => (
-                  <li key={i} className="text-[11px] text-muted">☐ {ac}</li>
-                ))}
-              </ul>
-            )}
-            {(r.linked_tasks || []).length > 0 && (
-              <p className="text-[10px] text-muted font-mono mt-1">
-                tasks: {r.linked_tasks.join(", ")}
-              </p>
-            )}
-            {r.stale && (
-              <p className="text-[10px] text-warning mt-1 inline-flex items-center gap-1">
-                <Icon name="warn" size={11} /> stale{r.stale_reason ? `: ${r.stale_reason}` : ""}
-              </p>
+      {loading && <p className="text-[11px] text-muted">Loading spec…</p>}
+      {!loading && !spec && (
+        <p className="text-[11px] text-muted">
+          Spec <code className="font-mono">{specId}</code> isn't on this board yet. Create one with <code>barkcli intake "…"</code> or link it in Specs.
+        </p>
+      )}
+      {!loading && spec && (
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-text truncate">{spec.title}</span>
+            <span className="text-[10px] text-muted">{spec.status}</span>
+          </div>
+          {spec.description && <p className="text-[11px] text-muted">{spec.description}</p>}
+          <div className="space-y-1.5 max-h-56 overflow-y-auto">
+            {(spec.requirements || []).map((r: any) => (
+              <div key={r.id} className="rounded-lg bg-surface p-2">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                  <span className="flex-1 text-text font-medium truncate">{r.title}</span>
+                  <span className="text-[10px] text-muted">{r.status}</span>
+                </div>
+                {(r.acceptance_criteria || []).length > 0 && (
+                  <ul className="mt-1 space-y-0.5">
+                    {r.acceptance_criteria.map((ac: string, i: number) => (
+                      <li key={i} className="text-[11px] text-muted flex gap-1.5">
+                        <span className="w-1 h-1 rounded-[1px] bg-muted mt-[6px] shrink-0" />{ac}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {(r.linked_tasks || []).length > 0 && (
+                  <p className="text-[10px] text-muted font-mono mt-1">tasks: {r.linked_tasks.join(", ")}</p>
+                )}
+                {r.stale && (
+                  <p className="text-[10px] text-warning mt-1 inline-flex items-center gap-1">
+                    <Icon name="warn" size={11} /> stale{r.stale_reason ? `: ${r.stale_reason}` : ""}
+                  </p>
+                )}
+              </div>
+            ))}
+            {(spec.requirements || []).length === 0 && (
+              <p className="text-[11px] text-muted">No requirements yet.</p>
             )}
           </div>
-        ))}
-        {(spec.requirements || []).length === 0 && (
-          <p className="text-xs text-muted">No requirements yet.</p>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </section>
   );
-}
-
-function statusDot(status: string): string {
-  switch (status) {
-    case "changed": return "●";
-    case "deleted": return "●";
-    case "stale": return "●";
-    case "clean": return "●";
-    default: return "○";
-  }
 }
 
 function statusColor(status: string): string {
   switch (status) {
     case "changed":
-    case "deleted": return "text-danger";
-    case "stale": return "text-warning";
-    case "clean": return "text-success";
-    default: return "text-muted";
+    case "deleted": return "bg-danger";
+    case "stale": return "bg-warning";
+    case "clean": return "bg-success";
+    default: return "bg-muted";
   }
 }
 

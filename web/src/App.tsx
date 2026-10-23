@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
+import { QuietSelect } from "./components/QuietSelect";
 import type {
   Board as BoardType,
   Card,
@@ -39,7 +40,10 @@ import { SprintView } from "./components/SprintView";
 import { SettingsView } from "./components/SettingsView";
 import { AgentPromptView } from "./components/AgentPromptView";
 import { MemoryView } from "./components/MemoryView";
-import { BrainView } from "./components/BrainView";
+// Brain carries React Flow (~heavy) — lazy chunk keeps first paint fast.
+const BrainView = lazy(() =>
+  import("./components/BrainView").then((m) => ({ default: m.BrainView }))
+);
 import { SpecsView } from "./components/SpecsView";
 import { OrchestrateView } from "./components/OrchestrateView";
 import { TimelineView } from "./components/TimelineView";
@@ -495,18 +499,16 @@ export function App() {
       <header className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0 gap-3">
         <div className="flex items-center gap-3 min-w-0">
           {boardList.length > 0 && (
-            <div className="relative shrink-0">
-              <select
-                value={boardName || boardList[0] || ""}
-                onChange={(e) => switchBoard(e.target.value)}
-                className="bg-surface border border-border rounded text-xs text-text px-2 py-1 pr-6 hover:border-border-strong focus:outline-none focus:border-accent cursor-pointer max-w-[180px]"
-                title="Switch board"
-              >
-                {boardList.map((n) => (
-                  <option key={n} value={n}>{n}.board</option>
-                ))}
-              </select>
-            </div>
+            <QuietSelect
+              value={boardName || boardList[0] || ""}
+              onChange={(e) => switchBoard(e.target.value)}
+              title="Switch board"
+              className="bg-surface border border-border rounded px-2 py-1.5 max-w-[180px] hover:border-border-strong focus:border-accent"
+            >
+              {boardList.map((n) => (
+                <option key={n} value={n}>{n}.board</option>
+              ))}
+            </QuietSelect>
           )}
           <div className="flex items-center gap-2 min-w-0">
             <h1 className="text-sm font-semibold text-text truncate">{board?.title || "Board"}</h1>
@@ -587,7 +589,9 @@ export function App() {
           <MemoryView boardName={boardName} />
         )}
         {route === "brain" && (
-          <BrainView boardName={boardName} />
+          <Suspense fallback={<div className="h-full flex items-center justify-center text-sm text-muted">Loading graph…</div>}>
+            <BrainView boardName={boardName} />
+          </Suspense>
         )}
         {route === "specs" && (
           <SpecsView boardName={boardName} />

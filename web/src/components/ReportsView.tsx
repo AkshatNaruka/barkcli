@@ -83,13 +83,13 @@ export function ReportsView({ board, sprints }: { board: BoardType; sprints: Spr
           )}
           {report.sprintRows.map(({ sprint, cards, done, totalEffort, doneEffort, state }) => {
             const pct = totalEffort > 0 ? Math.round((doneEffort / totalEffort) * 100) : 0;
-            const stateCls = state === "active" ? "text-success" : state === "ended" ? "text-muted" : "text-accent";
-            const marker = state === "active" ? "●" : state === "ended" ? "○" : "◇";
+            // Same dot language as Sprints: filled=active, hollow ring=upcoming, muted=ended
+            const dotCls = state === "active" ? "bg-success" : state === "ended" ? "bg-muted" : "ring-1 ring-inset ring-[var(--accent)]";
             return (
-              <div key={sprint.name} className="border border-border/60 rounded-lg p-3 space-y-1.5">
+              <div key={sprint.name} className="bg-surface rounded-lg p-3 space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-text font-semibold">
-                    <span className={`${stateCls} mr-1.5`}>{marker}</span>
+                <span className={`w-2 h-2 rounded-full inline-block align-[1px] mr-1.5 ${dotCls}`} title={state} />
                     {sprint.name}
                     <span className="text-muted font-normal ml-2">
                       {sprint.start || "?"} → {sprint.end || "?"}

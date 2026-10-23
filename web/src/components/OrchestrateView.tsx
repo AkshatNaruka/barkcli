@@ -143,7 +143,7 @@ export function OrchestrateView({ boardName }: { boardName: string | null }) {
             <button
               onClick={handleRegister}
               disabled={!newAgentId.trim() || !newAgentName.trim()}
-              className="w-full px-3 py-1.5 bg-accent text-white text-xs rounded font-medium hover:bg-accent/80 disabled:opacity-50"
+              className="w-full px-3 py-1.5 bg-accent text-white text-xs rounded font-medium hover:bg-accent-hover disabled:opacity-50"
             >
               Register
             </button>
@@ -216,16 +216,16 @@ export function OrchestrateView({ boardName }: { boardName: string | null }) {
               </div>
               <div className="flex justify-between">
                 <span>Completed</span>
-                <span className="text-green-400">{orchStatus.tasks_completed}</span>
+                <span className="text-success">{orchStatus.tasks_completed}</span>
               </div>
               <div className="flex justify-between">
                 <span>Failed</span>
-                <span className="text-red-400">{orchStatus.tasks_failed}</span>
+                <span className="text-danger">{orchStatus.tasks_failed}</span>
               </div>
             </div>
             <button
               onClick={handleRunCycle}
-              className="w-full mt-2 px-3 py-1.5 bg-accent text-white text-xs rounded font-medium hover:bg-accent/80"
+              className="w-full mt-2 px-3 py-1.5 bg-accent text-white text-xs rounded font-medium hover:bg-accent-hover"
             >
               Run Cycle
             </button>

@@ -134,7 +134,7 @@ export function TimelineView({ boardName }: { boardName: string | null }) {
             />
             <button
               onClick={handleSaveCheckpoint}
-              className="px-4 py-2 bg-accent text-white text-xs rounded-lg font-medium hover:bg-accent/80"
+              className="px-4 py-2 bg-accent text-white text-xs rounded-lg font-medium hover:bg-accent-hover"
             >
               Save Checkpoint
             </button>
@@ -152,7 +152,7 @@ export function TimelineView({ boardName }: { boardName: string | null }) {
                 <div key={c.id} className="bg-surface border border-border rounded-lg p-3 flex items-center justify-between group">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${c.kind === "auto" ? "bg-accent/10 text-accent" : "bg-surface text-muted"}`}>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${c.kind === "auto" ? "bg-accent-soft text-accent-text" : "bg-surface text-muted"}`}>
                         {c.kind}
                       </span>
                       <span className="text-xs font-medium text-text font-mono">{c.id}</span>
@@ -180,7 +180,7 @@ export function TimelineView({ boardName }: { boardName: string | null }) {
             <p className="text-xs text-muted mb-3">Revert the board to its state before the last operation.</p>
             <button
               onClick={handleUndo}
-              className="px-4 py-2 bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 text-xs rounded-lg font-medium hover:bg-yellow-500/20"
+              className="px-4 py-2 bg-warning-soft text-warning text-xs rounded-lg font-medium hover:opacity-80 transition-opacity"
             >
               Undo
             </button>
@@ -205,7 +205,7 @@ export function TimelineView({ boardName }: { boardName: string | null }) {
                     input.value = "";
                   }
                 }}
-                className="px-3 py-1.5 bg-accent text-white text-xs rounded font-medium hover:bg-accent/80"
+                className="px-3 py-1.5 bg-accent text-white text-xs rounded font-medium hover:bg-accent-hover"
               >
                 Save
               </button>
@@ -226,7 +226,7 @@ export function TimelineView({ boardName }: { boardName: string | null }) {
               <button
                 onClick={handleBlame}
                 disabled={!blameCardId.trim()}
-                className="px-3 py-1.5 bg-accent text-white text-xs rounded font-medium hover:bg-accent/80 disabled:opacity-50"
+                className="px-3 py-1.5 bg-accent text-white text-xs rounded font-medium hover:bg-accent-hover disabled:opacity-50"
               >
                 Show
               </button>
@@ -258,9 +258,9 @@ export function TimelineView({ boardName }: { boardName: string | null }) {
             <div className="space-y-3">
               {diff.added.length > 0 && (
                 <div>
-                  <h4 className="text-xs font-semibold text-green-400 mb-2">Added ({diff.added.length})</h4>
+                  <h4 className="text-xs font-semibold text-success mb-2">Added ({diff.added.length})</h4>
                   {diff.added.map(c => (
-                    <div key={c.id} className="bg-green-500/5 border border-green-500/20 rounded p-2 mb-1">
+                    <div key={c.id} className="bg-success-soft rounded p-2 mb-1">
                       <span className="text-xs text-text">+ {c.title}</span>
                       <span className="text-[10px] text-muted ml-2 font-mono">[{c.id}] in {c.column}</span>
                     </div>
@@ -269,9 +269,9 @@ export function TimelineView({ boardName }: { boardName: string | null }) {
               )}
               {diff.removed.length > 0 && (
                 <div>
-                  <h4 className="text-xs font-semibold text-red-400 mb-2">Removed ({diff.removed.length})</h4>
+                  <h4 className="text-xs font-semibold text-danger mb-2">Removed ({diff.removed.length})</h4>
                   {diff.removed.map(c => (
-                    <div key={c.id} className="bg-red-500/5 border border-red-500/20 rounded p-2 mb-1">
+                    <div key={c.id} className="bg-danger-soft rounded p-2 mb-1">
                       <span className="text-xs text-text">- {c.title}</span>
                       <span className="text-[10px] text-muted ml-2 font-mono">[{c.id}]</span>
                     </div>
@@ -280,9 +280,9 @@ export function TimelineView({ boardName }: { boardName: string | null }) {
               )}
               {diff.moved.length > 0 && (
                 <div>
-                  <h4 className="text-xs font-semibold text-yellow-400 mb-2">Moved ({diff.moved.length})</h4>
+                  <h4 className="text-xs font-semibold text-warning mb-2">Moved ({diff.moved.length})</h4>
                   {diff.moved.map(c => (
-                    <div key={c.id} className="bg-yellow-500/5 border border-yellow-500/20 rounded p-2 mb-1">
+                    <div key={c.id} className="bg-warning-soft rounded p-2 mb-1">
                       <span className="text-xs text-text">~ {c.title}</span>
                       <span className="text-[10px] text-muted ml-2">{c.from} → {c.to}</span>
                     </div>
@@ -312,12 +312,12 @@ export function TimelineView({ boardName }: { boardName: string | null }) {
             </button>
             {validateResult && (
               <div className="mt-3 space-y-2">
-                <p className={`text-xs font-medium ${validateResult.all_valid ? "text-green-400" : "text-yellow-400"}`}>
+                <p className={`text-xs font-medium ${validateResult.all_valid ? "text-success" : "text-warning"}`}>
                   {validateResult.all_valid ? "All boards valid" : "Some boards have errors"}
                 </p>
                 {validateResult.boards?.map((b: any) => (
                   <div key={b.name} className="flex items-center gap-2 text-xs">
-                    <span className={b.valid ? "text-green-400" : "text-red-400"}>
+                    <span className={b.valid ? "text-success" : "text-danger"}>
                       {b.valid ? "OK" : "ERR"}
                     </span>
                     <span className="text-text font-mono">{b.name}</span>
@@ -336,7 +336,7 @@ export function TimelineView({ boardName }: { boardName: string | null }) {
             <button
               onClick={handleDoctor}
               disabled={loading}
-              className="px-4 py-2 bg-accent text-white text-xs rounded-lg font-medium hover:bg-accent/80 disabled:opacity-50"
+              className="px-4 py-2 bg-accent text-white text-xs rounded-lg font-medium hover:bg-accent-hover disabled:opacity-50"
             >
               {loading ? "Fixing..." : "Run Doctor"}
             </button>
@@ -349,7 +349,7 @@ export function TimelineView({ boardName }: { boardName: string | null }) {
                   <div key={b.name} className="text-xs text-muted">
                     <span className="font-mono">{b.name}</span>: {b.errors_before} errors → {b.errors_after} errors
                     {b.fixed?.length > 0 && (
-                      <span className="text-green-400 ml-1">({b.fixed.join(", ")})</span>
+                      <span className="text-success ml-1">({b.fixed.join(", ")})</span>
                     )}
                   </div>
                 ))}

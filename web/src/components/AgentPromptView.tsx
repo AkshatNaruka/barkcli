@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { Icon } from "./Icon";
 
 const AGENT_PROMPT = `# AI Agent Prompt for barkcli
 
@@ -431,8 +432,8 @@ export function AgentPromptView() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
-            <span className="text-accent text-sm">{"</>"}</span>
+          <div className="w-8 h-8 rounded-lg bg-accent-soft flex items-center justify-center">
+            <Icon name="code" size={14} />
           </div>
           <div>
             <h2 className="text-sm font-semibold text-text">AI Agent Prompt</h2>

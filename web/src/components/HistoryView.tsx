@@ -1,16 +1,24 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { Icon } from "./Icon";
 import { fetchBundles, scanBundles, approveBundle, rejectBundle, sealBundle, fetchBundleTree } from "../lib/api";
 import type { Bundle } from "../lib/types";
 
-const KIND_COLORS: Record<string, string> = {
-  feat: "bg-emerald-500/20 text-emerald-400",
-  fix: "bg-red-500/20 text-red-400",
-  refactor: "bg-blue-500/20 text-blue-400",
-  docs: "bg-purple-500/20 text-purple-400",
-  chore: "bg-gray-500/20 text-gray-400",
-  test: "bg-yellow-500/20 text-yellow-400",
-  mixed: "bg-orange-500/20 text-orange-400",
-};
+// Kind chips reuse the app-wide dot language: labelColor gives a stable,
+// readable hue per kind (same palette as board labels — no raw Tailwind rows).
+import { labelColor } from "../lib/labels";
+
+function KindChip({ kind }: { kind: string }) {
+  const { color } = labelColor(kind || "chore");
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 text-[10px] font-medium px-1.5 py-px rounded-full shrink-0"
+      style={{ background: `color-mix(in srgb, ${color} 14%, transparent)` }}
+    >
+      <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
+      {kind}
+    </span>
+  );
+}
 
 function BundleCard({ bundle, onApprove, onReject, onSeal }: {
   bundle: Bundle;
@@ -22,15 +30,13 @@ function BundleCard({ bundle, onApprove, onReject, onSeal }: {
   const isUnsorted = bundle.id.endsWith("-unsorted");
 
   return (
-    <div className={`border rounded-lg p-3 mb-2 transition-all ${isUnsorted ? "border-dashed border-border bg-card/50" : "border-border bg-card"}`}>
+    <div className={`rounded-lg p-3 mb-2 transition-all ${isUnsorted ? "border border-dashed border-border bg-card" : "bg-surface"}`}>
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${KIND_COLORS[bundle.kind] || "bg-gray-500/20 text-gray-400"}`}>
-              {bundle.kind}
-            </span>
+            <KindChip kind={bundle.kind} />
             {bundle.status === "sealed" && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-accent/20 text-accent">sealed</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-px rounded text-accent-text bg-accent-soft">sealed</span>
             )}
             <span className="text-xs text-muted">{bundle.branch}</span>
             {bundle.confidence > 0 && (
@@ -50,13 +56,13 @@ function BundleCard({ bundle, onApprove, onReject, onSeal }: {
         <div className="flex items-center gap-1 ml-2">
           {!bundle.status.includes("sealed") && (
             <>
-              <button onClick={() => onApprove(bundle.id)} className="text-xs px-2 py-1 rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30">approve</button>
-              <button onClick={() => onSeal(bundle.id)} className="text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30">seal</button>
-              <button onClick={() => onReject(bundle.id)} className="text-xs px-2 py-1 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30">reject</button>
+              <button onClick={() => onApprove(bundle.id)} className="text-xs px-2 py-1 rounded bg-success-soft text-success hover:opacity-80 transition-opacity">Approve</button>
+              <button onClick={() => onSeal(bundle.id)} className="text-xs px-2 py-1 rounded bg-accent-soft text-accent-text hover:opacity-80 transition-opacity">Seal</button>
+              <button onClick={() => onReject(bundle.id)} className="text-xs px-2 py-1 rounded bg-danger-soft text-danger hover:opacity-80 transition-opacity">Reject</button>
             </>
           )}
-          <button onClick={() => setExpanded(!expanded)} className="text-xs px-2 py-1 rounded hover:bg-border text-muted">
-            {expanded ? "▲" : "▼"}
+          <button onClick={() => setExpanded(!expanded)} className="text-xs px-2 py-1.5 rounded hover:bg-card text-muted">
+            <span className={`inline-flex transition-transform ${expanded ? "" : "rotate-90"}`}><Icon name="chevR" size={12} /></span>
           </button>
         </div>
       </div>
@@ -135,7 +141,7 @@ export function HistoryView({ boardName }: { boardName: string | null }) {
         <button
           onClick={handleScan}
           disabled={scanning}
-          className="text-sm px-3 py-1.5 rounded-lg bg-accent text-white hover:bg-accent/80 disabled:opacity-50"
+          className="text-sm px-3 py-1.5 rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50"
         >
           {scanning ? "Scanning..." : "Scan"}
         </button>
@@ -146,7 +152,7 @@ export function HistoryView({ boardName }: { boardName: string | null }) {
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`text-xs px-2 py-1 rounded-full border ${filter === f ? "border-accent text-accent bg-accent/10" : "border-border text-muted hover:border-accent"}`}
+            className={`text-xs px-2 py-1 rounded transition-colors ${filter === f ? "bg-accent-soft text-accent-text" : "text-muted hover:text-text"}`}
           >
             {f}
           </button>

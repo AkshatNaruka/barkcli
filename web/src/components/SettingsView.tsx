@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import type { Board as BoardType } from "../lib/types";
 import { fetchConfig, type BoardConfig } from "../lib/api";
 import { useTheme, type Theme } from "../lib/theme";
+import { Icon } from "./Icon";
 
 export function SettingsView({
   board,
@@ -123,13 +124,13 @@ export function SettingsView({
                   className="text-muted hover:text-danger transition-colors disabled:opacity-30"
                   title="Remove column (cards move to the first column)"
                 >
-                  ✕
+                  <Icon name="x" size={13} />
                 </button>
               </div>
             ))}
             <button
               onClick={onAddColumn}
-              className="text-[11px] px-2 py-1 rounded border border-border text-muted hover:text-accent hover:border-accent transition-colors"
+              className="text-[11px] px-2 py-1 rounded text-muted hover:text-accent hover:bg-accent-soft transition-colors"
             >
               + Add column
             </button>

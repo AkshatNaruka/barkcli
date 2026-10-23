@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback } from "react";
 import type { MemoryEntry, ProjectFact, MemoryTier } from "../lib/types";
+import { Icon } from "./Icon";
 import { fetchMemory, addMemory, deleteMemory, fetchMemoryStats, addFact, fetchFacts, ingestMemory, consolidateMemory } from "../lib/api";
 
 const TIER_COLORS: Record<string, string> = {
-  working: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  short_term: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-  long_term: "bg-green-500/10 text-green-400 border-green-500/20",
-  external: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+  working: "#60a5fa",
+  short_term: "#facc15",
+  long_term: "#4ade80",
+  external: "#c084fc",
 };
 
 const TIER_LABELS: Record<string, string> = {
@@ -105,7 +106,7 @@ export function MemoryView({ boardName }: { boardName: string | null }) {
       <div className="flex items-center gap-2 shrink-0">
         <button
           onClick={handleIngest}
-          className="px-3 py-1.5 bg-accent text-white text-xs rounded font-medium hover:bg-accent/80"
+          className="px-3 py-1.5 bg-accent text-white text-xs rounded font-medium hover:bg-accent-hover"
         >
           Ingest sessions
         </button>
@@ -142,12 +143,12 @@ export function MemoryView({ boardName }: { boardName: string | null }) {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search memories..."
-              className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text placeholder:text-muted focus:outline-none focus:border-accent"
+              className="flex-1 bg-card rounded-lg px-3 py-2 text-sm text-text placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent"
             />
             <select
               value={filterTier}
               onChange={e => setFilterTier(e.target.value)}
-              className="bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:border-accent"
+              className="bg-card rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:ring-1 focus:ring-accent"
             >
               <option value="">All tiers</option>
               <option value="working">Working</option>
@@ -158,7 +159,7 @@ export function MemoryView({ boardName }: { boardName: string | null }) {
           </div>
 
           {/* Add Memory */}
-          <div className="bg-surface border border-border rounded-lg p-3 shrink-0">
+          <div className="bg-surface rounded-lg p-3 shrink-0">
             <textarea
               value={newContent}
               onChange={e => setNewContent(e.target.value)}
@@ -187,7 +188,7 @@ export function MemoryView({ boardName }: { boardName: string | null }) {
               <button
                 onClick={handleAdd}
                 disabled={!newContent.trim()}
-                className="px-3 py-1 bg-accent text-white text-xs rounded font-medium hover:bg-accent/80 disabled:opacity-50"
+                className="px-3 py-1 bg-accent text-white text-xs rounded font-medium hover:bg-accent-hover disabled:opacity-50"
               >
                 Add
               </button>
@@ -206,18 +207,19 @@ export function MemoryView({ boardName }: { boardName: string | null }) {
               <p className="text-sm text-muted text-center py-8">No memories found</p>
             ) : (
               memories.map(m => (
-                <div key={m.id} className="bg-surface border border-border rounded-lg p-3 group hover:border-border-strong transition-colors">
+                <div key={m.id} className="bg-surface rounded-lg p-3 group transition-colors">
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-sm text-text flex-1">{m.content}</p>
                     <button
                       onClick={() => handleDelete(m.id)}
-                      className="text-muted hover:text-danger opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                      className="text-muted hover:text-danger opacity-0 group-hover:opacity-100 transition-opacity"
                     >
-                      x
+                      <Icon name="x" size={12} />
                     </button>
                   </div>
                   <div className="flex items-center gap-2 mt-2">
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${TIER_COLORS[m.tier] || ""}`}>
+                    <span className="inline-flex items-center gap-1 text-[10px] text-muted">
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: TIER_COLORS[m.tier] || "var(--muted)" }} title={TIER_LABELS[m.tier] || m.tier} />
                       {TIER_LABELS[m.tier] || m.tier}
                     </span>
                     {m.tags.map(tag => (
@@ -226,7 +228,7 @@ export function MemoryView({ boardName }: { boardName: string | null }) {
                       </span>
                     ))}
                     {typeof m.importance === "number" && (
-                      <span className="text-[10px] text-accent bg-accent/10 px-1.5 py-0.5 rounded">
+                      <span className="text-[10px] text-accent-text bg-accent-soft px-1.5 py-0.5 rounded">
                         importance {(m.importance * 100).toFixed(0)}%
                       </span>
                     )}
@@ -250,14 +252,14 @@ export function MemoryView({ boardName }: { boardName: string | null }) {
             <p className="text-xs text-muted">{facts.length} project facts</p>
             <button
               onClick={() => setShowAddFact(!showAddFact)}
-              className="px-3 py-1 bg-accent text-white text-xs rounded font-medium hover:bg-accent/80"
+              className="px-3 py-1 bg-accent text-white text-xs rounded font-medium hover:bg-accent-hover"
             >
               + Add Fact
             </button>
           </div>
 
           {showAddFact && (
-            <div className="bg-surface border border-border rounded-lg p-3 shrink-0">
+            <div className="bg-surface rounded-lg p-3 shrink-0">
               <textarea
                 value={factText}
                 onChange={e => setFactText(e.target.value)}
@@ -279,7 +281,7 @@ export function MemoryView({ boardName }: { boardName: string | null }) {
                 <button
                   onClick={handleAddFact}
                   disabled={!factText.trim()}
-                  className="px-3 py-1 bg-accent text-white text-xs rounded font-medium hover:bg-accent/80 disabled:opacity-50"
+                  className="px-3 py-1 bg-accent text-white text-xs rounded font-medium hover:bg-accent-hover disabled:opacity-50"
                 >
                   Add
                 </button>
@@ -292,10 +294,10 @@ export function MemoryView({ boardName }: { boardName: string | null }) {
               <p className="text-sm text-muted text-center py-8">No project facts yet</p>
             ) : (
               facts.map((f, i) => (
-                <div key={i} className="bg-surface border border-border rounded-lg p-3">
+                <div key={i} className="bg-surface rounded-lg p-3">
                   <p className="text-sm text-text">{f.fact}</p>
                   <div className="flex items-center gap-2 mt-2">
-                    <span className="text-[10px] text-accent bg-accent/10 px-1.5 py-0.5 rounded">
+                    <span className="text-[10px] text-accent-text bg-accent-soft px-1.5 py-0.5 rounded">
                       {f.category}
                     </span>
                     <span className="text-[10px] text-muted">

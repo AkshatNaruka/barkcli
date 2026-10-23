@@ -1,29 +1,26 @@
 import React, { useState, useEffect, useCallback } from "react";
 import type { Spec, Requirement, SpecCoverage, SpecStatus } from "../lib/types";
 import { fetchSpecs, createSpec, updateSpec, deleteSpec, addRequirement, fetchSpecCoverage, fetchSpec } from "../lib/api";
+import { Lozenge } from "./Lozenge";
+import { QuietSelect } from "./QuietSelect";
+import { Icon } from "./Icon";
 
-const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-500/10 text-gray-400 border-gray-500/20",
-  "in-progress": "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-  implemented: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  verified: "bg-green-500/10 text-green-400 border-green-500/20",
-  deprecated: "bg-red-500/10 text-red-400 border-red-500/20",
+// Status lozenges: tone carries meaning, no borders, no glyph art
+const STATUS_TONES: Record<string, "gray" | "blue" | "amber" | "green" | "red"> = {
+  draft: "gray",
+  "in-progress": "amber",
+  implemented: "blue",
+  verified: "green",
+  deprecated: "red",
 };
 
-const REQ_STATUS_COLORS: Record<string, string> = {
-  pending: "text-gray-400",
-  "in-progress": "text-yellow-400",
-  implemented: "text-blue-400",
-  verified: "text-green-400",
-  failed: "text-red-400",
-};
-
-const REQ_STATUS_ICONS: Record<string, string> = {
-  pending: "o",
-  "in-progress": "~",
-  implemented: "*",
-  verified: "+",
-  failed: "x",
+// Requirement state: the dot language (hollow = pending, filled = state)
+const REQ_DOT: Record<string, string> = {
+  pending: "ring-1 ring-inset ring-[var(--border-strong)]",
+  "in-progress": "bg-warning",
+  implemented: "bg-accent",
+  verified: "bg-success",
+  failed: "bg-danger",
 };
 
 export function SpecsView({ boardName }: { boardName: string | null }) {
@@ -110,46 +107,46 @@ export function SpecsView({ boardName }: { boardName: string | null }) {
     <div className="h-full flex overflow-hidden">
       {/* Sidebar - Spec List */}
       <div className="w-72 border-r border-border flex flex-col shrink-0">
-        <div className="p-3 border-b border-border flex items-center justify-between">
+        <div className="p-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-text">Specs</h3>
           <button
             onClick={() => setShowCreate(!showCreate)}
-            className="text-xs text-accent hover:text-accent/80"
+            className="text-xs text-accent hover:text-accent-text transition-colors"
           >
-            + New
+            New
           </button>
         </div>
 
         {showCreate && (
-          <div className="p-3 border-b border-border bg-surface/50">
+          <div className="p-3 border-b border-border bg-surface/50 flex flex-col gap-2">
             <input
               type="text"
               value={newTitle}
               onChange={e => setNewTitle(e.target.value)}
               placeholder="Spec title"
-              className="w-full bg-card border border-border rounded px-2 py-1.5 text-xs text-text placeholder:text-muted mb-2"
+              className="w-full bg-card rounded px-2 py-1.5 text-xs text-text placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent"
             />
             <textarea
               value={newDesc}
               onChange={e => setNewDesc(e.target.value)}
               placeholder="Description (optional)"
-              className="w-full bg-card border border-border rounded px-2 py-1.5 text-xs text-text placeholder:text-muted resize-none mb-2"
+              className="w-full bg-card rounded px-2 py-1.5 text-xs text-text placeholder:text-muted resize-none focus:outline-none focus:ring-1 focus:ring-accent"
               rows={2}
             />
             <div className="flex gap-2">
-              <select
+              <QuietSelect
                 value={newPriority}
                 onChange={e => setNewPriority(e.target.value)}
-                className="flex-1 bg-card border border-border rounded px-2 py-1 text-xs text-text"
+                className="flex-1 bg-card px-2 py-1 text-xs text-text"
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
-              </select>
+              </QuietSelect>
               <button
                 onClick={handleCreate}
                 disabled={!newTitle.trim()}
-                className="px-3 py-1 bg-accent text-white text-xs rounded font-medium hover:bg-accent/80 disabled:opacity-50"
+                className="px-3 py-1 bg-accent text-white text-xs rounded font-medium hover:bg-accent-hover disabled:opacity-50 transition-colors"
               >
                 Create
               </button>
@@ -162,7 +159,7 @@ export function SpecsView({ boardName }: { boardName: string | null }) {
           <div className="p-3 border-b border-border text-xs text-muted">
             <div className="flex justify-between">
               <span>Coverage</span>
-              <span className={coverage.coverage_percent >= 80 ? "text-green-400" : coverage.coverage_percent >= 50 ? "text-yellow-400" : "text-red-400"}>
+              <span className={coverage.coverage_percent >= 80 ? "text-success" : coverage.coverage_percent >= 50 ? "text-warning" : "text-danger"}>
                 {coverage.coverage_percent.toFixed(0)}%
               </span>
             </div>
@@ -199,13 +196,10 @@ export function SpecsView({ boardName }: { boardName: string | null }) {
               >
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium text-text truncate">{s.title}</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded border ${STATUS_COLORS[s.status] || ""}`}>
-                    {s.status}
-                  </span>
+                  <Lozenge tone={STATUS_TONES[s.status] || "gray"}>{s.status}</Lozenge>
                 </div>
                 <div className="flex items-center gap-2 mt-1 text-[10px] text-muted">
                   <span>{s.requirements.length} reqs</span>
-                  <span>•</span>
                   <span>{s.priority}</span>
                 </div>
               </button>
@@ -230,35 +224,31 @@ export function SpecsView({ boardName }: { boardName: string | null }) {
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <select
+                <QuietSelect
                   value={selectedSpec.status}
                   onChange={e => handleStatusChange(selectedSpec.id, e.target.value as SpecStatus)}
-                  className="bg-surface border border-border rounded px-2 py-1 text-xs text-text"
+                  className="bg-surface px-2 py-1"
                 >
                   <option value="draft">Draft</option>
                   <option value="in-progress">In Progress</option>
                   <option value="implemented">Implemented</option>
                   <option value="verified">Verified</option>
                   <option value="deprecated">Deprecated</option>
-                </select>
+                </QuietSelect>
                 <button
                   onClick={() => handleDelete(selectedSpec.id)}
-                  className="text-xs text-muted hover:text-danger"
+                  className="text-xs text-muted hover:text-danger transition-colors"
                 >
                   Delete
                 </button>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 text-xs text-muted">
+            <div className="flex items-center gap-2 text-xs text-muted">
               <span>Priority: {selectedSpec.priority}</span>
-              <span>•</span>
               <span>{selectedSpec.requirements.length} requirements</span>
               {selectedSpec.tags.length > 0 && (
-                <>
-                  <span>•</span>
-                  <span>{selectedSpec.tags.join(", ")}</span>
-                </>
+                <span>{selectedSpec.tags.join(", ")}</span>
               )}
             </div>
 
@@ -268,9 +258,9 @@ export function SpecsView({ boardName }: { boardName: string | null }) {
                 <h3 className="text-sm font-semibold text-text">Requirements</h3>
                 <button
                   onClick={() => setShowAddReq(!showAddReq)}
-                  className="text-xs text-accent hover:text-accent/80"
+                  className="text-xs text-accent hover:text-accent-text transition-colors"
                 >
-                  + Add
+                  Add requirement
                 </button>
               </div>
 
@@ -281,12 +271,12 @@ export function SpecsView({ boardName }: { boardName: string | null }) {
                     value={reqTitle}
                     onChange={e => setReqTitle(e.target.value)}
                     placeholder="Requirement title"
-                    className="flex-1 bg-surface border border-border rounded px-2 py-1.5 text-xs text-text placeholder:text-muted"
+                    className="flex-1 bg-surface rounded px-2 py-1.5 text-xs text-text placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent"
                   />
                   <button
                     onClick={handleAddReq}
                     disabled={!reqTitle.trim()}
-                    className="px-3 py-1 bg-accent text-white text-xs rounded font-medium hover:bg-accent/80 disabled:opacity-50"
+                    className="px-3 py-1 bg-accent text-white text-xs rounded font-medium hover:bg-accent-hover disabled:opacity-50 transition-colors"
                   >
                     Add
                   </button>
@@ -300,31 +290,27 @@ export function SpecsView({ boardName }: { boardName: string | null }) {
                   selectedSpec.requirements.map(req => (
                     <div
                       key={req.id}
-                      className={`bg-surface border border-border rounded-lg p-3 ${req.stale ? "border-yellow-500/30" : ""}`}
+                      className="bg-surface rounded-lg p-3"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className={`font-mono text-xs ${REQ_STATUS_COLORS[req.status]}`}>
-                            [{REQ_STATUS_ICONS[req.status]}]
-                          </span>
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${REQ_DOT[req.status] || REQ_DOT.pending}`} title={req.status} />
                           <span className="text-xs font-medium text-text">{req.title}</span>
                           {req.stale && (
-                            <span className="text-[10px] text-yellow-400 bg-yellow-500/10 px-1 rounded">
-                              STALE
-                            </span>
+                            <Lozenge tone="amber" title={`Stale: ${req.stale_reason || "requirements changed"}`}>stale</Lozenge>
                           )}
                         </div>
-                        <select
+                        <QuietSelect
                           value={req.status}
                           onChange={e => handleReqStatusChange(req.id, e.target.value)}
-                          className="bg-card border border-border rounded px-1.5 py-0.5 text-[10px] text-text"
+                          className="bg-card px-1.5 py-0.5 text-[10px]"
                         >
                           <option value="pending">Pending</option>
                           <option value="in-progress">In Progress</option>
                           <option value="implemented">Implemented</option>
                           <option value="verified">Verified</option>
                           <option value="failed">Failed</option>
-                        </select>
+                        </QuietSelect>
                       </div>
                       {req.description && (
                         <p className="text-[11px] text-muted mt-1 ml-5">{req.description}</p>
@@ -333,7 +319,7 @@ export function SpecsView({ boardName }: { boardName: string | null }) {
                         <div className="flex items-center gap-1 mt-2 ml-5">
                           <span className="text-[10px] text-muted">Code:</span>
                           {req.linked_code.map(p => (
-                            <span key={p} className="text-[10px] text-accent bg-accent/10 px-1 rounded font-mono">
+                            <span key={p} className="text-[10px] text-accent-text bg-accent-soft px-1 rounded font-mono">
                               {p}
                             </span>
                           ))}
@@ -343,7 +329,7 @@ export function SpecsView({ boardName }: { boardName: string | null }) {
                         <div className="flex items-center gap-1 mt-1 ml-5">
                           <span className="text-[10px] text-muted">Tasks:</span>
                           {req.linked_tasks.map(t => (
-                            <span key={t} className="text-[10px] text-muted-strong bg-surface px-1 rounded font-mono">
+                            <span key={t} className="text-[10px] text-muted-strong bg-card px-1 rounded font-mono">
                               {t}
                             </span>
                           ))}

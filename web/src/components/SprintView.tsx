@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import type { Board as BoardType, Card, Sprint } from "../lib/types";
 import { startSprint, endSprint } from "../lib/api";
+import { Icon } from "./Icon";
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
@@ -69,25 +70,25 @@ export function SprintView({
     <div className="h-full overflow-auto">
       <div className="max-w-3xl mx-auto p-4 space-y-6">
         {/* Start a sprint */}
-        <div className="bg-surface border border-border rounded-lg p-4">
+        <div className="bg-surface rounded-lg p-4">
           <h3 className="text-xs font-semibold text-text mb-3">Start a sprint</h3>
           <div className="flex flex-wrap items-end gap-2">
             <label className="flex-1 min-w-[160px]">
-              <span className="text-[10px] uppercase tracking-wider text-muted block mb-1">Name</span>
+              <span className="text-[11px] text-muted block mb-1">Name</span>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. sprint-23"
-                className="w-full bg-bg border border-border rounded px-2.5 py-1.5 text-sm text-text placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent"
+                className="w-full bg-card rounded px-2.5 py-1.5 text-sm text-text placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent"
               />
             </label>
             <label className="w-40">
-              <span className="text-[10px] uppercase tracking-wider text-muted block mb-1">Ends (optional)</span>
+              <span className="text-[11px] text-muted block mb-1">Ends (optional)</span>
               <input
                 type="date"
                 value={end}
                 onChange={(e) => setEnd(e.target.value)}
-                className="w-full bg-bg border border-border rounded px-2.5 py-1.5 text-sm text-text focus:outline-none focus:ring-1 focus:ring-accent"
+                className="w-full bg-card rounded px-2.5 py-1.5 text-sm text-text focus:outline-none focus:ring-1 focus:ring-accent"
               />
             </label>
             <button
@@ -111,13 +112,14 @@ export function SprintView({
           )}
           {rows.map(({ sprint, state, cards, doneCount, effort, doneEffort }) => {
             const pct = cards.length > 0 ? Math.round((doneCount / cards.length) * 100) : 0;
-            const stateCls = state === "active" ? "text-success" : state === "ended" ? "text-muted" : "text-accent";
-            const marker = state === "active" ? "●" : state === "ended" ? "○" : "◇";
+            // Sprint state: filled dot = active, punctured ring = upcoming,
+            // hollow = ended (consistent with the app-wide dot language)
+            const dotCls = state === "active" ? "bg-success" : state === "ended" ? "bg-muted" : "ring-1 ring-inset ring-[var(--accent)]";
             return (
-              <div key={sprint.name} className="bg-surface border border-border rounded-lg p-4">
+              <div key={sprint.name} className="bg-surface rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div className="text-sm font-semibold text-text">
-                    <span className={`${stateCls} mr-1.5`}>{marker}</span>
+                    <span className={`w-2 h-2 rounded-full inline-block align-[1px] mr-1.5 ${dotCls}`} title={state} />
                     {sprint.name}
                     <span className="text-muted text-xs font-normal ml-2">
                       {sprint.start || "?"} → {sprint.end || "?"}
@@ -127,13 +129,13 @@ export function SprintView({
                     <button
                       onClick={() => onEnd(sprint.name)}
                       disabled={busy}
-                      className="text-[11px] px-2 py-1 rounded border border-border text-muted hover:text-danger hover:border-danger transition-colors disabled:opacity-50"
+                      className="text-[11px] px-2 py-1 rounded text-muted hover:text-danger hover:bg-danger-soft transition-colors disabled:opacity-50"
                     >
                       End sprint
                     </button>
                   )}
                 </div>
-                <div className="h-1.5 bg-bg rounded-full overflow-hidden mt-2.5">
+                <div className="h-1.5 bg-card rounded-full overflow-hidden mt-2.5">
                   <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${pct}%` }} />
                 </div>
                 <div className="text-[11px] text-muted mt-1.5">
@@ -145,10 +147,10 @@ export function SprintView({
                       <button
                         key={c.id}
                         onClick={() => onEditCard(c)}
-                        className="text-[10px] font-mono bg-bg border border-border rounded px-1.5 py-0.5 text-muted-strong hover:text-accent hover:border-accent transition-colors"
+                        className="text-[10px] font-mono bg-card rounded px-1.5 py-0.5 text-muted-strong hover:text-accent transition-colors"
                       >
                         {c.id}
-                        {c.column === "done" ? " ✓" : ""}
+                        {c.column === "done" && <Icon name="check" size={9} className="inline ml-1 text-success" />}
                       </button>
                     ))}
                     {cards.length > 12 && (

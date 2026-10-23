@@ -115,7 +115,7 @@ export function MindView({ boardName }: { boardName: string | null }) {
           {digest && (
             <button
               onClick={copyDigest}
-              className="text-xs px-3 py-1.5 rounded-md bg-accent text-white hover:bg-accent/90 inline-flex items-center gap-1.5"
+              className="text-xs px-3 py-1.5 rounded-md bg-accent text-white hover:bg-accent-hover inline-flex items-center gap-1.5"
             >
               <Icon name="copy" size={13} />
               {copied ? "Copied" : "Copy digest"}
@@ -147,7 +147,7 @@ export function MindView({ boardName }: { boardName: string | null }) {
         <button
           onClick={submit}
           disabled={!intent.trim() || submitting}
-          className="px-3.5 py-1.5 bg-accent text-white text-sm rounded-md font-medium hover:bg-accent/90 disabled:opacity-40"
+          className="px-3.5 py-1.5 bg-accent text-white text-sm rounded-md font-medium hover:bg-accent-hover disabled:opacity-40"
         >
           {submitting ? "Adding…" : "Add"}
         </button>
@@ -189,7 +189,7 @@ export function MindView({ boardName }: { boardName: string | null }) {
                   if (m) act(() => proposePlan(m[1], boardName || undefined));
                 }}
                 disabled={acting}
-                className="text-xs px-3 py-1.5 rounded-md bg-accent text-white hover:bg-accent/90 disabled:opacity-50"
+                className="text-xs px-3 py-1.5 rounded-md bg-accent text-white hover:bg-accent-hover disabled:opacity-50"
               >
                 Propose plan
               </button>
@@ -199,7 +199,7 @@ export function MindView({ boardName }: { boardName: string | null }) {
                 <button
                   onClick={() => act(() => approvePlan(proposal.card_id, boardName || undefined))}
                   disabled={acting}
-                  className="text-xs px-3 py-1.5 rounded-md bg-accent text-white hover:bg-accent/90 disabled:opacity-50"
+                  className="text-xs px-3 py-1.5 rounded-md bg-accent text-white hover:bg-accent-hover disabled:opacity-50"
                 >
                   Approve plan
                 </button>
@@ -216,7 +216,7 @@ export function MindView({ boardName }: { boardName: string | null }) {
               <button
                 onClick={() => act(() => runReview(boardName || undefined))}
                 disabled={acting}
-                className="text-xs px-3 py-1.5 rounded-md bg-accent text-white hover:bg-accent/90 disabled:opacity-50"
+                className="text-xs px-3 py-1.5 rounded-md bg-accent text-white hover:bg-accent-hover disabled:opacity-50"
               >
                 Run review
               </button>

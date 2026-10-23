@@ -201,7 +201,7 @@ function seedBoards(): Record<string, Board> {
     card({
       id: "brain-view-polish", title: "Brain graph polish", column: "todo", priority: "medium",
       labels: ["web", "memory"], effort: 2, area: "web",
-      description: "Force layout params, hover details, and edge filters for the d3 memory graph.",
+      description: "Auto layout, minimap search focus, and connected-node inspector for the memory graph.",
       updated_at: h(40), created_at: d(20),
     }),
     card({
