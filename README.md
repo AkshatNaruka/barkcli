@@ -81,6 +81,10 @@ Like `.git` but for Kanban boards. Project management for the terminal era — a
 |:---:|:---:|
 | ![](.github/assets/mind-dark.png) | ![](.github/assets/board-light.png) |
 
+| **Brain — the memory knowledge graph** | **Calendar — deadline-first** |
+|:---:|:---:|
+| ![](.github/assets/brain-dark.png) | ![](.github/assets/calendar-light.png) |
+
 Try it live without installing — [**the Web demo**](https://akshatnaruka.github.io/barkcli/app/) runs the full interface on demo data (every interaction works), or take the tour in the [docs](https://barkcli.vercel.app/docs).
 
 ---

@@ -3,6 +3,10 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { ThemeProvider } from "./lib/theme.tsx";
 import { isDemoMode, installDemoApi } from "./lib/demo";
+// React Flow's stylesheet loads at entry so our custom theme block in
+// index.css always wins the cascade (lazy-chunk CSS would otherwise be
+// injected after index.css and restore RF's white defaults).
+import "@xyflow/react/dist/style.css";
 import "./index.css";
 
 // GitHub Pages / static hosting: no backend behind this page, so the demo

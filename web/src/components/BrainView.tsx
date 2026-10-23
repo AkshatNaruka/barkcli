@@ -8,14 +8,13 @@ import {
   type Node,
   type Edge,
 } from "@xyflow/react";
-import "@xyflow/react/dist/style.css";
 import { fetchBrain, fetchBrainNode, type BrainNode, type BrainEdge } from "../lib/api";
 import { navigate } from "../lib/hashnav";
 import { Icon } from "./Icon";
 import { LabelChip } from "./LabelChip";
 import { QuietSelect } from "./QuietSelect";
 import { GraphNodeCard, type BrainNodeData } from "./brain/GraphNodeCard";
-import { layoutGraph, TIER, KIND_ICON } from "./brain/layout";
+import { layoutGraph, TIER, KIND_ICON, NODE_W, NODE_H } from "./brain/layout";
 
 export function BrainView({ boardName }: { boardName: string | null }) {
   const [nodes, setNodes] = useState<BrainNode[]>([]);
@@ -75,6 +74,10 @@ export function BrainView({ boardName }: { boardName: string | null }) {
     const rfNodes: Node[] = kept.map((n) => ({
       id: n.id,
       position: { x: 0, y: 0 },
+      // Explicit size: card already renders at NODE_W/H (GraphNodeCard pins
+      // width); RF v12's MiniMap needs these to project node rectangles.
+      width: NODE_W,
+      height: NODE_H,
       data: {
         label: n.label,
         kind: n.kind,
@@ -216,12 +219,15 @@ export function BrainView({ boardName }: { boardName: string | null }) {
                 pannable
                 zoomable
                 nodeColor={(n) => {
+                  // SVG fill attributes can't resolve CSS variables — use
+                  // literal colors: tier hues exist, slate as the fallback.
                   const d = (n.data ?? {}) as unknown as BrainNodeData;
-                  return d.tier ? TIER[d.tier]?.color ?? "var(--muted)" : "var(--muted)";
+                  const hex = d.tier ? TIER[d.tier]?.color : undefined;
+                  return hex || "#64748b";
                 }}
                 nodeStrokeWidth={0}
                 style={{ width: 150, height: 92, background: "var(--card)", borderRadius: 10 }}
-                maskColor="color-mix(in srgb, var(--bg) 72%, transparent)"
+                maskColor="rgba(120, 120, 130, 0.30)"
               />
             </ReactFlow>
           )}

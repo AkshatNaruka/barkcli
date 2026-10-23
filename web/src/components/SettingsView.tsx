@@ -77,7 +77,7 @@ export function SettingsView({
     <div className="h-full overflow-auto">
       <div className="max-w-2xl mx-auto p-4 space-y-6">
         {savedMsg && (
-          <div className="text-[11px] text-success bg-success/10 border border-success/20 rounded px-3 py-2">
+          <div className="text-[11px] text-success bg-success-soft rounded px-3 py-2">
             {savedMsg}
           </div>
         )}

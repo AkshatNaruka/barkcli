@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Lozenge } from "./Lozenge";
+import { QuietSelect } from "./QuietSelect";
+import { Icon } from "./Icon";
 import { agentColor } from "../lib/agents";
 
 interface Agent {
@@ -108,9 +110,9 @@ export function OrchestrateView({ boardName }: { boardName: string | null }) {
           <h3 className="text-sm font-semibold text-text">Agents</h3>
           <button
             onClick={() => setShowRegister(!showRegister)}
-            className="text-xs text-accent hover:text-accent/80"
+            className="text-xs text-accent hover:text-accent-text transition-colors"
           >
-            + Register
+            Register
           </button>
         </div>
 
@@ -121,25 +123,25 @@ export function OrchestrateView({ boardName }: { boardName: string | null }) {
               value={newAgentId}
               onChange={e => setNewAgentId(e.target.value)}
               placeholder="Agent ID"
-              className="w-full bg-card border border-border rounded px-2 py-1.5 text-xs text-text placeholder:text-muted"
+              className="w-full bg-card rounded px-2 py-1.5 text-xs text-text placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent"
             />
             <input
               type="text"
               value={newAgentName}
               onChange={e => setNewAgentName(e.target.value)}
               placeholder="Agent name"
-              className="w-full bg-card border border-border rounded px-2 py-1.5 text-xs text-text placeholder:text-muted"
+              className="w-full bg-card rounded px-2 py-1.5 text-xs text-text placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent"
             />
-            <select
+            <QuietSelect
               value={newAgentRole}
               onChange={e => setNewAgentRole(e.target.value)}
-              className="w-full bg-card border border-border rounded px-2 py-1.5 text-xs text-text"
+              className="w-full bg-card px-2 py-1.5 text-xs text-text pr-6"
             >
               <option value="ScrumMaster">Scrum Master</option>
               <option value="ProductOwner">Product Owner</option>
               <option value="TechLead">Tech Lead</option>
               <option value="ProjectManager">Project Manager</option>
-            </select>
+            </QuietSelect>
             <button
               onClick={handleRegister}
               disabled={!newAgentId.trim() || !newAgentName.trim()}
@@ -178,9 +180,9 @@ export function OrchestrateView({ boardName }: { boardName: string | null }) {
                   </div>
                   <button
                     onClick={() => handleDeleteAgent(a.id)}
-                    className="text-muted hover:text-danger opacity-0 group-hover:opacity-100 text-xs"
+                    className="text-muted hover:text-danger opacity-0 group-hover:opacity-100"
                   >
-                    x
+                    <Icon name="x" size={12} />
                   </button>
                 </div>
                 <div className="flex items-center gap-2 mt-2">
@@ -246,10 +248,10 @@ export function OrchestrateView({ boardName }: { boardName: string | null }) {
         <div className="p-3 border-b border-border flex items-center justify-between shrink-0">
           <h3 className="text-sm font-semibold text-text">Task Queue</h3>
           <div className="flex items-center gap-2">
-            <select
+            <QuietSelect
               value={taskFilter}
               onChange={e => setTaskFilter(e.target.value)}
-              className="bg-surface border border-border rounded px-2 py-1 text-xs text-text"
+              className="bg-surface px-2 py-1 text-xs text-text"
             >
               <option value="">All</option>
               <option value="Pending">Pending</option>
@@ -257,7 +259,7 @@ export function OrchestrateView({ boardName }: { boardName: string | null }) {
               <option value="InProgress">In Progress</option>
               <option value="Completed">Completed</option>
               <option value="Failed">Failed</option>
-            </select>
+            </QuietSelect>
             <span className="text-xs text-muted">{tasks.length} tasks</span>
           </div>
         </div>
@@ -280,9 +282,9 @@ export function OrchestrateView({ boardName }: { boardName: string | null }) {
                     </div>
                     <button
                       onClick={() => handleDeleteTask(t.id)}
-                      className="text-muted hover:text-danger opacity-0 group-hover:opacity-100 text-xs"
+                      className="text-muted hover:text-danger opacity-0 group-hover:opacity-100"
                     >
-                      x
+                      <Icon name="x" size={12} />
                     </button>
                   </div>
                   <div className="flex items-center gap-3 mt-1 text-[10px] text-muted">

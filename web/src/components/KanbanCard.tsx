@@ -90,7 +90,7 @@ export const KanbanCard = React.memo(function KanbanCard({ card, isOverlay, onEd
         <div className="mt-2 flex items-center gap-2">
           <div className="h-[3px] flex-1 rounded-full bg-[color-mix(in_srgb,var(--border)_55%,transparent)] overflow-hidden">
             <div
-              className={`h-full rounded-full ${checklistDone === checklistTotal ? "bg-success" : "bg-accent/70"}`}
+              className={`h-full rounded-full ${checklistDone === checklistTotal ? "bg-success" : "bg-[color-mix(in_srgb,var(--accent)_70%,transparent)]"}`}
               style={{ width: `${checklistPct}%` }}
             />
           </div>
@@ -121,7 +121,7 @@ export const KanbanCard = React.memo(function KanbanCard({ card, isOverlay, onEd
             </span>
           )}
           {(card as any).spec_id && (
-            <span className="text-accent/80" title={`Spec: ${(card as any).spec_id}`}>
+            <span className="text-accent-text" title={`Spec: ${(card as any).spec_id}`}>
               <Icon name="link" size={12} />
             </span>
           )}

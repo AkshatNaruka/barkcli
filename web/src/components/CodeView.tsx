@@ -4,9 +4,9 @@ import { codeSearch, fetchContext, syncContext, clearContext } from "../lib/api"
 
 function statusCls(status: string): string {
   switch (status) {
-    case "clean": return "bg-success/10 text-success";
-    case "changed": return "bg-warning/10 text-warning";
-    case "stale": return "bg-danger/10 text-danger";
+    case "clean": return "bg-success-soft text-success";
+    case "changed": return "bg-warning-soft text-warning";
+    case "stale": return "bg-danger-soft text-danger";
     default: return "bg-surface text-muted";
   }
 }
@@ -66,13 +66,13 @@ export function CodeView({
     <div className="h-full overflow-auto">
       <div className="max-w-5xl mx-auto p-4 space-y-6">
         {/* Search */}
-        <div className="bg-surface border border-border rounded-lg p-4">
+        <div className="bg-surface rounded-lg p-4">
           <h3 className="text-xs font-semibold text-text mb-3">Symbol search</h3>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search symbols… e.g. verify_token, handleKey"
-            className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent"
+            className="w-full bg-card rounded-lg px-3 py-2 text-sm text-text placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent"
           />
           {searching && <p className="text-xs text-muted mt-2">Searching…</p>}
           {!searching && query.trim() && results.length === 0 && (
@@ -80,12 +80,12 @@ export function CodeView({
           )}
           <div className="mt-2 space-y-1.5">
             {results.map((r) => (
-              <div key={r.path} className="flex items-center gap-2 text-xs border border-border/60 rounded px-2 py-1.5">
+              <div key={r.path} className="flex items-center gap-2 text-xs bg-card rounded px-2 py-1.5">
                 <button onClick={() => onOpenFile(r.path)} className="font-mono text-accent hover:underline truncate" title={r.path}>
                   {r.path}
                 </button>
                 {r.symbols.map((s) => (
-                  <span key={s} className="text-[10px] font-mono bg-bg px-1.5 py-0.5 rounded text-muted-strong shrink-0">{s}</span>
+                  <span key={s} className="text-[10px] font-mono bg-surface px-1.5 py-0.5 rounded text-muted-strong shrink-0">{s}</span>
                 ))}
                 <span className="flex-1" />
                 {r.cards.map((id) => (
@@ -103,7 +103,7 @@ export function CodeView({
         </div>
 
         {/* Context coverage */}
-        <div className="bg-surface border border-border rounded-lg p-4">
+        <div className="bg-surface rounded-lg p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-xs font-semibold text-text">Code context coverage</h3>
             <div className="flex items-center gap-2">
@@ -117,7 +117,7 @@ export function CodeView({
               </button>
               <button
                 onClick={onClear}
-                className="text-[11px] px-2 py-1 rounded border border-border text-muted hover:text-danger hover:border-danger transition-colors"
+                className="text-[11px] px-2 py-1 rounded text-muted hover:text-danger hover:bg-danger-soft transition-colors"
               >
                 Clear
               </button>
@@ -130,7 +130,7 @@ export function CodeView({
                 const c = ctx[card.id];
                 if (!c || c.files.length === 0) return null;
                 return (
-                  <div key={card.id} className="border border-border/60 rounded p-2.5 space-y-1">
+                  <div key={card.id} className="bg-card rounded p-2.5 space-y-1">
                     <div className="flex items-center gap-2">
                       <button onClick={() => onEditCard(card)} className="text-xs font-mono text-accent hover:underline">{card.id}</button>
                       <span className="text-xs text-muted truncate">{card.title}</span>
@@ -142,7 +142,7 @@ export function CodeView({
                         <button
                           key={f.path}
                           onClick={() => onOpenFile(f.path)}
-                          className="flex items-center gap-1.5 text-[10px] font-mono bg-bg rounded px-1.5 py-0.5 hover:text-accent transition-colors"
+                          className="flex items-center gap-1.5 text-[10px] font-mono bg-surface rounded px-1.5 py-0.5 hover:text-accent transition-colors"
                           title={f.symbols.join(", ")}
                         >
                           <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${f.status === "clean" ? "bg-success" : f.status === "changed" ? "bg-warning" : "bg-danger"}`} />
@@ -151,7 +151,7 @@ export function CodeView({
                       ))}
                     </div>
                     {c.ai && (
-                      <div className="text-[11px] text-muted-strong bg-bg rounded px-2 py-1.5">
+                      <div className="text-[11px] text-muted-strong bg-surface rounded px-2 py-1.5">
                         <span className="text-accent-text font-mono mr-1">ai:</span>
                         {c.ai.summary}
                         {c.ai.model && <span className="text-muted ml-1 font-mono">[{c.ai.model}]</span>}

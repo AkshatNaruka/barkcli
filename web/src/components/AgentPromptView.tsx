@@ -450,10 +450,10 @@ export function AgentPromptView() {
           />
           <button
             onClick={handleCopy}
-            className={`text-xs px-3 py-1.5 rounded border transition-colors ${
+            className={`text-xs px-3 py-1.5 rounded transition-colors ${
               copied
-                ? "bg-success/10 border-success text-success"
-                : "bg-accent text-white border-accent hover:bg-accent-hover"
+                ? "bg-success-soft text-success"
+                : "bg-accent text-white hover:bg-accent-hover"
             }`}
           >
             {copied ? "Copied!" : "Copy Prompt"}

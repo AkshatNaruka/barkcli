@@ -161,7 +161,7 @@ export function TimelineView({ boardName }: { boardName: string | null }) {
                   </div>
                   <button
                     onClick={() => handleRestore(c.id)}
-                    className="text-xs text-accent hover:text-accent/80 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="text-xs text-accent hover:text-accent-text opacity-0 group-hover:opacity-100 transition-opacity"
                   >
                     Restore
                   </button>
