@@ -40,7 +40,7 @@ export function SkillsView() {
 
   return (
     <div className="h-full flex gap-4 p-4 overflow-hidden">
-      <div className="w-64 shrink-0 bg-surface border border-border rounded-lg overflow-y-auto">
+      <div className="w-64 shrink-0 bg-surface rounded-lg overflow-y-auto">
         <div className="p-3 border-b border-border">
           <h3 className="text-sm font-semibold text-text">Skills</h3>
           <p className="text-xs text-muted">BMAD crew in repo</p>
@@ -58,17 +58,17 @@ export function SkillsView() {
           ))}
         </div>
       </div>
-      <div className="flex-1 bg-surface border border-border rounded-lg p-4 overflow-y-auto">
+      <div className="flex-1 bg-surface rounded-lg p-4 overflow-y-auto">
         {selected ? (
           <>
             <h3 className="text-sm font-semibold text-text">{selected.name} <span className="text-xs text-muted font-mono">({selected.id})</span></h3>
             <p className="text-xs text-muted mt-1">{selected.description}</p>
             <div className="mt-2 flex flex-wrap gap-1">
               {selected.triggers.map(t => (
-                <span key={t} className="text-[10px] bg-card border border-border px-1.5 py-0.5 rounded font-mono text-muted">{t}</span>
+                <span key={t} className="text-[10px] bg-card px-1.5 py-0.5 rounded font-mono text-muted">{t}</span>
               ))}
             </div>
-            <pre className="mt-4 text-xs text-muted whitespace-pre-wrap font-mono bg-card border border-border rounded p-3">{selected.content}</pre>
+            <pre className="mt-4 text-xs text-muted whitespace-pre-wrap font-mono bg-card rounded p-3">{selected.content}</pre>
           </>
         ) : (
           <p className="text-sm text-muted">Select a skill to view</p>

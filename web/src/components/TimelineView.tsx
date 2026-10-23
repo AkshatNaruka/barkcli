@@ -97,10 +97,10 @@ export function TimelineView({ boardName }: { boardName: string | null }) {
       <div className="flex items-center justify-between shrink-0">
         <h2 className="text-lg font-semibold text-text">Timeline & Tools</h2>
         <div className="flex gap-2">
-          <button onClick={() => handleExport("yaml")} className="px-2 py-1 bg-surface border border-border rounded text-xs text-text hover:border-border-strong">
+          <button onClick={() => handleExport("yaml")} className="px-2 py-1 bg-surface rounded text-xs text-text">
             Export YAML
           </button>
-          <button onClick={() => handleExport("json")} className="px-2 py-1 bg-surface border border-border rounded text-xs text-text hover:border-border-strong">
+          <button onClick={() => handleExport("json")} className="px-2 py-1 bg-surface rounded text-xs text-text">
             Export JSON
           </button>
         </div>
@@ -130,7 +130,7 @@ export function TimelineView({ boardName }: { boardName: string | null }) {
               value={newLabel}
               onChange={e => setNewLabel(e.target.value)}
               placeholder="Checkpoint label (optional)"
-              className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text placeholder:text-muted"
+              className="flex-1 bg-surface rounded-lg px-3 py-2 text-sm text-text placeholder:text-muted"
             />
             <button
               onClick={handleSaveCheckpoint}
@@ -149,7 +149,7 @@ export function TimelineView({ boardName }: { boardName: string | null }) {
           ) : (
             <div className="space-y-2">
               {checkpoints.map(c => (
-                <div key={c.id} className="bg-surface border border-border rounded-lg p-3 flex items-center justify-between group">
+                <div key={c.id} className="bg-surface rounded-lg p-3 flex items-center justify-between group">
                   <div>
                     <div className="flex items-center gap-2">
                       <span className={`text-[10px] px-1.5 py-0.5 rounded ${c.kind === "auto" ? "bg-accent-soft text-accent-text" : "bg-surface text-muted"}`}>
@@ -175,7 +175,7 @@ export function TimelineView({ boardName }: { boardName: string | null }) {
       {/* Undo Tab */}
       {tab === "undo" && (
         <div className="flex-1 overflow-y-auto space-y-4">
-          <div className="bg-surface border border-border rounded-lg p-4">
+          <div className="bg-surface rounded-lg p-4">
             <h3 className="text-sm font-semibold text-text mb-2">Undo Last Change</h3>
             <p className="text-xs text-muted mb-3">Revert the board to its state before the last operation.</p>
             <button
@@ -186,7 +186,7 @@ export function TimelineView({ boardName }: { boardName: string | null }) {
             </button>
           </div>
 
-          <div className="bg-surface border border-border rounded-lg p-4">
+          <div className="bg-surface rounded-lg p-4">
             <h3 className="text-sm font-semibold text-text mb-2">Named Snapshot</h3>
             <p className="text-xs text-muted mb-3">Save a named snapshot you can restore later.</p>
             <div className="flex gap-2">
@@ -194,7 +194,7 @@ export function TimelineView({ boardName }: { boardName: string | null }) {
                 type="text"
                 id="snapshot-label"
                 placeholder="Snapshot name"
-                className="flex-1 bg-card border border-border rounded px-2 py-1.5 text-xs text-text placeholder:text-muted"
+                className="flex-1 bg-card rounded px-2 py-1.5 text-xs text-text placeholder:text-muted"
               />
               <button
                 onClick={async () => {
@@ -212,7 +212,7 @@ export function TimelineView({ boardName }: { boardName: string | null }) {
             </div>
           </div>
 
-          <div className="bg-surface border border-border rounded-lg p-4">
+          <div className="bg-surface rounded-lg p-4">
             <h3 className="text-sm font-semibold text-text mb-2">Blame</h3>
             <p className="text-xs text-muted mb-3">See the change history for a specific card.</p>
             <div className="flex gap-2">
@@ -221,7 +221,7 @@ export function TimelineView({ boardName }: { boardName: string | null }) {
                 value={blameCardId}
                 onChange={e => setBlameCardId(e.target.value)}
                 placeholder="Card ID"
-                className="flex-1 bg-card border border-border rounded px-2 py-1.5 text-xs text-text placeholder:text-muted"
+                className="flex-1 bg-card rounded px-2 py-1.5 text-xs text-text placeholder:text-muted"
               />
               <button
                 onClick={handleBlame}
@@ -300,13 +300,13 @@ export function TimelineView({ boardName }: { boardName: string | null }) {
       {/* Validate Tab */}
       {tab === "validate" && (
         <div className="flex-1 overflow-y-auto space-y-4">
-          <div className="bg-surface border border-border rounded-lg p-4">
+          <div className="bg-surface rounded-lg p-4">
             <h3 className="text-sm font-semibold text-text mb-2">Validate Boards</h3>
             <p className="text-xs text-muted mb-3">Check all board files for structural errors.</p>
             <button
               onClick={handleValidate}
               disabled={loading}
-              className="px-4 py-2 bg-surface border border-border text-xs rounded-lg font-medium text-text hover:border-border-strong disabled:opacity-50"
+              className="px-4 py-2 bg-surface border border-border text-xs rounded-lg font-medium text-text disabled:opacity-50"
             >
               {loading ? "Validating..." : "Validate All"}
             </button>
@@ -330,7 +330,7 @@ export function TimelineView({ boardName }: { boardName: string | null }) {
             )}
           </div>
 
-          <div className="bg-surface border border-border rounded-lg p-4">
+          <div className="bg-surface rounded-lg p-4">
             <h3 className="text-sm font-semibold text-text mb-2">Doctor (Auto-fix)</h3>
             <p className="text-xs text-muted mb-3">Validate and automatically fix common issues.</p>
             <button

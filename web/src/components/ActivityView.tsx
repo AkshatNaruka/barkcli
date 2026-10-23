@@ -83,7 +83,7 @@ export function ActivityView({ boardName }: { boardName: string | null }) {
             <div className="text-[10px] uppercase tracking-wider text-muted mb-2">{g.day}</div>
             <div className="space-y-1.5">
               {g.items.map((item, i) => (
-                <div key={i} className="flex items-start gap-2 text-xs bg-surface border border-border rounded-lg px-3 py-2">
+                <div key={i} className="flex items-start gap-2 text-xs bg-surface rounded-lg px-3 py-2">
                   <span className="text-muted font-mono shrink-0 mt-0.5">{item.at?.slice(11, 19)}</span>
                   {item.kind === "session" ? (
                     <>

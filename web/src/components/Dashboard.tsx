@@ -11,7 +11,7 @@ function StatCard({ label, value, sub, tone }: { label: string; value: string | 
     muted: "text-muted-strong",
   }[tone || "muted"];
   return (
-    <div className="bg-surface border border-border rounded-lg p-4">
+    <div className="bg-surface rounded-lg p-4">
       <div className="text-[10px] uppercase tracking-wider text-muted">{label}</div>
       <div className={`text-2xl font-bold mt-1 ${toneClass}`}>{value}</div>
       {sub && <div className="text-[11px] text-muted mt-1 truncate">{sub}</div>}
@@ -107,7 +107,7 @@ export function Dashboard({
 
         {/* Sprint progress */}
         {active ? (
-          <div className="bg-surface border border-border rounded-lg p-4">
+          <div className="bg-surface rounded-lg p-4">
             <div className="flex items-center justify-between mb-2">
               <div className="text-xs font-semibold text-text">
                 Sprint <span className="text-accent">{active.name}</span>
@@ -125,7 +125,7 @@ export function Dashboard({
             <div className="text-[11px] text-muted mt-1.5">{sprintPct}% complete</div>
           </div>
         ) : (
-          <div className="bg-surface border border-border rounded-lg p-4 text-xs text-muted">
+          <div className="bg-surface rounded-lg p-4 text-xs text-muted">
             No active sprint. Start one in the <span className="text-accent">Sprints</span> view.
           </div>
         )}
@@ -133,7 +133,7 @@ export function Dashboard({
         {/* Mind — blockers / stale / next (from new MR) */}
         {mind && (
           <div className="grid md:grid-cols-3 gap-3">
-            <div className="bg-surface border border-border rounded-lg p-3">
+            <div className="bg-surface rounded-lg p-3">
               <h3 className="text-xs font-semibold text-text mb-2">Blockers</h3>
               {mind.blockers?.length ? mind.blockers.slice(0, 4).map((b: any) => (
                 <div key={b.card_id} className="text-xs py-1 border-b border-border/50 last:border-0">
@@ -142,7 +142,7 @@ export function Dashboard({
                 </div>
               )) : <p className="text-xs text-muted">No blockers</p>}
             </div>
-            <div className="bg-surface border border-border rounded-lg p-3">
+            <div className="bg-surface rounded-lg p-3">
               <h3 className="text-xs font-semibold text-text mb-2">Stale &gt;7d</h3>
               {mind.stale_cards?.length ? mind.stale_cards.slice(0, 4).map((s: any) => (
                 <div key={s.id} className="text-xs py-1 border-b border-border/50 last:border-0">
@@ -151,7 +151,7 @@ export function Dashboard({
                 </div>
               )) : <p className="text-xs text-muted">No stale</p>}
             </div>
-            <div className="bg-surface border border-border rounded-lg p-3">
+            <div className="bg-surface rounded-lg p-3">
               <h3 className="text-xs font-semibold text-text mb-2">Next</h3>
               {mind.next_actions?.length ? mind.next_actions.slice(0, 3).map((a: any, i: number) => (
                 <div key={i} className="text-xs py-1 border-b border-border/50 last:border-0">
@@ -168,7 +168,7 @@ export function Dashboard({
 
         <div className="grid md:grid-cols-2 gap-6">
           {/* Recent activity */}
-          <div className="bg-surface border border-border rounded-lg p-4">
+          <div className="bg-surface rounded-lg p-4">
             <h3 className="text-xs font-semibold text-text mb-3">Recent activity</h3>
             {timeline.length === 0 && <p className="text-xs text-muted">No activity yet.</p>}
             <div className="space-y-2">
@@ -187,7 +187,7 @@ export function Dashboard({
           </div>
 
           {/* Due soon */}
-          <div className="bg-surface border border-border rounded-lg p-4">
+          <div className="bg-surface rounded-lg p-4">
             <h3 className="text-xs font-semibold text-text mb-3">Due soon / overdue</h3>
             {board.cards.filter((c) => c.due_date && c.column !== "done").sort((a, b) => (a.due_date! < b.due_date! ? -1 : 1)).slice(0, 8).map((c) => {
               const due = c.due_date!.slice(0, 10);
