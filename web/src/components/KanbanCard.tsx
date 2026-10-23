@@ -3,7 +3,6 @@ import type { Card } from "../lib/types";
 import { Avatar } from "./Avatar";
 import { PriorityBadge } from "./PriorityBadge";
 import { Icon } from "./Icon";
-import { Lozenge } from "./Lozenge";
 import { LabelChip } from "./LabelChip";
 
 interface Props {
@@ -41,51 +40,43 @@ export const KanbanCard = React.memo(function KanbanCard({ card, isOverlay, onEd
       onContextMenu={(e) => e.preventDefault()}
       onDoubleClick={() => onEdit(card)}
     >
-      {/* Pin indicator */}
-      {card.pinned && (
-        <span className="absolute -top-1.5 -right-1.5 text-warning select-none bg-card border border-border rounded-full p-0.5" title="Pinned">
-          <Icon name="pin" size={10} />
-        </span>
-      )}
+      {/* Pin — inline, quiet */}
+      {/* Menu + title spawn below */}
 
-      {/* Card ID */}
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] font-mono text-muted truncate">
-          {stale && <span className="text-warning mr-1" title="Stale — untouched for 7+ days">●</span>}
-          {card.id}
-        </span>
-        <div className="relative flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button
-            onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
-            className="text-muted hover:text-text p-0.5 rounded"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-              <circle cx="8" cy="3" r="1.5" /><circle cx="8" cy="8" r="1.5" /><circle cx="8" cy="13" r="1.5" />
-            </svg>
-          </button>
-          {menuOpen && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} />
-              <div className="absolute right-0 top-6 z-20 bg-card rounded-lg dialog-elevated border border-border py-1 min-w-[170px]">
-                <MenuItem onClick={(e) => { e.stopPropagation(); onEdit(card); setMenuOpen(false); }} icon="pencil" label="Edit" />
-                <MenuItem onClick={(e) => { e.stopPropagation(); onTogglePin(card.id); setMenuOpen(false); }} icon="pin" label={card.pinned ? "Unpin" : "Pin"} />
-                <MenuItem onClick={(e) => { e.stopPropagation(); onCopyCommitMsg(card); setMenuOpen(false); }} icon="copy" label="Copy commit msg" />
-                <MenuItem onClick={(e) => { e.stopPropagation(); onShowHistory(card.id); setMenuOpen(false); }} icon="history" label="History" />
-                <MenuItem onClick={(e) => { e.stopPropagation(); onShowActivity(card.id); setMenuOpen(false); }} icon="pulse" label="Activity" />
-                <div className="border-t border-border my-0.5" />
-                <MenuItem onClick={(e) => { e.stopPropagation(); onDelete(card.id); setMenuOpen(false); }} icon="trash" label="Delete" danger />
-              </div>
-            </>
-          )}
-        </div>
+      {/* Kebab — hover only */}
+      <div className="absolute right-1.5 top-1.5 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
+          className="text-muted hover:text-text p-1 rounded bg-card/80"
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+            <circle cx="8" cy="3" r="1.5" /><circle cx="8" cy="8" r="1.5" /><circle cx="8" cy="13" r="1.5" />
+          </svg>
+        </button>
+        {menuOpen && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} />
+            <div className="absolute right-0 top-7 z-20 bg-card rounded-lg dialog-elevated border border-border py-1 min-w-[170px]">
+              <MenuItem onClick={(e) => { e.stopPropagation(); onEdit(card); setMenuOpen(false); }} icon="pencil" label="Edit" />
+              <MenuItem onClick={(e) => { e.stopPropagation(); onTogglePin(card.id); setMenuOpen(false); }} icon="pin" label={card.pinned ? "Unpin" : "Pin"} />
+              <MenuItem onClick={(e) => { e.stopPropagation(); onCopyCommitMsg(card); setMenuOpen(false); }} icon="copy" label="Copy commit msg" />
+              <MenuItem onClick={(e) => { e.stopPropagation(); onShowHistory(card.id); setMenuOpen(false); }} icon="history" label="History" />
+              <MenuItem onClick={(e) => { e.stopPropagation(); onShowActivity(card.id); setMenuOpen(false); }} icon="pulse" label="Activity" />
+              <div className="border-t border-border my-0.5" />
+              <MenuItem onClick={(e) => { e.stopPropagation(); onDelete(card.id); setMenuOpen(false); }} icon="trash" label="Delete" danger />
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Title */}
+      {/* Title — the first thing you see; id & description live in the tooltip */}
       <div
-        className="font-medium text-sm text-text leading-snug cursor-pointer"
+        className="font-medium text-sm text-text leading-snug cursor-pointer pr-4"
         onClick={() => setShowDesc(!showDesc)}
-        title={card.description || card.title}
+        title={`${card.id}${card.description ? ` — ${card.description}` : ""}`}
       >
+        {stale && <span className="inline-block w-1.5 h-1.5 rounded-full bg-warning mr-1.5" title="Stale — untouched for 7+ days" />}
+        {card.pinned && <span className="text-warning/80 inline-block mr-1 -mt-px" title="Pinned"><Icon name="pin" size={11} /></span>}
         {card.title}
       </div>
 
@@ -94,54 +85,51 @@ export const KanbanCard = React.memo(function KanbanCard({ card, isOverlay, onEd
         <p className="text-xs text-muted mt-1.5 leading-relaxed">{card.description}</p>
       )}
 
-      {/* Checklist progress bar */}
+      {/* Checklist — bar carries progress, one quiet count */}
       {checklistTotal > 0 && (
-        <div className="mt-2">
-          <div className="flex items-center justify-between text-[10px] mb-0.5">
-            <span className={`inline-flex items-center gap-1 ${checklistDone === checklistTotal ? "text-success" : "text-muted"}`}>
-              <Icon name="check" size={11} /> {checklistDone}/{checklistTotal}
-            </span>
-            <span className="text-muted font-mono">{checklistPct}%</span>
-          </div>
-          <div className="h-[3px] rounded-full bg-[color-mix(in_srgb,var(--border)_55%,transparent)] overflow-hidden">
+        <div className="mt-2 flex items-center gap-2">
+          <div className="h-[3px] flex-1 rounded-full bg-[color-mix(in_srgb,var(--border)_55%,transparent)] overflow-hidden">
             <div
               className={`h-full rounded-full ${checklistDone === checklistTotal ? "bg-success" : "bg-accent/70"}`}
               style={{ width: `${checklistPct}%` }}
             />
           </div>
+          <span className={`text-[10px] shrink-0 ${checklistDone === checklistTotal ? "text-success" : "text-muted"}`}>
+            {checklistDone}/{checklistTotal}
+          </span>
         </div>
       )}
 
-      {/* Badges row */}
+      {/* Badges — priority icon speaks, labels capped at two */}
       <div className="flex flex-wrap items-center gap-1.5 mt-2">
-        <PriorityBadge priority={card.priority} />
-        {card.labels.slice(0, 3).map((l) => (
+        {card.priority !== "low" && <PriorityBadge priority={card.priority} iconOnly />}
+        {card.labels.slice(0, 2).map((l) => (
           <LabelChip key={l} name={l} />
         ))}
-        {card.labels.length > 3 && (
-          <span className="text-[10px] text-muted">+{card.labels.length - 3}</span>
+        {card.labels.length > 2 && (
+          <span className="text-[10px] text-muted">+{card.labels.length - 2}</span>
         )}
       </div>
 
-      {/* Footer */}
-      <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-border/50">
+      {/* Meta — icons over words, no divider */}
+      <div className="flex items-center justify-between mt-2.5">
         <div className="flex items-center gap-1.5 min-w-0">
-          {card.assignee ? (
-            <Avatar name={card.assignee} />
-          ) : (
-            <span className="w-5 h-5 rounded-full border border-dashed border-border" title="Unassigned" />
-          )}
+          {card.assignee && <Avatar name={card.assignee} />}
           {card.due_date && (
             <span className={`text-[10px] font-mono inline-flex items-center gap-0.5 ${overdue ? "text-danger" : "text-muted"}`}>
               <Icon name={overdue ? "warn" : "calendar"} size={11} />{card.due_date.slice(5, 10)}
             </span>
           )}
           {(card as any).spec_id && (
-            <span className="text-[10px] font-mono text-accent bg-accent/10 px-1 py-0 rounded inline-flex items-center gap-0.5" title={`Spec: ${(card as any).spec_id}`}>
-              <Icon name="link" size={10} />{(card as any).spec_id.slice(0, 12)}
+            <span className="text-accent/80" title={`Spec: ${(card as any).spec_id}`}>
+              <Icon name="link" size={12} />
             </span>
           )}
-          {blockedBy && <Lozenge tone="red" title={`Blocked by ${blockedBy}`}>Blocked</Lozenge>}
+          {blockedBy && (
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-danger" title={`Blocked by ${blockedBy}`}>
+              Blocked
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2 text-[10px] text-muted">
           {card.effort !== undefined && card.effort > 0 && (

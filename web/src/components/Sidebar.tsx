@@ -2,50 +2,36 @@ import React, { useState } from "react";
 import type { Route } from "../lib/hashnav";
 import { Icon, type IconName } from "./Icon";
 
-interface Section {
+interface NavItem {
+  route: Route;
   label: string;
-  items: { route: Route; label: string; icon: IconName }[];
+  icon: IconName;
 }
 
-const SECTIONS: Section[] = [
-  {
-    label: "Manage",
-    items: [
-      { route: "mind", label: "Mind", icon: "spark" },
-      { route: "board", label: "Board", icon: "board" },
-      { route: "specs", label: "Specs", icon: "layers" },
-      { route: "sprints", label: "Sprints", icon: "cycle" },
-    ],
-  },
-  {
-    label: "Build",
-    items: [
-      { route: "code", label: "Code", icon: "code" },
-      { route: "agents", label: "Agents", icon: "users" },
-    ],
-  },
-  {
-    label: "Knowledge",
-    items: [
-      { route: "memory", label: "Memory", icon: "db" },
-      { route: "brain", label: "Brain", icon: "spark" },
-      { route: "skills", label: "Skills", icon: "star" },
-      { route: "docs", label: "Docs", icon: "doc" },
-    ],
-  },
-  {
-    label: "Insights",
-    items: [
-      { route: "calendar", label: "Calendar", icon: "calendar" },
-      { route: "reports", label: "Reports", icon: "chart" },
-      { route: "timeline", label: "Timeline", icon: "clock" },
-      { route: "history", label: "History", icon: "layers" },
-      { route: "activity", label: "Activity", icon: "pulse" },
-    ],
-  },
+// Notion's sidebar skeleton: ≤7 first-class places; everything else lives in
+// one quiet "More" disclosure so the nav recedes and content leads (Linear 2026).
+const PRIMARY: NavItem[] = [
+  { route: "board", label: "Board", icon: "board" },
+  { route: "mind", label: "Mind", icon: "spark" },
+  { route: "specs", label: "Specs", icon: "layers" },
+  { route: "sprints", label: "Sprints", icon: "cycle" },
+  { route: "agents", label: "Agents", icon: "users" },
 ];
 
-const UTILITY: { route: Route; label: string; icon: IconName }[] = [
+const MORE: NavItem[] = [
+  { route: "code", label: "Code", icon: "code" },
+  { route: "memory", label: "Memory", icon: "db" },
+  { route: "brain", label: "Brain", icon: "spark" },
+  { route: "skills", label: "Skills", icon: "star" },
+  { route: "docs", label: "Docs", icon: "doc" },
+  { route: "calendar", label: "Calendar", icon: "calendar" },
+  { route: "reports", label: "Reports", icon: "chart" },
+  { route: "timeline", label: "Timeline", icon: "clock" },
+  { route: "history", label: "History", icon: "layers" },
+  { route: "activity", label: "Activity", icon: "pulse" },
+];
+
+const UTILITY: NavItem[] = [
   { route: "settings", label: "Settings", icon: "gear" },
   { route: "agent-prompt", label: "AI Agent", icon: "robot" },
 ];
@@ -68,6 +54,9 @@ export function Sidebar({
   boardName: string | null;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreActive = MORE.some((m) => m.route === route) || route === "orchestrate" || route === "dashboard";
+  const showMore = moreOpen || moreActive;
 
   const badgeFor = (r: Route): number => {
     if (r === "board") return counts.boardOpen;
@@ -79,17 +68,46 @@ export function Sidebar({
   const isActive = (r: Route) =>
     route === r || (r === "agents" && route === "orchestrate") || (r === "mind" && route === "dashboard");
 
+  const NavRow = ({ item }: { item: NavItem }) => {
+    const badge = badgeFor(item.route);
+    const active = isActive(item.route);
+    return (
+      <button
+        key={item.route}
+        onClick={() => onNavigate(item.route)}
+        title={item.label}
+        className={`w-full flex items-center gap-2.5 px-2.5 py-[7px] text-[13px] transition-colors rounded-md ${
+          active ? "text-text bg-card font-medium" : "text-muted hover:text-text hover:bg-surface"
+        }`}
+      >
+        <span className="shrink-0 flex">
+          <Icon name={item.icon} size={15} />
+        </span>
+        {!collapsed && <span className="flex-1 text-left truncate">{item.label}</span>}
+        {!collapsed && badge > 0 && (
+          <span
+            className={`text-[10px] shrink-0 ${item.route === "mind" ? "text-danger" : "text-muted"}`}
+          >
+            {badge}
+          </span>
+        )}
+      </button>
+    );
+  };
+
   return (
     <aside
       className={`flex flex-col border-r border-border bg-surface/40 shrink-0 transition-all ${
-        collapsed ? "w-14" : "w-[232px]"
+        collapsed ? "w-14" : "w-[224px]"
       }`}
     >
       {/* Brand + collapse */}
-      <div className="flex items-center justify-between px-3 py-2.5 border-b border-border shrink-0">
+      <div className="flex items-center justify-between px-3 py-2.5 shrink-0">
         {!collapsed && (
           <span className="flex items-center gap-1.5 text-sm font-bold text-text">
-            <span className="w-5 h-5 rounded bg-accent text-white flex items-center justify-center text-[10px] font-mono">b</span>
+            <span className="w-5 h-5 rounded bg-accent text-white flex items-center justify-center text-[10px] font-mono">
+              b
+            </span>
             barkcli
           </span>
         )}
@@ -102,69 +120,42 @@ export function Sidebar({
         </button>
       </div>
 
-      {/* Board context */}
+      {/* Active board context — one quiet line */}
       {!collapsed && boardName && (
-        <div className="px-3 py-2 border-b border-border shrink-0">
-          <div className="text-[10px] uppercase tracking-wider text-muted">Board</div>
-          <div className="text-xs font-medium text-text truncate font-mono">{boardName}.board</div>
-        </div>
+        <div className="px-3.5 pb-2 text-xs font-mono text-muted truncate">{boardName}</div>
       )}
 
-      {/* Sections — independent scroll */}
-      <nav className="flex-1 overflow-y-auto py-2 px-1.5">
-        {SECTIONS.map((sec) => (
-          <div key={sec.label} className="mb-1">
-            {!collapsed && (
-              <div className="px-2.5 pt-2 pb-1 text-[10px] uppercase tracking-wider text-muted">{sec.label}</div>
-            )}
-            {sec.items.map((item) => {
-              const badge = badgeFor(item.route);
-              const active = isActive(item.route);
-              return (
-                <button
-                  key={item.route}
-                  onClick={() => onNavigate(item.route)}
-                  title={item.label}
-                  className={`w-full flex items-center gap-2.5 px-2.5 py-[7px] text-[13px] transition-colors rounded-md ${
-                    active
-                      ? "text-text bg-card font-medium"
-                      : "text-muted hover:text-text hover:bg-surface"
-                  }`}
-                >
-                  <span className="shrink-0 flex"><Icon name={item.icon} size={15} /></span>
-                  {!collapsed && <span className="flex-1 text-left truncate">{item.label}</span>}
-                  {!collapsed && badge > 0 && (
-                    <span
-                      className={`text-[10px] font-mono shrink-0 ${
-                        item.route === "mind" ? "text-danger" : "text-muted"
-                      }`}
-                    >
-                      {badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+      {/* Primary places */}
+      <nav className="flex-1 overflow-y-auto py-1 px-1.5">
+        {PRIMARY.map((item) => (
+          <NavRow key={item.route} item={item} />
         ))}
+
+        {/* More — secondary tools behind one disclosure */}
+        <button
+          onClick={() => setMoreOpen((m) => !m)}
+          className={`w-full flex items-center gap-2.5 px-2.5 py-[7px] text-[13px] rounded-md transition-colors ${
+            showMore ? "text-muted" : "text-muted hover:text-text hover:bg-surface"
+          }`}
+          title="More tools"
+        >
+          <span className="shrink-0 flex transition-transform" style={{ transform: showMore ? "rotate(90deg)" : "none" }}>
+            <Icon name="chevR" size={15} />
+          </span>
+          {!collapsed && <span className="flex-1 text-left">More</span>}
+        </button>
+        {showMore &&
+          MORE.map((item) => (
+            <div key={item.route} className="pl-5">
+              <NavRow item={item} />
+            </div>
+          ))}
       </nav>
 
       {/* Utility pinned bottom */}
       <div className="border-t border-border py-2 px-1.5 shrink-0">
         {UTILITY.map((item) => (
-          <button
-            key={item.route}
-            onClick={() => onNavigate(item.route)}
-            title={item.label}
-            className={`w-full flex items-center gap-2.5 px-2.5 py-[7px] text-[13px] transition-colors rounded-md ${
-              isActive(item.route)
-                ? "text-text bg-card font-medium"
-                : "text-muted hover:text-text hover:bg-surface"
-            }`}
-          >
-            <span className="shrink-0 flex"><Icon name={item.icon} size={15} /></span>
-            {!collapsed && <span className="flex-1 text-left truncate">{item.label}</span>}
-          </button>
+          <NavRow key={item.route} item={item} />
         ))}
       </div>
     </aside>

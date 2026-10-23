@@ -21,7 +21,7 @@ const PRIORITY: Record<string, { label: string; cls: string; icon: IconName }> =
   },
 };
 
-export function PriorityBadge({ priority }: { priority: string }) {
+export function PriorityBadge({ priority, iconOnly }: { priority: string; iconOnly?: boolean }) {
   const p = PRIORITY[priority] || {
     label: priority,
     cls: "text-muted",
@@ -30,10 +30,10 @@ export function PriorityBadge({ priority }: { priority: string }) {
   return (
     <span
       title={`Priority: ${p.label}`}
-      className={`inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide ${p.cls}`}
+      className={`inline-flex items-center ${iconOnly ? "" : "gap-1 text-[10px] font-semibold uppercase tracking-wide"} ${p.cls}`}
     >
-      <Icon name={p.icon} size={11} />
-      {p.label}
+      <Icon name={p.icon} size={iconOnly ? 12 : 11} />
+      {!iconOnly && p.label}
     </span>
   );
 }

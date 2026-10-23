@@ -4,7 +4,6 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import type { Card, Column } from "../lib/types";
 import { SortableCard } from "./SortableCard";
 import { Icon } from "./Icon";
-import { columnTone } from "./Lozenge";
 
 interface Props {
   column: Column;
@@ -31,9 +30,13 @@ export const KanbanColumn = React.memo(function KanbanColumn({ column, cards, on
         <div className="flex items-center gap-2 min-w-0">
           <span
             className={`w-2 h-2 rounded-full shrink-0 ${
-              columnTone(column.id) === "green"
+              /done/i.test(column.id)
                 ? "bg-success"
-                : "bg-[color-mix(in_srgb,var(--muted)_50%,transparent)]"
+                : /doing|progress|active/i.test(column.id)
+                  ? "bg-accent"
+                  : /review|test/i.test(column.id)
+                    ? "bg-warning"
+                    : "bg-[color-mix(in_srgb,var(--muted)_50%,transparent)]"
             }`}
           />
           <span className="text-[13px] font-medium text-text truncate">{column.name}</span>
