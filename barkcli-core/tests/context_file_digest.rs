@@ -83,11 +83,15 @@ fn full_digest_roundtrip_writes_file_and_respects_manual() {
     let claude = std::fs::read_to_string(root.join("CLAUDE.md")).unwrap();
     assert!(claude.contains("@project_context.md"), "CLAUDE.md not wired:\n{}", claude);
 
-    // Idempotent second run: no rewrites, same block set.
+    // Idempotent second run: byte-identical file, report marks unchanged.
+    let before = content.clone();
     let report2 = digest::run_digest_core("digest-board", &DigestOpts::default()).unwrap();
     assert!(report2.rewritten.is_empty(), "rewritten: {:?}", report2.rewritten);
-    let content2 = std::fs::read_to_string(&path).unwrap();
-    let parsed2 = parse(&content2);
+    assert!(report2.unchanged, "no-op digest should be flagged unchanged");
+    let after = std::fs::read_to_string(&path).unwrap();
+    assert_eq!(after, before, "no-op digest must not touch the file (stamps, verify verdict)");
+
+    let parsed2 = parse(&after);
     assert_eq!(parsed2.blocks.len(), parsed.blocks.len());
 
     // Cleanup after a short settle so git subprocesses spawned by other

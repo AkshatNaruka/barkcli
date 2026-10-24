@@ -200,6 +200,16 @@ pub async fn run(
         watch_board_files(watch_tx, watch_board_name).await;
     });
 
+    // Sleep-time reconciler: fingerprint the evidence files every few
+    // seconds; when anything changed, regenerate each adopted board's
+    // project_context.md so the file is always trustworthy at the next
+    // session start. Digest is content-idempotent — no-op runs write nothing
+    // and produce no watcher echo.
+    let recon_board = board_name.map(|s| s.to_string());
+    tokio::spawn(async move {
+        context_reconciler_loop(recon_board).await;
+    });
+
     let loopback = host == "127.0.0.1" || host == "localhost" || host == "::1";
     if !loopback {
         eprintln!(
@@ -1096,8 +1106,123 @@ async fn watch_board_files(tx: broadcast::Sender<String>, board_name: Option<Str
     }
 }
 
-// ── Management Layer Handlers ──
+/// Sleep-time compute (à la Letta): poll the evidence fingerprint every few
+/// seconds; when it changes, reconcile every adopted board's context file.
+/// Polling (not events) keeps this deterministic across platforms — the
+/// broadcast bus only feeds the browser WebSocket, and FSEvents NonRecursive
+/// delivery is unreliable for external CLI writes.
+async fn context_reconciler_loop(board_name: Option<String>) {
+    use tokio::time::{sleep, Duration};
 
+    let poll = Duration::from_secs(5);
+
+    // Reconcile once shortly after startup: heals a file left stale by work
+    // done before the server booted (only for boards that already have one).
+    sleep(Duration::from_secs(15)).await;
+    reconcile_context_files(&board_name).await;
+    let mut last = evidence_fingerprint();
+
+    loop {
+        sleep(poll).await;
+        let fp = evidence_fingerprint();
+        if fp == last {
+            continue;
+        }
+        last = fp;
+        // Small grace so multi-file saves (board + sidecar + memory) land in
+        // one reconciliation pass.
+        sleep(Duration::from_secs(2)).await;
+        last = evidence_fingerprint();
+        reconcile_context_files(&board_name).await;
+    }
+}
+
+/// Fingerprint of all context-relevant evidence: every *.board at the
+/// project root plus every .json/.jsonl/.yaml under .board/ — excluding
+/// barkcli's own state and daemon files, which digest itself writes.
+fn evidence_fingerprint() -> u64 {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    let mut h = DefaultHasher::new();
+    let Ok(root) = barkcli_core::storage::board_dir::find_project_root() else {
+        return 0;
+    };
+
+    if let Ok(rd) = std::fs::read_dir(&root) {
+        for e in rd.flatten() {
+            let p = e.path();
+            if p.extension().and_then(|x| x.to_str()) == Some("board") {
+                stamp_file(&p, &mut h);
+            }
+        }
+    }
+    walk_evidence(&root.join(".board"), 0, &mut h);
+
+    h.finish()
+}
+
+fn walk_evidence(dir: &std::path::Path, depth: u8, h: &mut std::collections::hash_map::DefaultHasher) {
+    if depth > 4 {
+        return;
+    }
+    let Ok(rd) = std::fs::read_dir(dir) else { return };
+    for e in rd.flatten() {
+        let p = e.path();
+        let name = p
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_string();
+        // Own artifacts — digest writes these; including them would make the
+        // reconciler chase its own tail.
+        if name.starts_with("context-file.") || name.starts_with("server.") {
+            continue;
+        }
+        if p.is_dir() {
+            walk_evidence(&p, depth + 1, h);
+        } else if matches!(
+            p.extension().and_then(|x| x.to_str()),
+            Some("json") | Some("jsonl") | Some("yaml")
+        ) {
+            stamp_file(&p, h);
+        }
+    }
+}
+
+fn stamp_file(path: &std::path::Path, h: &mut std::collections::hash_map::DefaultHasher) {
+    use std::hash::Hash;
+    if let Ok(meta) = std::fs::metadata(path) {
+        if let Ok(mtime) = meta.modified() {
+            if let Ok(d) = mtime.duration_since(std::time::UNIX_EPOCH) {
+                d.as_nanos().hash(h);
+            }
+        }
+        meta.len().hash(h);
+        path.to_string_lossy().hash(h);
+    }
+}
+
+/// Refresh context files for the boards this server is serving. `if_exists`
+/// means boards that never opted into the context file are left alone.
+async fn reconcile_context_files(board_name: &Option<String>) {
+    let boards: Vec<String> = match board_name {
+        Some(name) => vec![name.clone()],
+        None => barkcli_core::storage::board_file::list_board_files().unwrap_or_default(),
+    };
+    for name in boards {
+        let opts = barkcli_core::context_file::DigestOpts {
+            quiet: true,
+            if_exists: true,
+            ..Default::default()
+        };
+        if let Err(e) = barkcli_core::context_file::digest::run_digest_core(&name, &opts) {
+            eprintln!("barkcli context digest (reconciler): {}", e);
+        }
+    }
+}
+
+// ── Management Layer Handlers ──
 #[derive(Deserialize)]
 struct TaskQuery {
     status: Option<String>,

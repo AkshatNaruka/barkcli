@@ -74,6 +74,11 @@ pub struct FileState {
     /// Sections trimmed to fit the budget on the last run.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub evicted_last_run: Vec<String>,
+    /// Sticky evictions: sections stubbed because the file is over budget.
+    /// Stays until the budget is explicitly raised (`--budget`) so a fresh
+    /// body can't regrow on the next run and oscillate the file.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub evicted: Vec<String>,
     #[serde(default)]
     pub wired_claude: bool,
     #[serde(default)]
@@ -319,6 +324,8 @@ pub struct MergeReport {
     pub evicted: Vec<String>,
     pub total_tokens: usize,
     pub flagged_stale: Vec<(String, f32)>,
+    /// True when the run produced a byte-identical file (nothing written).
+    pub unchanged: bool,
 }
 
 /// Fresh section produced by the generator (`digest::generate_sections`).
@@ -413,8 +420,7 @@ pub fn merge(
 
         // 1) manual-flagged (state list, in-file comment, or seeded) → preserve.
         let in_file_manual = existing.get(sec.id).map(|b| b.meta.manual).unwrap_or(false);
-        if in_file_manual || state.manual.iter().any(|m| m == sec.id) {
-            match existing.get_mut(sec.id) {
+        if in_file_manual || state.manual.iter().any(|m| m == sec.id) {            match existing.get_mut(sec.id) {
                 Some(b) => {
                     b.meta.manual = true;
                 }
@@ -439,6 +445,32 @@ pub fn merge(
             continue;
         }
 
+        // 1.5) sticky eviction — the file is over budget and this section was
+        // trimmed. Keep the stub; regenerating a fresh body here would regrow
+        // the file and oscillate every run.
+        if state.evicted.iter().any(|e| e == sec.id) {
+            match existing.get_mut(sec.id) {
+                Some(_b) => {} // stub stays as-is on disk
+                None => {
+                    // State lost / first run after eviction: seed the stub.
+                    let seed = Block {
+                        meta: BlockMeta {
+                            id: sec.id.to_string(),
+                            manual: false,
+                            src: sec.src.clone(),
+                            staleness: 0.0,
+                            updated: now_stamp.to_string(),
+                        },
+                        heading: format!("## {}", sec.title),
+                        body: vec![evicted_stub_body(state.budget_tokens)],
+                    };
+                    existing.insert(sec.id.to_string(), seed);
+                    state.evicted_last_run.push(sec.id.to_string());
+                }
+            }
+            continue;
+        }
+
         // 2) user hand-edited a generated body → preserve, pin forever.
         let user_edited = existing.get(sec.id).map(|b| {
             state
@@ -460,7 +492,13 @@ pub fn merge(
             .map(|b| b.body == sec.body)
             .unwrap_or(false);
         if unchanged {
-            existing.get_mut(sec.id).unwrap().meta = fresh_block.meta;
+            // Content-idempotence: an unchanged section keeps its last-change
+            // stamp so no-op digests never dirty the file (and never trip
+            // file-watcher loops). Only src/staleness refresh in place — they
+            // are digest's *read* of the evidence, not authored content.
+            let b = existing.get_mut(sec.id).unwrap();
+            b.meta.src = fresh_block.meta.src;
+            b.meta.staleness = fresh_block.meta.staleness;
         } else {
             if existing.contains_key(sec.id) {
                 report.rewritten.push(sec.id.to_string());
@@ -518,17 +556,23 @@ pub fn merge(
         let Some(victim) = evictable.first().copied() else { break };
         evictable.remove(0);
         if let Some(b) = parsed.blocks.iter_mut().find(|b| b.meta.id == victim) {
-            b.body = vec![format!(
-                "_Evicted to fit the {} token budget — full details via `barkcli context status` / `barkcli memory list`._",
-                state.budget_tokens
-            )];
+            b.body = vec![evicted_stub_body(state.budget_tokens)];
             b.meta.staleness = 0.0;
+            b.meta.updated = now_stamp.to_string();
             state.generated.remove(victim);
-            report.evicted.push(victim.to_string());
+            if !state.evicted.iter().any(|e| e == victim) {
+                state.evicted.push(victim.to_string());
+            }
+            if !report.evicted.iter().any(|e| e == victim) {
+                report.evicted.push(victim.to_string());
+            }
         }
         report.total_tokens = estimate_tokens(&render_file(parsed));
     }
-    state.evicted_last_run = report.evicted.clone();
+    // Report the full current trim set (this run's new evictions plus any
+    // still-stubbed sections from earlier runs).
+    report.evicted = state.evicted.clone();
+    state.evicted_last_run = state.evicted.clone();
 
     // Flag drifted sections (threshold 0.4).
     for b in &parsed.blocks {
@@ -539,8 +583,16 @@ pub fn merge(
     report
 }
 
-fn header_lines() -> Vec<&'static str> {
-    vec![
+/// Stable stub body for a budget-evicted section. Content is deterministic
+/// per budget so sticky evictions stay byte-stable across runs.
+fn evicted_stub_body(budget: usize) -> String {
+    format!(
+        "_Evicted to fit the {} token budget — raise it with `barkcli context digest --budget N` to restore._",
+        budget
+    )
+}
+
+fn header_lines() -> Vec<&'static str> {    vec![
         "# project_context.md",
         "",
         "Auto-maintained by barkcli (`barkcli context digest`) — regenerated from tracked work",
@@ -756,6 +808,33 @@ mod tests {
         }
         assert!(state.generated.contains_key("active"), "surviving sections stay generated: {:?}", state.generated.keys());
         assert!(report.evicted.iter().all(|e| !state.generated.contains_key(e.as_str())));
+    }
+
+    #[test]
+    fn eviction_is_sticky_across_runs() {
+        let fill = || vec!["lorem ipsum filler body line token filler token filler ".repeat(40)];
+        let fresh = vec![
+            GeneratedSection { id: "snapshot", title: "Snapshot", src: "t".into(), staleness: 0.0, body: fill() },
+            GeneratedSection { id: "active", title: "Active now", src: "t".into(), staleness: 0.0, body: fill() },
+            GeneratedSection { id: "specs", title: "Specs", src: "t".into(), staleness: 0.0, body: fill() },
+            GeneratedSection { id: "sessions", title: "Recent sessions", src: "t".into(), staleness: 0.0, body: fill() },
+        ];
+        let mut parsed = ParsedFile::default();
+        let mut state = FileState { version: 1, budget_tokens: 950, ..Default::default() };
+        let r1 = merge(&mut parsed, fresh.clone(), &mut state, "t1");
+        assert_eq!(r1.evicted.join(","), "specs,sessions,snapshot");
+        let file1 = render_file(&parsed);
+
+        // Second run with the same inputs (different stamp): evicted sections
+        // must stay stubbed — no regrowth — and everything else byte-stable.
+        let r2 = merge(&mut parsed, fresh.clone(), &mut state, "t2");
+        assert!(r2.rewritten.is_empty());
+        let file2 = render_file(&parsed);
+        assert_eq!(file1, file2, "sticky eviction must render identically across runs");
+        let specs = parsed.blocks.iter().find(|b| b.meta.id == "specs").unwrap();
+        assert!(specs.body[0].contains("Evicted to fit"), "still stubbed: {:?}", specs.body);
+        // State carries the persistent trim set.
+        assert_eq!(state.evicted.join(","), "specs,sessions,snapshot");
     }
 
     #[test]

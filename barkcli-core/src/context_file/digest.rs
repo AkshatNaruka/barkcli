@@ -469,19 +469,21 @@ fn trim_line(s: &str, max: usize) -> String {
 
 // ─── Verify footer ──────────────────────────────────────────────────────────
 
-fn verify_body(report: &MergeReport, root: &std::path::Path) -> Vec<String> {
+fn verify_body_parts(report: &MergeReport, root: &std::path::Path) -> Vec<String> {
+    // NOTE: no wall-clock timestamp in the body — the freshness stamp lives in
+    // the block's `updated` meta. This keeps verdict rendering content-stable
+    // so no-op digest runs never rewrite the file (watcher-safe, diff-quiet).
     let sha = git::current_commit(root)
         .map(|s| short(&s, 7))
         .unwrap_or_else(|| "no-git".into());
-    let guide = "- Guide: staleness 0 fresh · ≥0.4 review the section · ≥0.8 likely wrong.";
+    let guide = "- Guide: staleness 0 fresh · ≥0.4 review the section · ≥0.8 likely wrong.".to_string();
     if report.flagged_stale.is_empty() {
         vec![
             format!(
-                "- Verified {} @ {} · all sections fresh (staleness < 0.4)",
-                Utc::now().format(STAMP_FMT),
+                "- Verified @ {} · all sections fresh (staleness < 0.4)",
                 sha
             ),
-            guide.into(),
+            guide,
         ]
     } else {
         let flagged: Vec<String> = report
@@ -491,12 +493,11 @@ fn verify_body(report: &MergeReport, root: &std::path::Path) -> Vec<String> {
             .collect();
         vec![
             format!(
-                "- Verified {} @ {} · sections flagged: {} — run `barkcli context sync` + `barkcli context digest`.",
-                Utc::now().format(STAMP_FMT),
+                "- Verified @ {} · sections flagged: {} — run `barkcli context sync` + `barkcli context digest`.",
                 sha,
                 flagged.join(", ")
             ),
-            guide.into(),
+            guide,
         ]
     }
 }
@@ -505,17 +506,30 @@ fn drop_verify_block(parsed: &mut ParsedFile) {
     parsed.blocks.retain(|b| b.meta.id != VERIFY_BLOCK_ID);
 }
 
-fn append_verify_block(parsed: &mut ParsedFile, report: &MergeReport, root: &std::path::Path, now: &str) {
+fn append_verify_block(
+    parsed: &mut ParsedFile,
+    report: &MergeReport,
+    root: &std::path::Path,
+    now: &str,
+    prev: Option<&Block>,
+) {
+    let body = verify_body_parts(report, root);
+    // Content-idempotence: an identical verdict keeps the previous stamp,
+    // so nothing in the file changes on a no-op run.
+    let (body, updated) = match prev {
+        Some(pv) if pv.body == body => (pv.body.clone(), pv.meta.updated.clone()),
+        _ => (body, now.to_string()),
+    };
     parsed.blocks.push(Block {
         meta: BlockMeta {
             id: VERIFY_BLOCK_ID.into(),
             manual: false,
             src: "barkcli context digest".into(),
             staleness: 0.0,
-            updated: now.to_string(),
+            updated,
         },
         heading: "## Verification status".into(),
-        body: verify_body(report, root),
+        body,
     });
 }
 
@@ -533,6 +547,9 @@ pub fn run_digest_core(board: &str, opts: &DigestOpts) -> Result<MergeReport> {
     let mut state = read_state(board)?;
     if let Some(budget) = opts.budget {
         state.budget_tokens = budget.max(400);
+        // Explicit budget change: let evicted sections regrow so the user
+        // can raise/lower the trim set deterministically.
+        state.evicted.clear();
     }
     if let Some(manual) = &opts.manual_add {
         if !state.manual.contains(manual) {
@@ -545,18 +562,40 @@ pub fn run_digest_core(board: &str, opts: &DigestOpts) -> Result<MergeReport> {
     } else {
         ParsedFile::default()
     };
+    let prev_verify = existing
+        .blocks
+        .iter()
+        .find(|b| b.meta.id == VERIFY_BLOCK_ID)
+        .cloned();
     drop_verify_block(&mut existing);
 
     let fresh = generate_sections(board)?;
     let now = Utc::now().format(STAMP_FMT).to_string();
     let mut report = merge(&mut existing, fresh, &mut state, &now);
-    append_verify_block(&mut existing, &report, &root, &now);
+    append_verify_block(&mut existing, &report, &root, &now, prev_verify.as_ref());
     report.total_tokens = estimate_tokens(&render_file(&existing));
+    let final_markdown = render_file(&existing);
 
-    state.last_run = Some(now.clone());
-    std::fs::write(&path, render_file(&existing))
-        .with_context(|| format!("failed to write {}", path.display()))?;
-    write_state(board, &state)?;
+    // Content-idempotence: only touch disk when the rendered file actually
+    // changed. Keeps daemon/watcher runs quiet and `git diff` clean for
+    // no-op refreshes.
+    let mut content_changed = true;
+    if path.exists() {
+        if let Ok(prev) = std::fs::read_to_string(&path) {
+            content_changed = prev != final_markdown;
+        }
+    }
+    if content_changed {
+        std::fs::write(&path, &final_markdown)
+            .with_context(|| format!("failed to write {}", path.display()))?;
+        state.last_run = Some(now.clone());
+        write_state(board, &state)?;
+    } else if opts.budget.is_some() || opts.manual_add.is_some() {
+        // Explicit knobs changed even though the rendered file didn't —
+        // persist them so the next run budgets correctly.
+        write_state(board, &state)?;
+    }
+    report.unchanged = !content_changed;
 
     if opts.wire {
         let _ = wire_agent_files(&root, &mut state, opts.create_wires);
