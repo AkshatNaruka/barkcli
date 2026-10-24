@@ -1,3 +1,5 @@
+import { MCP_TOOL_COUNT } from "@/lib/mcp";
+
 // Required for `output: "export"` (GitHub Pages) — the handler serves static text either way.
 export const dynamic = "force-static";
 
@@ -13,7 +15,7 @@ barkcli is a local-first management layer. Humans write intent, agents do work, 
 - Tasks are YAML files (\`.board/*.board\`) committed to your repository — diff them, merge them, grep them, roll them back with git.
 - No cloud, no accounts, no subscriptions. Works fully offline.
 - Four interfaces over one data source: CLI, terminal UI (TUI), web app, and VS Code extension.
-- 56 MCP tools let AI coding agents (Claude Code, OpenCode, Cursor) read tasks, claim work, and update progress.
+- ${MCP_TOOL_COUNT} MCP tools let AI coding agents (Claude Code, OpenCode, Cursor) read tasks, claim work, and update progress.
 
 ## Key Features
 

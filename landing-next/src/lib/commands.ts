@@ -204,6 +204,73 @@ export const commands: Command[] = [
     examples: ["barkcli context sync"],
   },
   {
+    slug: "context-digest",
+    name: "barkcli context digest",
+    description:
+      "Regenerate project_context.md from tracked evidence (board, sessions, memory, specs, code map). Content-idempotent: unchanged sections keep their stamps and no-op runs don't touch the file.",
+    category: "Code Context",
+    usage: "barkcli context digest [options]",
+    examples: [
+      "barkcli context digest",
+      "barkcli context digest --polish",
+      "barkcli context digest --budget 6000",
+    ],
+    flags: [
+      { name: "--polish", description: "One facts-only LLM pass to rewrite the Brief section (needs a configured provider)" },
+      { name: "--budget", description: "Token budget for the file (default: 4000); evicted sections stay stubbed" },
+    ],
+  },
+  {
+    slug: "context-prime",
+    name: "barkcli context prime",
+    description:
+      "One-shot bootstrap for the living context file: code scan, digest, and agent-file wiring in a single command.",
+    category: "Code Context",
+    usage: "barkcli context prime [options]",
+    examples: ["barkcli context prime", "barkcli context prime --polish"],
+    flags: [
+      { name: "--polish", description: "Also rewrite the Brief via an LLM pass" },
+    ],
+  },
+  {
+    slug: "context-wire",
+    name: "barkcli context wire",
+    description:
+      "Point coding agents at the context file: adds an @import to CLAUDE.md and a pointer to AGENTS.md so agents read it first.",
+    category: "Code Context",
+    usage: "barkcli context wire",
+    examples: ["barkcli context wire"],
+  },
+  {
+    slug: "context-verify",
+    name: "barkcli context verify",
+    description:
+      "Git sync + stale-spec scan + digest in one pass — the freshness check before you trust the file.",
+    category: "Code Context",
+    usage: "barkcli context verify",
+    examples: ["barkcli context verify"],
+  },
+  {
+    slug: "context-benchmark",
+    name: "barkcli context benchmark",
+    description:
+      "Measure the cold-start context payload (listing → keyword search → reading candidates) against one read of project_context.md. Deterministic proxy, no LLM — re-runnable on any repo in seconds.",
+    category: "Code Context",
+    usage: "barkcli context benchmark [options]",
+    examples: [
+      "barkcli context benchmark",
+      "barkcli context benchmark --hits 3",
+      "barkcli context benchmark --markdown",
+      "barkcli context benchmark --json",
+    ],
+    flags: [
+      { name: "--hits", description: "Candidate files the reading step opens (default: 8)" },
+      { name: "--lines", description: "Lines read per candidate (default: 120)" },
+      { name: "--json", description: "Machine-readable output" },
+      { name: "--markdown", description: "Copy-paste claim block with the methodology footnote" },
+    ],
+  },
+  {
     slug: "tui",
     name: "barkcli tui",
     description: "Launch the interactive terminal UI with kanban board, list, tree, and agenda views.",

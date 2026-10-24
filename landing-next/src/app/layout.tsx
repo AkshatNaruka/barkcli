@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope, Italiana, Marck_Script } from "next/font/google";
 import "./globals.css";
+import { MCP_TOOL_COUNT } from "@/lib/mcp";
 
 const manrope = Manrope({
   variable: "--font-manrope",
@@ -28,7 +29,7 @@ export const metadata: Metadata = {
     template: "%s · barkcli",
   },
   description:
-    "barkcli is the management layer between humans and AI coding agents. Tasks, specs, memory, skills, and agent runs live in your repo — CLI, web app, and 56 MCP tools. One binary, no cloud, no accounts. Free and open source (MIT).",
+    `barkcli is the management layer between humans and AI coding agents. Tasks, specs, memory, skills, and agent runs live in your repo — CLI, web app, and ${MCP_TOOL_COUNT} MCP tools. One binary, no cloud, no accounts. Free and open source (MIT).`,
   keywords: [
     "management layer for ai agents",
     "ai agent orchestration",
@@ -79,7 +80,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "barkcli — The management layer for AI agents",
     description:
-      "Tasks, specs, memory, and agent runs live in your repo. CLI, web app, and 56 MCP tools. No cloud. Free and open source (MIT).",
+      `Tasks, specs, memory, and agent runs live in your repo. CLI, web app, and ${MCP_TOOL_COUNT} MCP tools. No cloud. Free and open source (MIT).`,
     creator: "@probiex007",
     images: [`${SITE_URL}/opengraph-image`],
   },
@@ -139,7 +140,7 @@ const structuredData = {
       operatingSystem: "macOS, Linux, Windows",
       url: SITE_URL,
       description:
-        "The management layer between humans and AI coding agents. Tasks, specs, memory, skills, and agent runs live in your repo — CLI, web app, and 56 MCP tools. One binary, no cloud, no accounts.",
+        `The management layer between humans and AI coding agents. Tasks, specs, memory, skills, and agent runs live in your repo — CLI, web app, and ${MCP_TOOL_COUNT} MCP tools. One binary, no cloud, no accounts.`,
       offers: {
         "@type": "Offer",
         price: "0",
@@ -160,7 +161,7 @@ const structuredData = {
         "CLI, Terminal UI, Web App, VS Code extension",
         "YAML-based board files with spec traceability",
         "Four-tier local memory",
-        "56 MCP tools for AI coding agents",
+        `${MCP_TOOL_COUNT} MCP tools for AI coding agents`,
         "Sprint management",
         "Session capture and checkpoints",
         "Import/export",
@@ -209,7 +210,7 @@ const structuredData = {
           name: "What is barkcli?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "barkcli is an open-source (MIT) management layer between humans and AI coding agents. Tasks, specs, memory, skills, and agent runs live in your git repo. It provides a CLI, terminal UI, web app, and 56 MCP tools for AI agents.",
+            text: `barkcli is an open-source (MIT) management layer between humans and AI coding agents. Tasks, specs, memory, skills, and agent runs live in your git repo. It provides a CLI, terminal UI, web app, and ${MCP_TOOL_COUNT} MCP tools for AI agents.`,
           },
         },
         {
@@ -225,7 +226,7 @@ const structuredData = {
           name: "Does barkcli work with Claude Code, OpenCode, and Cursor?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "Yes. barkcli exposes 56 MCP tools and works as an MCP server with Claude Code, OpenCode, Cursor, and any MCP-compatible AI agent. See the integrations page for setup.",
+            text: `Yes. barkcli exposes ${MCP_TOOL_COUNT} MCP tools and works as an MCP server with Claude Code, OpenCode, Cursor, and any MCP-compatible AI agent. See the integrations page for setup.`,
           },
         },
         {

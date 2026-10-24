@@ -1,3 +1,5 @@
+import { MCP_TOOL_COUNT } from "@/lib/mcp";
+
 export interface Integration {
   slug: string;
   name: string;
@@ -102,7 +104,7 @@ export const integrations: Integration[] = [
       "OpenCode creates, assigns, and completes tasks",
     ],
     features: [
-      "56 MCP tools — task, board, memory, specs, orchestration",
+      `${MCP_TOOL_COUNT} MCP tools — task, board, memory, specs, orchestration`,
       "Agent can read full task context from the codebase",
       "Automatic task creation from prompts",
       "Code context and symbol search for the agent",

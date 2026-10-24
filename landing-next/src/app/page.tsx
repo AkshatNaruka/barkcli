@@ -203,7 +203,7 @@ const CODE_FEATURES = [
 const FAQ = [
   {
     question: "Is barkcli a CLI tool or a web app?",
-    answer: "Both — but think of it as a management layer, not a tool. The same data powers the CLI, terminal UI, VS Code extension, and web app. Humans manage in the web app (Mind, Board, Agents), agents work through 56 MCP tools, and everything syncs through files in your repo.",
+    answer: `Both — but think of it as a management layer, not a tool. The same data powers the CLI, terminal UI, VS Code extension, and web app. Humans manage in the web app (Mind, Board, Agents), agents work through ${MCP_TOOL_COUNT} MCP tools, and everything syncs through files in your repo.`,
   },
   {
     question: "What makes barkcli different from Jira or Linear?",
@@ -219,7 +219,7 @@ const FAQ = [
   },
   {
     question: "How do AI agents fit in?",
-    answer: "barkcli sits between you and your coding agents. You write intent (intake → plan), agents claim scoped tasks with file context and skills (dispatch), and completed work is validated before it lands (review). Memory persists decisions across sessions. Agents connect via 56 MCP tools — OpenCode, Claude Code, and Cursor all work. The core stays fully usable offline without any AI.",
+    answer: `barkcli sits between you and your coding agents. You write intent (intake → plan), agents claim scoped tasks with file context and skills (dispatch), and completed work is validated before it lands (review). Memory persists decisions across sessions. Agents connect via ${MCP_TOOL_COUNT} MCP tools — OpenCode, Claude Code, and Cursor all work. The core stays fully usable offline without any AI.`,
   },
   {
     question: "Is it free?",
@@ -989,22 +989,33 @@ export default function Home() {
               );
             })}
           </div>
-          {/* Context-file proof strip — numbers from `barkcli context benchmark`, first-party. */}
+          {/* Context-file proof strip — numbers from `barkcli context benchmark`, first-party.
+              Refresh: `barkcli context benchmark --markdown` (default hits=8) and `--hits 3` (conservative). */}
           <AnimatedSection className="mt-6" delay={0.2}>
-            <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-6 flex flex-col sm:flex-row items-center gap-6">
-              <div className="text-center sm:text-left shrink-0">
-                <div className="text-5xl font-bold text-[#B8845C] font-mono">61×</div>
-                <div className="text-white/40 text-xs mt-1">less context to gather</div>
+            <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-6">
+              <div className="flex flex-col sm:flex-row items-center gap-6">
+                <div className="text-center sm:text-left shrink-0">
+                  <div className="text-5xl font-bold text-[#B8845C] font-mono">57×</div>
+                  <div className="text-white/40 text-xs mt-1">less context to gather</div>
+                </div>
+                <div className="text-center sm:text-left shrink-0 sm:border-l sm:border-white/10 sm:pl-6">
+                  <div className="text-2xl font-bold text-white/70 font-mono">44×</div>
+                  <div className="text-white/40 text-xs mt-1">even reading fewer files</div>
+                </div>
+                <p className="text-white/50 text-sm leading-relaxed flex-1">
+                  A cold agent session starts by <em>listing</em> the repo, <em>searching</em> for
+                  active work, and <em>reading</em> candidate files — ~29,300 tokens before the
+                  first real edit on this repo. One read of the auto-maintained,{" "}
+                  <code className="text-white/80">project_context.md</code> costs{" "}
+                  <code className="text-white/80">515</code>. Verify it on your own repo in
+                  seconds:
+                  <code className="text-white/80"> barkcli context benchmark --json</code> — a
+                  deterministic proxy, no LLM in the loop, lockfiles, build output and page HTML
+                  excluded. Measured on the barkcli repo itself @{" "}
+                  <code className="text-white/40">943d877</code>, Oct&nbsp;2026; the 44× variant
+                  reads three candidate files instead of eight.
+                </p>
               </div>
-              <p className="text-white/50 text-sm leading-relaxed flex-1">
-                A cold agent session starts by <em>listing</em> the repo, <em>searching</em> for
-                active work, and <em>reading</em> candidate files — ~29,300 tokens before the first
-                real edit on this repo. One read of the auto-maintained,{" "}
-                <code className="text-white/80">project_context.md</code> costs{" "}
-                <code className="text-white/80">478</code>. Verify it on your own repo in seconds:
-                <code className="text-white/80"> barkcli context benchmark --json</code> — a
-                deterministic proxy, no LLM, lockfiles and build output excluded.
-              </p>
             </div>
           </AnimatedSection>
         </div>
