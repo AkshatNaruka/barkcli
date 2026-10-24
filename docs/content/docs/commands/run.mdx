@@ -17,7 +17,7 @@ cannot claim a passing gate.
 ## Usage
 
 ```bash
-barkcli run "<intent>" [--backend <name>] [--yes] [--offline] [--test-cmd <cmd>]
+barkcli run "<intent>" [--backend <name>] [--agents <n>] [--yes] [--offline] [--test-cmd <cmd>]
 ```
 
 ## Examples
@@ -28,6 +28,9 @@ barkcli run "Create a fizzbuzz module with tests" --offline --yes
 
 # Choose the backend, override the gate command
 barkcli run "Fix the flaky login test" --backend claude --test-cmd "npm test" --yes
+
+# Run three tasks concurrently, each in its own worktree
+barkcli run "Ship the settings redesign" --agents 3 --yes
 
 # Preview the plan without creating anything
 barkcli run "Add dark mode toggle" --dry-run
@@ -52,11 +55,31 @@ barkcli run "Add dark mode toggle" --dry-run
    project memory fact is written, and the task is re-queued with the
    verdict injected into the next prompt, up to `--max-attempts` (default 3).
 
+## Parallel pool & the merge train
+
+`--agents N` keeps up to N attempts running at once, each in its own
+worktree. Workers own their child process, transcript, and gate; they mail
+beats (lease refresh, every 30s) and results back to the dispatcher, which
+solely owns the queue file and all merges.
+
+The merge train: each gate-passing branch merges the moment its worker
+finishes — in finish order. A branch that no longer applies aborts its
+merge, re-queues with the conflict verdict, and waits for the pool to drain;
+its next attempt then runs **solo** against a frozen main, so the retry
+cannot race another merge. The JSON report records `parallel` (worker cap),
+`workers_peak` (highest concurrency observed), and `merged_branches`
+(train order).
+
+While a run is active, the web app's Orchestrate view polls
+[`/api/run/live`](/docs/commands/serve) and shows every attempt as a live
+session row (backend, task, branch, status, pulse dot).
+
 ## Flags
 
 | Flag | Description |
 |------|-------------|
 | `--backend <name>` | `opencode` \| `claude` \| `codex` (default: auto-detect) |
+| `--agents <n>` | Up to n attempts run concurrently (default 1, max 16) |
 | `--yes` | Auto-merge branches that pass the gate |
 | `--offline` | Skip the LLM entirely (heuristic intake) |
 | `--bug` / `--feature` | Force the classification |

@@ -25,6 +25,23 @@ interface Task {
   created_at: string;
 }
 
+interface LiveSession {
+  id: string;
+  task_id?: string;
+  agent_id: string;
+  backend: string;
+  status: string;
+  branch?: string;
+  worktree_path?: string;
+  pid?: number;
+  started_at: string;
+  last_heartbeat?: string;
+  ended_at?: string;
+  exit_code?: number;
+  note?: string;
+  fresh: boolean;
+}
+
 const STATUS_TONE: Record<string, "gray" | "blue" | "amber" | "green" | "red"> = {
   Idle: "green",
   Working: "amber",
@@ -44,6 +61,7 @@ function StatusPill({ status }: { status: string }) {
 export function OrchestrateView({ boardName }: { boardName: string | null }) {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [live, setLive] = useState<LiveSession[]>([]);
   const [orchStatus, setOrchStatus] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showRegister, setShowRegister] = useState(false);
@@ -69,6 +87,21 @@ export function OrchestrateView({ boardName }: { boardName: string | null }) {
   }, [boardName, taskFilter]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Live sessions: poll the runner-owned session files every 3s so an
+  // active `barkcli run` shows up (and drains) in real time.
+  useEffect(() => {
+    let alive = true;
+    const poll = () => {
+      fetch("/api/run/live")
+        .then(r => r.json())
+        .then(d => { if (alive) setLive(d.sessions || []); })
+        .catch(() => {});
+    };
+    poll();
+    const t = setInterval(poll, 3000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
 
   const handleRegister = async () => {
     if (!newAgentId.trim() || !newAgentName.trim()) return;
@@ -263,6 +296,38 @@ export function OrchestrateView({ boardName }: { boardName: string | null }) {
             <span className="text-xs text-muted">{tasks.length} tasks</span>
           </div>
         </div>
+
+        {/* Live sessions from an active `barkcli run` (polls /api/run/live) */}
+        {live.length > 0 && (
+          <div className="border-b border-border bg-surface/40 shrink-0">
+            {live.map(s => {
+              const task = tasks.find(t => t.id === s.task_id);
+              const dotColor = s.fresh
+                ? "var(--success)"
+                : s.status === "Failed" || s.status === "Killed"
+                ? "var(--danger)"
+                : "var(--muted)";
+              return (
+                <div key={s.id} className="px-3 py-1.5 flex items-center gap-2 text-[11px]">
+                  <span
+                    className={"w-1.5 h-1.5 rounded-full shrink-0 " + (s.fresh ? "animate-pulse" : "")}
+                    style={{ backgroundColor: dotColor }}
+                    title={s.fresh ? "session is live" : "recently finished"}
+                  />
+                  <span className="font-mono text-muted">{s.backend}</span>
+                  <span className={"font-medium " + (s.fresh ? "text-text" : "text-muted")}>
+                    {task ? task.title : s.task_id || s.id}
+                  </span>
+                  {s.branch && (
+                    <span className="font-mono text-muted truncate max-w-40">{s.branch}</span>
+                  )}
+                  <span className={s.fresh ? "text-success" : "text-muted"}>{s.status}</span>
+                  {s.note && <span className="text-muted truncate max-w-60">{s.note}</span>}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto">
           {loading ? (

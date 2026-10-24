@@ -24,7 +24,8 @@ pub use orchestrate::OrchestrationEngine;
 pub use queue::{TaskQueue, TaskRequest, TaskResult, TaskResults, TaskStatus};
 pub use roles::{AgentRole, Capability};
 pub use session::{
-    list_sessions, load_session, remove_session, resolve_session_id, save_session, session_path,
-    sessions_dir, transcript_tail, Session, SessionBackend, SessionStatus,
+    list_sessions, live_sessions, load_session, remove_session, resolve_session_id, save_session,
+    session_path, sessions_dir, transcript_tail, LiveSession, Session, SessionBackend,
+    SessionStatus,
 };
 pub use worktree::{acquire_worktree, release_worktree, worktrees_root};

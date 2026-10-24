@@ -311,8 +311,9 @@ When `barkcli serve` is run in a directory without `.board/`:
 
 ```bash
 # prompt → card → plan → agent spawn (worktree) → transcript watch →
-# acceptance gate (project tests) → merge (--yes) or re-dispatch with verdict
+# acceptance gate (project tests) → merge train → merge or re-dispatch
 barkcli run "<intent>" --yes
+barkcli run "<intent>" --agents 3 --yes   # parallel pool: N worktrees at once
 ```
 
 - Backends: auto-detects `opencode`/`claude`/`codex`; `BARKCLI_AGENT_CMD`
@@ -321,6 +322,11 @@ barkcli run "<intent>" --yes
   self-report. Crashed agents with no changes + a no-op gate still fail.
 - Failed gates inject the verdict into the retry prompt and record a memory
   fact. Use `--dry-run`/`--json` for programmatic runs.
+- Parallel pool (`--agents N`): workers own one attempt each and mail beats +
+  results to the dispatcher; gate-passing branches merge in finish order
+  (merge train); conflicted branches re-run solo once the pool drains.
+- Live view: `GET /api/run/live` exposes runner sessions (with heartbeats);
+  the web Orchestrate view shows them in real time during a run.
 
 ### MCP Server for Coding Agents
 

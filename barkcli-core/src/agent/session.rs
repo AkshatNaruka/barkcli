@@ -225,6 +225,66 @@ pub fn list_sessions() -> Result<Vec<Session>> {
     Ok(out)
 }
 
+// ── live view (P1) ──
+//
+// The web UI's live panel reads runner-owned sessions (the ones `barkcli
+// run` creates and heartbeats) rather than the hook-written session log.
+
+/// Compact live snapshot of one session, for `GET /api/run/live`.
+#[derive(Debug, Clone, Serialize)]
+pub struct LiveSession {
+    pub id: String,
+    pub task_id: Option<String>,
+    pub agent_id: String,
+    pub backend: String,
+    pub status: String,
+    pub branch: Option<String>,
+    pub worktree_path: Option<String>,
+    pub pid: Option<u32>,
+    pub started_at: DateTime<Utc>,
+    pub last_heartbeat: Option<DateTime<Utc>>,
+    pub ended_at: Option<DateTime<Utc>>,
+    pub exit_code: Option<i32>,
+    /// Newest note on the session, if any.
+    pub note: Option<String>,
+    /// True when the attempt is still running or was heartbeating recently.
+    pub fresh: bool,
+}
+
+/// Live snapshot: sessions from the last hour (newest first); `fresh` flags
+/// the ones that look alive (non-terminal status + heartbeat ≤ 2 min ago).
+pub fn live_sessions() -> Result<Vec<LiveSession>> {
+    let raw = list_sessions()?;
+    let cutoff = chrono::Duration::hours(1);
+    let fresh_cutoff = chrono::Duration::minutes(2);
+    Ok(raw
+        .iter()
+        .filter(|s| Utc::now().signed_duration_since(s.started_at) < cutoff)
+        .map(|s| {
+            let fresh = !s.status.is_terminal()
+                && s.last_heartbeat
+                    .map(|h| Utc::now().signed_duration_since(h) < fresh_cutoff)
+                    .unwrap_or(false);
+            LiveSession {
+                id: s.id.clone(),
+                task_id: s.task_id.clone(),
+                agent_id: s.agent_id.clone(),
+                backend: s.backend.display_name().to_string(),
+                status: format!("{:?}", s.status),
+                branch: s.branch.clone(),
+                worktree_path: s.worktree_path.clone(),
+                pid: s.pid,
+                started_at: s.started_at,
+                last_heartbeat: s.last_heartbeat,
+                ended_at: s.ended_at,
+                exit_code: s.exit_code,
+                note: s.notes.last().map(|n| n.text.clone()),
+                fresh,
+            }
+        })
+        .collect())
+}
+
 /// Resolve a full session id from an exact id or unambiguous prefix.
 /// Sessions are displayed truncated (`sess-9e0e1742`), so CLI/MCP callers
 /// routinely pass short ids.

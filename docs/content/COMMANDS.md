@@ -482,6 +482,29 @@ crashes without producing changes (a no-op gate doesn't count), or the merge
 conflicts after the final attempt. Failed attempts are recorded as project
 memory facts and the verdict is injected into re-dispatch prompts.
 
+#### Parallel pool & the merge train
+
+`--agents N` keeps up to N attempts running at once, each in its own worktree
+(`bark/<task-id>`). Workers own their child process, transcript, and gate;
+workers mail beats (lease refresh) and results back to the dispatcher, which
+owns the queue file and all merges.
+
+```shell
+# Three tasks run concurrently; workers heartbeat the lease every 30s.
+barkcli run "Ship the settings redesign" --agents 3 --yes
+```
+
+The **merge train**: each gate-passing branch merges the moment its worker
+finishes — in finish order. A branch that no longer applies aborts its merge,
+re-queues with the conflict verdict, and waits for the pool to drain, then
+re-dispatches **solo** against a frozen main (structurally conflict-free for
+that window). The report records the worker cap (`parallel`), the peak
+concurrency (`workers_peak`), and the branches that landed (`merged_branches`).
+
+Watch it live: the web app's Orchestrate view polls `/api/run/live` and shows
+each running attempt as a session row (backend, task, branch, status, pulse
+dot), refreshed while the run is active via WebSocket.
+
 ---
 
 ## Spec Management

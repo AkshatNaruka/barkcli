@@ -83,6 +83,7 @@ pub async fn run(
         .route("/api/sprints/end", post(end_sprint_handler))
         .route("/api/history", get(history_handler))
         .route("/api/sessions", get(sessions_handler))
+        .route("/api/run/live", get(run_live_handler))
         .route("/api/context", get(context_handler))
         .route("/api/context/sync", post(sync_context_handler))
         .route("/api/context/clear", post(clear_context_handler))
@@ -734,6 +735,19 @@ async fn sessions_handler(
     all.reverse(); // newest first
     let all = filter_entries(all, &query.since, query.limit, |e| &e.at);
     Ok(Json(SessionsResponse { sessions: all }))
+}
+
+#[derive(serde::Serialize)]
+struct RunLiveResponse {
+    sessions: Vec<barkcli_core::agent::LiveSession>,
+}
+
+/// Live snapshot of runner-owned sessions (the attempts `barkcli run` is
+/// currently watching). Powers the web UI's live panel.
+async fn run_live_handler() -> Result<Json<RunLiveResponse>, ServerError> {
+    let sessions = barkcli_core::agent::live_sessions()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(RunLiveResponse { sessions }))
 }
 
 #[derive(serde::Serialize)]

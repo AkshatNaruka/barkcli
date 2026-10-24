@@ -10,11 +10,15 @@
 
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use barkcli_core::commands::run_cmd::{run, RunOptions};
 use barkcli_core::memory::store::MemoryStore;
 use barkcli_core::storage::board_file::{read_board, write_board};
 use barkcli_core::models::board::Board;
+
+/// The tests here mutate process-wide state (CWD, env) — serialize them.
+static SERIAL: Mutex<()> = Mutex::new(());
 
 fn unique_root(tag: &str, n: u32) -> PathBuf {
     let dir = std::env::temp_dir().join(format!(
@@ -71,6 +75,7 @@ fn seed_repo(root: &Path, agent_script: &str) {
 /// task merges; the card completes; the worktree is released.
 #[test]
 fn run_loop_success_then_failure_paths() {
+    let _serial = SERIAL.lock().unwrap();
     // ── setup #1: the success repo ──
     let root = unique_root("ok", 1);
     let ok_agent = r#"#!/bin/sh
@@ -253,4 +258,203 @@ exit 0
 
 fn g_ok_pass(t: &barkcli_core::commands::run_cmd::TaskOutcome) -> bool {
     t.gate.as_ref().map(|g| g.ok).unwrap_or(false) && t.status == "completed"
+}
+
+/// P1 parallel pool: `--agents 2` runs two tasks at the same time, each in
+/// its own worktree. The agent keys its output file off the worktree name
+/// (the task id), so the branches never conflict. Both must complete, both
+/// must merge through the merge train, and the peak concurrency must be 2.
+#[test]
+fn run_loop_parallel_pool_agents_two() {
+    let _serial = SERIAL.lock().unwrap();
+
+    let root = unique_root("par", 3);
+    let parallel_agent = r#"#!/bin/sh
+# $1 = prompt file path — writes a file unique to this worktree (task id).
+set -e
+cp "$1" ./received-prompt.md
+name="$(basename "$(pwd)")"
+echo "done: ${name}" > "out-${name}.txt"
+echo "task ${name} finished"
+exit 0
+"#;
+    seed_repo(&root, parallel_agent);
+    std::env::set_current_dir(&root).unwrap();
+    write_board("run-board3", &Board::new("run-board3")).unwrap();
+
+    std::env::set_var("BARKCLI_AGENT_CMD", "./fake-agent.sh");
+    let report = run(RunOptions {
+        intent: "Create two independent feature deliverables with passing tests".into(),
+        board: Some("run-board3".into()),
+        offline: true,
+        yes: true,
+        test_cmd: Some("node test.js".into()),
+        max_attempts: 2,
+        max_minutes: 2,
+        idle_minutes: 1,
+        max_agents: 2,
+        ..Default::default()
+    })
+    .unwrap();
+
+    assert_eq!(
+        report.parallel,
+        Some(2),
+        "report must record the worker cap"
+    );
+    assert_eq!(
+        report.workers_peak,
+        Some(2),
+        "two tasks must have run concurrently (got {:?})",
+        report
+            .tasks
+            .iter()
+            .map(|t| (t.status.clone(), t.attempts))
+            .collect::<Vec<_>>()
+    );
+    assert!(
+        report.failed == 0,
+        "no task may fail when branches are disjoint: {:?}",
+        report
+            .tasks
+            .iter()
+            .map(|t| (t.status.clone(), t.note.clone()))
+            .collect::<Vec<_>>()
+    );
+    assert!(
+        report.completed >= 2,
+        "both parallel tasks must complete: {:?}",
+        report
+            .tasks
+            .iter()
+            .map(|t| (t.status.clone(), t.attempts))
+            .collect::<Vec<_>>()
+    );
+    assert!(report.tasks.iter().all(|t| t.merged || t.status == "queued"));
+
+    // Merge train order: every completed branch landed on main.
+    assert_eq!(
+        report.merged_branches.as_ref().map(|m| m.len()),
+        Some(report.tasks.iter().filter(|t| t.merged).count()),
+        "merged_branches must match merged outcomes"
+    );
+
+    // Card completes; worktrees are released.
+    let board = read_board("run-board3").unwrap();
+    let card = board
+        .cards
+        .iter()
+        .find(|c| c.id == report.card_id)
+        .expect("created card");
+    assert_eq!(card.column, "done");
+    assert_eq!(
+        std::fs::read_dir(root.join(".board/worktrees"))
+            .map(|d| d.count())
+            .unwrap_or(0),
+        0
+    );
+    std::env::remove_var("BARKCLI_AGENT_CMD");
+}
+
+/// P1 merge train: two parallel tasks both add `log.txt` with task-specific
+/// content. The first to finish merges cleanly; the second hits an add/add
+/// conflict, aborts, re-queues with the conflict verdict, and its next
+/// attempt rebases off the new main (modify) and merges cleanly. Both tasks
+/// must eventually complete.
+#[test]
+fn run_loop_merge_train_conflict_redispatches() {
+    let _serial = SERIAL.lock().unwrap();
+
+    let root = unique_root("train", 4);
+    let clashing_agent = r#"#!/bin/sh
+# $1 = prompt file path — every task adds the SAME file with DIFFERENT
+# content, keyed off the worktree name (the task id).
+set -e
+cp "$1" ./received-prompt.md
+name="$(basename "$(pwd)")"
+echo "log: ${name}" > log.txt
+echo "task ${name} finished"
+exit 0
+"#;
+    seed_repo(&root, clashing_agent);
+    std::env::set_current_dir(&root).unwrap();
+    write_board("run-board4", &Board::new("run-board4")).unwrap();
+
+    std::env::set_var("BARKCLI_AGENT_CMD", "./fake-agent.sh");
+    let report = run(RunOptions {
+        intent: "Create two overlapping deliverables that both update the changelog".into(),
+        board: Some("run-board4".into()),
+        offline: true,
+        yes: true,
+        test_cmd: Some("node test.js".into()),
+        max_attempts: 3,
+        max_minutes: 3,
+        idle_minutes: 1,
+        max_agents: 2,
+        ..Default::default()
+    })
+    .unwrap();
+
+    assert!(
+        report.completed >= 2,
+        "both conflicting tasks must eventually complete via the merge train: {:?}",
+        report
+            .tasks
+            .iter()
+            .map(|t| (t.status.clone(), t.attempts, t.note.clone()))
+            .collect::<Vec<_>>()
+    );
+    assert!(
+        report.failed == 0,
+        "the rebase re-dispatch must resolve the conflict: {:?}",
+        report
+            .tasks
+            .iter()
+            .map(|t| (t.status.clone(), t.attempts, t.note.clone()))
+            .collect::<Vec<_>>()
+    );
+    // The conflict actually negotiated: one task needed a second attempt.
+    assert!(
+        report
+            .tasks
+            .iter()
+            .any(|t| t.status == "completed" && t.attempts >= 2),
+        "the losing branch must be re-dispatched and succeed on attempt 2: {:?}",
+        report
+            .tasks
+            .iter()
+            .map(|t| (t.status.clone(), t.attempts, t.note.clone()))
+            .collect::<Vec<_>>()
+    );
+    // Every completed task's branch landed on main, in train order.
+    assert_eq!(
+        report.merged_branches.as_ref().map(|m| m.len()),
+        Some(report.completed as usize),
+        "completed tasks must match landed branches: {:?}",
+        report.merged_branches
+    );
+
+    // log.txt exists on main with exactly one task's content.
+    let log = std::fs::read_to_string(root.join("log.txt")).unwrap();
+    assert!(
+        log.starts_with("log: "),
+        "log.txt must exist on main after both merges, got: {:?}",
+        log
+    );
+
+    // Card completes; worktrees released (incl. the conflicted attempt's).
+    let board = read_board("run-board4").unwrap();
+    let card = board
+        .cards
+        .iter()
+        .find(|c| c.id == report.card_id)
+        .expect("created card");
+    assert_eq!(card.column, "done");
+    assert_eq!(
+        std::fs::read_dir(root.join(".board/worktrees"))
+            .map(|d| d.count())
+            .unwrap_or(0),
+        0
+    );
+    std::env::remove_var("BARKCLI_AGENT_CMD");
 }
