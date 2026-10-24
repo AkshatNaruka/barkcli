@@ -43,12 +43,12 @@ pub fn generate_sections_with_brief(
 ) -> Result<Vec<GeneratedSection>> {
     let sections = generate_mechanical_sections(board)?;
 
-    // Brief staleness ≈ how far the underlying evidence has drifted.
-    let avg = if sections.is_empty() {
-        0.0
-    } else {
-        sections.iter().map(|s| s.staleness).sum::<f32>() / sections.len() as f32
-    };
+    // Brief staleness = the worst drift in the facts it summarizes — max,
+    // not mean. Snapshot, conventions, decisions and sessions are recomputed
+    // from current evidence every run (always 0.0), so a flat average dilutes
+    // real drift: with seven sections where four sit at 0.0, an active
+    // section at 0.7 reads as ~0.1 and never trips the 0.4 flag threshold.
+    let worst = brief_staleness(&sections);
 
     let brief_body = if polish {
         match polish_brief(board, &sections) {
@@ -72,7 +72,15 @@ pub fn generate_sections_with_brief(
         prev_brief
     };
 
-    Ok(assemble_sections(brief_body, avg, sections))
+    Ok(assemble_sections(brief_body, worst, sections))
+}
+
+/// Drift the Brief inherits from its facts: the worst section staleness,
+/// pure function (unit-tested). A summary is stale if any fact it carries
+/// may be stale — hence max over sections, which also keeps the brief
+/// visible on the 0.4 drift flag alongside the drifted section itself.
+fn brief_staleness(sections: &[GeneratedSection]) -> f32 {
+    sections.iter().map(|s| s.staleness).fold(0.0_f32, f32::max)
 }
 
 /// Assemble the final section list: optional LLM Brief first, then the
@@ -824,6 +832,39 @@ mod tests {
         assert!(staleness_from_status("stale") < staleness_from_status("changed"));
         assert!(staleness_from_status("changed") < staleness_from_status("deleted"));
         assert_eq!(staleness_from_status("unknown"), 0.0); // unverified ≠ drifted
+    }
+
+    #[test]
+    fn brief_staleness_is_worst_case_not_diluted_mean() {
+        // Four always-fresh sections must not hide one badly drifted
+        // section: with a mean over {snapshot, active, conventions, sessions}
+        // a 0.7 drift reads as ~0.18 and never trips the 0.4 flag threshold.
+        fn mk(id: &'static str, staleness: f32) -> GeneratedSection {
+            GeneratedSection {
+                id,
+                title: id,
+                src: "x".into(),
+                staleness,
+                body: vec!["- line".into()],
+            }
+        }
+        let sections = vec![
+            mk("snapshot", 0.0),
+            mk("active", 0.7),
+            mk("conventions", 0.0),
+            mk("sessions", 0.0),
+        ];
+        let out = assemble_sections(
+            Some(vec!["- brief".into()]),
+            brief_staleness(&sections),
+            sections,
+        );
+        let brief = out.iter().find(|s| s.id == "brief").unwrap();
+        assert_eq!(brief.staleness, 0.7);
+        // No drift anywhere → 0.0, and empty section lists stay 0.0.
+        let quiet = vec![mk("snapshot", 0.0), mk("sessions", 0.0)];
+        assert_eq!(brief_staleness(&quiet), 0.0);
+        assert_eq!(brief_staleness(&[]), 0.0);
     }
 
     #[test]

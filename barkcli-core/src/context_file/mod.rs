@@ -809,6 +809,11 @@ mod tests {
         for id in ["specs", "sessions", "snapshot"] {
             let b = parsed.blocks.iter().find(|b| b.meta.id == id).unwrap();
             assert!(b.body[0].contains("Evicted to fit"), "section {} not stubbed: {:?}", id, b.body);
+            // Eviction restamps the metadata: the stub carries this run's
+            // stamp (when it was demoted) and zero staleness (a placeholder
+            // has nothing left to drift).
+            assert_eq!(b.meta.updated, "2026-10-25T00:00Z");
+            assert_eq!(b.meta.staleness, 0.0);
         }
         assert!(state.generated.contains_key("active"), "surviving sections stay generated: {:?}", state.generated.keys());
         assert!(report.evicted.iter().all(|e| !state.generated.contains_key(e.as_str())));

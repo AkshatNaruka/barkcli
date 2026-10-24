@@ -7,12 +7,12 @@ you edit by hand — are always preserved verbatim.
 
 Read this file FIRST when starting a session; drill into only what it points at.
 
-<!-- ctx:block id="snapshot" src="board+sessions+git" updated="2026-10-24T09:08Z" staleness="0.00" -->
+<!-- ctx:block id="snapshot" src="board+sessions+git" updated="2026-10-24T09:46Z" staleness="0.00" -->
 ## Snapshot
 - Task board: "dev" — tracked work via barkcli (dev.board)
 - Cards: 9 total (todo 0 · doing 0 · review 2 · done 7)
-- Last commit: caa7d83
-- Last agent session: 2026-10-24 · opencode · 6 file(s) touched
+- Last commit: 904d078
+- Last agent session: 2026-10-24 · opencode · 13 file(s) touched
 
 <!-- ctx:block id="active" src="board+code-index" updated="2026-10-24T09:08Z" staleness="0.00" -->
 ## Active now
@@ -31,11 +31,14 @@ Read this file FIRST when starting a session; drill into only what it points at.
 - barkcli-core/src/commands — 1 file(s)
 - …5 more directories
 
-<!-- ctx:block id="sessions" src="session-log" updated="2026-10-24T09:08Z" staleness="0.00" -->
+<!-- ctx:block id="sessions" src="session-log" updated="2026-10-24T09:46Z" staleness="0.00" -->
 ## Recent agent sessions
-- 2026-10-24 opencode — "0 prompts" (6 file(s))
+- 2026-10-24 opencode — "0 prompts" (13 file(s))
+- 2026-10-24 opencode — "0 prompts" (13 file(s))
+- 2026-10-24 opencode — "0 prompts" (13 file(s))
+- 2026-10-24 opencode — "0 prompts" (13 file(s))
 
-<!-- ctx:block id="verify" src="barkcli context digest" updated="2026-10-24T09:08Z" staleness="0.00" -->
+<!-- ctx:block id="verify" src="barkcli context digest" updated="2026-10-24T09:46Z" staleness="0.00" -->
 ## Verification status
-- Verified @ caa7d83 · all sections fresh (staleness < 0.4)
+- Verified @ 904d078 · all sections fresh (staleness < 0.4)
 - Guide: staleness 0 fresh · ≥0.4 review the section · ≥0.8 likely wrong.
