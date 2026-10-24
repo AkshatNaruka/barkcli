@@ -147,6 +147,48 @@ function seedBoards(): Record<string, Board> {
   const dev = emptyBoard("barkcli — dev board", ["todo", "doing", "review", "done"]);
   dev.description = "Git-native kanban that lives in your repo — CLI, TUI, web and VS Code from one binary.";
   dev.cards = [
+    // The OAuth workstream — the board's live story (matches the Mind page).
+    card({
+      id: "add-oauth", title: "Add OAuth login", column: "todo", priority: "high",
+      labels: ["auth"], effort: 3, area: "web", spec_id: "sso",
+      description: "Sign in with GitHub / Google behind the sso spec — provider adapters, redirect round-trip, session bootstrap.",
+      acceptance_criteria: ["Callback round-trips without a 500", "Session cookie set on success"],
+      updated_at: h(3), created_at: d(4),
+    }),
+    card({
+      id: "fix-checkout", title: "Fix checkout crash", column: "todo", priority: "high",
+      labels: ["bug"], effort: 2, area: "web", spec_id: "checkout",
+      blocked_by: "oauth-flow",
+      description: "Nil unwrap on an unauthenticated cart crashes the buy flow; guard lands with the OAuth branch.",
+      acceptance_criteria: ["Regression test on anonymous cart", "Crash no longer reproducible"],
+      updated_at: h(6), created_at: d(6),
+    }),
+    card({
+      id: "autopilot-gates", title: "Autopilot human gates", column: "todo", priority: "high",
+      labels: ["smart", "orchestrate"], effort: 5, area: "smart", spec_id: "autopilot",
+      blocked_by: "oauth-flow",
+      description: "Agents work card-by-card; humans approve at phase gates (plan, review, merge).",
+      acceptance_criteria: ["Plan approval happens in the web UI", "Every gate also runs from the CLI"],
+      links: [{ ty: "parent", target: "autopilot-intake" }],
+      updated_at: h(14), created_at: d(18),
+    }),
+    card({
+      id: "tui-mouse-scroll", title: "Mouse wheel scrolling in TUI", column: "todo", priority: "low",
+      labels: ["tui"], effort: 1, area: "tui",
+      description: "Column panels should scroll with the wheel without leaving selection mode.",
+      updated_at: d(9), created_at: d(60),
+    }),
+    card({
+      id: "oauth-flow", title: "Implement OAuth flow", column: "doing", priority: "high",
+      labels: ["auth"], effort: 5, area: "web", spec_id: "sso",
+      description: "Wiring the redirect round-trip: authorize URL, code exchange, and the first session write.",
+      checklist: [
+        { text: "Authorize request builds state + nonce", done: true },
+        { text: "Token exchange endpoint stubbed", done: true },
+        { text: "Session cookie write", done: false },
+      ],
+      updated_at: h(1), created_at: d(8),
+    }),
     card({
       id: "demo-hosting", title: "Static demo hosting", column: "doing", priority: "high",
       labels: ["web", "server"], effort: 3, area: "web", pinned: true,
@@ -160,67 +202,17 @@ function seedBoards(): Record<string, Board> {
       updated_at: h(2), created_at: d(9),
     }),
     card({
-      id: "history-bundles", title: "History Bundles v0.7", column: "doing", priority: "high",
-      labels: ["cli", "smart"], effort: 5, area: "smart", spec_id: "bundles",
-      description: "Group related commits into reviewable bundles and map them to cards.",
-      checklist: [
-        { text: "Scan git log into bundle candidates", done: true },
-        { text: "Approve/reject/seal flow", done: false },
-        { text: "Card ⇄ bundle linkage on board", done: false },
-      ],
-      acceptance_criteria: ["Scan runs without a remote", "Bundles survive re-scan (stable ids)"],
-      comments: [{ author: "max", text: "Bundle scan missed squash merges — confidence calc needs a rework.", at: h(30) }],
-      updated_at: h(30), created_at: d(21),
-    }),
-    card({
-      id: "ws-live-reload", title: "WebSocket live reload", column: "review", priority: "medium",
-      labels: ["web", "serve"], effort: 2, area: "serve",
-      description: "Push file changes to the browser over /ws; skip reloads caused by our own debounced saves.",
-      updated_at: h(5), created_at: d(12),
+      id: "store-tokens", title: "Store tokens securely", column: "review", priority: "medium",
+      labels: ["auth", "memory"], effort: 2, area: "web", spec_id: "sso",
+      description: "Refresh tokens in the OS keychain (not .board files), rotation on refresh, revocation on logout.",
+      acceptance_criteria: ["No token ever hits the YAML", "Keychain read/write on all three OSes"],
+      updated_at: h(4), created_at: d(7),
     }),
     card({
       id: "share-links", title: "Shareable card permalinks", column: "review", priority: "low",
       labels: ["web"], effort: 1, area: "web",
       description: "#board/<card> hash routes that open the card form directly from a URL.",
       updated_at: h(9), created_at: d(15),
-    }),
-    card({
-      id: "autopilot-gates", title: "Autopilot human gates", column: "todo", priority: "high",
-      labels: ["smart", "orchestrate"], effort: 5, area: "smart", spec_id: "autopilot",
-      description: "Agents work card-by-card; humans approve at phase gates (plan, review, merge).",
-      acceptance_criteria: ["Plan approval happens in the web UI", "Every gate also runs from the CLI"],
-      links: [{ ty: "parent", target: "autopilot-intake" }],
-      updated_at: h(14), created_at: d(18),
-    }),
-    card({
-      id: "autopilot-intake", title: "Plain-language intent intake", column: "todo", priority: "medium",
-      labels: ["smart"], effort: 2, area: "smart",
-      description: "One text box: 'Add Google OAuth' → proposes a card with acceptance criteria.",
-      updated_at: h(26), created_at: d(10),
-    }),
-    card({
-      id: "brain-view-polish", title: "Brain graph polish", column: "todo", priority: "medium",
-      labels: ["web", "memory"], effort: 2, area: "web",
-      description: "Auto layout, minimap search focus, and connected-node inspector for the memory graph.",
-      updated_at: h(40), created_at: d(20),
-    }),
-    card({
-      id: "calendar-remind", title: "Calendar reminders in web + TUI", column: "todo", priority: "medium",
-      labels: ["web", "tui"], effort: 3,
-      description: "remind_at fires a toast in the web app and a line in the TUI agenda.",
-      due_date: inDays(5), updated_at: d(2), created_at: d(30),
-    }),
-    card({
-      id: "tui-mouse-scroll", title: "Mouse wheel scrolling in TUI", column: "todo", priority: "low",
-      labels: ["tui"], effort: 1, area: "tui",
-      description: "Column panels should scroll with the wheel without leaving selection mode.",
-      updated_at: d(9), created_at: d(60),
-    }),
-    card({
-      id: "vscode-sync-review", title: "VS Code: review card diff before save", column: "todo", priority: "medium",
-      labels: ["vscode"], effort: 2, area: "vscode", blocked_by: "ws-live-reload",
-      description: "Show a diff preview tree-side before writing YAML back to the board file.",
-      updated_at: d(3), created_at: d(28),
     }),
     card({
       id: "kiosk-mode", title: "Kiosk mode for wall displays", column: "done", priority: "high",
@@ -249,6 +241,49 @@ function seedBoards(): Record<string, Board> {
       id: "skill-registry", title: "Skills registry in .board/", column: "done", priority: "low",
       labels: ["orchestrate"], effort: 2, description: "BMAD-style skills served to agents via /api/skills.",
       updated_at: d(7), created_at: d(50),
+    }),
+    card({
+      id: "history-bundles", title: "History Bundles v0.7", column: "done", priority: "high",
+      labels: ["cli", "smart"], effort: 5, area: "smart", spec_id: "bundles",
+      description: "Group related commits into reviewable bundles and map them to cards.",
+      checklist: [
+        { text: "Scan git log into bundle candidates", done: true },
+        { text: "Approve/reject/seal flow", done: true },
+        { text: "Card ⇄ bundle linkage on board", done: true },
+      ],
+      acceptance_criteria: ["Scan runs without a remote", "Bundles survive re-scan (stable ids)"],
+      comments: [{ author: "max", text: "shipped in 0.7.0", at: d(3) }],
+      updated_at: d(3), created_at: d(21),
+    }),
+    card({
+      id: "ws-live-reload", title: "WebSocket live reload", column: "done", priority: "medium",
+      labels: ["web", "serve"], effort: 2, area: "serve",
+      description: "Push file changes to the browser over /ws; skip reloads caused by our own debounced saves.",
+      updated_at: d(10), created_at: d(12),
+    }),
+    card({
+      id: "autopilot-intake", title: "Plain-language intent intake", column: "done", priority: "medium",
+      labels: ["smart"], effort: 2, area: "smart",
+      description: "One text box: 'Add Google OAuth' → proposes a card with acceptance criteria.",
+      updated_at: d(11), created_at: d(10),
+    }),
+    card({
+      id: "brain-view-polish", title: "Brain graph polish", column: "done", priority: "medium",
+      labels: ["web", "memory"], effort: 2, area: "web",
+      description: "Auto layout, minimap search focus, and connected-node inspector for the memory graph.",
+      updated_at: d(12), created_at: d(20),
+    }),
+    card({
+      id: "calendar-remind", title: "Calendar reminders in web + TUI", column: "done", priority: "medium",
+      labels: ["web", "tui"], effort: 3,
+      description: "remind_at fires a toast in the web app and a line in the TUI agenda.",
+      updated_at: d(13), created_at: d(30),
+    }),
+    card({
+      id: "vscode-sync-review", title: "VS Code: review card diff before save", column: "done", priority: "medium",
+      labels: ["vscode"], effort: 2, area: "vscode",
+      description: "Show a diff preview tree-side before writing YAML back to the board file.",
+      updated_at: d(14), created_at: d(28),
     }),
   ];
 
@@ -286,10 +321,13 @@ function seed(): DemoStore {
       { fact: "Fibonacci efforts (1,2,3,5) map to report points.", category: "process", confidence: 0.8, sources: ["docs"], created_at: d(15) },
     ],
     sessions: [
-      { id: "ses-1", agent: "orbiter", model: "claude-sonnet-4-5", board: "dev", prompt: "Implement kiosk mode for wall displays", commit_sha: "9f4bd21", files_touched: ["web/src/components/BoardView.tsx", "web/src/App.tsx"], summary: "Kiosk mode hides chrome, auto-scrolls board columns, 10s refresh.", at: h(6), duration_ms: 1420000 },
-      { id: "ses-2", agent: "orbiter", model: "claude-sonnet-4-5", board: "dev", prompt: "Wire memory tiers + consolidation decay", commit_sha: "7ca15f9", files_touched: ["barkcli-core/src/memory.rs"], summary: "Decay scheduler promotes hot memories to long_term every 24h.", at: d(6), duration_ms: 950000 },
-      { id: "ses-3", agent: "scrum-master-1", board: "dev", prompt: "Weekly board grooming", files_touched: ["dev.board"], summary: "Closed 3 stale cards, promoted 2 into doing.", at: d(7), duration_ms: 210000 },
-      { id: "ses-4", agent: "builder-7", model: "gpt-5.2", board: "roadmap", prompt: "Draft 2026 roadmap slices", files_touched: ["roadmap.board"], summary: "Roadmap board created with 4 seeded initiatives.", at: d(8), duration_ms: 640000 },
+      { id: "ses-1", agent: "opencode-1", model: "opencode", board: "dev", prompt: "Implement the OAuth flow card", commit_sha: "a1d9c02", files_touched: ["web/src/lib/auth.ts", "web/src/App.tsx"], summary: "Redirect round-trip: authorize URL builds state+nonce, exchange endpoint stubbed.", at: h(1), duration_ms: 1120000 },
+      { id: "ses-2", agent: "claude-2", model: "claude-sonnet-4-5", board: "dev", prompt: "Store tokens securely card", files_touched: ["web/src/lib/auth.ts"], summary: "Keychain-backed token cache reviewed; rotation ready for sign-off.", at: h(2), duration_ms: 640000 },
+      { id: "ses-3", agent: "human-you", board: "dev", prompt: "Review the review queue", files_touched: ["dev.board"], summary: "Reviewing Store tokens securely — 2 acceptance criteria checked, 1 open.", at: h(3), duration_ms: 180000 },
+      { id: "ses-4", agent: "orbiter", model: "claude-sonnet-4-5", board: "dev", prompt: "Implement kiosk mode for wall displays", commit_sha: "9f4bd21", files_touched: ["web/src/components/BoardView.tsx", "web/src/App.tsx"], summary: "Kiosk mode hides chrome, auto-scrolls board columns, 10s refresh.", at: h(6), duration_ms: 1420000 },
+      { id: "ses-5", agent: "orbiter", model: "claude-sonnet-4-5", board: "dev", prompt: "Wire memory tiers + consolidation decay", commit_sha: "7ca15f9", files_touched: ["barkcli-core/src/memory.rs"], summary: "Decay scheduler promotes hot memories to long_term every 24h.", at: d(6), duration_ms: 950000 },
+      { id: "ses-6", agent: "scrum-master-1", board: "dev", prompt: "Weekly board grooming", files_touched: ["dev.board"], summary: "Closed 3 stale cards, promoted 2 into doing.", at: d(7), duration_ms: 210000 },
+      { id: "ses-7", agent: "builder-7", model: "gpt-5.2", board: "roadmap", prompt: "Draft 2026 roadmap slices", files_touched: ["roadmap.board"], summary: "Roadmap board created with 4 seeded initiatives.", at: d(8), duration_ms: 640000 },
     ],
     history: [
       { op: "move", board: "dev", card: "demo-mode", old_value: "todo", new_value: "doing", at: h(2) },
@@ -304,16 +342,19 @@ function seed(): DemoStore {
       { op: "add", board: "dev", card: "demo-mode", new_value: "doing", at: d(9) },
     ],
     agents: [
-      { id: "orbiter", name: "Orbiter", role: "TechLead", status: "Working", active_tasks: ["task-2"], completed_tasks: ["task-1"], failed_tasks: [] },
-      { id: "scrum-master-1", name: "Scrum Master", role: "ScrumMaster", status: "Idle", active_tasks: [], completed_tasks: ["task-3"], failed_tasks: [] },
-      { id: "builder-7", name: "Builder", role: "ProjectManager", status: "Paused", active_tasks: [], completed_tasks: [], failed_tasks: ["task-4"] },
+      { id: "opencode-1", name: "opencode-1", role: "TechLead", status: "Working", active_tasks: ["task-1"], completed_tasks: ["task-6"], failed_tasks: [] },
+      { id: "claude-2", name: "claude-2", role: "Developer", status: "Working", active_tasks: ["task-2"], completed_tasks: [], failed_tasks: [] },
+      { id: "human-you", name: "human-you", role: "Reviewer", status: "Working", active_tasks: ["task-3"], completed_tasks: [], failed_tasks: [] },
+      { id: "scrum-master-1", name: "Scrum Master", role: "ScrumMaster", status: "Idle", active_tasks: [], completed_tasks: ["task-7"], failed_tasks: [] },
     ],
     tasks: [
-      { id: "task-1", card_id: "kiosk-mode", title: "Finish kiosk renderer", description: "Ship chrome-less fullscreen board mode.", status: "Completed", assigned_agent: "orbiter", priority: "high", created_at: d(3) },
-      { id: "task-2", card_id: "history-bundles", title: "Implement bundle scanner", description: "Scan git log into bundle candidates.", status: "InProgress", assigned_agent: "orbiter", priority: "high", created_at: d(1) },
-      { id: "task-3", card_id: "autopilot-gates", title: "Design human gate flow", description: "Plan → review → merge gates in web UI.", status: "Completed", assigned_agent: "scrum-master-1", priority: "medium", created_at: d(4) },
-      { id: "task-4", card_id: "ws-live-reload", title: "Review WS reload diff", description: "Sanity-check skip-during-save logic.", status: "Failed", assigned_agent: "builder-7", priority: "medium", created_at: d(2) },
-      { id: "task-5", card_id: "vscode-sync-review", title: "Diff preview before save", description: "Blocked by ws-live-reload.", status: "Pending", priority: "medium", created_at: h(20) },
+      { id: "task-1", card_id: "oauth-flow", title: "OAuth flow", description: "Drive the Implement OAuth flow card: redirect round-trip, token exchange, session write.", status: "InProgress", assigned_agent: "opencode-1", priority: "high", created_at: d(1) },
+      { id: "task-2", card_id: "store-tokens", title: "Token storage", description: "Keychain-backed token storage hardening for the sso spec.", status: "InProgress", assigned_agent: "claude-2", priority: "medium", created_at: d(1) },
+      { id: "task-3", card_id: "store-tokens", title: "Review queue", description: "Human review gate for the store-tokens slice.", status: "InProgress", assigned_agent: "human-you", priority: "medium", created_at: h(4) },
+      { id: "task-4", card_id: "add-oauth", title: "Add OAuth login", description: "Slice add-oauth once the flow branch lands.", status: "Pending", priority: "high", created_at: h(2) },
+      { id: "task-5", card_id: "autopilot-gates", title: "Design human gate flow", description: "Gated dispatch after the OAuth workstream clears.", status: "Pending", priority: "high", created_at: h(3) },
+      { id: "task-6", card_id: "kiosk-mode", title: "Finish kiosk renderer", description: "Ship chrome-less fullscreen board mode.", status: "Completed", assigned_agent: "opencode-1", priority: "high", created_at: d(3) },
+      { id: "task-7", card_id: "brain-view-polish", title: "Groom the board", description: "Weekly board grooming pass.", status: "Completed", assigned_agent: "scrum-master-1", priority: "medium", created_at: d(4) },
     ],
     checkpoints: [
       { kind: "checkpoint", id: "cp-seed-1", saved_at: d(3), label: "before-bundle-prune", board_name: "dev", yaml: yamlDump(boards.dev, { indent: 2, lineWidth: -1 }) },
@@ -364,7 +405,7 @@ function seed(): DemoStore {
         description: "Distill agent history into reviewable, card-linked bundles.",
         tags: ["smart", "cli"], created_at: d(30), updated_at: h(30),
         requirements: [
-          { id: "req-1", title: "Scan git log into bundles", status: "implemented", acceptance_criteria: ["Runs offline", "Stable ids under re-scan"], linked_code: ["barkcli-core/src/history.rs"], linked_tests: ["barkcli-core/tests/bundles.rs"], linked_tasks: ["task-2"], stale: false, updated_at: d(6) },
+          { id: "req-1", title: "Scan git log into bundles", status: "implemented", acceptance_criteria: ["Runs offline", "Stable ids under re-scan"], linked_code: ["barkcli-core/src/history.rs"], linked_tests: ["barkcli-core/tests/bundles.rs"], linked_tasks: [], stale: false, updated_at: d(6) },
           { id: "req-2", title: "Approve / reject / seal lifecycle", status: "in-progress", acceptance_criteria: ["Sealed bundles are immutable"], linked_code: ["barkcli-server/src/lib.rs"], linked_tests: [], linked_tasks: [], stale: false, updated_at: h(30) },
           { id: "req-3", title: "Squash-merge detection", status: "pending", acceptance_criteria: ["95% recall on sample repo"], linked_code: [], linked_tests: [], linked_tasks: [], stale: true, stale_reason: "Card changed hands; re-triage before work", updated_at: d(2) },
         ],
@@ -374,9 +415,27 @@ function seed(): DemoStore {
         description: "Card-by-card agent loop with human gates at plan/review/merge.",
         tags: ["smart", "orchestrate"], created_at: d(12), updated_at: h(14),
         requirements: [
-          { id: "req-4", title: "Phase machine with human prompts", status: "in-progress", acceptance_criteria: ["Gate rendered in web UI", "CLI equivalent exits non-zero when blocked"], linked_code: ["barkcli-core/src/autopilot.rs"], linked_tests: [], linked_tasks: ["task-3"], stale: false, updated_at: h(14) },
+          { id: "req-4", title: "Phase machine with human prompts", status: "in-progress", acceptance_criteria: ["Gate rendered in web UI", "CLI equivalent exits non-zero when blocked"], linked_code: ["barkcli-core/src/autopilot.rs"], linked_tests: [], linked_tasks: ["task-5"], stale: false, updated_at: h(14) },
           { id: "req-5", title: "Intent intake normalizer", status: "pending", acceptance_criteria: ["One sentence → draft card"], linked_code: [], linked_tests: [], linked_tasks: [], stale: false, updated_at: d(2) },
           { id: "req-6", title: "Reviewer pass scoring", status: "pending", acceptance_criteria: [], linked_code: [], linked_tests: [], linked_tasks: [], stale: false, updated_at: d(2) },
+        ],
+      },
+      {
+        id: "sso", title: "Single sign-on (OAuth)", status: "in-progress", priority: "high",
+        description: "Provider-backed sign-in: redirect round-trip, token exchange, secure token storage.",
+        tags: ["auth", "web"], created_at: d(8), updated_at: h(1),
+        requirements: [
+          { id: "req-7", title: "OAuth redirect round-trip", status: "in-progress", acceptance_criteria: ["State + nonce validated", "Callback never 500s"], linked_code: ["web/src/lib/auth.ts"], linked_tests: [], linked_tasks: ["task-1"], stale: false, updated_at: h(1) },
+          { id: "req-8", title: "Tokens live in the OS keychain", status: "in-progress", acceptance_criteria: ["No token in board YAML", "Rotation on refresh"], linked_code: ["web/src/lib/auth.ts"], linked_tests: [], linked_tasks: ["task-2", "task-3"], stale: false, updated_at: h(2) },
+          { id: "req-9", title: "GitHub + Google providers", status: "pending", acceptance_criteria: ["Feature-flagged provider list"], linked_code: [], linked_tests: [], linked_tasks: [], stale: false, updated_at: d(2) },
+        ],
+      },
+      {
+        id: "checkout", title: "Checkout flow", status: "draft", priority: "high",
+        description: "Buy path hardening: anonymous cart guard and crash-free checkout.",
+        tags: ["web", "reliability"], created_at: d(6), updated_at: h(6),
+        requirements: [
+          { id: "req-10", title: "Anonymous cart guard", status: "pending", acceptance_criteria: ["Regression test on anonymous cart", "Crash no longer reproducible"], linked_code: [], linked_tests: [], linked_tasks: [], stale: false, updated_at: h(6) },
         ],
       },
     ],
@@ -479,6 +538,11 @@ function mindSnapshot(name?: string | null) {
     .filter((c) => c.column !== "done" && now - Date.parse(c.updated_at) > 7 * 86400000)
     .map((c) => ({ id: c.id, title: c.title, column: c.column, days: Math.floor((now - Date.parse(c.updated_at)) / 86400000) }));
   const nextActions: { action: string; reason: string }[] = [];
+  const pending = s.tasks.filter((t) => t.status === "Pending").length;
+  const active = s.tasks.filter((t) => t.status === "InProgress" || t.status === "Assigned").length;
+  if (pending > 0) {
+    nextActions.push({ action: "barkcli dispatch", reason: `${pending} task${pending === 1 ? "" : "s"} pending in the queue${active ? ` · ${active} active` : ""}` });
+  }
   blockers.forEach((bl) => nextActions.push({ action: `barkcli ${key} unblock ${bl.card_id}`, reason: `blocked by ${bl.blocked_by.join(", ")}` }));
   staleCards.slice(0, 3).forEach((st) => nextActions.push({ action: `barkcli ${key} move ${st.id} doing`, reason: `stale ${st.days}d in ${st.column}` }));
   b.cards.filter((c) => c.column === "review").slice(0, 2).forEach((c) => nextActions.push({ action: `barkcli ${key} move ${c.id} done`, reason: "in review — close it" }));
@@ -491,6 +555,9 @@ function mindSnapshot(name?: string | null) {
     blockers,
     stale_cards: staleCards,
     next_actions: nextActions,
+    recent_history: s.history.slice(0, 5),
+    recent_sessions: s.sessions.slice(0, 4),
+    top_memories: [...s.memory].sort((x, y) => (y.importance ?? 0) - (x.importance ?? 0)).slice(0, 3),
   };
 }
 

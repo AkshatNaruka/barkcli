@@ -541,7 +541,7 @@ export function App() {
       {/* Main content */}
       <main className="flex-1 overflow-hidden">
         {board && (route === "dashboard" || route === "mind") && (
-          <MindView boardName={boardName} />
+          <MindView boardName={boardName} board={board} />
         )}
         {board && route === "board" && (
           <BoardPage
@@ -583,7 +583,7 @@ export function App() {
           />
         )}
         {route === "mind" && (
-          <MindView boardName={boardName} />
+          <MindView boardName={boardName} board={board} />
         )}
         {route === "skills" && <SkillsView />}
         {route === "memory" && (
