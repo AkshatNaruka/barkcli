@@ -106,6 +106,7 @@ re-exploring the repository.
 | `prime` | One-shot bootstrap: scan + generate + wire agent files |
 | `wire` | Add `@import` to CLAUDE.md / pointer to AGENTS.md |
 | `verify` | Git sync + spec stale-scan + digest in one pass |
+| `benchmark` | Cold-start vs context-file token comparison, reproducible per repo |
 
 ```bash
 barkcli context prime
@@ -124,6 +125,22 @@ Behavior:
   made while the server runs are reconciled within seconds.
 - When `barkcli session log` ingests an agent session, the digest refreshes
   automatically.
+
+## Token benchmark
+
+```bash
+barkcli context benchmark            # table
+barkcli context benchmark --markdown # copy-paste claim block
+barkcli context benchmark --json     # machine-readable
+```
+
+Deterministic proxy of the standard cold-start ritual — directory listing →
+keyword search for the active card titles → read top candidates — compared
+against one read of `project_context.md`. No LLM involved, so anyone can
+re-run it on their own repo within seconds. Lockfiles, minified bundles,
+built `out/` trees and page HTML are excluded; candidate reads mirror agent
+Read-tool limits (~2k chars/line, 16KB/file). `--hits N` and `--lines N`
+tune the read step.
 
 ## Related
 

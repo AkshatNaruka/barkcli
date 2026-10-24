@@ -109,6 +109,33 @@ fn full_digest_roundtrip_writes_file_and_respects_manual() {
     let after_p = std::fs::read_to_string(&path).unwrap();
     assert_eq!(after_p, after, "failed polish must not modify the file");
 
+    // Seed the active card's file so the benchmark's reading step can locate
+    // it via card-title keywords (living / context / writer).
+    std::fs::create_dir_all(root.join("src")).unwrap();
+    std::fs::write(
+        root.join("src/ctx.rs"),
+        "// Living context writer — always route board writes through here.\n".to_string()
+            + &"// context filler line for the tokenizer to chew on\n".repeat(140),
+    )
+    .unwrap();
+
+    // Token benchmark on the same seeded repo: cold > warm, reading picks
+    // the card's own source file, file counts are sane.
+    let bench = barkcli_core::commands::context_benchmark::benchmark_core(
+        "digest-board",
+        &Default::default(),
+    )
+    .unwrap();
+    assert!(bench.warm_available, "context file was just written");
+    assert!(bench.cold_tokens > 0);
+    assert!(bench.warm_tokens > 0);
+    assert!(bench.files_seen >= 4, "at least board yaml + ctx.rs + CLAUDE.md + context file");
+    assert!(
+        bench.top_files.iter().any(|(p, _, _)| p.contains("src/ctx.rs")),
+        "reading step should land on the active card's file: {:?}",
+        bench.top_files
+    );
+
     // Cleanup after a short settle so git subprocesses spawned by other
     // binaries aren't hit with a vanished CWD.
     std::thread::sleep(Duration::from_millis(50));

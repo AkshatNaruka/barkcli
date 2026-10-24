@@ -61,6 +61,7 @@ context — read it FIRST instead of re-exploring the codebase every session:
 barkcli context prime       # one-shot bootstrap (scan + generate + wire agents)
 barkcli context digest      # regenerate after work; auto-runs after `session log`
 barkcli context digest --polish  # one facts-only LLM pass to rewrite the Brief (opt-in)
+barkcli context benchmark   # cold-start vs context-file token comparison (first-party numbers)
 barkcli context wire        # add @import to CLAUDE.md / pointer to AGENTS.md
 ```
 
@@ -338,3 +339,7 @@ barkcli listener     # Start coding agent listener
 - [MCP Agents](docs/MCP_AGENTS.md) — Agent integration guide
 - [API Reference](docs/API_REFERENCE.md) — REST API documentation
 - [Web App Guide](docs/WEB_APP_GUIDE.md) — Browser interface guide
+
+# barkcli context (auto-maintained — `barkcli context digest`)
+<!-- barkcli-project-context -->
+- `project_context.md` — auto-maintained central project context (barkcli). Read before exploring the codebase.

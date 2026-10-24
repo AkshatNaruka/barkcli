@@ -8,6 +8,7 @@ pub mod checkpoint;
 pub mod clean;
 pub mod code;
 pub mod context;
+pub mod context_benchmark;
 pub mod create;
 pub mod doctor;
 pub mod done;

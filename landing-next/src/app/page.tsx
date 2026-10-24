@@ -989,6 +989,24 @@ export default function Home() {
               );
             })}
           </div>
+          {/* Context-file proof strip — numbers from `barkcli context benchmark`, first-party. */}
+          <AnimatedSection className="mt-6" delay={0.2}>
+            <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-6 flex flex-col sm:flex-row items-center gap-6">
+              <div className="text-center sm:text-left shrink-0">
+                <div className="text-5xl font-bold text-[#B8845C] font-mono">61×</div>
+                <div className="text-white/40 text-xs mt-1">less context to gather</div>
+              </div>
+              <p className="text-white/50 text-sm leading-relaxed flex-1">
+                A cold agent session starts by <em>listing</em> the repo, <em>searching</em> for
+                active work, and <em>reading</em> candidate files — ~29,300 tokens before the first
+                real edit on this repo. One read of the auto-maintained,{" "}
+                <code className="text-white/80">project_context.md</code> costs{" "}
+                <code className="text-white/80">478</code>. Verify it on your own repo in seconds:
+                <code className="text-white/80"> barkcli context benchmark --json</code> — a
+                deterministic proxy, no LLM, lockfiles and build output excluded.
+              </p>
+            </div>
+          </AnimatedSection>
         </div>
       </section>
 

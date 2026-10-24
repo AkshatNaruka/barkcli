@@ -33,13 +33,22 @@ pub const SOURCE_EXTS: &[&str] = &[
     "cpp", "hpp", "cs", "swift", "zig", "lua",
 ];
 
-const SKIP_DIRS: &[&str] = &[
-    ".git", ".board", "target", "node_modules", "dist", "build", ".next", "vendor", ".venv",
-    "venv", "__pycache__", ".claude", ".opencode", ".vscode", "coverage", ".gradle", ".idea",
+pub const SKIP_DIRS: &[&str] = &[
+    ".git", ".board", "target", "node_modules", "dist", "build", ".next", "out", "vendor",
+    ".venv", "venv", "__pycache__", ".claude", ".opencode", ".vscode", "coverage", ".gradle",
+    ".idea",
+];
+
+/// Extensions searchable/readable by the token benchmark (source + docs;
+/// HTML page content excluded — agents don't source-hunt in page output).
+pub const BENCH_TEXT_EXTS: &[&str] = &[
+    "rs", "ts", "tsx", "js", "jsx", "mjs", "cjs", "py", "go", "rb", "php", "java", "kt", "c", "h",
+    "cpp", "hpp", "cs", "swift", "zig", "lua", "md", "txt", "toml", "yaml", "yml", "json", "css",
+    "scss", "sh", "sql", "vue", "svelte", "astro",
 ];
 
 /// Simple .gitignore-style matcher (supports `*`, `**/`, leading/trailing `/`).
-fn ignored_by_gitignore(path: &Path, ignores: &[String]) -> bool {
+pub(crate) fn ignored_by_gitignore(path: &Path, ignores: &[String]) -> bool {
     let rel = path.to_string_lossy();
     let name = path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
     for pat in ignores {
@@ -96,7 +105,7 @@ fn glob_to_regex(glob: &str) -> Result<regex::Regex> {
     regex::Regex::new(&re).context("glob regex")
 }
 
-fn load_gitignores(root: &Path) -> Vec<String> {
+pub(crate) fn load_gitignores(root: &Path) -> Vec<String> {
     let mut ignores = Vec::new();
     let mut dirs = vec![root.to_path_buf()];
     while let Some(dir) = dirs.pop() {

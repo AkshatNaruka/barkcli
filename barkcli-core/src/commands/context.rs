@@ -439,7 +439,8 @@ fn flag_value(args: &[String], flag: &str) -> Option<String> {
         .cloned()
 }
 
-fn project_root() -> Result<PathBuf> {
+/// Resolve project root (board dir parent) — shared with the benchmark.
+pub fn project_root() -> Result<PathBuf> {
     let board_dir = find_board_dir()?;
     board_dir
         .parent()
