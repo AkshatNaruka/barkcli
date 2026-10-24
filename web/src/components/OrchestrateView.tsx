@@ -88,6 +88,13 @@ export function OrchestrateView({ boardName }: { boardName: string | null }) {
 
   useEffect(() => { load(); }, [load]);
 
+  // Poll the queue too: during an active run task statuses move
+  // Pending → InProgress → Completed and the panel should follow.
+  useEffect(() => {
+    const t = setInterval(() => { load(); }, 5000);
+    return () => clearInterval(t);
+  }, [load]);
+
   // Live sessions: poll the runner-owned session files every 3s so an
   // active `barkcli run` shows up (and drains) in real time.
   useEffect(() => {
