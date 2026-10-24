@@ -86,6 +86,8 @@ pub async fn run(
         .route("/api/context", get(context_handler))
         .route("/api/context/sync", post(sync_context_handler))
         .route("/api/context/clear", post(clear_context_handler))
+        .route("/api/context/file", get(context_file_handler))
+        .route("/api/context/file/digest", post(context_file_digest_handler))
         .route("/api/code", get(code_handler))
         .route("/api/config", get(config_handler))
         // Management layer endpoints
@@ -802,6 +804,101 @@ async fn clear_context_handler(
     barkcli_core::storage::context::remove_context(&board_name);
     let _ = state.tx.send("reload".to_string());
     Ok(Json(serde_json::json!({"ok": true})))
+}
+
+/// `GET /api/context/file` — the living project_context.md: raw content plus
+/// parsed block metadata (staleness, src, manual flag, tokens) for the web
+/// heat map. Auto-generates the file on first call.
+async fn context_file_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<BoardQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let root = barkcli_core::context_file::project_root()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let path = barkcli_core::context_file::file_path(&root);
+
+    let mut generated = false;
+    if !path.exists() {
+        let opts = barkcli_core::context_file::DigestOpts {
+            quiet: true,
+            ..Default::default()
+        };
+        if barkcli_core::context_file::digest::run_digest_core(&board_name, &opts).is_ok() {
+            generated = true;
+        }
+    }
+    if !path.exists() {
+        return Ok(Json(serde_json::json!({
+            "exists": false,
+            "board": board_name,
+            "hint": "run `barkcli context prime` to bootstrap it"
+        })));
+    }
+
+    let content = std::fs::read_to_string(&path)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let parsed = barkcli_core::context_file::parse(&content);
+    let cf_state = barkcli_core::context_file::read_state(&board_name).unwrap_or_default();
+
+    let blocks: Vec<serde_json::Value> = parsed
+        .blocks
+        .iter()
+        .map(|b| {
+            serde_json::json!({
+                "id": b.meta.id,
+                "heading": b.heading.trim_start_matches('#').trim(),
+                "src": b.meta.src,
+                "updated": b.meta.updated,
+                "staleness": b.meta.staleness,
+                "manual": b.meta.manual,
+                "tokens": barkcli_core::context_file::estimate_tokens(&b.body.join("\n")),
+                "body": b.body.join("\n"),
+            })
+        })
+        .collect();
+
+    Ok(Json(serde_json::json!({
+        "exists": true,
+        "generated": generated,
+        "board": board_name,
+        "file": path.display().to_string(),
+        "content": content,
+        "blocks": blocks,
+        "total_tokens": barkcli_core::context_file::estimate_tokens(&content),
+        "budget_tokens": cf_state.budget_tokens,
+        "last_run": cf_state.last_run,
+        "evicted_last_run": cf_state.evicted_last_run,
+    })))
+}
+
+/// `POST /api/context/file/digest` — trigger a regeneration from the web app.
+async fn context_file_digest_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<BoardQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let opts = barkcli_core::context_file::DigestOpts {
+        quiet: true,
+        ..Default::default()
+    };
+    let report = barkcli_core::context_file::digest::run_digest_core(&board_name, &opts)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({
+        "regenerated": true,
+        "board": board_name,
+        "tokens": report.total_tokens,
+        "added": report.added,
+        "rewritten": report.rewritten,
+        "evicted": report.evicted,
+        "preserved_manual": report.preserved_manual,
+        "flagged_stale": report
+            .flagged_stale
+            .iter()
+            .map(|(id, s)| format!("{} ({:.2})", id, s))
+            .collect::<Vec<_>>(),
+    })))
 }
 
 #[derive(serde::Serialize)]

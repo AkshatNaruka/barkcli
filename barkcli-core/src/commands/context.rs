@@ -190,6 +190,41 @@ pub fn run_status(board: &str) -> Result<()> {
         pct,
         b.cards.len()
     );
+
+    // Living context file summary.
+    if let Ok(root) = project_root() {
+        let path = crate::context_file::file_path(&root);
+        if path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&path) {
+                let parsed = crate::context_file::parse(&content);
+                let cf_state = crate::context_file::read_state(board).unwrap_or_default();
+                let flagged: Vec<String> = parsed
+                    .blocks
+                    .iter()
+                    .filter(|b| !b.meta.manual && b.meta.staleness >= 0.4)
+                    .map(|b| format!("{} ({:.2})", b.meta.id, b.meta.staleness))
+                    .collect();
+                println!(
+                    "{} {} · ~{} tokens / {} budget · {} section(s) · updated {}",
+                    style::accent("Context file:"),
+                    path.display(),
+                    crate::context_file::estimate_tokens(&content),
+                    cf_state.budget_tokens,
+                    parsed.blocks.len(),
+                    cf_state.last_run.as_deref().unwrap_or("never")
+                );
+                if !flagged.is_empty() {
+                    println!("  {} {}", style::warn("Drift:"), flagged.join(", "));
+                }
+            }
+        } else {
+            println!(
+                "{} none — `barkcli context prime` creates {} for agent sessions",
+                style::muted("Context file:"),
+                crate::context_file::FILE_NAME
+            );
+        }
+    }
     Ok(())
 }
 
@@ -413,6 +448,25 @@ fn project_root() -> Result<PathBuf> {
 }
 
 // ─── Living context file (project_context.md) ───────────────────────────────
+
+/// `barkcli context verify` — refresh the staleness evidence (git status sync
+/// + spec stale scan), then regenerate the context file with fresh drift
+/// scores. This is the trust loop: verify before serving.
+pub fn run_verify(board: &str, args: &[String]) -> Result<()> {
+    let root = project_root()?;
+
+    // 1. Refresh file statuses from git (quiet).
+    run_sync(board, true)?;
+
+    // 2. Scan spec requirements against the files git says changed.
+    let mut modified = git::dirty_files(&root);
+    modified.extend(git::last_commit_files(&root));
+    let _ = crate::commands::spec::scan_stale(Some(board), &modified);
+
+    // 3. Rebuild the context file — its staleness line items are the verdict.
+    println!();
+    run_digest(board, args)
+}
 
 /// `barkcli context digest` — regenerate `project_context.md` from tracked
 /// work (board, sessions, memory, specs, code map). Hand-edited sections and

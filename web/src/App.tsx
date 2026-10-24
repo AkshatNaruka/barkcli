@@ -40,6 +40,7 @@ import { SprintView } from "./components/SprintView";
 import { SettingsView } from "./components/SettingsView";
 import { AgentPromptView } from "./components/AgentPromptView";
 import { MemoryView } from "./components/MemoryView";
+import { ContextView } from "./components/ContextView";
 // Brain carries React Flow (~heavy) — lazy chunk keeps first paint fast.
 const BrainView = lazy(() =>
   import("./components/BrainView").then((m) => ({ default: m.BrainView }))
@@ -588,6 +589,7 @@ export function App() {
         {route === "memory" && (
           <MemoryView boardName={boardName} />
         )}
+        {route === "context" && <ContextView boardName={boardName} />}
         {route === "brain" && (
           <Suspense fallback={<div className="h-full flex items-center justify-center text-sm text-muted">Loading graph…</div>}>
             <BrainView boardName={boardName} />

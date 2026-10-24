@@ -353,7 +353,7 @@ fn handle_code(args: &[String]) -> Result<()> {
 
 fn handle_context_cmd(args: &[String]) -> Result<()> {
     let Some(sub) = args.first() else {
-        bail!("usage: barkcli context <digest|prime|wire|scan|link|unlink|status|show|sync|autosync|clear>");
+        bail!("usage: barkcli context <digest|prime|wire|verify|scan|link|unlink|status|show|sync|autosync|clear>");
     };
     let rest = &args[1..];
     let (board, rest2) = parse_board_flag(rest)?;
@@ -374,7 +374,8 @@ fn handle_context_cmd(args: &[String]) -> Result<()> {
         "digest" | "build" => commands::context::run_digest(&board_name, &rest2),
         "prime" => commands::context::run_prime(&board_name, &rest2),
         "wire" => commands::context::run_wire(&board_name, &rest2),
-        _ => bail!("unknown context subcommand '{}' (digest | prime | wire | scan | link | unlink | status | show | sync | refresh | autosync | clear)", sub),
+        "verify" => commands::context::run_verify(&board_name, &rest2),
+        _ => bail!("unknown context subcommand '{}' (digest | prime | wire | verify | scan | link | unlink | status | show | sync | refresh | autosync | clear)", sub),
     }
 }
 
@@ -666,7 +667,7 @@ fn handle_legacy(name: &str, args: &[String]) -> Result<()> {
 
 fn handle_legacy_context(board_name: &str, args: &[String]) -> Result<()> {
     let Some(sub) = args.first() else {
-        bail!("usage: barkcli {} context <digest|prime|wire|scan|link|unlink|status|show|sync|autosync|clear>", board_name);
+        bail!("usage: barkcli {} context <digest|prime|wire|verify|scan|link|unlink|status|show|sync|autosync|clear>", board_name);
     };
     let rest = &args[1..];
     match sub.as_str() {
@@ -685,6 +686,7 @@ fn handle_legacy_context(board_name: &str, args: &[String]) -> Result<()> {
         "digest" | "build" => commands::context::run_digest(board_name, rest),
         "prime" => commands::context::run_prime(board_name, rest),
         "wire" => commands::context::run_wire(board_name, rest),
+        "verify" => commands::context::run_verify(board_name, rest),
         _ => bail!("unknown context subcommand '{}'", sub),
     }
 }

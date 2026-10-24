@@ -639,6 +639,66 @@ export async function consolidateMemory(name?: string): Promise<{ promoted: numb
   } catch { return null; }
 }
 
+// ── Context file API (living project_context.md) ──
+
+export interface ContextFileBlock {
+  id: string;
+  heading: string;
+  src: string;
+  updated: string;
+  staleness: number;
+  manual: boolean;
+  tokens: number;
+  body: string;
+}
+
+export interface ContextFileResponse {
+  exists: boolean;
+  generated?: boolean;
+  board: string;
+  file?: string;
+  content?: string;
+  blocks?: ContextFileBlock[];
+  total_tokens?: number;
+  budget_tokens?: number;
+  last_run?: string | null;
+  evicted_last_run?: string[];
+  hint?: string;
+}
+
+export interface DigestReport {
+  regenerated: boolean;
+  board: string;
+  tokens: number;
+  added: string[];
+  rewritten: string[];
+  evicted: string[];
+  preserved_manual: string[];
+  flagged_stale: string[];
+}
+
+export async function fetchContextFile(name?: string): Promise<ContextFileResponse | null> {
+  if (isVscode) return null;
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    const res = await fetch(withToken(`/api/context/file?${params.toString()}`));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+export async function digestContextFile(name?: string): Promise<DigestReport | null> {
+  if (isVscode) return null;
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    const res = await fetch(withToken(`/api/context/file/digest?${params.toString()}`), { method: "POST" });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
 // ── Brain API ──
 
 export interface BrainNode {
