@@ -505,6 +505,32 @@ Watch it live: the web app's Orchestrate view polls `/api/run/live` and shows
 each running attempt as a session row (backend, task, branch, status, pulse
 dot), refreshed while the run is active via WebSocket.
 
+### `barkcli skills install <repo | id>`
+
+Skills are markdown playbooks the loop prepends to agent prompts on trigger
+matches. Install from the community registry (any github `owner/repo`, URL,
+or local directory); every `*.md` is copied into `.board/skills/` and pinned
+in a committed `skills.lock` (source, rev, sha256).
+
+```shell
+barkcli skills install AkshatNaruka/barkcli-skills   # community registry
+barkcli skills install ./my-team-skills             # your own repo
+barkcli skills lock                                 # print the pins
+```
+
+### `barkcli skills publish <id>`
+
+Contribute a skill back: clone the registry, push a `skills/<id>` branch,
+open a PR with `gh` (default registry `AkshatNaruka/barkcli-skills`;
+override with `--repo` or `BARKCLI_SKILLS_REPO`).
+
+```shell
+barkcli skills publish db-index-audit
+```
+
+Legacy modes stay: `skills install <id> [--from <path>]` copies one skill
+into the project; `skills list` / `skills show` browse the registry view.
+
 ---
 
 ## Spec Management

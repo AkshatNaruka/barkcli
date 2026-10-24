@@ -1170,7 +1170,6 @@ fn handle_done(
                 return Ok(HandleSignal::SoloClear(task_id));
             }
         }
-        return Ok(HandleSignal::Normal);
     }
 
     // Either the gate failed outright, or the agent crashed without

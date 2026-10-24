@@ -1,0 +1,93 @@
+---
+title: skills
+description: The skills registry — install, pin, and publish agent skills
+---
+
+# barkcli skills
+
+Skills are small markdown playbooks the autonomy loop prepends to agent
+prompts when a task matches their triggers. barkcli ships four builtin
+skills; everything else comes from a git repo (yours or the community
+registry) and gets pinned in a `skills.lock` file you commit.
+
+## Usage
+
+```bash
+barkcli skills <list|show|install|lock|publish> [args]
+```
+
+## Install from a repo
+
+```bash
+# The community registry (github owner/repo shorthand)
+barkcli skills install AkshatNaruka/barkcli-skills
+
+# Any URL or local directory works too
+barkcli skills install https://github.com/ui/skills.git
+barkcli skills install ./my-team-skills
+
+# Only skills under a subdirectory
+barkcli skills install AkshatNaruka/barkcli-skills --dir skills
+```
+
+Each `*.md` skill found (READMEs excluded) is copied into `.board/skills/`,
+and [skills.lock](#the-lock-file) records its source, revision, and sha256.
+Re-running against a bumped repo reports `installed:` (new ids) and
+`updated:` (content changes) and re-pins the revision.
+
+## The lock file
+
+`skills.lock` lives at the repo root and is committed with the code:
+
+```json
+{
+  "skills": [
+    {
+      "id": "gate-authoring",
+      "source": "https://github.com/AkshatNaruka/barkcli-skills.git",
+      "rev": "98daa1d536e5…",
+      "origin_path": "skills/gate-authoring.md",
+      "sha256": "4fc312d0…",
+      "installed_at": "2026-10-24T11:54:20Z"
+    }
+  ]
+}
+```
+
+Print the current pins:
+
+```bash
+barkcli skills lock
+```
+
+## Publish a skill back
+
+```bash
+# from .board/skills/db-index-audit.md (or a builtin id)
+barkcli skills publish db-index-audit
+
+# different registry, or publish a file directly
+barkcli skills publish db-index-audit --repo myorg/my-skills --file ./thing.md
+```
+
+The publish flow clones the registry, commits the skill onto a
+`skills/<id>` branch, pushes it, and opens a PR with `gh`. If `gh` is not
+available (or the push fails), the command prints the exact manual steps —
+branch, copy, push, PR — instead of pretending it published.
+
+Default registry: [`AkshatNaruka/barkcli-skills`](https://github.com/AkshatNaruka/barkcli-skills),
+overridable with `--repo` or the `BARKCLI_SKILLS_REPO` env var.
+
+## Legacy copy install
+
+```bash
+barkcli skills install planning          # copy builtin → .board/skills/'
+barkcli skills install test --from ./qa.md
+```
+
+## How skills reach the agent
+
+`barkcli run` matches installed skills against each task's title, labels,
+and pipeline phase; matched skill content is prepended to the agent's
+prompt (see `barkcli skills show test` for an example). A skill with no
+triggers only surfaces when matched explicitly.
