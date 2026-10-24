@@ -94,6 +94,21 @@ fn full_digest_roundtrip_writes_file_and_respects_manual() {
     let parsed2 = parse(&after);
     assert_eq!(parsed2.blocks.len(), parsed.blocks.len());
 
+    // Polish soft-fail: `--polish` with an unreachable provider must leave
+    // the digest working AND the file untouched (brief omit-or-passthrough).
+    // Port 9 (discard) is unroutable → instant connect refusal. Env beats
+    // any real user config, so this can't hit a real LLM.
+    std::env::set_var("BARKCLI_API_BASE", "http://127.0.0.1:9/v1");
+    std::env::set_var("BARKCLI_API_KEY", "stub");
+    let report_p = digest::run_digest_core(
+        "digest-board",
+        &DigestOpts { polish: true, ..Default::default() },
+    )
+    .unwrap();
+    assert!(report_p.rewritten.is_empty(), "failed polish must not rewrite: {:?}", report_p.rewritten);
+    let after_p = std::fs::read_to_string(&path).unwrap();
+    assert_eq!(after_p, after, "failed polish must not modify the file");
+
     // Cleanup after a short settle so git subprocesses spawned by other
     // binaries aren't hit with a vanished CWD.
     std::thread::sleep(Duration::from_millis(50));

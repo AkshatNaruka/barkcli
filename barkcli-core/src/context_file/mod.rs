@@ -52,6 +52,10 @@ pub struct DigestOpts {
     pub quiet: bool,
     /// Only run when the file already exists (session-log auto-refresh).
     pub if_exists: bool,
+    /// Rewrite the `Brief` section via the configured LLM (facts-only guard).
+    /// Opt-in: `context digest --polish`. Other runs pass any existing brief
+    /// through untouched.
+    pub polish: bool,
 }
 
 // ─── State (`.board/context-file.<board>.json`) ─────────────────────────────
@@ -329,7 +333,7 @@ pub struct MergeReport {
 }
 
 /// Fresh section produced by the generator (`digest::generate_sections`).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct GeneratedSection {
     pub id: &'static str,
     pub title: &'static str,

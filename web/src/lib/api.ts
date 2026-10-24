@@ -688,11 +688,12 @@ export async function fetchContextFile(name?: string): Promise<ContextFileRespon
   } catch { return null; }
 }
 
-export async function digestContextFile(name?: string): Promise<DigestReport | null> {
+export async function digestContextFile(name?: string, polish = false): Promise<DigestReport | null> {
   if (isVscode) return null;
   try {
     const params = new URLSearchParams();
     if (name) params.set("name", name);
+    if (polish) params.set("polish", "1");
     const res = await fetch(withToken(`/api/context/file/digest?${params.toString()}`), { method: "POST" });
     if (!res.ok) return null;
     return await res.json();

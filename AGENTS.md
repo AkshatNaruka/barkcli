@@ -60,14 +60,18 @@ context — read it FIRST instead of re-exploring the codebase every session:
 ```bash
 barkcli context prime       # one-shot bootstrap (scan + generate + wire agents)
 barkcli context digest      # regenerate after work; auto-runs after `session log`
+barkcli context digest --polish  # one facts-only LLM pass to rewrite the Brief (opt-in)
 barkcli context wire        # add @import to CLAUDE.md / pointer to AGENTS.md
 ```
 
 - Hand-edited sections are preserved (pinned `manual="true"` automatically).
 - Every block carries provenance (`src=`, staleness, updated timestamp); the
   "Verification status" footer flags drifted sections.
+- No-op digests write nothing (byte-stable) — `git diff` stays clean.
+- `barkcli serve` (incl. `--daemon`) self-heals the file: board mutations made
+  while the server runs are reconciled within seconds, no digest needed.
 - MCP tools: `context_file_get` (read whole file or one section),
-  `context_digest` (refresh).
+  `context_digest` (refresh; `polish=true` also rewrites the Brief).
 
 ### 3. Use the MCP Server (for coding agents)
 

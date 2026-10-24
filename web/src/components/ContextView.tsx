@@ -60,6 +60,25 @@ export function ContextView({ boardName }: { boardName: string | null }) {
     load();
   };
 
+  const handlePolish = async (polish: boolean) => {
+    setDigesting(true);
+    setMsg("");
+    const report = await digestContextFile(boardName || undefined, polish);
+    setDigesting(false);
+    if (report) {
+      setMsg(
+        report.rewritten.includes("brief")
+          ? "Brief rewritten by LLM (facts-only, evidence came from the digest)"
+          : polish
+            ? "Brief unchanged — no LLM provider configured (`barkcli ai config`) or nothing to rewrite"
+            : "Digest already in sync"
+      );
+    } else {
+      setMsg("Digest failed — is a board initialized here?");
+    }
+    load();
+  };
+
   const toggle = (id: string) => {
     setOpen(prev => {
       const next = new Set(prev);
@@ -111,13 +130,23 @@ export function ContextView({ boardName }: { boardName: string | null }) {
             central context agents read before exploring
           </p>
         </div>
-        <button
-          onClick={handleDigest}
-          disabled={digesting}
-          className="px-3 py-1.5 bg-accent text-white text-xs rounded font-medium hover:bg-accent-hover disabled:opacity-50 shrink-0"
-        >
-          {digesting ? "Regenerating…" : "Regenerate digest"}
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => handlePolish(true)}
+            disabled={digesting}
+            title="Rewrite the Brief section with your configured LLM — facts-only, one call, derived from the generated sections"
+            className="px-3 py-1.5 bg-card text-text text-xs rounded font-medium hover:bg-surface border border-card hover:border-accent disabled:opacity-50"
+          >
+            {digesting ? "Polishing…" : "✨ Polish brief"}
+          </button>
+          <button
+            onClick={handleDigest}
+            disabled={digesting}
+            className="px-3 py-1.5 bg-accent text-white text-xs rounded font-medium hover:bg-accent-hover disabled:opacity-50"
+          >
+            {digesting ? "Regenerating…" : "Regenerate digest"}
+          </button>
+        </div>
       </div>
 
       {/* File meta strip */}

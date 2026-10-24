@@ -91,6 +91,40 @@ barkcli context autosync on
 barkcli context autosync off
 ```
 
+## Project context file (project_context.md)
+
+`barkcli context` also maintains a living `project_context.md` at the repo root —
+a verified central context file generated from tracked work (board, agent
+sessions, memory, specs, code map) so AI agent sessions start warm instead of
+re-exploring the repository.
+
+| Command | Description |
+|---------|-------------|
+| `digest` | Regenerate the file from tracked evidence |
+| `digest --budget N` | Token budget for the file (default 4000) |
+| `digest --polish` | One facts-only LLM pass to rewrite the Brief section |
+| `prime` | One-shot bootstrap: scan + generate + wire agent files |
+| `wire` | Add `@import` to CLAUDE.md / pointer to AGENTS.md |
+| `verify` | Git sync + spec stale-scan + digest in one pass |
+
+```bash
+barkcli context prime
+barkcli context digest
+barkcli context digest --polish
+```
+
+Behavior:
+
+- Hand-edited sections are preserved and pinned `manual="true"` automatically.
+- Every block carries provenance (`src=`), a staleness score and an updated
+  timestamp; the "Verification status" footer flags drifted sections.
+- No-op digests write nothing — the rendered file is content-idempotent, so
+  `git diff` stays clean.
+- `barkcli serve` (including `--daemon`) self-heals the file: board mutations
+  made while the server runs are reconciled within seconds.
+- When `barkcli session log` ingests an agent session, the digest refreshes
+  automatically.
+
 ## Related
 
 - [code](/docs/commands/code) — Search code

@@ -481,6 +481,7 @@ pub fn run_digest(board: &str, args: &[String]) -> Result<()> {
         create_wires: args.iter().any(|a| a == "--wire-create"),
         quiet: args.iter().any(|a| a == "--quiet"),
         if_exists: args.iter().any(|a| a == "--if-exists"),
+        polish: args.iter().any(|a| a == "--polish"),
     };
     let report = crate::context_file::digest::run_digest_core(board, &opts)?;
     if opts.quiet {
@@ -498,6 +499,9 @@ pub fn run_digest(board: &str, args: &[String]) -> Result<()> {
         report.evicted.len(),
         report.preserved_manual.len(),
     );
+    if report.unchanged {
+        println!("  {} already in sync — nothing written", style::muted("Note:"));
+    }
     for (id, s) in &report.flagged_stale {
         println!("  {} section '{}' drifted ({:.2}) — run `barkcli context sync`", style::warn("Drift:"), id, s);
     }

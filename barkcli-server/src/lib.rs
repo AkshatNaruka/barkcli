@@ -463,6 +463,10 @@ struct BoardResponse { yaml: String }
 #[derive(Deserialize)]
 struct BoardQuery { name: Option<String> }
 
+/// Query params for `POST /api/context/file/digest`.
+#[derive(serde::Deserialize)]
+struct ContextDigestQuery { name: Option<String>, polish: Option<bool> }
+
 /// Resolve the board name: explicit query param > state default > single board.
 fn resolve_board_name(state: &AppState, query: Option<String>) -> Result<String, ServerError> {
     let name = match query.or(state.board_name.clone()).unwrap_or_default() {
@@ -885,11 +889,16 @@ async fn context_file_handler(
 /// `POST /api/context/file/digest` — trigger a regeneration from the web app.
 async fn context_file_digest_handler(
     State(state): State<Arc<AppState>>,
-    Query(query): Query<BoardQuery>,
+    Query(query): Query<ContextDigestQuery>,
 ) -> Result<Json<serde_json::Value>, ServerError> {
     let board_name = resolve_board_name(&state, query.name)?;
+    // Opt-in LLM brief rewrite (?polish=1) — facts-only guard inside digest.
+    let polish = query
+        .polish
+        .unwrap_or(false);
     let opts = barkcli_core::context_file::DigestOpts {
         quiet: true,
+        polish,
         ..Default::default()
     };
     let report = barkcli_core::context_file::digest::run_digest_core(&board_name, &opts)

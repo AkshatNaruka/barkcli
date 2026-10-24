@@ -734,10 +734,15 @@ impl McpServer {
             }),
             serde_json::json!({
                 "name": "context_digest",
-                "description": "Regenerate/refresh project_context.md from tracked work (board, sessions, memory, specs, code map). Run after finishing a batch of work.",
+                "description": "Regenerate/refresh project_context.md from tracked work (board, sessions, memory, specs, code map). Run after finishing a batch of work. polish=true additionally rewrites the Brief section via the configured LLM (facts-only guard) — only when the user asks for it.",
                 "inputSchema": {
                     "type": "object",
-                    "properties": {},
+                    "properties": {
+                        "polish": {
+                            "type": "boolean",
+                            "description": "Rewrite the Brief section with the configured LLM (one facts-only call). Opt-in."
+                        }
+                    },
                     "required": []
                 }
             }),
@@ -2501,10 +2506,12 @@ impl McpServer {
 
     fn tool_context_digest(&self, args: Value) -> Result<Value> {
         let board_name = self.resolve_board(&args)?;
-        let opts = crate::context_file::DigestOpts { quiet: true, ..Default::default() };
+        let polish = args.get("polish").and_then(|v| v.as_bool()).unwrap_or(false);
+        let opts = crate::context_file::DigestOpts { quiet: true, polish, ..Default::default() };
         let report = crate::context_file::digest::run_digest_core(&board_name, &opts)?;
         Ok(serde_json::json!({
             "regenerated": true,
+            "unchanged": report.unchanged,
             "board": board_name,
             "tokens": report.total_tokens,
             "rewritten": report.rewritten,
