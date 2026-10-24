@@ -14,6 +14,7 @@ Complete reference for all barkcli commands.
 - [Pro Commands](#pro-commands)
 - [Housekeeping](#housekeeping)
 - [Orchestration](#orchestration)
+- [Autonomy](#autonomy)
 - [Spec Management](#spec-management)
 - [Flags](#flags)
 
@@ -443,6 +444,43 @@ Start a coding agent listener that waits for tasks.
 ```shell
 barkcli listener
 ```
+
+## Autonomy
+
+The prompt-to-merge loop: intake → plan → spawn agent → gate → merge.
+
+### `barkcli run "<intent>"`
+
+Close the loop from one natural-language prompt to merged, gated code.
+The task counts as done only when the project's tests pass in the worktree —
+never when the agent claims success.
+
+```shell
+# Auto-detect a backend (opencode → claude → codex), plan the work,
+# dispatch each task into its own worktree, run the acceptance gate,
+# merge only passing branches.
+barkcli run "Create a fizzbuzz module with tests" --offline --yes
+
+# Pick a backend; custom gate command; retry ceiling.
+barkcli run "Fix the flaky login test" --backend claude --test-cmd "npm test" --yes
+
+# See the plan without creating anything.
+barkcli run "Add dark mode toggle" --dry-run
+```
+
+Flags: `--backend <name>` · `--yes` (auto-merge) · `--offline` (skip LLM intake,
+heuristic fallback) · `--bug` / `--feature` · `--test-cmd <cmd>` (override gate
+detection) · `--max-minutes` / `--idle-minutes` / `--max-attempts` · `--no-spec`
+· `--dry-run` · `--json`.
+
+Set `BARKCLI_AGENT_CMD="<script>"` to drive tasks with any command instead of a
+detected backend — the script runs inside the worktree with the prompt-file
+path as `$1` (also exposed as `BARKCLI_PROMPT_FILE`).
+
+A task fails the loop when: the gate fails after `--max-attempts`, the agent
+crashes without producing changes (a no-op gate doesn't count), or the merge
+conflicts after the final attempt. Failed attempts are recorded as project
+memory facts and the verdict is injected into re-dispatch prompts.
 
 ---
 

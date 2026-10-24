@@ -307,6 +307,21 @@ When `barkcli serve` is run in a directory without `.board/`:
 
 ## Management Layer
 
+### The autonomy loop (`barkcli run`)
+
+```bash
+# prompt → card → plan → agent spawn (worktree) → transcript watch →
+# acceptance gate (project tests) → merge (--yes) or re-dispatch with verdict
+barkcli run "<intent>" --yes
+```
+
+- Backends: auto-detects `opencode`/`claude`/`codex`; `BARKCLI_AGENT_CMD`
+  overrides with any script (prompt file at `$1` / `BARKCLI_PROMPT_FILE`).
+- Completion contract: done = gate passes in the worktree, never the agent's
+  self-report. Crashed agents with no changes + a no-op gate still fail.
+- Failed gates inject the verdict into the retry prompt and record a memory
+  fact. Use `--dry-run`/`--json` for programmatic runs.
+
 ### MCP Server for Coding Agents
 
 ```bash

@@ -32,6 +32,7 @@ pub mod plan;
 pub mod prime;
 pub mod ready;
 pub mod review;
+pub mod run_cmd;
 pub mod session;
 pub mod skills;
 pub mod spec;

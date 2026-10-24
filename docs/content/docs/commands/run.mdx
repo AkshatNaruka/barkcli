@@ -1,0 +1,83 @@
+---
+title: run
+description: The autonomy loop — prompt to gated, merged code
+---
+
+# barkcli run
+
+Close the loop: one natural-language prompt is classified into a card, planned
+into tasks, dispatched to coding agents working in isolated git worktrees,
+watched via their transcripts, gated by the project's own tests, and either
+merged into main or re-dispatched with the failure verdict injected.
+
+The completion contract: **a task is done when the acceptance gate passes in
+the worktree — never when the agent says so.** A crashed agent with no changes
+cannot claim a passing gate.
+
+## Usage
+
+```bash
+barkcli run "<intent>" [--backend <name>] [--yes] [--offline] [--test-cmd <cmd>]
+```
+
+## Examples
+
+```bash
+# Offline intake + auto backend + auto-merge everything that passes the gate
+barkcli run "Create a fizzbuzz module with tests" --offline --yes
+
+# Choose the backend, override the gate command
+barkcli run "Fix the flaky login test" --backend claude --test-cmd "npm test" --yes
+
+# Preview the plan without creating anything
+barkcli run "Add dark mode toggle" --dry-run
+```
+
+## How it works
+
+1. **Intake** — the intent is classified (LLM, falling back to offline
+   heuristics when no provider is configured) and becomes a card + spec.
+2. **Plan** — the card decomposes into concrete tasks in the task queue
+   (the queue survives crashes and restarts).
+3. **Dispatch** — each task gets a fresh worktree on `bark/<task-id>` and a
+   prompt assembled from the task + context files + matched skills.
+4. **Watch** — the runner tees the agent transcript, parses stream verdicts
+   (Claude `result` events, Codex `turn.completed`, exit codes), enforces
+   idle and wall-clock limits with heartbeats.
+5. **Gate** — after the agent exits, the runner runs the project's tests
+   (`cargo test` / `npm test` / `pytest` / `go test`, auto-detected or
+   `--test-cmd`) in the worktree.
+6. **Merge or re-dispatch** — gate passed + `--yes` → merge with `--no-ff`.
+   Gate failed → the verdict (last 40 lines + agent verdict) is stored, a
+   project memory fact is written, and the task is re-queued with the
+   verdict injected into the next prompt, up to `--max-attempts` (default 3).
+
+## Flags
+
+| Flag | Description |
+|------|-------------|
+| `--backend <name>` | `opencode` \| `claude` \| `codex` (default: auto-detect) |
+| `--yes` | Auto-merge branches that pass the gate |
+| `--offline` | Skip the LLM entirely (heuristic intake) |
+| `--bug` / `--feature` | Force the classification |
+| `--test-cmd <cmd>` | Override gate detection |
+| `--max-minutes <n>` | Per-attempt wall-clock budget (default 20) |
+| `--idle-minutes <n>` | Kill an agent whose transcript is idle this long (default 5) |
+| `--max-attempts <n>` | Retry ceiling before permanent failure (default 3) |
+| `--no-spec` | Skip spec creation |
+| `--dry-run` | Classify + plan preview, create nothing |
+| `--json` | Emit the final report as JSON |
+| `--board <name>` / `-b` | Target board |
+
+## Custom agents
+
+Set `BARKCLI_AGENT_CMD="<command>"` to drive tasks with any executable
+instead of a detected backend. The command runs inside the worktree with the
+prompt-file path as `$1` (also exposed as `BARKCLI_PROMPT_FILE`). This is how
+the integration tests and demos run deterministically without LLM keys.
+
+## See also
+
+- [`intake`](/docs/commands/intake) — classification alone
+- [`plan`](/docs/commands/plan) — decomposition alone
+- [`fleet`](/docs/commands/session) — manual session spawn/kill

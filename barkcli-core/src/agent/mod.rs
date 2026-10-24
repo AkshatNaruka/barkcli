@@ -7,6 +7,7 @@ pub mod identity;
 pub mod orchestrate;
 pub mod prompt;
 pub mod queue;
+pub mod recipe;
 pub mod roles;
 pub mod session;
 pub mod verify;

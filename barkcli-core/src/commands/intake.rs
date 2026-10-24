@@ -3,21 +3,20 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
 use crate::ai::{chat_json, resolve_config, ChatMessage};
-use crate::models::Board;
 use crate::storage::board_file::{read_board, write_board};
 use crate::util::style;
 
-/// LLM output for intake classification.
+/// LLM + heuristic output for intake classification.
 #[derive(Debug, Deserialize)]
-struct IntakeClassification {
-    card_type: String,     // feature | bug | chore | spike
-    priority: String,      // critical | high | medium | low
-    scope: String,         // small | medium | large
-    area: String,          // frontend | backend | infra | docs | fullstack
-    labels: Vec<String>,
-    title: String,
-    description: String,
-    acceptance_criteria: Vec<String>,
+pub(crate) struct IntakeClassification {
+    pub(crate) card_type: String, // feature | bug | chore | spike
+    pub(crate) priority: String,  // critical | high | medium | low
+    pub(crate) scope: String,     // small | medium | large
+    pub(crate) area: String,      // frontend | backend | infra | docs | fullstack
+    pub(crate) labels: Vec<String>,
+    pub(crate) title: String,
+    pub(crate) description: String,
+    pub(crate) acceptance_criteria: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -70,7 +69,9 @@ pub fn run_intake(args: &[String]) -> Result<()> {
 
     // Find target board
     let board_name = find_board(args)?;
-    let mut board = read_board(&board_name)
+    // Validate the board exists (card creation re-loads it under the lock-free
+    // write path, so this read is purely a fail-fast check).
+    let _ = read_board(&board_name)
         .context(format!("board '{}' not found. Run barkcli create {}", board_name, board_name))?;
 
     let cfg = resolve_config().ok();
@@ -83,97 +84,7 @@ pub fn run_intake(args: &[String]) -> Result<()> {
             .unwrap_or("LLM"),
     );
 
-    // Build classification prompt
-    let mut forced_hints = Vec::new();
-    if force_bug {
-        forced_hints.push("The user explicitly said this is a BUG.".to_string());
-    }
-    if force_feature {
-        forced_hints.push("The user explicitly said this is a FEATURE.".to_string());
-    }
-
-    // Skill injection for intake (SPEC-003)
-    let skill_prompt = load_intake_skills(&text, &forced_hints);
-
-    let system = format!(
-        r#"You are a project intake specialist. Given a user's natural language input, classify it and create a structured work item.
-
-Return JSON with exactly these fields:
-{{
-  "card_type": "feature" | "bug" | "chore" | "spike",
-  "priority": "critical" | "high" | "medium" | "low",
-  "scope": "small" | "medium" | "large",
-  "area": "frontend" | "backend" | "infra" | "docs" | "fullstack",
-  "labels": ["label1", "label2"],
-  "title": "Concise card title (max 60 chars)",
-  "description": "Clear description of what needs to be done",
-  "acceptance_criteria": [" criterion 1", "criterion 2"]
-}}
-
-Classification rules:
-- Bugs: things that are broken, crashes, errors, regressions
-- Features: new functionality, enhancements, user requests
-- Chores: refactoring, dependency updates, config changes, cleanup
-- Spikes: research, investigation, proof-of-concept
-- Priority: critical = blocks other work or production down; high = important feature/bug; medium = normal work; low = nice-to-have
-- Scope: small = < 1 day; medium = 1-3 days; large = > 3 days
-- Acceptance criteria should be specific and testable
-- Keep title under 60 characters
-{skills}"#,
-        skills = skill_prompt.unwrap_or_default()
-    );
-
-    let user_msg = if forced_hints.is_empty() {
-        format!("Classify this input:\n\n{}", text)
-    } else {
-        format!(
-            "Classify this input:\n\n{}\n\nHints: {}",
-            text,
-            forced_hints.join(" ")
-        )
-    };
-
-    let messages = vec![
-        ChatMessage {
-            role: "system".into(),
-            content: system,
-        },
-        ChatMessage {
-            role: "user".into(),
-            content: user_msg,
-        },
-    ];
-
-    // Heuristic fallback when no LLM (offline) — SPEC-003 R5
-    let classification: IntakeClassification = if let Some(ref c) = cfg {
-        match chat_json::<IntakeClassification>(c, &messages) {
-            Ok(cls) => cls,
-            Err(e) => {
-                eprintln!("{} LLM failed ({}), falling back to heuristic", style::warn("Warning:"), e);
-                heuristic_intake(&text, force_bug, force_feature)
-            }
-        }
-    } else {
-        println!("{} No AI provider — using heuristic classification (offline)", style::muted("Intake:"));
-        heuristic_intake(&text, force_bug, force_feature)
-    };
-
-    // Create the card
-    let card_id = crate::util::slug::to_slug(&classification.title);
-    let mut card = crate::models::card::Card::new(&card_id, &classification.title, "todo");
-    card.description = Some(classification.description.clone());
-    card.priority = classification.priority.clone();
-    card.labels = classification.labels.clone();
-
-    // Add acceptance criteria as checklist
-    for ac in &classification.acceptance_criteria {
-        card.checklist.push(crate::models::card::ChecklistItem {
-            text: ac.clone(),
-            done: false,
-        });
-    }
-
-    let output_card_id = card.id.clone();
+    let classification = classify_input(&text, force_bug, force_feature);
 
     if dry_run {
         println!();
@@ -190,9 +101,8 @@ Classification rules:
         return Ok(());
     }
 
-    // Add card to board
-    board.cards.push(card);
-    write_board(&board_name, &board)?;
+    // Create the card
+    let output_card_id = create_card_from_classification(&board_name, &classification)?;
 
     println!(
         "{} Created card '{}' on board '{}'",
@@ -255,8 +165,126 @@ Classification rules:
     Ok(())
 }
 
+/// Classify natural-language input into a structured work item.
+///
+/// Uses the configured LLM when available; falls back to offline heuristics
+/// (SPEC-003 R5) so `intake` and `run` work without any provider. Shared by
+/// `barkcli intake` and the autonomy runner.
+pub(crate) fn classify_input(
+    text: &str,
+    force_bug: bool,
+    force_feature: bool,
+) -> IntakeClassification {
+    let cfg = resolve_config().ok();
+
+    // Build classification prompt
+    let mut forced_hints = Vec::new();
+    if force_bug {
+        forced_hints.push("The user explicitly said this is a BUG.".to_string());
+    }
+    if force_feature {
+        forced_hints.push("The user explicitly said this is a FEATURE.".to_string());
+    }
+
+    // Skill injection for intake (SPEC-003)
+    let skill_prompt = load_intake_skills(text, &forced_hints);
+
+    let system = format!(
+        r#"You are a project intake specialist. Given a user's natural language input, classify it and create a structured work item.
+
+Return JSON with exactly these fields:
+{{
+  "card_type": "feature" | "bug" | "chore" | "spike",
+  "priority": "critical" | "high" | "medium" | "low",
+  "scope": "small" | "medium" | "large",
+  "area": "frontend" | "backend" | "infra" | "docs" | "fullstack",
+  "labels": ["label1", "label2"],
+  "title": "Concise card title (max 60 chars)",
+  "description": "Clear description of what needs to be done",
+  "acceptance_criteria": [" criterion 1", "criterion 2"]
+}}
+
+Classification rules:
+- Bugs: things that are broken, crashes, errors, regressions
+- Features: new functionality, enhancements, user requests
+- Chores: refactoring, dependency updates, config changes, cleanup
+- Spikes: research, investigation, proof-of-concept
+- Priority: critical = blocks other work or production down; high = important feature/bug; medium = normal work; low = nice-to-have
+- Scope: small = < 1 day; medium = 1-3 days; large = > 3 days
+- Acceptance criteria should be specific and testable
+- Keep title under 60 characters
+{skills}"#,
+        skills = skill_prompt.unwrap_or_default()
+    );
+
+    let user_msg = if forced_hints.is_empty() {
+        format!("Classify this input:\n\n{}", text)
+    } else {
+        format!(
+            "Classify this input:\n\n{}\n\nHints: {}",
+            text,
+            forced_hints.join(" ")
+        )
+    };
+
+    let messages = vec![
+        ChatMessage {
+            role: "system".into(),
+            content: system,
+        },
+        ChatMessage {
+            role: "user".into(),
+            content: user_msg,
+        },
+    ];
+
+    // Heuristic fallback when no LLM (offline) — SPEC-003 R5
+    if let Some(ref c) = cfg {
+        match chat_json::<IntakeClassification>(c, &messages) {
+            Ok(cls) => cls,
+            Err(e) => {
+                eprintln!("{} LLM failed ({}), falling back to heuristic", style::warn("Warning:"), e);
+                heuristic_intake(text, force_bug, force_feature)
+            }
+        }
+    } else {
+        println!("{} No AI provider — using heuristic classification (offline)", style::muted("Intake:"));
+        heuristic_intake(text, force_bug, force_feature)
+    }
+}
+
+/// Create (and persist) a card from a classification. Returns the card id.
+///
+/// Shared by `barkcli intake` and the autonomy runner (`run`).
+pub(crate) fn create_card_from_classification(
+    board_name: &str,
+    classification: &IntakeClassification,
+) -> Result<String> {
+    let card_id = crate::util::slug::to_slug(&classification.title);
+    let mut card = crate::models::card::Card::new(&card_id, &classification.title, "todo");
+    card.description = Some(classification.description.clone());
+    card.priority = classification.priority.clone();
+    card.labels = classification.labels.clone();
+
+    // Add acceptance criteria as checklist
+    for ac in &classification.acceptance_criteria {
+        card.checklist.push(crate::models::card::ChecklistItem {
+            text: ac.clone(),
+            done: false,
+        });
+    }
+
+    let output_card_id = card.id.clone();
+
+    let mut board = read_board(board_name)?;
+    board.cards.push(card);
+    write_board(board_name, &board)?;
+
+    Ok(output_card_id)
+}
+
 /// Create a spec from intake classification.
-fn create_spec_from_intake(
+pub(crate) fn create_spec_from_intake(
     board_name: &str,
     card_id: &str,
     classification: &IntakeClassification,
@@ -322,7 +350,8 @@ fn load_intake_skills(text: &str, forced: &[String]) -> Option<String> {
     reg.render_for_prompt(&ctx)
 }
 
-fn heuristic_intake(text: &str, force_bug: bool, force_feature: bool) -> IntakeClassification {
+/// Offline heuristic classification (no LLM required) — SPEC-003 R5.
+pub(crate) fn heuristic_intake(text: &str, force_bug: bool, force_feature: bool) -> IntakeClassification {
     let lower = text.to_lowercase();
     let card_type = if force_bug {
         "bug"

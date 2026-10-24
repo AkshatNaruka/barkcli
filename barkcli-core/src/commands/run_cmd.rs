@@ -1,0 +1,1134 @@
+//! `barkcli run` — the autonomy loop: prompt → finished product.
+//!
+//! intent → intake card → plan (decompose) → task queue → spawn a coding
+//! agent in a worktree → watch the transcript → acceptance gate (run the
+//! project's tests) → merge into main, or re-dispatch the task with the
+//! failure verdict injected.
+//!
+//! The completion contract is deliberate: **a task is done when the plan's
+//! acceptance gate passes in the worktree — never when the agent says so.**
+//! A killed or crashed agent whose tests pass still merges; a chatty agent
+//! whose tests fail still re-dispatches.
+//!
+//! P0 scope: single worker, serial tasks, direct merge (behind `--yes`).
+//! `BARKCLI_AGENT_CMD` overrides the backend command for tests and demos —
+//! the script runs inside the worktree with the prompt-file path as `$1`
+//! (also exposed as `BARKCLI_PROMPT_FILE`).
+//!
+//! P1 (planned): parallel workers across worktrees, live session view in the
+//! web UI, conflict-negotiation merge train.
+
+use std::collections::HashMap;
+use std::io::{BufRead, Write};
+use std::path::{Path, PathBuf};
+use std::process::{Child, Command, Stdio};
+use std::sync::mpsc;
+use std::thread;
+use std::time::{Duration, Instant};
+
+use anyhow::{anyhow, Result};
+use chrono::Utc;
+use serde::Serialize;
+
+use crate::agent::decompose::{decompose_task, CardDecompositionContext};
+use crate::agent::queue::{create_task, populate_context_files, TaskRequest, TaskStatus};
+use crate::agent::recipe::{prompt_arg_ok, AgentVerdict, Recipe, Stream};
+use crate::agent::worktree::{acquire_worktree, release_worktree};
+use crate::agent::{
+    save_session, sessions_dir, skills_for_task, build_task_prompt, AgentRole, Session,
+    SessionBackend, SessionStatus, TaskQueue,
+};
+use crate::memory::store::{MemoryStore, ProjectFact};
+use crate::storage::board_dir::{find_board_dir, find_project_root};
+use crate::storage::board_file::{read_board, update_board};
+use crate::util::style;
+use super::fleet::{ensure_agent, load_queue, load_registry, save_queue, save_registry};
+use super::intake::{
+    classify_input, create_card_from_classification, create_spec_from_intake, heuristic_intake,
+    IntakeClassification,
+};
+
+// ── options ──
+
+#[derive(Debug, Clone)]
+pub struct RunOptions {
+    /// Natural-language intent.
+    pub intent: String,
+    /// Target board (defaults to the first `.board` file).
+    pub board: Option<String>,
+    /// Backend override; `None` = auto-detect (opencode → claude → codex).
+    pub backend: Option<SessionBackend>,
+    /// Auto-merge branches that pass the gate.
+    pub yes: bool,
+    /// Force offline heuristic intake (no LLM attempt).
+    pub offline: bool,
+    pub force_bug: bool,
+    pub force_feature: bool,
+    /// Skip spec creation.
+    pub no_spec: bool,
+    /// Explicit gate command (defaults to detection by repo markers).
+    pub test_cmd: Option<String>,
+    /// Per-attempt wall clock budget in minutes.
+    pub max_minutes: u64,
+    /// Terminate agents whose transcript is idle this long.
+    pub idle_minutes: u64,
+    /// Task-retry ceiling before a permanent failure.
+    pub max_attempts: u32,
+    /// Classify + print, don't create anything.
+    pub dry_run: bool,
+    /// Emit the final report as JSON.
+    pub json: bool,
+}
+
+impl Default for RunOptions {
+    fn default() -> Self {
+        Self {
+            intent: String::new(),
+            board: None,
+            backend: None,
+            yes: false,
+            offline: false,
+            force_bug: false,
+            force_feature: false,
+            no_spec: false,
+            test_cmd: None,
+            max_minutes: 20,
+            idle_minutes: 5,
+            max_attempts: 3,
+            dry_run: false,
+            json: false,
+        }
+    }
+}
+
+// ── report ──
+
+#[derive(Debug, Clone, Serialize)]
+pub struct GateResult {
+    pub cmd: Option<String>,
+    pub ok: bool,
+    pub skipped: bool,
+    pub tail: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TaskOutcome {
+    pub task_id: String,
+    pub title: String,
+    pub attempts: u32,
+    pub status: String, // completed | ready-unmerged | failed | queued
+    pub merged: bool,
+    pub gate: Option<GateResult>,
+    pub transcript: Option<String>,
+    pub note: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct RunReport {
+    pub intent: String,
+    pub card_id: String,
+    pub backend_used: Option<String>,
+    pub tasks: Vec<TaskOutcome>,
+    pub completed: u32,
+    pub failed: u32,
+    pub queued: u32,
+    pub duration_seconds: u64,
+    pub note: Option<String>,
+}
+
+// ── CLI ──
+
+/// Parse `barkcli run <intent> [flags]` and execute.
+pub fn run_cli(args: &[String]) -> Result<()> {
+    let mut opts = RunOptions::default();
+    let mut text_parts = Vec::new();
+
+    let mut i = 0usize;
+    while i < args.len() {
+        let a = &args[i];
+        match a.as_str() {
+            "--yes" | "-y" => opts.yes = true,
+            "--offline" => opts.offline = true,
+            "--bug" => opts.force_bug = true,
+            "--feature" => opts.force_feature = true,
+            "--no-spec" => opts.no_spec = true,
+            "--dry-run" => opts.dry_run = true,
+            "--json" => opts.json = true,
+            "--board" | "-b" => {
+                i += 1;
+                opts.board = Some(
+                    args.get(i)
+                        .ok_or_else(|| anyhow!("--board expects a name"))?
+                        .clone(),
+                );
+            }
+            "--backend" => {
+                i += 1;
+                let v = args.get(i).ok_or_else(|| anyhow!("--backend expects a name"))?;
+                opts.backend = Some(
+                    SessionBackend::parse(v)
+                        .ok_or_else(|| anyhow!("unknown backend '{}' (opencode|claude|codex|human)", v))?,
+                );
+            }
+            "--test-cmd" => {
+                i += 1;
+                opts.test_cmd = Some(
+                    args.get(i)
+                        .ok_or_else(|| anyhow!("--test-cmd expects a command string"))?
+                        .clone(),
+                );
+            }
+            "--max-minutes" => {
+                i += 1;
+                opts.max_minutes = args
+                    .get(i)
+                    .ok_or_else(|| anyhow!("--max-minutes expects a number"))?
+                    .parse()
+                    .map_err(|_| anyhow!("--max-minutes expects a number"))?;
+            }
+            "--idle-minutes" => {
+                i += 1;
+                opts.idle_minutes = args
+                    .get(i)
+                    .ok_or_else(|| anyhow!("--idle-minutes expects a number"))?
+                    .parse()
+                    .map_err(|_| anyhow!("--idle-minutes expects a number"))?;
+            }
+            "--max-attempts" => {
+                i += 1;
+                opts.max_attempts = args
+                    .get(i)
+                    .ok_or_else(|| anyhow!("--max-attempts expects a number"))?
+                    .parse()
+                    .map_err(|_| anyhow!("--max-attempts expects a number"))?;
+            }
+            _ if a.starts_with('-') => {
+                anyhow::bail!(
+                    "unknown flag '{}'. usage: barkcli run \"<intent>\" [--backend NAME] [--yes] [--offline] [--bug|--feature] [--test-cmd CMD] [--max-minutes N] [--idle-minutes N] [--max-attempts N] [--no-spec] [--dry-run] [--json]",
+                    a
+                );
+            }
+            _ => text_parts.push(a.clone()),
+        }
+        i += 1;
+    }
+
+    opts.intent = text_parts.join(" ");
+    if opts.intent.is_empty() {
+        anyhow::bail!(
+            "usage: barkcli run \"<intent>\" [--backend NAME] [--yes] [--offline] [--test-cmd CMD]"
+        );
+    }
+
+    let report = run(opts.clone())?;
+    print_report(&report, opts.json)
+}
+
+// ── the loop ──
+
+/// Execute the full autonomy run. Returns a serializable report.
+pub fn run(opts: RunOptions) -> Result<RunReport> {
+    let started = Instant::now();
+
+    // 0. Auto-init (same behavior as `serve`): no .board → bootstrap it.
+    if find_board_dir().is_err() {
+        super::init::run(&[])?;
+    }
+
+    // 1. Intake — classify the intent (LLM, falling back to heuristics when
+    //    no provider is configured; `--offline` skips the LLM entirely).
+    let classification: IntakeClassification = if opts.offline {
+        heuristic_intake(&opts.intent, opts.force_bug, opts.force_feature)
+    } else {
+        classify_input(&opts.intent, opts.force_bug, opts.force_feature)
+    };
+
+    let board_name = match &opts.board {
+        Some(b) => b.clone(),
+        None => first_board()?,
+    };
+
+    if opts.dry_run {
+        println!("{}", style::accent("Run (dry):"));
+        println!("  Type:     {}", classification.card_type);
+        println!("  Priority: {}", classification.priority);
+        println!("  Title:    {}", classification.title);
+        println!("  AC:       {} criteria", classification.acceptance_criteria.len());
+        println!("  Board:    {}", board_name);
+        println!("  Backend:  {}", backend_line(&opts));
+        return Ok(RunReport {
+            intent: opts.intent.clone(),
+            card_id: String::new(),
+            backend_used: None,
+            tasks: Vec::new(),
+            completed: 0,
+            failed: 0,
+            queued: 0,
+            duration_seconds: started.elapsed().as_secs(),
+            note: Some("dry run — nothing created".into()),
+        });
+    }
+
+    let card_id = create_card_from_classification(&board_name, &classification)?;
+    println!(
+        "{} Intake: card {} created",
+        style::ok("OK"),
+        style::strong(&card_id)
+    );
+
+    // Spec (never blocks the run on failure).
+    if !opts.no_spec {
+        if create_spec_from_intake(&board_name, &card_id, &classification).unwrap_or(false) {
+            let _ = update_board(&board_name, |b| {
+                if let Some(c) = b.cards.iter_mut().find(|c| c.id == card_id) {
+                    c.spec_id = Some(crate::util::slug::to_slug(&classification.title));
+                    c.touch();
+                }
+                Ok(())
+            });
+        }
+    }
+
+    // 2. Plan — decompose the card into concrete tasks.
+    let card = find_card(&board_name, &card_id)?;
+    let plan = decompose_task(
+        &card,
+        &AgentRole::TechLead,
+        Some(&CardDecompositionContext::default()),
+    );
+    println!(
+        "{} Plan: {} tasks decomposed",
+        style::ok("OK"),
+        plan.child_cards.len()
+    );
+
+    // 3. Queue — persist tasks; the queue survives crashes/restarts.
+    let mut q = load_queue(&board_name)?;
+    for child in &plan.child_cards {
+        let ctx_files = populate_context_files(&card_id, &board_name);
+        let task = create_task(
+            &card_id,
+            &child.title,
+            &child.description,
+            child.acceptance_criteria.clone(),
+            ctx_files,
+            &child.priority,
+        );
+        q.add(task);
+    }
+    save_queue(&board_name, &q)?;
+
+    // 4. Registry — the runner is itself an agent in the registry.
+    let mut registry = load_registry()?;
+    ensure_agent(&mut registry, "runner", AgentRole::TechLead)?;
+    save_registry(&registry)?;
+
+    // 5. Backend selection.
+    let injected = std::env::var("BARKCLI_AGENT_CMD")
+        .ok()
+        .filter(|c| !c.trim().is_empty());
+    let backend: Option<SessionBackend> = opts
+        .backend
+        .clone()
+        .or_else(|| {
+            SessionBackend::detect_available()
+                .into_iter()
+                .find(|b| *b != SessionBackend::Human)
+        });
+    if injected.is_some() && opts.backend.is_some() {
+        anyhow::bail!("Set either BARKCLI_AGENT_CMD or --backend, not both");
+    }
+
+    if injected.is_none() && backend.is_none() {
+        // No agent runtime installed: the queue is persisted; tell the user.
+        let tasks: Vec<TaskOutcome> = q
+            .tasks
+            .iter()
+            .map(|t| TaskOutcome {
+                task_id: t.id.clone(),
+                title: t.title.clone(),
+                attempts: 0,
+                status: "queued".into(),
+                merged: false,
+                gate: None,
+                transcript: None,
+                note: None,
+            })
+            .collect();
+        println!(
+            "{} no coding-agent backend found (opencode/claude/codex) — tasks are queued",
+            style::warn("Run:")
+        );
+        println!("  Install a backend or set BARKCLI_AGENT_CMD to drive them.");
+        return Ok(RunReport {
+            intent: opts.intent.clone(),
+            card_id,
+            backend_used: None,
+            completed: 0,
+            failed: 0,
+            queued: tasks.len() as u32,
+            tasks,
+            duration_seconds: started.elapsed().as_secs(),
+            note: Some(
+                "no backend installed and no BARKCLI_AGENT_CMD override; tasks queued for a later run"
+                    .into(),
+            ),
+        });
+    }
+
+    let backend_used = injected
+        .as_ref()
+        .map(|_| "agent-cmd".to_string())
+        .or_else(|| backend.as_ref().map(|b| b.display_name().to_string()));
+
+    println!(
+        "{} Backend: {}",
+        style::ok("OK"),
+        style::strong(backend_used.as_deref().unwrap_or("auto"))
+    );
+
+    // 6. The loop: claim → worktree → prompt → spawn → watch → gate → merge
+    //    or re-queue with the failure verdict.
+    let mut outcomes: Vec<TaskOutcome> = Vec::new();
+    let mut attempts: HashMap<String, u32> = HashMap::new();
+    let mut verdicts: HashMap<String, String> = HashMap::new();
+
+    loop {
+        let mut q = load_queue(&board_name)?;
+        let task_id = match q.next_pending().map(|t| t.id.clone()) {
+            Some(id) => id,
+            None => break,
+        };
+        let task: TaskRequest = q
+            .tasks
+            .iter()
+            .find(|t| t.id == task_id)
+            .cloned()
+            .ok_or_else(|| anyhow!("task {} vanished from queue", task_id))?;
+
+        let attempt_no = {
+            let entry = attempts.entry(task_id.clone()).or_insert(0);
+            *entry += 1;
+            *entry
+        };
+
+        if attempt_no > opts.max_attempts {
+            attempts.remove(&task_id);
+            q.update_status(&task_id, TaskStatus::Failed)?;
+            save_queue(&board_name, &q)?;
+            outcomes.push(TaskOutcome {
+                task_id,
+                title: task.title.clone(),
+                attempts: opts.max_attempts,
+                status: "failed".into(),
+                merged: false,
+                gate: None,
+                transcript: None,
+                note: Some("retry ceiling reached".into()),
+            });
+            continue;
+        }
+
+        // ── claim + lease ──
+        let session_backend = backend.clone().unwrap_or(SessionBackend::Human);
+        let mut session = Session::new("runner", session_backend);
+        q.claim(&task_id, "runner", Some(&session.id), opts.max_minutes as i64)?;
+        q.start(&task_id)?;
+        save_queue(&board_name, &q)?;
+
+        println!();
+        println!(
+            "{} {} (attempt {}/{})",
+            style::accent("▶"),
+            style::strong(&task.title),
+            attempt_no,
+            opts.max_attempts
+        );
+
+        // ── worktree ──
+        let slug = task_id.clone();
+        let wt_path = acquire_worktree(&slug)?;
+        let branch = format!("bark/{}", slug);
+        // Base commit the branch was cut from (change-detection later).
+        let base_commit = git_out(&find_project_root()?, &["rev-parse", "HEAD"])?;
+
+        // ── prompt (retry attempts get the failure verdict injected) ──
+        let skills_md = skills_for_task(&task);
+        let mut prompt = build_task_prompt(&task, &branch, skills_md.as_deref());
+        if let Some(v) = verdicts.get(&task_id) {
+            prompt = format!(
+                "# Previous attempt failed\n\nAttempt {} failed the acceptance gate:\n\n{}\n\nFix the reported failure. Rerun the project's tests yourself before finishing.\n\n---\n\n{}",
+                attempt_no.saturating_sub(1),
+                v,
+                prompt
+            );
+        }
+        prompt.push_str("\n\n## Session contract\n\n");
+        prompt.push_str("- Work entirely inside this checkout.\n");
+        prompt.push_str("- Commit your work when done.\n");
+        prompt.push_str(
+            "- The supervisor re-runs the project's tests after you exit; only a passing gate merges.\n",
+        );
+        if !prompt_arg_ok(&prompt) {
+            anyhow::bail!("prompt exceeds single-arg budget; reduce context files");
+        }
+
+        let sess_dir: PathBuf = sessions_dir()?.join(&session.id);
+        std::fs::create_dir_all(&sess_dir).ok();
+        let transcript = sess_dir.join("transcript.log");
+        let prompt_file = sess_dir.join("prompt.md");
+        std::fs::write(&prompt_file, &prompt)?;
+        session.worktree_path = Some(wt_path.to_string_lossy().into_owned());
+        session.branch = Some(branch.clone());
+        session.transcript_path = Some(transcript.to_string_lossy().into_owned());
+        session.prompt_path = Some(prompt_file.to_string_lossy().into_owned());
+
+        // ── spawn ──
+        let mut child = match spawn_agent(injected.as_deref(), backend.clone(), &prompt, &prompt_file, &wt_path) {
+            Ok(c) => c,
+            Err(e) => {
+                release_worktree(&slug, true).ok();
+                let msg = format!("backend failed to launch: {}", e);
+                println!("{} {}", style::warn("✘"), msg);
+                record_failure_fact(&board_name, &task, attempt_no, &msg)?;
+                if attempt_no < opts.max_attempts {
+                    requeue(&mut q, &task_id)?;
+                    save_queue(&board_name, &q)?;
+                    continue;
+                }
+                q.update_status(&task_id, TaskStatus::Failed)?;
+                save_queue(&board_name, &q)?;
+                outcomes.push(TaskOutcome {
+                    task_id,
+                    title: task.title.clone(),
+                    attempts: attempt_no,
+                    status: "failed".into(),
+                    merged: false,
+                    gate: None,
+                    transcript: None,
+                    note: Some(msg),
+                });
+                continue;
+            }
+        };
+        session.pid = Some(child.id());
+        session.status = SessionStatus::Working;
+        session.add_note(
+            "runner",
+            &format!("spawned attempt {} (pid {})", attempt_no, child.id()),
+        );
+        save_session(&session)?;
+
+        // ── watch (heartbeat every 30s keeps the lease + session alive) ──
+        let stream = stream_for(injected.is_some(), backend.as_ref());
+        let board_for_beat = board_name.clone();
+        let mut beat = || -> Result<()> {
+            q.heartbeat(&task_id, "runner", opts.max_minutes as i64)?;
+            save_queue(&board_for_beat, &q)?;
+            session.heartbeat();
+            save_session(&session)?;
+            Ok(())
+        };
+        let watch_res = watch(
+            &mut child,
+            stream,
+            &transcript,
+            opts.max_minutes,
+            opts.idle_minutes,
+            &mut beat,
+        );
+
+        let verdict_seen = watch_res?;
+        let exit_code = child.wait().ok().and_then(|s| s.code());
+        let agent_failed = matches!(verdict_seen.as_ref(), Some(AgentVerdict::Failed(_)))
+            || exit_code.map(|c| c != 0).unwrap_or(false);
+
+        session.exit_code = exit_code;
+        session.ended_at = Some(Utc::now());
+        session.status = if agent_failed {
+            SessionStatus::Failed
+        } else {
+            SessionStatus::Done
+        };
+        save_session(&session)?;
+        println!(
+            "… agent finished (exit {:?}, verdict: {})",
+            exit_code,
+            match &verdict_seen {
+                Some(AgentVerdict::Ok(t)) => format!("ok: {}", truncate(t, 60)),
+                Some(AgentVerdict::Failed(t)) => format!("fail: {}", truncate(t, 60)),
+                None => "none".to_string(),
+            }
+        );
+
+        // The honesty rule, in two layers:
+        //   1. the agent's self-report NEVER completes a task — the gate
+        //      runs regardless of exit code or stream verdict;
+        //   2. an agent that crashed and produced no changes can't claim a
+        //      passing gate either (an empty worktree can pass a trivial
+        //      gate) — that attempt counts as failed.
+        let gate = match detect_test_cmd(&wt_path, opts.test_cmd.as_deref()) {
+            Some(cmd) => {
+                println!("{} gate `{} …`", style::accent("Gate:"), style::muted(&cmd));
+                run_gate(&wt_path, &cmd, &sess_dir)
+            }
+            None => GateResult {
+                cmd: None,
+                ok: true,
+                skipped: true,
+                tail: "No test command detected (no Cargo.toml / package.json test script / pyproject / go.mod) — gate skipped; pass --test-cmd for real verification"
+                    .into(),
+            },
+        };
+        let dirty = !git_out(&wt_path, &["status", "--porcelain"])
+            .unwrap_or_default()
+            .trim()
+            .is_empty();
+        let made_commits = git_out(
+            &wt_path,
+            &["rev-list", "--count", &format!("{}..{}", base_commit, branch)],
+        )
+        .ok()
+        .and_then(|s| s.parse::<u32>().ok())
+        .unwrap_or(0);
+        let agent_ok = !agent_failed;
+        let changes = dirty || made_commits > 0;
+        let candidates_ok = gate.ok && (agent_ok || changes);
+        if !candidates_ok && gate.ok && !agent_ok && !changes {
+            println!(
+                "{} agent exited nonzero and produced no changes — a no-op gate doesn't count",
+                style::warn("⚠")
+            );
+        }
+        match (&gate.cmd, gate.ok) {
+            (Some(_), true) => println!("{} gate passed", style::ok("✔")),
+            (Some(_), false) => println!("{} gate {} (tail follows below)", style::warn("✘"), style::strong("FAILED")),
+            (None, _) => println!("{} gate skipped — no test command detected", style::warn("⚠")),
+        }
+
+        if candidates_ok {
+            // Commit whatever the agent left uncommitted, then merge.
+            commit_worktree(&wt_path, &task)?;
+
+            if !opts.yes {
+                q.add_note(
+                    &task_id,
+                    "runner",
+                    "gate passed; branch ready — rerun the task with --yes to merge",
+                )?;
+                save_queue(&board_name, &q)?;
+                outcomes.push(TaskOutcome {
+                    task_id,
+                    title: task.title.clone(),
+                    attempts: attempt_no,
+                    status: "ready-unmerged".into(),
+                    merged: false,
+                    gate: Some(gate),
+                    transcript: Some(transcript.to_string_lossy().into_owned()),
+                    note: Some(format!("branch {} ready; pass --yes to auto-merge", branch)),
+                });
+                continue;
+            }
+
+            let root = find_project_root()?;
+            match git_out(&root, &["merge", "--no-ff", "--no-edit", &branch]) {
+                Ok(_) => {
+                    release_worktree(&slug, true).ok();
+                    q.complete(&task_id)?;
+                    // Parent completes when all of its tasks do.
+                    let all_done = q
+                        .tasks
+                        .iter()
+                        .all(|t| t.card_id != task.card_id || t.status == TaskStatus::Completed);
+                    if all_done {
+                        update_board(&board_name, |b| {
+                            if let Some(c) = b.cards.iter_mut().find(|c| c.id == task.card_id) {
+                                c.column = "done".into();
+                                c.touch();
+                            }
+                            Ok(())
+                        })?;
+                    }
+                    save_queue(&board_name, &q)?;
+                    println!("{} merged {}", style::ok("✔"), style::strong(&branch));
+                    outcomes.push(TaskOutcome {
+                        task_id,
+                        title: task.title.clone(),
+                        attempts: attempt_no,
+                        status: "completed".into(),
+                        merged: true,
+                        gate: Some(gate),
+                        transcript: Some(transcript.to_string_lossy().into_owned()),
+                        note: None,
+                    });
+                }
+                Err(conflict) => {
+                    // Roll the merge back on main; a fresh attempt rebases
+                    // from a clean base.
+                    git_out(&root, &["merge", "--abort"]).ok();
+                    let msg = format!("merge conflict with main:\n{}", conflict);
+                    verdicts.insert(task_id.clone(), msg);
+                    session.add_note("runner", "merge conflict; re-queued");
+                    save_session(&session)?;
+                    release_worktree(&slug, true).ok();
+                    if attempt_no < opts.max_attempts {
+                        requeue(&mut q, &task_id)?;
+                        save_queue(&board_name, &q)?;
+                    } else {
+                        q.update_status(&task_id, TaskStatus::Failed)?;
+                        save_queue(&board_name, &q)?;
+                        outcomes.push(TaskOutcome {
+                            task_id,
+                            title: task.title,
+                            attempts: attempt_no,
+                            status: "failed".into(),
+                            merged: false,
+                            gate: Some(gate),
+                            transcript: Some(transcript.to_string_lossy().into_owned()),
+                            note: Some("final attempt hit a merge conflict".into()),
+                        });
+                    }
+                }
+            }
+        } else {
+            // Either the gate failed outright, or the agent crashed without
+            // producing changes (a no-op gate doesn't count). Store the
+            // verdict, write a memory fact, re-queue.
+            let verdict = if gate.ok {
+                format!(
+                    "agent exited nonzero ({:?}) and produced no repository changes — a passing no-op gate cannot complete a task. {}",
+                    exit_code,
+                    agent_verdict_text(&verdict_seen, exit_code)
+                )
+            } else {
+                format!(
+                    "gate `{}` {} failed:\n{}{}",
+                    truncate(gate.cmd.as_deref().unwrap_or("(skipped)"), 80),
+                    "execution",
+                    gate.tail,
+                    agent_verdict_text(&verdict_seen, exit_code)
+                )
+            };
+            verdicts.insert(task_id.clone(), verdict);
+            record_failure_fact(
+                &board_name,
+                &task,
+                attempt_no,
+                if gate.skipped { "(no-op gate)" } else { gate.cmd.as_deref().unwrap_or("(skipped)") },
+            )?;
+            session.add_note(
+                "runner",
+                &format!(
+                    "attempt {} failed: {}",
+                    attempt_no,
+                    if gate.ok { "agent crashed with no changes" } else { "gate failure" }
+                ),
+            );
+            save_session(&session)?;
+            release_worktree(&slug, true).ok();
+
+            if attempt_no < opts.max_attempts {
+                requeue(&mut q, &task_id)?;
+                save_queue(&board_name, &q)?;
+                println!("{} re-queued with the failure verdict", style::warn("↺"));
+            } else {
+                q.update_status(&task_id, TaskStatus::Failed)?;
+                save_queue(&board_name, &q)?;
+                print_gate_failure(&gate);
+                outcomes.push(TaskOutcome {
+                    task_id,
+                    title: task.title,
+                    attempts: attempt_no,
+                    status: "failed".into(),
+                    merged: false,
+                    gate: Some(gate),
+                    transcript: Some(transcript.to_string_lossy().into_owned()),
+                    note: Some("final attempt failed the gate".into()),
+                });
+            }
+        }
+    }
+
+    Ok(RunReport {
+        intent: opts.intent.clone(),
+        card_id,
+        backend_used,
+        completed: outcomes.iter().filter(|o| o.status == "completed").count() as u32,
+        failed: outcomes.iter().filter(|o| o.status == "failed").count() as u32,
+        queued: 0,
+        tasks: outcomes,
+        duration_seconds: started.elapsed().as_secs(),
+        note: None,
+    })
+}
+
+// ── helpers ──
+
+/// First `.board` file next to the board dir, alphabetically.
+fn first_board() -> Result<String> {
+    let dir = find_board_dir()?
+        .parent()
+        .ok_or_else(|| anyhow!("no project root"))?
+        .to_path_buf();
+    let mut names: Vec<String> = std::fs::read_dir(&dir)?
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .filter(|p| p.extension().map(|x| x == "board").unwrap_or(false))
+        .filter_map(|p| p.file_stem().map(|s| s.to_string_lossy().into_owned()))
+        .collect();
+    if names.is_empty() {
+        anyhow::bail!("no board files found — create one with `barkcli create <name>`");
+    }
+    names.sort();
+    Ok(names.remove(0))
+}
+
+fn find_card(board_name: &str, card_id: &str) -> Result<crate::models::Card> {
+    let board = read_board(board_name)?;
+    board
+        .cards
+        .into_iter()
+        .find(|c| c.id == card_id)
+        .ok_or_else(|| anyhow!("card {} missing on board {}", card_id, board_name))
+}
+
+/// Launch the agent: either the injected demo/test command or the backend
+/// recipe. Both run with cwd = worktree, stdin nulled, pipes captured.
+///
+/// Injected contract: `sh -c '<cmd>' /bin/sh '<prompt-file>'` — the command
+/// gets the prompt-file path as `$1` (and `BARKCLI_PROMPT_FILE` in its env).
+fn spawn_agent(
+    injected: Option<&str>,
+    backend: Option<SessionBackend>,
+    prompt_text: &str,
+    prompt_file: &Path,
+    workdir: &Path,
+) -> Result<Child> {
+    let mut cmd = if let Some(script) = injected {
+        let mut builder = Command::new("sh");
+        // The cmdstring forwards the prompt-file path as `$1` to the
+        // command, so both `my-agent.sh` (reads $1) and env-aware runners
+        // (`BARKCLI_PROMPT_FILE`) work.
+        let cmd_string = format!("{} \"$1\"", script);
+        builder
+            .arg("-c")
+            .arg(cmd_string)
+            .arg("/bin/sh")
+            .arg(prompt_file)
+            .env("BARKCLI_PROMPT_FILE", prompt_file);
+        builder
+    } else {
+        let b = backend.ok_or_else(|| anyhow!("no backend to launch"))?;
+        Recipe::for_backend(b).command(prompt_text)
+    };
+    cmd.current_dir(workdir)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    cmd.spawn().map_err(|e| anyhow!("spawn failed: {}", e))
+}
+
+fn stream_for(injected: bool, backend: Option<&SessionBackend>) -> Stream {
+    if injected {
+        Stream::Plain
+    } else {
+        backend.map(|b| Recipe::for_backend(b.clone()).stream).unwrap_or(Stream::Plain)
+    }
+}
+
+/// Watch a running agent: tee output to the transcript, parse stream verdicts,
+/// tick the heartbeat every 30s, enforce idle + wall-clock limits (both kills.
+/// What happens after is gates' business, per the completion contract.
+fn watch(
+    child: &mut Child,
+    stream: Stream,
+    transcript: &Path,
+    max_minutes: u64,
+    idle_minutes: u64,
+    on_beat: &mut dyn FnMut() -> Result<()>,
+) -> Result<Option<AgentVerdict>> {
+    let stdout = child.stdout.take();
+    let stderr = child.stderr.take();
+
+    // Both streams flow into one channel; the main loop below is the single
+    // writer to the transcript file and the only parser (no locks needed).
+    let (tx, rx) = mpsc::channel::<String>();
+
+    if let Some(pipe) = stdout {
+        let tx = tx.clone();
+        thread::spawn(move || {
+            let reader = std::io::BufReader::new(pipe);
+            for line in reader.lines() {
+                let Ok(mut l) = line else { break };
+                l.push('\n');
+                if tx.send(l).is_err() {
+                    break;
+                }
+            }
+        });
+    }
+    if let Some(pipe) = stderr {
+        let tx = tx.clone();
+        thread::spawn(move || {
+            let mut reader = std::io::BufReader::new(pipe);
+            let mut buf = String::new();
+            loop {
+                buf.clear();
+                match reader.read_line(&mut buf) {
+                    Ok(0) | Err(_) => break,
+                    Ok(_) => {
+                        if tx.send(buf.clone()).is_err() {
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+    }
+    drop(tx);
+
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(transcript)?;
+
+    let started = Instant::now();
+    let mut last_activity = Instant::now();
+    let mut last_beat = Instant::now();
+
+    let ingest = |line: String,
+                      file: &mut std::fs::File,
+                      verdict: &mut Option<AgentVerdict>| {
+        file.write_all(line.as_bytes()).ok();
+        if let Some(v) = parse_stream(stream, &line) {
+            *verdict = Some(v);
+        }
+    };
+
+    let mut verdict: Option<AgentVerdict> = None;
+    loop {
+        match rx.recv_timeout(Duration::from_millis(500)) {
+            Ok(line) => {
+                ingest(line, &mut file, &mut verdict);
+                last_activity = Instant::now();
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                if child.try_wait()?.is_some() {
+                    // Child is gone: drain buffered lines until EOF.
+                    for line in rx.iter() {
+                        ingest(line, &mut file, &mut verdict);
+                    }
+                    break;
+                }
+                if last_activity.elapsed() >= Duration::from_secs(idle_minutes * 60)
+                    || started.elapsed() >= Duration::from_secs(max_minutes * 60)
+                {
+                    let _ = child.kill();
+                    break;
+                }
+                if last_beat.elapsed() >= Duration::from_secs(30) {
+                    last_beat = Instant::now();
+                    on_beat()?;
+                }
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => break,
+        }
+    }
+    file.flush().ok();
+
+    Ok(verdict)
+}
+
+fn parse_stream(kind: Stream, line: &str) -> Option<AgentVerdict> {
+    match kind {
+        Stream::Plain => None,
+        Stream::ClaudeJsonl => Recipe::for_backend(SessionBackend::ClaudeCode).stream_event(line),
+        Stream::CodexJsonl => Recipe::for_backend(SessionBackend::Codex).stream_event(line),
+    }
+}
+
+fn agent_verdict_text(verdict: &Option<AgentVerdict>, exit: Option<i32>) -> String {
+    match verdict {
+        Some(AgentVerdict::Ok(t)) => format!("agent reported success (exit {:?}): {}", exit, t),
+        Some(AgentVerdict::Failed(t)) => format!("agent reported failure (exit {:?}): {}", exit, t),
+        None => format!("no stream verdict (exit {:?})", exit),
+    }
+}
+
+fn last_lines(s: &str, n: usize) -> String {
+    let lines: Vec<&str> = s.lines().collect();
+    let start = lines.len().saturating_sub(n);
+    lines[start..].join("\n")
+}
+
+/// Put a task back on the Pending pile: clear assignment + lease + branch so
+/// the next attempt starts fresh.
+fn requeue(q: &mut TaskQueue, task_id: &str) -> Result<()> {
+    q.update_status(task_id, TaskStatus::Pending)?;
+    if let Some(t) = q.tasks.iter_mut().find(|t| t.id == task_id) {
+        t.lease = None;
+        t.branch = None;
+        t.assigned_agent = None;
+    }
+    Ok(())
+}
+
+/// Record a gate failure as a project memory fact so later prompts can see it.
+fn record_failure_fact(board_name: &str, task: &TaskRequest, attempt: u32, cmd: &str) -> Result<()> {
+    let fact = ProjectFact {
+        fact: format!(
+            "run: task '{}' (attempt {}) failed the acceptance gate `{}`; verdict was recorded on the task",
+            task.title, attempt, cmd
+        ),
+        category: "pattern".into(),
+        confidence: 0.9,
+        sources: vec!["run".into()],
+        created_at: Utc::now(),
+    };
+    let mut store = MemoryStore::open(board_name)?;
+    store.add_fact(fact);
+    store.save()?;
+    Ok(())
+}
+
+/// Detect the acceptance-gate command from repo markers in the worktree.
+pub(crate) fn detect_test_cmd(dir: &Path, override_cmd: Option<&str>) -> Option<String> {
+    if let Some(c) = override_cmd {
+        return Some(c.to_string());
+    }
+    if dir.join("Cargo.toml").exists() {
+        return Some("cargo test --quiet".into());
+    }
+    if dir.join("package.json").exists()
+        && std::fs::read_to_string(dir.join("package.json"))
+            .map(|p| p.contains("\"test\""))
+            .unwrap_or(false)
+    {
+        return Some("npm test --silent".into());
+    }
+    if dir.join("pyproject.toml").exists() || dir.join("pytest.ini").exists() {
+        return Some("python3 -m pytest -q".into());
+    }
+    if dir.join("go.mod").exists() {
+        return Some("go test ./...".into());
+    }
+    None
+}
+
+/// Run the gate in the worktree. Output is teed to `<session>/gate.log`; its
+/// tail (40 lines) becomes the re-dispatch verdict on failure.
+fn run_gate(dir: &Path, cmd: &str, sess_dir: &Path) -> GateResult {
+    match Command::new("sh")
+        .args(["-c", cmd])
+        .current_dir(dir)
+        .stdin(Stdio::null())
+        .output()
+    {
+        Ok(o) => {
+            let combined = format!(
+                "{}{}",
+                String::from_utf8_lossy(&o.stdout),
+                String::from_utf8_lossy(&o.stderr)
+            );
+            let _ = std::fs::write(sess_dir.join("gate.log"), &combined);
+            GateResult {
+                cmd: Some(cmd.to_string()),
+                ok: o.status.success(),
+                skipped: false,
+                tail: last_lines(&combined, 40),
+            }
+        }
+        Err(e) => GateResult {
+            cmd: Some(cmd.to_string()),
+            ok: false,
+            skipped: false,
+            tail: format!("gate command failed to start: {}", e),
+        },
+    }
+}
+
+fn commit_worktree(wt: &Path, task: &TaskRequest) -> Result<bool> {
+    let status = git_out(wt, &["status", "--porcelain"]).unwrap_or_default();
+    if status.trim().is_empty() {
+        return Ok(false);
+    }
+    git_out(wt, &["add", "-A"])?;
+    git_out(
+        wt,
+        &[
+            "commit",
+            "--no-verify",
+            "-m",
+            &format!("bark(run): {}", task.title),
+        ],
+    )?;
+    Ok(true)
+}
+
+fn git_out(root: &Path, args: &[&str]) -> Result<String> {
+    let out = Command::new("git").args(args).current_dir(root).output()?;
+    if !out.status.success() {
+        anyhow::bail!("{}", String::from_utf8_lossy(&out.stderr).trim().to_string());
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+}
+
+fn backend_line(opts: &RunOptions) -> String {
+    if opts.offline {
+        "auto + offline intake".to_string()
+    } else {
+        "auto (opencode → claude → codex)".to_string()
+    }
+}
+
+fn truncate(s: &str, n: usize) -> String {
+    s.chars().take(n).collect()
+}
+
+fn print_gate_failure(gate: &GateResult) {
+    println!("{}", style::strong("gate tail (last 15):"));
+    for l in gate.tail.lines().skip(gate.tail.lines().count().saturating_sub(15)) {
+        println!("  {}", style::muted(l));
+    }
+}
+
+/// Print the report in the house style (or JSON).
+fn print_report(report: &RunReport, json: bool) -> Result<()> {
+    if json {
+        println!("{}", serde_json::to_string_pretty(report)?);
+        return Ok(());
+    }
+    println!();
+    println!("{}", style::strong("Run report"));
+    println!("  card:     {}", report.card_id);
+    println!(
+        "  backend:  {}",
+        report.backend_used.as_deref().unwrap_or("(none)")
+    );
+    println!("  time:     {}s", report.duration_seconds);
+    println!();
+    for t in &report.tasks {
+        let mark = match t.status.as_str() {
+            "completed" => style::ok("✔"),
+            "ready-unmerged" => style::accent("→"),
+            "queued" => style::muted("·"),
+            _ => style::warn("✘"),
+        };
+        println!("  {} {} ({} attempts, {})", mark, t.title, t.attempts, t.status);
+        if let Some(g) = &t.gate {
+            if let Some(cmd) = &g.cmd {
+                println!("      gate: {}", style::muted(cmd));
+            }
+        }
+        if let Some(n) = &t.note {
+            println!("      {}", style::muted(n));
+        }
+    }
+    println!();
+    println!(
+        "  {} completed · {} failed · {}s",
+        report.completed, report.failed, report.duration_seconds
+    );
+    Ok(())
+}

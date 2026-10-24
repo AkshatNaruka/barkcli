@@ -415,6 +415,27 @@ export const commands: Command[] = [
     ],
   },
   {
+    slug: "run",
+    name: "barkcli run",
+    description:
+      "The autonomy loop: prompt → card → plan → agent in a worktree → transcript watch → test gate → merge. Done means the gate passes, never that the agent said so.",
+    category: "Management Layer",
+    usage:
+      'barkcli run "<intent>" [--backend opencode|claude|codex] [--yes] [--offline] [--test-cmd cmd]',
+    examples: [
+      'barkcli run "Create a fizzbuzz module with tests" --offline --yes',
+      'barkcli run "Fix the flaky login test" --backend claude --test-cmd "npm test" --yes',
+      'barkcli run "Add dark mode toggle" --dry-run',
+    ],
+    flags: [
+      { name: "--backend", description: "Pick the agent runtime (default: auto-detect)" },
+      { name: "--yes", description: "Auto-merge branches that pass the gate" },
+      { name: "--offline", description: "Heuristic intake, no LLM" },
+      { name: "--test-cmd", description: "Override acceptance-gate detection" },
+      { name: "--max-attempts", description: "Retry ceiling before permanent failure (default 3)" },
+    ],
+  },
+  {
     slug: "plan",
     name: "barkcli plan",
     description: "Generate spec + decomposition with file context and acceptance criteria.",
