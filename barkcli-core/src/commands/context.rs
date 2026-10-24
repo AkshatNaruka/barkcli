@@ -411,3 +411,106 @@ fn project_root() -> Result<PathBuf> {
         .map(|p| p.to_path_buf())
         .ok_or_else(|| anyhow::anyhow!("cannot determine project root"))
 }
+
+// ─── Living context file (project_context.md) ───────────────────────────────
+
+/// `barkcli context digest` — regenerate `project_context.md` from tracked
+/// work (board, sessions, memory, specs, code map). Hand-edited sections and
+/// manual-flagged blocks survive regeneration.
+pub fn run_digest(board: &str, args: &[String]) -> Result<()> {
+    use crate::context_file::{file_path, DigestOpts};
+
+    let opts = DigestOpts {
+        budget: flag_value(args, "--budget").and_then(|v| v.parse::<usize>().ok()),
+        manual_add: flag_value(args, "--manual"),
+        wire: args.iter().any(|a| a == "--wire") || args.iter().any(|a| a == "--wire-create"),
+        create_wires: args.iter().any(|a| a == "--wire-create"),
+        quiet: args.iter().any(|a| a == "--quiet"),
+        if_exists: args.iter().any(|a| a == "--if-exists"),
+    };
+    let report = crate::context_file::digest::run_digest_core(board, &opts)?;
+    if opts.quiet {
+        return Ok(());
+    }
+
+    let root = project_root()?;
+    let path = file_path(&root);
+    println!("{} {}", style::ok("Context:"), style::strong(path.display().to_string()));
+    println!(
+        "  ~{} tokens · {} added · {} rewritten · {} evicted · {} manual",
+        report.total_tokens,
+        style::ok(report.added.len().to_string()),
+        report.rewritten.len(),
+        report.evicted.len(),
+        report.preserved_manual.len(),
+    );
+    for (id, s) in &report.flagged_stale {
+        println!("  {} section '{}' drifted ({:.2}) — run `barkcli context sync`", style::warn("Drift:"), id, s);
+    }
+    if !report.evicted.is_empty() {
+        println!(
+            "  {} trimmed to fit budget: {}",
+            style::warn("Trim:"),
+            report.evicted.join(", ")
+        );
+    }
+    if !report.preserved_manual.is_empty() {
+        println!(
+            "  {} preserved: {}",
+            style::muted("Manual:"),
+            report.preserved_manual.join(", ")
+        );
+    }
+    if !opts.wire {
+        println!(
+            "  {} run `barkcli context wire` so agents auto-read this file (CLAUDE.md / AGENTS.md)",
+            style::muted("Tip:")
+        );
+    }
+    Ok(())
+}
+
+/// `barkcli context prime` — one-shot bootstrap: map cards to code (when the
+/// sidecar is empty), then write the context file. For new/existing repos.
+pub fn run_prime(board: &str, args: &[String]) -> Result<()> {
+    let ctx = read_context(board)?;
+    if ctx.index.is_empty() {
+        run_scan(board, &[])?;
+    }
+    println!(
+        "{}",
+        style::muted(format!("Building {} …", crate::context_file::FILE_NAME))
+    );
+    let mut digest_args = args.to_vec();
+    digest_args.push("--wire".into()); // prime wants agents to pick it up
+    run_digest(board, &digest_args)
+}
+
+/// `barkcli context wire` — make every agent auto-read the context file by
+/// appending the import/pointer to CLAUDE.md / AGENTS.md (idempotent).
+pub fn run_wire(board: &str, args: &[String]) -> Result<()> {
+    let create = args.iter().any(|a| a == "--create");
+    let root = project_root()?;
+    let mut state = crate::context_file::read_state(board)?;
+    let (claude, agents) = crate::context_file::wire_agent_files(&root, &mut state, create)?;
+    crate::context_file::write_state(board, &state)?;
+
+    if claude {
+        println!("{} CLAUDE.md imports {}", style::ok("Wire:"), style::strong(crate::context_file::FILE_NAME));
+    }
+    if agents {
+        println!("{} AGENTS.md points to {}", style::ok("Wire:"), style::strong(crate::context_file::FILE_NAME));
+    }
+    if !claude && !agents {
+        println!(
+            "{} no CLAUDE.md / AGENTS.md found. Re-run with {} to create them.",
+            style::warn("Wire:"),
+            style::accent("--create")
+        );
+    } else if !claude {
+        println!("{} no CLAUDE.md — run with {} to create it", style::muted("Note:"), style::accent("--create"));
+    } else if !agents {
+        println!("{} no AGENTS.md — run with {} to create it", style::muted("Note:"), style::accent("--create"));
+    }
+    Ok(())
+}

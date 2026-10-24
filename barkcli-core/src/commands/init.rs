@@ -48,6 +48,7 @@ pub fn run(args: &[String]) -> Result<()> {
     println!("  barkcli add \"Fix auth bug\" -p high");
     println!("  barkcli list");
     println!("  barkcli move <id> doing");
+    println!("  barkcli context prime   # seed project_context.md so agent sessions start warm");
 
     // Automation wiring: ask once, never again.
     wire_automations(args, project_root, &board_dir)?;

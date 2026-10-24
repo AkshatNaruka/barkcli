@@ -29,6 +29,10 @@ pub fn run_log(args: &[String]) -> Result<()> {
         eprintln!("barkcli memory ingest: {}", err);
     }
 
+    // Refresh the living context file so the *next* agent session starts
+    // warm instead of re-exploring the repo (gossip → verify → publish).
+    crate::context_file::digest::refresh_after_session(&entry.board);
+
     Ok(())
 }
 

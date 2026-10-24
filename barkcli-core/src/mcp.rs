@@ -719,6 +719,29 @@ impl McpServer {
                 }
             }),
             serde_json::json!({
+                "name": "context_file_get",
+                "description": "Read the living project context file (project_context.md) — start sessions from this instead of re-exploring the codebase. Pass 'section' (snapshot|active|architecture|conventions|decisions|specs|sessions) for one block only. Auto-generates the file on first call.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "section": {
+                            "type": "string",
+                            "description": "Optional section id to read just that one"
+                        }
+                    },
+                    "required": []
+                }
+            }),
+            serde_json::json!({
+                "name": "context_digest",
+                "description": "Regenerate/refresh project_context.md from tracked work (board, sessions, memory, specs, code map). Run after finishing a batch of work.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            }),
+            serde_json::json!({
                 "name": "code_search",
                 "description": "Search code symbols in the codebase",
                 "inputSchema": {
@@ -1651,6 +1674,8 @@ impl McpServer {
             // Code context
             "context_scan" => self.tool_context_scan(arguments),
             "context_get" => self.tool_context_get(arguments),
+            "context_file_get" => self.tool_context_file_get(arguments),
+            "context_digest" => self.tool_context_digest(arguments),
             "code_search" => self.tool_code_search(arguments),
             "callgraph_get" => self.tool_callgraph_get(arguments),
             "metrics_get" => self.tool_metrics_get(arguments),
@@ -2413,6 +2438,78 @@ impl McpServer {
                 "sessions": []
             }))
         }
+    }
+
+    fn tool_context_file_get(&self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+
+        // Auto-generate on first call so agents start warm even if the CLI
+        // digest was never run in this repo.
+        if crate::context_file::project_root()
+            .map(|root| !crate::context_file::file_path(&root).exists())
+            .unwrap_or(false)
+        {
+            let opts = crate::context_file::DigestOpts { quiet: true, ..Default::default() };
+            let _ = crate::context_file::digest::run_digest_core(&board_name, &opts);
+        }
+
+        let root = crate::context_file::project_root()?;
+        let path = crate::context_file::file_path(&root);
+        if !path.exists() {
+            return Ok(serde_json::json!({
+                "error": "no context file and could not generate one",
+                "hint": "run `barkcli context prime` in this repo"
+            }));
+        }
+        let content = std::fs::read_to_string(&path)?;
+        let parsed = crate::context_file::parse(&content);
+
+        let section = args.get("section").and_then(|v| v.as_str());
+        let text = match section {
+            None => content,
+            Some(want) => {
+                let block = parsed
+                    .blocks
+                    .iter()
+                    .find(|b| b.meta.id == want || b.heading.contains(want));
+                match block {
+                    Some(b) => b.render(),
+                    None => {
+                        let known: Vec<&str> = parsed.blocks.iter().map(|b| b.meta.id.as_str()).collect();
+                        return Ok(serde_json::json!({
+                            "error": format!("no section '{}'", want),
+                            "sections": known
+                        }));
+                    }
+                }
+            }
+        };
+        let staleness: serde_json::Map<String, Value> = parsed
+            .blocks
+            .iter()
+            .filter(|b| !b.meta.manual)
+            .map(|b| (b.meta.id.clone(), serde_json::json!(b.meta.staleness)))
+            .collect();
+        Ok(serde_json::json!({
+            "file": path.display().to_string(),
+            "board": board_name,
+            "content": text,
+            "staleness": staleness,
+            "read_me_first": "project_context.md is auto-maintained and verified; trust it before scanning the repo."
+        }))
+    }
+
+    fn tool_context_digest(&self, args: Value) -> Result<Value> {
+        let board_name = self.resolve_board(&args)?;
+        let opts = crate::context_file::DigestOpts { quiet: true, ..Default::default() };
+        let report = crate::context_file::digest::run_digest_core(&board_name, &opts)?;
+        Ok(serde_json::json!({
+            "regenerated": true,
+            "board": board_name,
+            "tokens": report.total_tokens,
+            "rewritten": report.rewritten,
+            "flagged_stale": report.flagged_stale.iter().map(|(id, s)| format!("{} ({:.2})", id, s)).collect::<Vec<_>>()
+        }))
     }
 
     fn tool_code_search(&self, args: Value) -> Result<Value> {

@@ -52,6 +52,23 @@ barkcli my-board move <id> doing      # Move card to column
 barkcli my-board done <id>            # Mark as done
 ```
 
+### 2b. Living context file (project_context.md)
+
+`project_context.md` at the repo root is the central, auto-maintained project
+context — read it FIRST instead of re-exploring the codebase every session:
+
+```bash
+barkcli context prime       # one-shot bootstrap (scan + generate + wire agents)
+barkcli context digest      # regenerate after work; auto-runs after `session log`
+barkcli context wire        # add @import to CLAUDE.md / pointer to AGENTS.md
+```
+
+- Hand-edited sections are preserved (pinned `manual="true"` automatically).
+- Every block carries provenance (`src=`, staleness, updated timestamp); the
+  "Verification status" footer flags drifted sections.
+- MCP tools: `context_file_get` (read whole file or one section),
+  `context_digest` (refresh).
+
 ### 3. Use the MCP Server (for coding agents)
 
 ```bash
