@@ -85,7 +85,7 @@ Like `.git` but for Kanban boards. Project management for the terminal era — a
 |:---:|:---:|
 | ![](.github/assets/brain-dark.png) | ![](.github/assets/calendar-light.png) |
 
-Try it live without installing — [**the Web demo**](https://akshatnaruka.github.io/barkcli/app/) runs the full interface on demo data (every interaction works), or take the tour in the [docs](https://akshatnaruka.github.io/barkcli/docs).
+Try it live without installing — [**the Web demo**](https://akshatnaruka.github.io/barkcli/app/) runs the full interface on demo data (every interaction works), or [**watch a recorded 3-agent run**](https://akshatnaruka.github.io/barkcli/app/?run=replay#/orchestrate) in the real Orchestrate view — live session rows, gate verdicts, and the merge train.
 
 ---
 

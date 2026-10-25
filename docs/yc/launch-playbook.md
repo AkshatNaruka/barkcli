@@ -42,7 +42,7 @@ Backups:
 > forfeits instead of holding a task forever.
 >
 > It's one Rust binary today: CLI, TUI, web app with a live view of every running
-> agent, VS Code extension, and 71 MCP tools. 254 tests. v0.4.0 ships macOS/Linux/
+> agent, VS Code extension, and 71 MCP tools. 257 tests. v0.4.0 ships macOS/Linux/
 > Windows binaries, crates.io, and Homebrew.
 >
 > What it is not: not an agent, not a hosted SaaS, not a Jira replacement. It's the
@@ -52,6 +52,8 @@ Backups:
 > `curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh`
 >
 > Demo GIF and docs: https://akshatnaruka.github.io/barkcli
+> Watch a recorded 3-agent run in the real UI (no install):
+> https://akshatnaruka.github.io/barkcli/app/?run=replay#/orchestrate
 > Interactive benchmark: https://akshatnaruka.github.io/barkcli/benchmark
 > (57× smaller context via the auto-maintained project context — a deterministic
 > proxy for cold-start cost, re-runnable with `barkcli context benchmark --json`.)
@@ -87,7 +89,8 @@ wrong, say what's true and move on — never argue.
    forfeit, and an acceptance gate that runs *your* tests. Only gate-passing
    branches merge — through a merge train, with conflicts re-run solo.
 4. **Demo:** [GIF] Three agents, one board, live view. Done = gate passed.
-5. **Built:** 254 tests · 5 platform binaries · crates.io + Homebrew · 71 MCP tools
+   Replay it in the real UI: akshatnaruka.github.io/barkcli/app/?run=replay#/orchestrate
+5. **Built:** 257 tests · 5 platform binaries · crates.io + Homebrew · 71 MCP tools
    · VS Code + TUI + web app · skills registry with a sha-pinned lockfile.
 6. **Free:** Core is MIT forever. The company is the multiplayer layer: shared live
    sessions, cloud sync, analytics for teams running fleets of agents.
@@ -109,7 +112,7 @@ wrong, say what's true and move on — never argue.
 > queue, isolated worktree per attempt, an acceptance gate that runs your tests,
 > and a merge train. Done means the gate passed — never the agent's word.
 >
-> One Rust binary: CLI, TUI, web app, VS Code, 71 MCP tools. 254 tests. MIT.
+> One Rust binary: CLI, TUI, web app, VS Code, 71 MCP tools. 257 tests. MIT.
 > v0.4.0 is live today.
 >
 > I'm building the company on top: multiplayer live sessions and reliability
@@ -268,7 +271,7 @@ who wrote to you. **Only real numbers go into the application.**
 ## 10. Honesty rules for launch week
 
 1. The scripted demo agent is a demo agent. Say so if asked.
-2. "254 tests" means the repo's suite, not user-facing guarantees.
+2. "257 tests" means the repo's suite, not user-facing guarantees.
 3. The 57× benchmark is a context-cost proxy, not an agent-quality benchmark.
 4. No revenue means no revenue. "Launching this week" is the answer.
 5. If a comment finds a real bug: thank them, fix it, say what you fixed.

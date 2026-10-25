@@ -87,7 +87,7 @@ Product Hunt maker; writes on X/Medium about shipping.
 > gates running the project's own tests; merge train with solo-drain conflict
 > re-dispatch; live session view (`/api/run/live`) in the web app; run reports
 > (`workers_peak`, `merged_branches`); 56-tool MCP server; skills registry with a
-> committed `skills.lock` (rev + sha256); 254 tests; five-platform release
+> committed `skills.lock` (rev + sha256); 257 tests; five-platform release
 > pipeline (macOS/Linux/Windows), crates.io, Homebrew; three starter templates.
 >
 > **Next (batch):** the multiplayer cloud — (1) shared live agent sessions:
@@ -99,7 +99,7 @@ Product Hunt maker; writes on X/Medium about shipping.
 ### How far along are you? How much progress?
 
 > v0.4.0 shipped publicly on Oct 25, 2026: all five platform binaries, crates.io,
-> Homebrew, live site with an interactive demo. 254 tests green. ~12 weeks of
+> Homebrew, live site with an interactive demo. 257 tests green. ~12 weeks of
 > daily work, solo. No revenue — public launch is this week.
 > `[FILL after launch: stars/downloads/users]`
 
@@ -164,7 +164,7 @@ Product Hunt maker; writes on X/Medium about shipping.
 > Solo founder: Akshat Naruka, 25, Indore. I have shipped 14 products solo —
 > Swift/macOS utilities, Go CLIs, Next.js SaaS — and I do the engineering, design,
 > and distribution myself. barkcli is the most serious of them: a Rust binary
-> with web app, TUI, VS Code extension, MCP server, and 254 tests in ~12 weeks.
+> with web app, TUI, VS Code extension, MCP server, and 257 tests in ~12 weeks.
 > `[DECIDE: if you're open to a cofounder, add one honest line about actively looking]`
 
 ### What do you think your team has that others don't?
@@ -191,7 +191,7 @@ Product Hunt maker; writes on X/Medium about shipping.
 > Swift/macOS, Go, Rust, and Next.js by 25 — including Saasuji
 > `[FILL: users/revenue]` — with Product Hunt launches and write-ups along the
 > way. barkcli is the most serious of them: a full management stack (CLI, web,
-> TUI, VS Code, MCP, registry, 254 tests) built in ~12 weeks.
+> TUI, VS Code, MCP, registry, 257 tests) built in ~12 weeks.
 
 ### What have you learned so far?
 
