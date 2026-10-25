@@ -24,7 +24,7 @@ public enum DemoData: Sendable {
                 title: "Add OAuth login",
                 column: "todo",
                 description: "Sign in with GitHub / Google behind the sso spec: provider adapters, redirect roundtrip, session bootstrap.",
-                priority: .high,
+                priority: .critical,
                 labels: ["auth"],
                 acceptanceCriteria: [
                     "Callback roundtrips without a 500",
@@ -295,7 +295,7 @@ public enum DemoData: Sendable {
             description: "The management layer for AI agents: CLI, TUI, web and VS Code from one binary.",
             columns: [
                 Column(id: "todo", name: "Todo"),
-                Column(id: "doing", name: "Doing"),
+                Column(id: "doing", name: "Doing", wipLimit: 3),
                 Column(id: "review", name: "Review"),
                 Column(id: "done", name: "Done")
             ],
