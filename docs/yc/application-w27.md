@@ -45,7 +45,7 @@ Product Hunt maker; writes on X/Medium about shipping.
 ### What is your company going to make?
 
 > barkcli is the open-source management layer for AI coding agents. Today it is a
-> single Rust binary — CLI, TUI, web app, VS Code extension, 56 MCP tools — that
+> single Rust binary — CLI, TUI, web app, VS Code extension, 71 MCP tools — that
 > gives coding agents a task queue, an isolated git worktree per attempt, and an
 > acceptance gate that runs the project's own test suite. "Done" means the gate
 > passed, never that the agent said so. Gate-passing branches merge through a

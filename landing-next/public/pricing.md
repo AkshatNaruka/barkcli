@@ -24,7 +24,7 @@ There is no pricing tier above Free. Every feature ships in the MIT-licensed bin
   - CLI, Terminal UI, Web App, VS Code Extension
   - Git integration (diff, merge, version control)
   - Code context (symbol search, file mapping)
-  - MCP server for AI coding agents (56 tools)
+  - MCP server for AI coding agents (71 tools)
   - Sessions, checkpoints, sprints
   - Import/export (YAML, JSON)
   - Timeline: undo, diff, blame, validate, doctor

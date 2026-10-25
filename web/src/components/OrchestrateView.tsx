@@ -3,6 +3,7 @@ import { Lozenge } from "./Lozenge";
 import { QuietSelect } from "./QuietSelect";
 import { Icon } from "./Icon";
 import { agentColor } from "../lib/agents";
+import { isReplayMode, restartReplay } from "../lib/replay";
 
 interface Agent {
   id: string;
@@ -28,6 +29,7 @@ interface Task {
 interface LiveSession {
   id: string;
   task_id?: string;
+  title?: string;
   agent_id: string;
   backend: string;
   status: string;
@@ -70,6 +72,8 @@ export function OrchestrateView({ boardName }: { boardName: string | null }) {
   const [newAgentRole, setNewAgentRole] = useState("ScrumMaster");
   const [cycleResult, setCycleResult] = useState<any>(null);
   const [taskFilter, setTaskFilter] = useState<string>("");
+  const [replayNonce, setReplayNonce] = useState(0);
+  const replay = isReplayMode();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -108,7 +112,7 @@ export function OrchestrateView({ boardName }: { boardName: string | null }) {
     poll();
     const t = setInterval(poll, 3000);
     return () => { alive = false; clearInterval(t); };
-  }, []);
+  }, [replayNonce]);
 
   const handleRegister = async () => {
     if (!newAgentId.trim() || !newAgentName.trim()) return;
@@ -304,6 +308,23 @@ export function OrchestrateView({ boardName }: { boardName: string | null }) {
           </div>
         </div>
 
+        {/* Recorded-run replay (static demo only — ?run=replay) */}
+        {replay && (
+          <div className="border-b border-border bg-accent/5 px-3 py-1.5 flex items-center gap-2 text-[10px] text-muted shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse shrink-0" />
+            <span className="flex-1">
+              Replaying a recorded 3-agent run — real Orchestrate view, recorded data.
+            </span>
+            <button
+              onClick={() => { restartReplay(); setReplayNonce(n => n + 1); }}
+              className="text-accent hover:text-accent-text transition-colors"
+              title="Restart the replay from the beginning"
+            >
+              restart
+            </button>
+          </div>
+        )}
+
         {/* Live sessions from an active `barkcli run` (polls /api/run/live) */}
         {live.length > 0 && (
           <div className="border-b border-border bg-surface/40 shrink-0">
@@ -323,7 +344,7 @@ export function OrchestrateView({ boardName }: { boardName: string | null }) {
                   />
                   <span className="font-mono text-muted">{s.backend}</span>
                   <span className={"font-medium " + (s.fresh ? "text-text" : "text-muted")}>
-                    {task ? task.title : s.task_id || s.id}
+                    {task ? task.title : s.title || s.task_id || s.id}
                   </span>
                   {s.branch && (
                     <span className="font-mono text-muted truncate max-w-40">{s.branch}</span>

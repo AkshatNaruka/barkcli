@@ -4,7 +4,7 @@ Interview is 10 minutes, 2–3 partners, rapid-fire. They will interrupt. Answer
 should be **10–20 seconds**, numbers first, no setup. If you don't know: "I don't
 know — here's how I'd find out." Never argue, never bluff.
 
-**Memorize these:** 254 tests · 56 MCP tools · 5 platforms · 57.1× context proxy
+**Memorize these:** 254 tests · 71 MCP tools · 5 platforms · 57.1× context proxy
 (29,400 → 515 tokens) · 14 products · 53 repos · ~12 weeks · v0.4.0 Oct 25 ·
 $20/seat/mo · 10k teams × 10 seats = $24M ARR · solo, 25, Indore, can be in SF Jan.
 

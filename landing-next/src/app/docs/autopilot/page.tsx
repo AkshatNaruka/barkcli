@@ -84,7 +84,7 @@ export default function AutopilotGuidePage() {
       <h2 className="mb-4 text-2xl font-bold">Agent loop (for coding agents)</h2>
       <div className="mb-12 rounded-xl border border-white/10 bg-white/5 p-6">
         <p className="text-sm text-white/60 mb-3">
-          Agents steer through MCP — 56 tools including the autopilot set:
+          Agents steer through MCP — 71 tools including the autopilot set:
         </p>
         <ul className="space-y-2 text-sm text-white/60">
           <li><code className="text-white/80">autopilot_status</code> — phase, gates, next action</li>

@@ -16,6 +16,7 @@
 // layer stays completely dormant — zero behavioral change.
 
 import { load as yamlParse, dump as yamlDump } from "js-yaml";
+import { isReplayMode, replaySessions, replayTaskStatus } from "./replay";
 import type {
   Board,
   Card,
@@ -111,7 +112,7 @@ interface DemoStore {
   undoStack: Record<string, string[]>;
 }
 
-const STORE_KEY = "barkcli-demo-v1";
+const STORE_KEY = "barkcli-demo-v2";
 let store: DemoStore | null = null;
 
 // Relative dates keep the demo board alive on every visit.
@@ -344,6 +345,7 @@ function seed(): DemoStore {
     agents: [
       { id: "opencode-1", name: "opencode-1", role: "TechLead", status: "Working", active_tasks: ["task-1"], completed_tasks: ["task-6"], failed_tasks: [] },
       { id: "claude-2", name: "claude-2", role: "Developer", status: "Working", active_tasks: ["task-2"], completed_tasks: [], failed_tasks: [] },
+      { id: "codex-1", name: "codex-1", role: "Developer", status: "Working", active_tasks: ["task-8"], completed_tasks: [], failed_tasks: [] },
       { id: "human-you", name: "human-you", role: "Reviewer", status: "Working", active_tasks: ["task-3"], completed_tasks: [], failed_tasks: [] },
       { id: "scrum-master-1", name: "Scrum Master", role: "ScrumMaster", status: "Idle", active_tasks: [], completed_tasks: ["task-7"], failed_tasks: [] },
     ],
@@ -355,6 +357,7 @@ function seed(): DemoStore {
       { id: "task-5", card_id: "autopilot-gates", title: "Design human gate flow", description: "Gated dispatch after the OAuth workstream clears.", status: "Pending", priority: "high", created_at: h(3) },
       { id: "task-6", card_id: "kiosk-mode", title: "Finish kiosk renderer", description: "Ship chrome-less fullscreen board mode.", status: "Completed", assigned_agent: "opencode-1", priority: "high", created_at: d(3) },
       { id: "task-7", card_id: "brain-view-polish", title: "Groom the board", description: "Weekly board grooming pass.", status: "Completed", assigned_agent: "scrum-master-1", priority: "medium", created_at: d(4) },
+      { id: "task-8", card_id: "add-oauth", title: "OAuth callback tests", description: "Regression coverage for the callback round-trip before the flow merges.", status: "InProgress", assigned_agent: "codex-1", priority: "high", created_at: h(1) },
     ],
     checkpoints: [
       { kind: "checkpoint", id: "cp-seed-1", saved_at: d(3), label: "before-bundle-prune", board_name: "dev", yaml: yamlDump(boards.dev, { indent: 2, lineWidth: -1 }) },
@@ -886,6 +889,14 @@ const ROUTES: Route[] = [
   {
     method: "GET", re: /^\/api\/tasks$/, handle: (_m, { q }) => {
       let tasks = getStore().tasks;
+      // A replayed run moves its own tasks InProgress → Completed in step with
+      // the live rows, so the queue and the session strip tell one story.
+      if (isReplayMode()) {
+        tasks = tasks.map((t) => {
+          const st = replayTaskStatus(t.id);
+          return st && st !== t.status ? { ...t, status: st } : t;
+        });
+      }
       const status = q.get("status");
       if (status) tasks = tasks.filter((t) => t.status === status);
       return { tasks };
@@ -971,6 +982,10 @@ const ROUTES: Route[] = [
       }
       return {};
     },
+  },
+  {
+    // Recorded 3-agent run (only when ?run=replay). Normal demo returns none.
+    method: "GET", re: /^\/api\/run\/live$/, handle: () => ({ sessions: replaySessions() }),
   },
   {
     method: "GET", re: /^\/api\/orchestrate\/status$/, handle: () => {

@@ -52,7 +52,7 @@ Like `.git` but for Kanban boards. Project management for the terminal era — a
 
 - **Tasks are files.** Boards are plain YAML committed to your repo. Diff them, merge them, grep them, roll them back — exactly like code.
 - **One binary, four interfaces.** CLI, terminal UI (ratatui), web app (axum), and a VS Code Custom Editor. Same data, every surface.
-- **AI agents in the loop.** 56 MCP tools let Claude Code, OpenCode, and Cursor read tasks, claim work, and update progress — with full project context.
+- **AI agents in the loop.** 71 MCP tools let Claude Code, OpenCode, and Cursor read tasks, claim work, and update progress — with full project context.
 - **No cloud. No accounts. No subscriptions.** Works fully offline. MIT licensed. Your data never leaves your machine.
 
 ---
@@ -64,7 +64,7 @@ Like `.git` but for Kanban boards. Project management for the terminal era — a
 | 🧠 **Mind** | Compiled project snapshot — health, blockers, stale work, next actions. One command answers "what's happening?". |
 | 📋 **Kanban Board** | Columns, priorities, labels, assignees, checklists, comments, effort, due dates, reminders. Drag-and-drop in the web app. |
 | 🔗 **Spec Traceability** | Specs → requirements → code. Every card links to its spec and to the code that implements it. |
-| 🛠 **MCP Server** | 56 tools for AI coding agents — board, task, memory, specs, orchestration, sessions. `barkcli mcp`. |
+| 🛠 **MCP Server** | 71 tools for AI coding agents — board, task, memory, specs, orchestration, sessions. `barkcli mcp`. |
 | 🤖 **Autopilot** | Intent → plan gate → dispatched packets → review → merge gate. Or go fully autonomous: `barkcli run "<intent>" --agents 3 --yes` — parallel agents in worktrees, your tests as the gate, merge train for the winners. |
 | 🧠 **Memory** | Four-tier local memory + project facts that persist across sessions. Hybrid search. |
 | 📦 **Skills Registry** | Playbooks injected into agent prompts on trigger matches. Install from any git repo (`skills install owner/repo`), pinned in a committed `skills.lock` (rev + sha256), publish back via PR. |
@@ -253,7 +253,7 @@ barkcli mcp
 
 **OpenCode** — add to `.opencode/config.json`; **Cursor** — `.cursor/mcp.json`, same shape.
 
-The 56 tools cover boards, cards, tasks, agents, memory, specs, sessions, orchestration, code search, and autopilot. Agents can read task context, claim work, update progress, and run cycles — all inside your repo.
+The 71 tools cover boards, cards, tasks, agents, memory, specs, sessions, orchestration, code search, and autopilot. Agents can read task context, claim work, update progress, and run cycles — all inside your repo.
 
 - [Integration hub](https://akshatnaruka.github.io/barkcli/integrations)
 - [AI agent setup guide](https://akshatnaruka.github.io/barkcli/guides/ai-agent-setup)

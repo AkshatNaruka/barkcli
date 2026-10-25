@@ -33,6 +33,7 @@ import {
   Plug,
   Brain,
   Layers,
+  Play,
 } from "lucide-react";
 import {
   OpenCodeLogo,
@@ -661,7 +662,7 @@ export default function Home() {
         <main className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6">
           <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 mb-6">
             <Sparkles className="w-3 h-3 text-[#B8845C]" />
-            <span className="text-xs text-white/60 font-mono">Open source (MIT) · v0.3.0 · {MCP_TOOL_COUNT} MCP tools</span>
+            <span className="text-xs text-white/60 font-mono">Open source (MIT) · v0.4.0 · {MCP_TOOL_COUNT} MCP tools</span>
           </div>
           <h1 className="text-white text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.05] mb-6">
             The management layer
@@ -953,6 +954,32 @@ export default function Home() {
               </AnimatedSection>
             ))}
           </div>
+
+          <AnimatedSection delay={0.35}>
+            <div className="max-w-4xl mx-auto mt-6 rounded-2xl border border-[#B8845C]/25 bg-gradient-to-r from-[#B8845C]/10 via-[#B8845C]/5 to-transparent p-6 flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="flex-1">
+                <p className="text-[10px] font-mono font-semibold uppercase tracking-widest text-[#B8845C] mb-1">
+                  Multiplayer AI
+                </p>
+                <h3 className="text-lg font-semibold mb-1">Your team, in the same agent session.</h3>
+                <p className="text-white/45 text-xs leading-relaxed">
+                  Watch a recorded 3-agent run in the real Orchestrate view — live session rows,
+                  gate verdicts, and the merge train. Next: shared live sessions, cloud board sync,
+                  and reliability analytics for teams. The CLI stays free and MIT forever.
+                </p>
+              </div>
+              {ON_PAGES && (
+                <a
+                  href={`${BASE}/app/?run=replay#/orchestrate`}
+                  className="shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#B8845C] text-white text-sm font-medium hover:bg-[#a5764f] transition-colors"
+                >
+                  <Play className="w-4 h-4" />
+                  Watch the replay
+                  <ArrowRight className="w-4 h-4" />
+                </a>
+              )}
+            </div>
+          </AnimatedSection>
         </div>
       </section>
 

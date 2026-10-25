@@ -12,7 +12,7 @@
 //! - `resources/list`: List available resources
 //! - `resources/read`: Read a resource
 //!
-//! # Available Tools (56)
+//! # Available Tools (71)
 //!
 //! ## Board Management
 //! - `board_list`: List all boards

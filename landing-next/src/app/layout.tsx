@@ -167,7 +167,7 @@ const structuredData = {
         "Import/export",
       ],
       screenshot: `${SITE_URL}/opengraph-image`,
-      softwareVersion: "0.3.0",
+      softwareVersion: "0.4.0",
       downloadUrl: "https://github.com/AkshatNaruka/barkcli/releases",
       installUrl: `${SITE_URL}/docs/getting-started`,
     },

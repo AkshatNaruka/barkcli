@@ -42,7 +42,7 @@ Backups:
 > forfeits instead of holding a task forever.
 >
 > It's one Rust binary today: CLI, TUI, web app with a live view of every running
-> agent, VS Code extension, and 56 MCP tools. 254 tests. v0.4.0 ships macOS/Linux/
+> agent, VS Code extension, and 71 MCP tools. 254 tests. v0.4.0 ships macOS/Linux/
 > Windows binaries, crates.io, and Homebrew.
 >
 > What it is not: not an agent, not a hosted SaaS, not a Jira replacement. It's the
@@ -87,7 +87,7 @@ wrong, say what's true and move on — never argue.
    forfeit, and an acceptance gate that runs *your* tests. Only gate-passing
    branches merge — through a merge train, with conflicts re-run solo.
 4. **Demo:** [GIF] Three agents, one board, live view. Done = gate passed.
-5. **Built:** 254 tests · 5 platform binaries · crates.io + Homebrew · 56 MCP tools
+5. **Built:** 254 tests · 5 platform binaries · crates.io + Homebrew · 71 MCP tools
    · VS Code + TUI + web app · skills registry with a sha-pinned lockfile.
 6. **Free:** Core is MIT forever. The company is the multiplayer layer: shared live
    sessions, cloud sync, analytics for teams running fleets of agents.
@@ -109,7 +109,7 @@ wrong, say what's true and move on — never argue.
 > queue, isolated worktree per attempt, an acceptance gate that runs your tests,
 > and a merge train. Done means the gate passed — never the agent's word.
 >
-> One Rust binary: CLI, TUI, web app, VS Code, 56 MCP tools. 254 tests. MIT.
+> One Rust binary: CLI, TUI, web app, VS Code, 71 MCP tools. 254 tests. MIT.
 > v0.4.0 is live today.
 >
 > I'm building the company on top: multiplayer live sessions and reliability
@@ -168,7 +168,7 @@ Publish **Fri Oct 30**, link it in the HN thread and X.
   > task queue, an isolated git worktree per attempt, and an acceptance gate that
   > runs your project's own tests — "done" means the gate passed, never the agent's
   > word. Parallel runs merge through a merge train. Teams watch every agent live.
-  > One Rust binary: CLI, TUI, web app, VS Code, 56 MCP tools. MIT core, free
+  > One Rust binary: CLI, TUI, web app, VS Code, 71 MCP tools. MIT core, free
   > forever; the company is the multiplayer cloud — shared live sessions, sync,
   > and reliability analytics. v0.4.0 is live today.
 - **Links:** GitHub repo + landing page + demo GIF

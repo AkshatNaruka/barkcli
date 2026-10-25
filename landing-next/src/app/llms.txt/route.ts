@@ -27,7 +27,7 @@ barkcli is a local-first management layer. Humans write intent, agents do work, 
 - **Autopilot:** Agent-driven loop with plan and merge gates and web intent UI.
 - **Git-native:** YAML task files committed to your repo; git is the sync layer.
 - **Multi-interface:** CLI, Terminal UI, Web App, VS Code extension.
-- **AI/MCP:** 56 tools for Claude Code, OpenCode, Cursor integration.
+- **AI/MCP:** 71 tools for Claude Code, OpenCode, Cursor integration.
 - **Sprints:** Start/end sprints with velocity tracking.
 - **Free forever:** MIT license, no subscriptions, no per-seat pricing.
 
@@ -82,7 +82,7 @@ Free and open source (MIT) — $0 forever. No tiers, no per-seat fees. See [pric
 - GitHub: https://github.com/AkshatNaruka/barkcli
 - Issues: https://github.com/AkshatNaruka/barkcli/issues
 - License: MIT
-- Version: 0.3.0
+- Version: 0.4.0
 
 ## Full Documentation
 

@@ -36,7 +36,7 @@ export default async function IntegrationPage({ params }: PageProps) {
   const faqs = [
     {
       question: `How does barkcli integrate with ${integration.name}?`,
-      answer: `barkcli runs a local MCP server (\`barkcli mcp\`) that exposes 56 tools for task and board management. You register it once in ${integration.name}'s config, and ${integration.name} can then read tasks, claim work, link code context, and update progress.`,
+      answer: `barkcli runs a local MCP server (\`barkcli mcp\`) that exposes 71 tools for task and board management. You register it once in ${integration.name}'s config, and ${integration.name} can then read tasks, claim work, link code context, and update progress.`,
     },
     {
       question: `Is ${integration.name} integration free?`,

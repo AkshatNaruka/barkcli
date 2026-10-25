@@ -398,7 +398,7 @@ Free and open source (MIT license). No subscriptions, no per-seat pricing.
 
 - GitHub: https://github.com/AkshatNaruka/barkcli
 - License: MIT
-- Version: 0.3.0
+- Version: 0.4.0
 `;
 
 export async function GET() {
