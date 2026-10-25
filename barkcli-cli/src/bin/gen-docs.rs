@@ -8,7 +8,7 @@ fn main() {
 
 fn build_cli() -> Command {
     Command::new("barkcli")
-        .version("0.2.0")
+        .version(env!("CARGO_PKG_VERSION"))
         .about("Git-native Kanban board CLI — tasks as YAML in your repo")
         .long_about("barkcli is a git-native Kanban board CLI that stores tasks as YAML files in your repository.\n\nTasks are stored in .board files, committed to git, and accessible to both humans and AI agents via CLI, TUI, Web UI, VS Code, and MCP server.")
         // Setup commands

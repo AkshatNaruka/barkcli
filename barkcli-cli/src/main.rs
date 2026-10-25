@@ -9,7 +9,7 @@ mod sprint;
 mod sync;
 mod listener;
 
-const VERSION: &str = "0.2.0";
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 const GIT_HASH: &str = env!("GIT_HASH");
 
 #[cfg(feature = "tui")]

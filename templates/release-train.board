@@ -1,0 +1,36 @@
+title: release-train
+columns:
+- id: planned
+  name: Planned
+- id: in-train
+  name: In train
+- id: gated
+  name: Gate green
+- id: released
+  name: Released
+cards:
+- id: cut-a-train
+  title: "Cut a release train without surprises"
+  description: |
+    1. Move every merged-but-unreleased card into `in-train`.
+    2. Run the release gate: full `cargo test` / CI on the exact commit.
+    3. `barkcli review --all --auto` to check acceptance criteria are closed.
+    4. Write the changelog from `git log <last-tag>..HEAD`, tag, release.
+    A card only enters `released` when its acceptance is provable — same
+    contract the runner enforces in `barkcli run`.
+  column: planned
+  priority: high
+  labels: [process]
+  checklist:
+  - text: "CI green on the tagged commit"
+    done: false
+  - text: "changelog covers every user-facing change"
+    done: false
+  - text: "version bumped in every manifest"
+    done: false
+  comments: []
+  attachments: []
+  pinned: true
+  version: 1
+  created_at: 2026-10-24T00:00:00Z
+  updated_at: 2026-10-24T00:00:00Z

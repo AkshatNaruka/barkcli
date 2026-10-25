@@ -25,3 +25,4 @@ node_modules/
 .env.*
 !.env.example
 pages-test/
+/target-linux*/

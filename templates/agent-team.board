@@ -1,0 +1,53 @@
+title: agent-team
+columns:
+- id: todo
+  name: Todo
+- id: doing
+  name: Doing
+- id: review
+  name: Review
+- id: done
+  name: Done
+cards:
+- id: first-agent-task
+  title: "Example: let an agent close its first ticket"
+  description: |
+    1. `barkcli intake "Fix the flaky login test"` — classify into a card+spec.
+    2. `barkcli run "fix the flaky login test" --yes` — the autonomy loop
+       plans, spawns an agent in a worktree, and merges only if the
+       acceptance gate passes.
+    3. Watch it live: `barkcli serve` → Orchestrate → /api/run/live.
+  column: todo
+  priority: high
+  labels: [onboarding]
+  checklist:
+  - text: "pick a backend (opencode / claude / codex) or set BARKCLI_AGENT_CMD"
+    done: false
+  - text: "run the loop on a small, safe task first"
+    done: false
+  - text: "read the report: attempts, gate result, merged branch"
+    done: false
+  - text: "let it rip: --agents 3 for the parallel pool"
+    done: false
+  comments: []
+  attachments: []
+  pinned: true
+  version: 1
+  created_at: 2026-10-24T00:00:00Z
+  updated_at: 2026-10-24T00:00:00Z
+- id: define-review-policy
+  title: Decide what human review means for agent PRs
+  description: |
+    The runner can auto-merge gate-passing work (--yes) or leave branches
+    ready-unmerged for a human. Write down which task classes need eyes and
+    encode it in the dispatch policy — then hold agents to it.
+  column: review
+  priority: medium
+  labels: [policy]
+  checklist: []
+  comments: []
+  attachments: []
+  pinned: false
+  version: 1
+  created_at: 2026-10-24T00:00:00Z
+  updated_at: 2026-10-24T00:00:00Z

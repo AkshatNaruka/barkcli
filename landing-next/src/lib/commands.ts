@@ -418,21 +418,24 @@ export const commands: Command[] = [
     slug: "run",
     name: "barkcli run",
     description:
-      "The autonomy loop: prompt → card → plan → agent in a worktree → transcript watch → test gate → merge. Done means the gate passes, never that the agent said so.",
+      "The autonomy loop: prompt → card → plan → N agents in worktrees → transcript watch → test gate → merge train. Done means the gate passes in the worktree, never that the agent said so.",
     category: "Management Layer",
     usage:
-      'barkcli run "<intent>" [--backend opencode|claude|codex] [--yes] [--offline] [--test-cmd cmd]',
+      'barkcli run "<intent>" [--agents N] [--backend opencode|claude|codex] [--yes] [--offline] [--test-cmd cmd]',
     examples: [
       'barkcli run "Create a fizzbuzz module with tests" --offline --yes',
+      'barkcli run "Ship the settings redesign" --agents 3 --yes',
       'barkcli run "Fix the flaky login test" --backend claude --test-cmd "npm test" --yes',
       'barkcli run "Add dark mode toggle" --dry-run',
     ],
     flags: [
+      { name: "--agents", description: "Up to N attempts run concurrently, each in its own worktree; gate-passing branches merge in finish order (merge train); max 16" },
       { name: "--backend", description: "Pick the agent runtime (default: auto-detect)" },
       { name: "--yes", description: "Auto-merge branches that pass the gate" },
       { name: "--offline", description: "Heuristic intake, no LLM" },
       { name: "--test-cmd", description: "Override acceptance-gate detection" },
       { name: "--max-attempts", description: "Retry ceiling before permanent failure (default 3)" },
+      { name: "--json", description: "Report includes workers_peak and merged_branches" },
     ],
   },
   {
@@ -487,10 +490,20 @@ export const commands: Command[] = [
   {
     slug: "skills",
     name: "barkcli skills",
-    description: "BMAD skills versioned in repo (mvp, planning, scrum-master, test).",
+    description:
+      "Markdown playbooks injected into agent prompts on trigger matches — builtins, plus registry installs pinned in skills.lock.",
     category: "Management Layer",
-    usage: "barkcli skills list|show",
-    examples: ["barkcli skills list"],
+    usage: "barkcli skills <list|show|install|lock|publish>",
+    examples: [
+      "barkcli skills list",
+      "barkcli skills install AkshatNaruka/barkcli-skills",
+      "barkcli skills publish my-skill",
+    ],
+    flags: [
+      { name: "install <repo>", description: "Pull every *.md from a github repo/URL/local dir; pins skills.lock (source, rev, sha256)" },
+      { name: "publish <id>", description: "Branch + push + gh PR to the registry (default AkshatNaruka/barkcli-skills)" },
+      { name: "lock", description: "Print pinned skills with revisions and hashes" },
+    ],
   },
   {
     slug: "memory",

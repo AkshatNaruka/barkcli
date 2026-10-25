@@ -51,6 +51,7 @@ const NAV_LINKS = [
   { href: "#product", label: "Product" },
   { href: "#pipeline", label: "How it works" },
   { href: "#features", label: "Features" },
+  { href: "/benchmark", label: "Benchmark" },
   { href: "#ai-agent", label: "AI Agent" },
   { href: "/docs", label: "Docs" },
   ...(ON_PAGES ? [{ href: `${BASE}/app/`, label: "Live preview" }] : []),
@@ -70,8 +71,9 @@ const FEATURES = [
   {
     icon: Layers,
     title: "Skills",
-    description: "Reusable BMAD-style conventions (mvp, planning, scrum-master, test) versioned in your repo and injected into every agent prompt.",
-    code: "$ barkcli skills list",
+    description:
+      "Reusable playbooks injected into every matched agent prompt. Install from the community registry with a sha-pinned lockfile; publish yours back as a PR.",
+    code: "$ barkcli skills install AkshatNaruka/barkcli-skills",
     gradient: "from-blue-500/20 to-cyan-500/20",
   },
   {
@@ -885,6 +887,75 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Autonomy Section — the merge train, recorded live */}
+      <section id="autonomy" className="py-24 px-6">
+        <div className="max-w-6xl mx-auto">
+          <AnimatedSection className="text-center mb-16">
+            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
+              Management layer
+            </p>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4">
+              One prompt.
+              <br />
+              <span className="bg-gradient-to-r from-[#B8845C] to-[#D4A574] bg-clip-text text-transparent">
+                Three agents. Merged.
+              </span>
+            </h2>
+            <p className="text-white/50 max-w-2xl mx-auto">
+              <code className="text-white/80">barkcli run &quot;…&quot; --agents 3 --yes</code> plans your
+              intent into tasks, spawns agents into isolated worktrees, and runs the project&apos;s
+              own tests as the gate. A task is done <em>when the gate passes in the worktree</em> —
+              never when the agent says so. Gate-passing branches ride the{" "}
+              <span className="text-white/70">merge train</span> in finish order; a conflicted
+              branch re-runs solo once the pool drains — no human in the loop, no lies.
+            </p>
+          </AnimatedSection>
+
+          <AnimatedSection delay={0.15}>
+            <div className="relative max-w-5xl mx-auto rounded-2xl border border-white/10 overflow-hidden bg-black/60 shadow-2xl shadow-[#B8845C]/5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/run-agents-demo.gif"
+                alt="barkcli run --agents 3: three agents working in worktrees, live session rows pulsing, tasks completing and merging in real time"
+                className="w-full h-auto"
+                loading="lazy"
+              />
+              <div className="absolute bottom-3 right-4 text-[10px] font-mono text-white/40">
+                recorded live — Orchestrate view, /api/run/live
+              </div>
+            </div>
+          </AnimatedSection>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-4xl mx-auto mt-6">
+            {[
+              {
+                title: "Workers own attempts",
+                desc: "Each agent gets its own worktree, transcript and gate. Beats refresh the task lease every 30s — a dead agent forfeits its claim.",
+                code: "bark/[task-id]",
+              },
+              {
+                title: "Merge train",
+                desc: "Done means merged. Conflicted branches queue for a solo rebase attempt against a frozen main — deterministic, converging.",
+                code: "git merge --no-ff",
+              },
+              {
+                title: "Honest by construction",
+                desc: "Crashed agent + no changes + no-op gate = failure, not done. Every failure verdict is stored, re-dispatched, and recorded as memory.",
+                code: "gate > self-report",
+              },
+            ].map((item, i) => (
+              <AnimatedSection key={i} delay={0.1 + i * 0.1}>
+                <div className="border border-white/10 rounded-2xl p-5 h-full hover:border-white/20 transition-all duration-300">
+                  <h3 className="text-sm font-semibold mb-2">{item.title}</h3>
+                  <p className="text-white/40 text-xs leading-relaxed">{item.desc}</p>
+                  <code className="text-[#059669] text-[10px] font-mono mt-3 block">{item.code}</code>
+                </div>
+              </AnimatedSection>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Interfaces Section */}
       <section id="interfaces" className="py-24 px-6">
         <div className="max-w-6xl mx-auto">
@@ -1004,7 +1075,7 @@ export default function Home() {
                 </div>
                 <p className="text-white/50 text-sm leading-relaxed flex-1">
                   A cold agent session starts by <em>listing</em> the repo, <em>searching</em> for
-                  active work, and <em>reading</em> candidate files — ~29,300 tokens before the
+                  active work, and <em>reading</em> candidate files — ~29,400 tokens before the
                   first real edit on this repo. One read of the auto-maintained,{" "}
                   <code className="text-white/80">project_context.md</code> costs{" "}
                   <code className="text-white/80">515</code>. Verify it on your own repo in
@@ -1012,8 +1083,11 @@ export default function Home() {
                   <code className="text-white/80"> barkcli context benchmark --json</code> — a
                   deterministic proxy, no LLM in the loop, lockfiles, build output and page HTML
                   excluded. Measured on the barkcli repo itself @{" "}
-                  <code className="text-white/40">943d877</code>, Oct&nbsp;2026; the 44× variant
-                  reads three candidate files instead of eight.
+                  <code className="text-white/40">339f66a</code>, Oct&nbsp;2026; the 44× variant
+                  reads three candidate files instead of eight.{" "}
+                  <a href="/benchmark" className="text-[#B8845C] hover:text-[#D4A574] transition-colors">
+                    Run it on your repo →
+                  </a>
                 </p>
               </div>
             </div>

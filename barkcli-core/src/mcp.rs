@@ -247,7 +247,7 @@ impl McpServer {
                 },
                 "serverInfo": {
                     "name": "barkcli-mcp",
-                    "version": "0.2.0"
+                    "version": env!("CARGO_PKG_VERSION")
                 }
             })),
             error: None,
