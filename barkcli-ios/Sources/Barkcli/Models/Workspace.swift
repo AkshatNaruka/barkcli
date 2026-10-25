@@ -112,3 +112,81 @@ public struct WorkspaceInfo: Identifiable, Codable, Sendable, Hashable {
         self.lastSeen = lastSeen
     }
 }
+
+public enum NetworkInterfaceType: String, Codable, Sendable, Hashable {
+    case wifi = "wifi"
+    case cellular = "cellular"
+    case wiredEthernet = "ethernet"
+    case loopback = "loopback"
+    case other = "other"
+    case offline = "offline"
+
+    public var displayName: String {
+        switch self {
+        case .wifi: return "Wi-Fi"
+        case .cellular: return "Cellular"
+        case .wiredEthernet: return "Ethernet"
+        case .loopback: return "Loopback"
+        case .other: return "Other"
+        case .offline: return "Offline"
+        }
+    }
+}
+
+public struct DiscoveredInstance: Identifiable, Codable, Sendable, Hashable {
+    public var id: String { "\(host):\(port)" }
+    public var name: String
+    public var host: String
+    public var port: Int
+    public var latencyMs: Int?
+    public var isLocal: Bool
+    public var version: String?
+    public var hasMetadata: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case name, host, port
+        case latencyMs = "latency_ms"
+        case isLocal = "is_local"
+        case version
+        case hasMetadata = "has_metadata"
+    }
+
+    public init(
+        name: String,
+        host: String,
+        port: Int = 4321,
+        latencyMs: Int? = nil,
+        isLocal: Bool = true,
+        version: String? = "0.8.0",
+        hasMetadata: Bool = true
+    ) {
+        self.name = name
+        self.host = host
+        self.port = port
+        self.latencyMs = latencyMs
+        self.isLocal = isLocal
+        self.version = version
+        self.hasMetadata = hasMetadata
+    }
+
+    public var endpointURL: URL? {
+        URL(string: "http://\(host):\(port)")
+    }
+}
+
+public struct AutoInitOptions: Codable, Sendable, Hashable {
+    public var boardName: String
+    public var columns: [String]
+    public var createSampleCard: Bool
+
+    public init(
+        boardName: String = "dev",
+        columns: [String] = ["todo", "doing", "review", "done"],
+        createSampleCard: Bool = true
+    ) {
+        self.boardName = boardName
+        self.columns = columns
+        self.createSampleCard = createSampleCard
+    }
+}
+
