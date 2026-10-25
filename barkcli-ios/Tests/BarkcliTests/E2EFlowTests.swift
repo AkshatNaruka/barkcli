@@ -493,26 +493,30 @@ final class E2EFlowTests: XCTestCase {
         XCTAssertTrue(createdTask?.description.contains(prompt) == true)
     }
 
-    @MainActor
     func testTier3_ConcurrentStoreMutationsUnderSwift6ActorIsolation() async throws {
         let demoStore = DemoStore()
         let client = MockAPIClient(store: demoStore)
 
-        // Execute sequential async mutations under Swift 6 actor isolation
-        for i in 1...10 {
-            let card = Card(
-                id: "concurrent-card-\(i)",
-                title: "Concurrent Task #\(i)",
-                column: i % 2 == 0 ? "todo" : "doing"
-            )
-            try await client.saveCard(boardName: "dev", card: card)
-            try await client.addCardComment(
-                boardName: "dev",
-                cardId: "concurrent-card-\(i)",
-                text: "Thread safe comment #\(i)",
-                author: "agent-\(i)"
-            )
-            _ = try await client.submitIntent(prompt: "Concurrent intent #\(i)", kind: "feature")
+        // Execute concurrent async mutations across parallel tasks under Swift 6
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for i in 1...10 {
+                group.addTask {
+                    let card = Card(
+                        id: "concurrent_card_\(i)",
+                        title: "Concurrent Task #\(i)",
+                        column: i % 2 == 0 ? "todo" : "doing"
+                    )
+                    try await client.saveCard(boardName: "dev", card: card)
+                    try await client.addCardComment(
+                        boardName: "dev",
+                        cardId: "concurrent_card_\(i)",
+                        text: "Thread safe comment #\(i)",
+                        author: "agent_\(i)"
+                    )
+                    _ = try await client.submitIntent(prompt: "Concurrent intent #\(i)", kind: "feature")
+                }
+            }
+            try await group.waitForAll()
         }
 
         let finalBoard = try await client.getBoard(name: "dev")
@@ -617,7 +621,7 @@ final class E2EFlowTests: XCTestCase {
         XCTAssertThrowsError(try decoder.decode(Card.self, from: malformedJson))
     }
 
-    func testTier4_AutopilotPhaseStateMachineTransitions() throws {
+    func testAutopilotPhaseCodableRoundtrip() throws {
         // Test AutopilotPhase enum codable roundtrips across all states
         let phases: [AutopilotPhase] = [
             .idle,
@@ -638,6 +642,36 @@ final class E2EFlowTests: XCTestCase {
             XCTAssertEqual(decoded, phase, "Autopilot phase '\(phase.displayName)' should survive serialization roundtrip")
             XCTAssertFalse(phase.displayName.isEmpty)
         }
+    }
+
+    func testTier4_AutopilotPhaseStateMachineTransitions() async throws {
+        let demoStore = DemoStore()
+
+        // 1. Initial State: cards require planning
+        let initialStatus = demoStore.getAutopilotStatus(boardName: "dev")
+        XCTAssertTrue(initialStatus.needsHuman)
+
+        // 2. Submit Intent: creates card in todo without spec
+        let intentCard = demoStore.submitIntent(text: "Implement OAuth2 PKCE auth flow", kind: "feature", boardName: "dev")
+        let statusAfterIntent = demoStore.getAutopilotStatus(boardName: "dev")
+        XCTAssertTrue(statusAfterIntent.needsHuman)
+
+        // 3. Propose Plan: transitions to awaitingPlanApproval with pending proposal
+        let proposal = demoStore.proposePlan(cardId: intentCard.id, boardName: "dev")
+        XCTAssertEqual(proposal.cardId, intentCard.id)
+        let statusAfterProposal = demoStore.getAutopilotStatus(boardName: "dev")
+        XCTAssertEqual(statusAfterProposal.phase, .awaitingPlanApproval(cardId: intentCard.id))
+        XCTAssertEqual(statusAfterProposal.proposal?.cardId, intentCard.id)
+        XCTAssertTrue(statusAfterProposal.needsHuman)
+
+        // 4. Approve Plan: decomposes into child tasks and dispatches into active worktrees
+        let childCards = demoStore.approvePlan(cardId: intentCard.id, boardName: "dev")
+        XCTAssertFalse(childCards.isEmpty)
+
+        // 5. Test Acceptance Review Gate on approved card
+        let gateResult = demoStore.runReviewGate(cardId: intentCard.id)
+        XCTAssertTrue(gateResult.passed)
+        XCTAssertGreaterThanOrEqual(gateResult.totalTests, 18)
     }
 
     func testTier2_TaskStatusLifecycleTransitions() throws {

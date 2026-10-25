@@ -545,36 +545,42 @@ public final class AppState: @unchecked Sendable {
 
     public func runAcceptanceGate(cardId: String) async {
         isExecutingAutopilot = true
-        executionProgress = 0.1
+        executionProgress = 0.2
         executionStatusMessage = "Starting isolated worktree acceptance gate"
 
         if isDemoMode {
-            try? await Task.sleep(nanoseconds: 600_000_000)
-            executionProgress = 0.5
-            executionStatusMessage = "Running acceptance test suite"
-            try? await Task.sleep(nanoseconds: 600_000_000)
-            executionProgress = 1.0
-            let verdict = demoStore.runSimulatedTestGate(cardId: cardId)
+            let result = demoStore.runReviewGate(cardId: cardId)
+            let verdict = TestGateVerdict(
+                passed: result.passed,
+                command: "barkcli gate run --card \(cardId)",
+                output: result.logs.joined(separator: "\n"),
+                durationSeconds: result.durationSeconds,
+                timestamp: result.timestamp
+            )
             self.lastGateVerdict = verdict
+            executionProgress = 1.0
             isExecutingAutopilot = false
-            executionStatusMessage = "Gate passed cleanly"
+            executionStatusMessage = result.passed ? "Gate passed cleanly" : "Gate verification failed"
             return
         }
 
         do {
-            let verdict = await Task.detached {
-                TestGateVerdict(
-                    passed: true,
-                    command: "cargo test",
-                    output: "All verification tests passed",
-                    durationSeconds: 3.12,
-                    timestamp: Date()
-                )
-            }.value
+            executionProgress = 0.5
+            let result = try await apiClient.runReviewGate(cardId: cardId)
+            let verdict = TestGateVerdict(
+                passed: result.passed,
+                command: "barkcli gate run --card \(cardId)",
+                output: result.logs.joined(separator: "\n"),
+                durationSeconds: result.durationSeconds,
+                timestamp: result.timestamp
+            )
             self.lastGateVerdict = verdict
             executionProgress = 1.0
             isExecutingAutopilot = false
-            executionStatusMessage = "Gate passed cleanly"
+            executionStatusMessage = result.passed ? "Gate passed cleanly" : "Gate verification failed"
+        } catch {
+            isExecutingAutopilot = false
+            executionStatusMessage = "Gate execution failed: \(error.localizedDescription)"
         }
     }
 

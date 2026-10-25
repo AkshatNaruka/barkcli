@@ -274,8 +274,18 @@ final class OrchestrationTests: XCTestCase {
         XCTAssertEqual(proposal.cardId, response.cardId)
         XCTAssertFalse(proposal.children.isEmpty, "Plan proposal should decompose into child slices")
 
-        // Approve plan
+        // Refresh mind store so active proposal and autopilot state are loaded
+        await mindStore.refresh()
+        XCTAssertNotNil(mindStore.activeProposal, "Active proposal must be populated on mindStore")
+        XCTAssertEqual(mindStore.activeProposal?.cardId, response.cardId)
+
+        // Approve plan through mind store
         try await mindStore.approveActiveProposal()
         XCTAssertNil(mindStore.lastError)
+
+        // Verify child tasks were created in task queue
+        let tasks = try await mockClient.listTasks()
+        let createdChildTasks = tasks.filter { $0.cardId.starts(with: "\(response.cardId)_") }
+        XCTAssertFalse(createdChildTasks.isEmpty, "Approving active proposal must generate child tasks in queue")
     }
 }

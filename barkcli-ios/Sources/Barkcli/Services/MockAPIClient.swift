@@ -48,7 +48,7 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
     }
 
     public func listBoards() async throws -> [String] {
-        store.boardNames
+        store.listBoardNames()
     }
 
     public func getBoard(name: String) async throws -> Board {
@@ -62,7 +62,7 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
         } else {
             board.cards.append(card)
         }
-        store.boards[boardName] = board
+        store.saveBoard(board, name: boardName)
     }
 
     public func moveCard(boardName: String, cardId: String, toColumn: String) async throws {
@@ -70,7 +70,7 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
     }
 
     public func checkWorkspaceStatus() async throws -> WorkspaceStatus {
-        let boards = store.boardNames
+        let boards = store.listBoardNames()
         return WorkspaceStatus(
             initialized: !boards.isEmpty,
             boardDirExists: true,
@@ -80,10 +80,8 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
         )
     }
 
-
     public func saveBoard(_ board: Board, name: String? = nil) async throws {
-        let targetName = name ?? board.title
-        store.boards[targetName] = board
+        store.saveBoard(board, name: name)
     }
 
     public func addCardComment(boardName: String? = nil, cardId: String, text: String, author: String = "human") async throws {
@@ -138,7 +136,7 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
     // MARK: - Orchestration & Fleet
 
     public func listAgents() async throws -> [AgentItem] {
-        store.agents
+        store.listAgents()
     }
 
     public func registerAgent(name: String, role: AgentRole) async throws -> AgentItem {
@@ -150,7 +148,7 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
     }
 
     public func listTasks(status: String? = nil, cardId: String? = nil, agentId: String? = nil) async throws -> [TaskRequest] {
-        var tasks = store.tasks
+        var tasks = store.listTasks()
         if let status, !status.isEmpty {
             tasks = tasks.filter { $0.status.rawValue.lowercased() == status.lowercased() }
         }
@@ -176,7 +174,7 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
     }
 
     public func getLiveSessions() async throws -> [LiveSession] {
-        store.liveRunners
+        store.listLiveRunners()
     }
 
     public func triggerOrchestrationCycle() async throws -> CycleResult {
@@ -194,7 +192,7 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
     }
 
     public func getGitCommits(branch: String? = nil, limit: Int? = 60) async throws -> [GitCommit] {
-        let all = store.commits
+        let all = store.listCommits()
         if let limit, limit > 0 {
             return Array(all.prefix(limit))
         }
