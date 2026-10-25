@@ -15,7 +15,7 @@ La Trobe), "applied last session", "heard from founders on X"; Saasuji (3k visit
 
 | File | What it is |
 |---|---|
-| `application-w27.md` | Paste-ready answers to the full application. `[FILL]` = only you can supply. `[CONFIRM]` = validate wording. |
+| `application-w27.md` | Paste-ready answers to the full application. `[FILL]` = only you can supply. |
 | `video-script.md` | 58-second founder video: exact words, shot list, demo repo setup, rehearsal sheet. |
 | `launch-playbook.md` | Show HN post + first comment, X thread, LinkedIn, Medium, DMs, Launch YC, day-by-day, metrics. |
 | `interview-pack.md` | 20 interview questions with answers, the day-job answer, demo plan, mechanics. |
@@ -24,12 +24,12 @@ La Trobe), "applied last session", "heard from founders on X"; Saasuji (3k visit
 
 1. **Fix the portfolio** — it currently renders "18.46 years" and zeroed stats.
    Should read 25, 14 products, 53 repos.
-2. **Confirm two wordings** — the Siemens → full-time transition line in
-   `application-w27.md` ("Anything else") and the day-job answer in
-   `interview-pack.md`.
-3. **Record the video** by Tue Oct 27 (script + demo repo included).
-4. **Launch Wed Oct 28, 8am PT** (8:30pm IST), then fill real numbers and submit
+2. **Record the video** by Tue Oct 27 (script + demo repo included).
+3. **Launch Wed Oct 28, 8am PT** (8:30pm IST), then fill real numbers and submit
    Sun Nov 1 evening IST.
+
+Siemens → full-time wording is confirmed (application "Anything else" + the
+day-job answer in `interview-pack.md`).
 
 ## Ground rules
 

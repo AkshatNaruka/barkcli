@@ -25,7 +25,7 @@ Press `1`–`9` to switch tabs. The active tab is highlighted in the header; the
 
 | Tab | Key | Purpose |
 |-----|-----|---------|
-| Board | `1` | Kanban board — columns × cards, drag-free card moves with `H`/`L` |
+| Board | `1` | Board — columns × cards, drag-free card moves with `H`/`L` |
 | List | `2` | Flat, sortable backlog table (priority / title / effort / due) |
 | Tree | `3` | Parent → child hierarchy of linked cards |
 | Agenda | `4` | Overdue, due-today, and next-7-days cards |

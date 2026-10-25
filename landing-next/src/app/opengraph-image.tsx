@@ -4,7 +4,7 @@ import { ImageResponse } from "next/og";
 export const dynamic = "force-static";
 
 export const alt =
-  "barkcli — Tasks in your repo. Git-native kanban board: CLI, TUI, and web app.";
+  "barkcli — The management layer for AI agents: CLI, TUI, and web app.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -91,7 +91,7 @@ export default function OgImage() {
             letterSpacing: 1,
           }}
         >
-          <span>GIT-NATIVE KANBAN · NO CLOUD · MIT</span>
+          <span>MANAGEMENT LAYER FOR AI AGENTS · NO CLOUD · MIT</span>
           <span>github.com/AkshatNaruka/barkcli</span>
         </div>
       </div>

@@ -15,7 +15,7 @@ export const comparisons: Comparison[] = [
   {
     slug: "linear",
     name: "Linear",
-    tagline: "barkcli vs Linear — Git-native vs Cloud-first",
+    tagline: "barkcli vs Linear — Repo-native vs Cloud-first",
     description: "Linear is a polished SaaS issue tracker. barkcli keeps tasks in your repo as YAML files — no cloud, no accounts, no subscriptions.",
     barkcliAdvantages: [
       "Tasks live in your repo — diff, merge, grep them like code",
@@ -80,7 +80,7 @@ export const comparisons: Comparison[] = [
     slug: "height",
     name: "Height",
     tagline: "barkcli vs Height — Local-first vs AI-first",
-    description: "Height is an AI-native project manager. barkcli is a git-native task layer with AI integration via MCP.",
+    description: "Height is an AI-native project manager. barkcli is the management layer for AI agents, integrated via MCP.",
     barkcliAdvantages: [
       "Tasks live in your repo — version controlled with your code",
       "No subscription required",
@@ -104,7 +104,7 @@ export const comparisons: Comparison[] = [
       { feature: "Automation", barkcli: "Git hooks + scripts", competitor: "AI auto-triage" },
     ],
     verdict: "Choose barkcli if you want tasks in your repo with AI flexibility. Choose Height if you want AI-managed project management with real-time collaboration.",
-    bestForBarkcli: "Developers wanting git-native tasks, AI tinkerers",
+    bestForBarkcli: "Developers wanting repo-native tasks, AI tinkerers",
     bestForCompetitor: "Teams wanting AI-managed workflows out of the box",
   },
   {
@@ -117,7 +117,7 @@ export const comparisons: Comparison[] = [
       "Tasks are YAML files, not database rows",
       "Instant setup vs Docker compose + database",
       "AI agents read tasks directly from files",
-      "Git-native version control for tasks",
+      "Repo-native version control for tasks",
     ],
     competitorAdvantages: [
       "Full-featured web UI",
@@ -134,7 +134,7 @@ export const comparisons: Comparison[] = [
       { feature: "Maintenance", barkcli: "None", competitor: "Server updates" },
       { feature: "AI Features", barkcli: "MCP + local LLM", competitor: "BYO LLM module" },
     ],
-    verdict: "Choose barkcli if you want zero maintenance and git-native tasks. Choose Plane if you want a full web UI with self-hosting control.",
+    verdict: "Choose barkcli if you want zero maintenance and repo-native tasks. Choose Plane if you want a full web UI with self-hosting control.",
     bestForBarkcli: "Developers who want simplicity, no server overhead",
     bestForCompetitor: "Teams wanting a Linear-like UI they can self-host",
   },
@@ -142,7 +142,7 @@ export const comparisons: Comparison[] = [
     slug: "trello",
     name: "Trello",
     tagline: "barkcli vs Trello — Code vs Cloud",
-    description: "Trello is the original kanban board. barkcli brings kanban to your terminal and repo.",
+    description: "Trello is the original kanban board. barkcli is the management layer for AI agents, with a board in your terminal and repo.",
     barkcliAdvantages: [
       "No cloud dependency — works offline",
       "Tasks are version controlled with your code",
@@ -176,7 +176,7 @@ export const comparisons: Comparison[] = [
     description: "Notion is an all-in-one workspace. barkcli is a focused task layer for developers.",
     barkcliAdvantages: [
       "Purpose-built for task management, not a docs tool",
-      "Git-native — tasks version controlled with code",
+      "Repo-native — tasks version controlled with code",
       "No subscription required",
       "AI agents read tasks without API calls",
       "Works offline — no internet needed",
@@ -219,7 +219,7 @@ export const comparisons: Comparison[] = [
       "GitHub Actions integration",
     ],
     features: [
-      { feature: "Git Host", barkcli: "Any (git-native)", competitor: "GitHub only" },
+      { feature: "Git Host", barkcli: "Any (repo-native)", competitor: "GitHub only" },
       { feature: "Data Location", barkcli: "Your repo", competitor: "GitHub cloud" },
       { feature: "Cost", barkcli: "Free", competitor: "Free" },
       { feature: "Offline", barkcli: "Full", competitor: "No" },

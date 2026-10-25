@@ -2,7 +2,7 @@
   "id": "./",
   "name": "barkcli Board",
   "short_name": "barkcli",
-  "description": "Git-native kanban board that lives in your repo. Tasks, specs, memory, sprints and agent runs — CLI, TUI, web and VS Code from one binary, no cloud.",
+  "description": "The management layer for AI agents. Intent, plans, tasks, specs, memory and agent runs — CLI, TUI, web and VS Code from one binary, no cloud.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

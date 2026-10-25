@@ -3,9 +3,9 @@ export const dynamic = "force-static";
 
 const llmsFull = `# barkcli — Complete Documentation
 
-> Git-native task management for developers. Tasks are YAML files in your git repo.
+> The management layer for AI agents. Tasks, specs, and memory live as files in your git repo.
 
-barkcli is a local-first project management tool. Tasks are stored as YAML files in your repository. No cloud. No accounts. Open source. MIT licensed. Built in Rust.
+barkcli is the management layer for AI agents. Humans write intent, agents propose plans and do the work in isolated git worktrees, your tests are the gate, and only passing branches merge. Tasks are stored as YAML files in your repository. No cloud. No accounts. Open source. MIT licensed. Built in Rust.
 
 ---
 
@@ -173,7 +173,7 @@ barkcli code "AuthService"
 Full-featured command-line interface for scripts and automation.
 
 ### Terminal UI
-Interactive kanban board with vim-style navigation.
+Interactive board with vim-style navigation.
 \`\`\`bash
 barkcli tui
 \`\`\`

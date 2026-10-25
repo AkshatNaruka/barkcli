@@ -1,5 +1,5 @@
 class Barkcli < Formula
-  desc "Git-native Kanban board CLI — tasks as YAML in your repo"
+  desc "The management layer for AI agents — intent, plans, worktrees, test gate, merge train"
   homepage "https://github.com/AkshatNaruka/barkcli"
   version "0.4.0"
   license "MIT"

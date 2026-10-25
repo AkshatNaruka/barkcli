@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 
 const comparisons = [
-  { slug: "linear", name: "Linear", tagline: "barkcli vs Linear — Git-native vs Cloud-first" },
+  { slug: "linear", name: "Linear", tagline: "barkcli vs Linear — Repo-native vs Cloud-first" },
   { slug: "jira", name: "Jira", tagline: "barkcli vs Jira — Simple vs Enterprise" },
   { slug: "height", name: "Height", tagline: "barkcli vs Height — Local-first vs AI-first" },
   { slug: "plane", name: "Plane", tagline: "barkcli vs Plane — Binary vs Self-hosted" },
@@ -69,7 +69,7 @@ export default function ComparePage() {
         Compare barkcli
       </h1>
       <p className="mb-12 text-lg text-white/60">
-        See how barkcli compares to popular project management tools.
+        See how barkcli compares to popular trackers.
       </p>
 
       <div className="space-y-4">

@@ -45,7 +45,7 @@ barkcli list -p high -c todo --format json | jq '.[] | .title'`,
   {
     slug: "tui",
     title: "Terminal UI",
-    description: "Interactive kanban board in your terminal with vim-style navigation.",
+    description: "Interactive board in your terminal with vim-style navigation.",
     sections: [
       {
         title: "Launch",

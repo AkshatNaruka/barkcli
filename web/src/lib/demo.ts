@@ -146,7 +146,7 @@ function isBlocked(c: Card): boolean {
 
 function seedBoards(): Record<string, Board> {
   const dev = emptyBoard("barkcli — dev board", ["todo", "doing", "review", "done"]);
-  dev.description = "Git-native kanban that lives in your repo — CLI, TUI, web and VS Code from one binary.";
+  dev.description = "The management layer for AI agents — CLI, TUI, web and VS Code from one binary.";
   dev.cards = [
     // The OAuth workstream — the board's live story (matches the Mind page).
     card({

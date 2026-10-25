@@ -13,7 +13,7 @@ export const metadata: Metadata = generatePageMetadata({
 const features = [
   {
     title: "Board Management",
-    description: "Kanban board with drag-and-drop, table view, and list view. Add, edit, move, and delete cards.",
+    description: "Board with drag-and-drop, table view, and list view. Add, edit, move, and delete cards.",
     command: "barkcli serve --open",
   },
   {
@@ -52,7 +52,7 @@ const shortcuts = [
 
 const tabs = [
   { name: "Mind", desc: "Homepage — health, blockers, stale work, next actions (also reachable as Dashboard)" },
-  { name: "Board", desc: "Kanban board with drag-and-drop (switch between board/table/list views)" },
+  { name: "Board", desc: "Board with drag-and-drop (switch between board/table/list views)" },
   { name: "Specs", desc: "Specifications with requirements, status tracking, coverage" },
   { name: "Sprints", desc: "Start/end sprints, see sprint progress" },
   { name: "Code", desc: "Search code symbols, see which cards are linked to which files" },

@@ -12,7 +12,7 @@ use crate::util::style;
 
 const DEFAULT_BOARD: &str = "tasks";
 
-/// `barkcli init [--yes|--no]` — set up task tracking + wire automations.
+/// `barkcli init [--yes|--no]` — set up barkcli + wire automations.
 ///
 /// - `--yes`/`-y`: enable all automations without prompting (agents, CI).
 /// - `--no`/`--minimal`: lean setup, current behavior (git hooks only).

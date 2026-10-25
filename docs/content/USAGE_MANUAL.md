@@ -23,7 +23,7 @@ A complete guide to using barkcli for project management.
 
 ### What is barkcli?
 
-barkcli is a git-native project management tool. Tasks live in your repository as YAML files — no cloud, no accounts, no vendor lock-in.
+barkcli is the management layer for AI agents. Tasks, specs, and memory live in your repository as YAML files — no cloud, no accounts, no vendor lock-in.
 
 ### Installation
 
@@ -328,7 +328,7 @@ barkcli unlink implement-login user-registration
 
 ### Terminal UI (TUI)
 
-Interactive kanban board in your terminal:
+Interactive board in your terminal:
 
 ```bash
 barkcli tui

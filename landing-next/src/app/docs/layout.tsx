@@ -7,18 +7,18 @@ export const metadata: Metadata = {
     template: "%s · barkcli Docs",
   },
   description:
-    "Complete documentation for barkcli — git-native task management. Commands, guides, API reference, and AI agent integration.",
+    "Complete documentation for barkcli — the management layer for AI agents. Commands, guides, API reference, and AI agent integration.",
   keywords: [
     "barkcli documentation",
-    "git task management docs",
-    "kanban CLI reference",
+    "ai agent management docs",
+    "agent CLI reference",
     "barkcli commands",
     "barkcli API",
     "MCP server setup",
   ],
   openGraph: {
     title: "barkcli Documentation",
-    description: "Complete documentation for barkcli — git-native task management.",
+    description: "Complete documentation for barkcli — the management layer for AI agents.",
     url: "https://akshatnaruka.github.io/barkcli/docs",
     siteName: "barkcli",
     type: "website",

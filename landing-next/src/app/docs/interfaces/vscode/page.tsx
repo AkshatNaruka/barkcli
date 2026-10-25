@@ -29,7 +29,7 @@ barkcli vscode-install`}</code></pre>
         <h2 className="mb-4 text-2xl font-bold">Features</h2>
         <ul className="list-inside list-disc space-y-2 text-white/60">
           <li>Custom editor for .board files</li>
-          <li>Drag-and-drop kanban board</li>
+          <li>Drag-and-drop board</li>
           <li>Inline card editing</li>
           <li>Board file syntax highlighting</li>
           <li>Integrated with VS Code file explorer</li>

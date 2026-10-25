@@ -132,7 +132,7 @@ $99/team/mo · 10k teams = $11.9M ARR · solo, 25, Indore, can be in SF Jan.
 
 > Not yet — I'm a software developer at Siemens (Aug 2024–present). barkcli has
 > had my nights and weekends for ~12 weeks; if accepted I resign and go full-time
-> immediately. `[CONFIRM: this is the plan]`
+> immediately.
 
 Do not dodge this one. Say it in one breath, then pivot to shipping velocity:
 "257 tests, five platforms, 71 MCP tools in 12 weeks of nights."

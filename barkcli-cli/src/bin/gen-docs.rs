@@ -9,8 +9,8 @@ fn main() {
 fn build_cli() -> Command {
     Command::new("barkcli")
         .version(env!("CARGO_PKG_VERSION"))
-        .about("Git-native Kanban board CLI — tasks as YAML in your repo")
-        .long_about("barkcli is a git-native Kanban board CLI that stores tasks as YAML files in your repository.\n\nTasks are stored in .board files, committed to git, and accessible to both humans and AI agents via CLI, TUI, Web UI, VS Code, and MCP server.")
+        .about("The management layer for AI agents — intent, plans, worktrees, test gate, merge train")
+        .long_about("barkcli is the management layer for AI agents: humans write intent, agents propose plans, each agent works in an isolated git worktree, the project's tests are the gate, and only passing branches merge. Tasks, specs, and memory are stored as YAML files in your repository.\n\nTasks are stored in .board files, committed to git, and accessible to both humans and AI agents via CLI, TUI, Web UI, VS Code, and MCP server.")
         // Setup commands
         .subcommand(
             Command::new("init")
@@ -310,12 +310,12 @@ fn build_cli() -> Command {
         // Interfaces
         .subcommand(
             Command::new("tui")
-                .about("Terminal Kanban board (ratatui)")
+                .about("Terminal UI (ratatui)")
                 .arg(Arg::new("board").help("Board name"))
         )
         .subcommand(
             Command::new("serve")
-                .about("Browser Kanban server (axum + WebSocket)")
+                .about("Web app server (axum + WebSocket)")
                 .arg(Arg::new("port").short('p').long("port").help("Server port").default_value("4321"))
                 .arg(Arg::new("board").short('b').long("board").help("Board name"))
                 .arg(Arg::new("host").long("host").help("Bind address").default_value("127.0.0.1"))

@@ -768,7 +768,7 @@ fn print_usage() {
     println!("Usage: barkcli <command> [args]");
     println!();
     println!("The core six — all you need most days:");
-    println!("  init                Set up task tracking");
+    println!("  init                Set up barkcli in this repo");
     println!("  add <title>         Add a task (-p, -l, -a, --due)");
     println!("  list                Show tasks grouped by column (-c, -l, -a filters)");
     println!("  move <id> <col>     Move a task");
@@ -827,7 +827,7 @@ fn print_usage() {
     println!();
     println!("Interfaces:");
     println!("  tui                 Terminal kanban");
-    println!("  serve               Browser kanban");
+    println!("  serve               Web app (browser)");
     println!("  open                TUI if terminal, browser otherwise");
     println!("  vscode-install      Install VS Code extension for .board files");
     println!();

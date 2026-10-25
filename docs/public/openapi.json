@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "barkcli REST API",
-    "description": "REST API for barkcli — git-native project management. All board data is stored as YAML files in your repository.",
+    "description": "REST API for barkcli — the management layer for AI agents. All board data is stored as YAML files in your repository.",
     "version": "0.2.0",
     "contact": {
       "name": "barkcli",

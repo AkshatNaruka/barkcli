@@ -21,7 +21,7 @@ const interfaces = [
   {
     slug: "tui",
     title: "Terminal UI",
-    description: "Interactive kanban board in your terminal with vim-style navigation.",
+    description: "Interactive board in your terminal with vim-style navigation.",
     icon: ">_",
     command: "barkcli tui",
   },

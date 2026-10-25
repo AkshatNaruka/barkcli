@@ -1,6 +1,6 @@
 [package]
 name = "barkcli-tui"
-description = "Terminal UI for barkcli — ratatui Kanban board"
+description = "Terminal UI for barkcli — the management layer for AI agents (ratatui)"
 license = "MIT"
 authors = ["Akshat Naruka <narukaakshat@gmail.com>"]
 version = "0.4.0"

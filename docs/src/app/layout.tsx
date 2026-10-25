@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     template: "%s · barkcli",
   },
   description:
-    "Git-native project management — tasks as YAML in your repo. CLI, terminal UI, web app, VS Code extension, and AI/MCP integrations.",
+    "The management layer for AI agents — intent, plans, isolated worktrees, a test gate, and a merge train. CLI, terminal UI, web app, VS Code extension, and AI/MCP integrations.",
   keywords: [
     "barkcli",
     "kanban",
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "barkcli Documentation",
     description:
-      "Git-native project management — tasks as YAML in your repo.",
+      "The management layer for AI agents — intent, plans, isolated worktrees, a test gate, and a merge train.",
     url: "https://akshatnaruka.github.io/barkcli/docs",
     siteName: "barkcli",
     type: "website",
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "barkcli Documentation",
     description:
-      "Git-native project management — tasks as YAML in your repo.",
+      "The management layer for AI agents — intent, plans, isolated worktrees, a test gate, and a merge train.",
   },
   robots: {
     index: true,

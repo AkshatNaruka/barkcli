@@ -1,6 +1,6 @@
 # YC W27 application — barkcli (draft v1)
 
-**Status:** paste-ready answers. `[FILL]` = only Akshat can supply. `[CONFIRM]` = validate wording.
+**Status:** paste-ready answers. `[FILL]` = only Akshat can supply.
 **Deadline:** Nov 2, 8pm PT (= Nov 3, 8:30am IST). **Target submit: Sat Nov 1, evening IST.**
 **Batch:** Winter 2027 · in-person SF, Jan–Mar · applying solo.
 
@@ -228,7 +228,7 @@ shipping.
 > five-platform binaries. I'm currently a software developer at Siemens and have
 > been building barkcli nights and weekends; if accepted I go full-time
 > immediately. I can be in San Francisco in January and I'm fully committed to
-> this for the long run. `[CONFIRM: phrase the Siemens → full-time transition as you mean it]`
+> this for the long run.
 
 ---
 

@@ -11,7 +11,7 @@ barkcli is a local-first management layer. Humans write intent, agents do work, 
 
 ## What Is barkcli
 
-- A git-native Kanban board plus AI agent orchestration, all in one binary.
+- The management layer for AI agents — intent, plans, isolated worktrees, a test gate, and a merge train, all in one binary.
 - Tasks are YAML files (\`.board/*.board\`) committed to your repository — diff them, merge them, grep them, roll them back with git.
 - No cloud required, no accounts, no subscriptions. Works fully offline.
 - Four interfaces over one data source: CLI, terminal UI (TUI), web app, and VS Code extension.
@@ -25,7 +25,7 @@ barkcli is a local-first management layer. Humans write intent, agents do work, 
 - **Specs:** Requirements and traceability from spec to code.
 - **Memory:** Four-tier local memory; project facts persist across sessions.
 - **Autopilot:** Agent-driven loop with plan and merge gates and web intent UI.
-- **Git-native:** YAML task files committed to your repo; git is the sync layer.
+- **Repo-native:** YAML task files committed to your repo; git is the sync layer.
 - **Multi-interface:** CLI, Terminal UI, Web App, VS Code extension.
 - **AI/MCP:** 71 tools for Claude Code, OpenCode, Cursor integration.
 - **Sprints:** Start/end sprints with velocity tracking.

@@ -5,10 +5,10 @@
 ## Meta
 
 - Title: barkcli — The management layer for AI agents
-- Description: Git-native Kanban board + AI agent orchestration in one Rust binary. No cloud, no accounts, open source (MIT).
+- Description: The management layer for AI agents — intent, plans, isolated worktrees, a test gate, and a merge train — in one Rust binary. No cloud, no accounts, open source (MIT).
 - Language: English
 - Updated: 2026-09-04
-- Topics: ai agents, agent orchestration, project management, kanban, task tracking, git-native, mcp, claude code, opencode, cursor, developer tools
+- Topics: ai agents, agent orchestration, agent management, worktrees, test gate, merge train, mcp, claude code, opencode, cursor, developer tools
 - Sources: https://github.com/AkshatNaruka/barkcli
 
 ## What this site is

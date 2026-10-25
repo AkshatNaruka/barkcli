@@ -6,7 +6,7 @@ barkcli provides multiple interfaces to work with your tasks. All interfaces rea
 
 ## Terminal UI
 
-The terminal UI (TUI) is an interactive kanban board that runs in your terminal.
+The terminal UI (TUI) is an interactive board that runs in your terminal.
 
 ### Launch
 
@@ -73,7 +73,7 @@ The TUI reads the board columns from your `.board/` configuration. Add or reorde
 
 ## Web App
 
-A browser-based kanban board with real-time collaboration.
+The browser control center, with real-time collaboration.
 
 ### Launch
 

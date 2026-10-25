@@ -30,7 +30,7 @@ The app has 12 navigation tabs:
 | Tab | What It Does |
 |-----|-------------|
 | **Dashboard** | Overview with card stats, sprint progress, recent activity, due-soon cards |
-| **Board** | Kanban board with drag-and-drop (switch between board/table/list views) |
+| **Board** | Board with drag-and-drop (switch between board/table/list views) |
 | **Calendar** | Cards organized by due date |
 | **Reports** | Effort by column/area, priority breakdown, sprint burndown charts |
 | **Code** | Search code symbols, see which cards are linked to which files |

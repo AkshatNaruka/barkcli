@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     template: "%s · barkcli Compare",
   },
   description:
-    "See how barkcli compares to Linear, Jira, Trello, Notion, and other project management tools.",
+    "See how barkcli compares to Linear, Jira, Trello, Notion, and other trackers.",
 };
 
 export default function CompareLayout({

@@ -1,7 +1,7 @@
 {
   "name": "barkcli-vscode",
   "displayName": "barkcli — Project Kanban",
-  "description": "Git-like Kanban boards inside VS Code. Edit .board files with a visual editor.",
+  "description": "barkcli in VS Code — the management layer for AI agents. Visual editor for .board files.",
   "version": "0.1.0",
   "publisher": "barkcli",
   "license": "MIT",

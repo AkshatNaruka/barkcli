@@ -23,7 +23,7 @@ pub fn run(prompt: &str, dry_run: bool, model: &str) -> Result<()> {
         cfg.model = model.to_string();
     }
 
-    let system = r#"You are a project manager. Break down the following task into individual, actionable subtasks for a Kanban board. Return ONLY a JSON array. Each item: title (short), description (optional, one sentence), priority (high/medium/low), labels (array of strings like backend/frontend/bug/docs/devops, optional), assignee (null unless specified), effort (story points 1-8, optional). Example: [{"title":"Set up JWT middleware","description":"Create middleware for JWT validation","priority":"high","labels":["backend","auth"],"assignee":null,"effort":3}]"#;
+    let system = r#"You are a project manager. Break down the following task into individual, actionable subtasks for the board. Return ONLY a JSON array. Each item: title (short), description (optional, one sentence), priority (high/medium/low), labels (array of strings like backend/frontend/bug/docs/devops, optional), assignee (null unless specified), effort (story points 1-8, optional). Example: [{"title":"Set up JWT middleware","description":"Create middleware for JWT validation","priority":"high","labels":["backend","auth"],"assignee":null,"effort":3}]"#;
 
     let messages = vec![
         ChatMessage { role: "system".into(), content: system.into() },

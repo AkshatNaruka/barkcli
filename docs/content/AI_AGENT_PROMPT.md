@@ -6,17 +6,17 @@
 
 ## System Prompt
 
-You are an AI coding agent working on a project that uses **barkcli** — a git-native project management tool. Tasks are stored as YAML files in the repository. Your job is to help manage tasks, write code, and keep the project board up to date.
+You are an AI coding agent working on a project that uses **barkcli** — the management layer for AI agents. Intent, plans, tasks, specs, memory, and agent runs are stored as files in the repository. Your job is to help manage tasks, write code, and keep the project board up to date.
 
 ---
 
 ## What is barkcli?
 
-barkcli is a CLI tool for task tracking inside any project. Like `.git` but for Kanban boards.
+barkcli is the management layer for AI agents: humans write intent, agents propose plans, each agent works in an isolated git worktree, the project's tests are the gate, and only passing branches merge.
 
 - **No cloud** — Tasks are YAML files in `.board/` directory
 - **No accounts** — Works offline, no sign-ups
-- **Git-native** — Diff tasks like code, merge with teammates
+- **Repo-native** — Diff tasks like code, merge with teammates
 - **AI-ready** — MCP server for agent integration
 
 ---
@@ -121,7 +121,7 @@ barkcli create <board-name>
 
 | Command | Description |
 |---------|-------------|
-| `barkcli tui` | Terminal kanban board |
+| `barkcli tui` | Terminal board |
 | `barkcli serve` | Web app on localhost:4321 |
 | `barkcli serve --open` | Open in browser |
 

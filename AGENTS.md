@@ -1,8 +1,25 @@
-# barkcli — Git-like Project Board Tool
+# barkcli — The management layer for AI agents
 
 > Open source (MIT). Build from source with `cargo build && cargo test`.
 
-`barkcli` is a CLI (+ VS Code extension + web app) for task tracking inside any project. Like `.git` but for Kanban boards.
+`barkcli` is **the management layer for AI agents**: humans write intent, agents
+propose plans, each agent works in an isolated git worktree, the project's tests
+are the acceptance gate, and only passing branches merge. It ships as a CLI,
+terminal UI, web app, and VS Code extension.
+
+## Positioning — non-negotiable
+
+barkcli is **the management layer for AI agents**. Never describe it as a
+"git-native Kanban board", "project board", "task tracker", or "project
+management tool" — not in README/docs/landing copy, commit messages, demos, or
+agent output. The board is a feature; the product is the management layer
+(intent → plan → worktree → gate → merge).
+
+Use this line when you need one sentence:
+
+> barkcli is the management layer for AI agents — intent in, plans out, isolated
+> worktrees, tests as the gate, and a merge train for whatever passes.
+
 
 ## Repository layout
 
@@ -12,7 +29,7 @@ project/
 ├── *.board              # User-facing YAML board files (committed)
 ├── barkcli-core/        # Library: models, storage, commands (src/)
 ├── barkcli-cli/         # Binary: pro commands, TUI/serve dispatch
-├── barkcli-tui/         # ratatui terminal kanban
+├── barkcli-tui/         # ratatui terminal board
 ├── barkcli-server/      # axum browser server
 ├── web/                 # React + Vite web frontend
 ├── vscode-extension/    # VS Code Custom Editor extension
@@ -120,7 +137,7 @@ The web app (`barkcli serve`) provides a full-featured browser interface:
 | Tab | Description |
 |-----|-------------|
 | **Dashboard** | Overview with stats, sprint progress, recent activity |
-| **Board** | Kanban board with drag-and-drop (also table/list views) |
+| **Board** | Board with drag-and-drop (also table/list views) |
 | **Calendar** | Cards by due date |
 | **Reports** | Effort breakdown, priority stats, sprint burndown |
 | **Code** | Symbol search, code-to-card mapping |

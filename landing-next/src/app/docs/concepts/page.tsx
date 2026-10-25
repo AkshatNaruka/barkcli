@@ -7,12 +7,12 @@ import { generatePageMetadata, breadcrumbJsonLd } from "@/lib/seo";
 export const metadata: Metadata = generatePageMetadata({
   title: "Core Concepts — barkcli",
   description:
-    "Understand the mental model of barkcli: tasks, boards, projects, and code context. Learn how git-native task management works.",
+    "Understand the mental model of barkcli: intent, plans, tasks, boards, agents, and code context. Learn how the management layer for AI agents works.",
   path: "/docs/concepts",
   keywords: [
     "barkcli concepts",
-    "git task management",
-    "kanban board concepts",
+    "ai agent workflow",
+    "agent management concepts",
     "YAML task files",
     "code context",
   ],

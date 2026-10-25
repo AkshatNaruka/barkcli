@@ -66,7 +66,7 @@ export function softwareApplicationJsonLd() {
     operatingSystem: "macOS, Linux, Windows",
     url: SITE_URL,
     description:
-      "Git-native kanban board that lives in your repo. CLI, terminal UI, and web app — one binary, no cloud.",
+      "The management layer for AI agents — intent, plans, isolated worktrees, a test gate, and a merge train. CLI, terminal UI, and web app — one binary, no cloud.",
     offers: {
       "@type": "Offer",
       price: "0",

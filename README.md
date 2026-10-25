@@ -2,7 +2,7 @@
 
 # 🐕 barkcli
 
-**The management layer for AI agents — and a git-native Kanban board.**
+**The management layer for AI agents.**
 
 You decide *what* gets built. Agents propose plans, do the work, and report back. barkcli runs the pipeline: **intake → plan → dispatch → review → merge**. Tasks, specs, memory, skills, and agent runs live in your repo — no cloud, no accounts, no subscriptions.
 
@@ -48,7 +48,7 @@ You decide *what* gets built. Agents propose plans, do the work, and report back
 
 ## Why barkcli?
 
-Like `.git` but for Kanban boards. Project management for the terminal era — and the missing piece in the AI-native dev stack.
+Intent in, plans out. barkcli is the management layer for AI agents: humans write intent, agents propose plans, each agent works in an isolated git worktree, your tests are the acceptance gate, and only passing branches merge. Tasks, specs, memory, skills, and agent runs live in your repo — no cloud, no accounts, no subscriptions.
 
 - **Tasks are files.** Boards are plain YAML committed to your repo. Diff them, merge them, grep them, roll them back — exactly like code.
 - **One binary, four interfaces.** CLI, terminal UI (ratatui), web app (axum), and a VS Code Custom Editor. Same data, every surface.
@@ -62,7 +62,7 @@ Like `.git` but for Kanban boards. Project management for the terminal era — a
 | | |
 |---|---|
 | 🧠 **Mind** | Compiled project snapshot — health, blockers, stale work, next actions. One command answers "what's happening?". |
-| 📋 **Kanban Board** | Columns, priorities, labels, assignees, checklists, comments, effort, due dates, reminders. Drag-and-drop in the web app. |
+| 📋 **Board** | Columns, priorities, labels, assignees, checklists, comments, effort, due dates, reminders. Drag-and-drop in the web app. |
 | 🔗 **Spec Traceability** | Specs → requirements → code. Every card links to its spec and to the code that implements it. |
 | 🛠 **MCP Server** | 71 tools for AI coding agents — board, task, memory, specs, orchestration, sessions. `barkcli mcp`. |
 | 🤖 **Autopilot** | Intent → plan gate → dispatched packets → review → merge gate. Or go fully autonomous: `barkcli run "<intent>" --agents 3 --yes` — parallel agents in worktrees, your tests as the gate, merge train for the winners. |
@@ -77,7 +77,7 @@ Like `.git` but for Kanban boards. Project management for the terminal era — a
 
 ## Screenshots
 
-| **Mind — the compiled project snapshot** | **Board — git-native Kanban** |
+| **Mind — the compiled project snapshot** | **Board — the work, with spec traceability** |
 |:---:|:---:|
 | ![](.github/assets/mind-dark.png) | ![](.github/assets/board-light.png) |
 
@@ -267,7 +267,7 @@ The 71 tools cover boards, cards, tasks, agents, memory, specs, sessions, orches
 | Interface | Command | What it is |
 |---|---|---|
 | **CLI** | `barkcli <cmd>` | Full-featured CLI for scripts and automation |
-| **Terminal UI** | `barkcli tui` | Ratatui kanban with vim navigation (tabs for agents/orchestrate) |
+| **Terminal UI** | `barkcli tui` | Ratatui board with vim navigation (tabs for agents/orchestrate) |
 | **Web App** | `barkcli serve --open` | Browser UI on `:4321` — Mind, Board, Specs, Calendar, Reports, Agents, Memory, Timeline |
 | **VS Code** | `barkcli vscode-install` | Custom Editor for `.board` files |
 | **MCP** | `barkcli mcp` | JSON-RPC 2.0 server for AI coding agents |
@@ -310,7 +310,7 @@ Try it interactively (paste your own output) at
 
 | vs | Read the take |
 |---|---|
-| [Linear](https://akshatnaruka.github.io/barkcli/compare/linear) | Git-native vs cloud-first |
+| [Linear](https://akshatnaruka.github.io/barkcli/compare/linear) | Repo-native vs cloud-first |
 | [Jira](https://akshatnaruka.github.io/barkcli/compare/jira) | Simple vs enterprise |
 | [Trello](https://akshatnaruka.github.io/barkcli/compare/trello) | Code vs cloud |
 | [Notion](https://akshatnaruka.github.io/barkcli/compare/notion) | Tasks vs everything |
@@ -326,7 +326,7 @@ The short version: if you want tasks in your repo, offline-ready, with AI agents
 barkcli/
 ├── barkcli-core/       # Library: models, storage, commands, memory, agent, autopilot
 ├── barkcli-cli/        # Binary: pro commands, TUI/serve dispatch, listener
-├── barkcli-tui/        # Ratatui terminal kanban (feature-flagged)
+├── barkcli-tui/        # Ratatui terminal board (feature-flagged)
 ├── barkcli-server/     # Axum web server + WebSocket live reload
 ├── web/                # React + Vite web frontend
 ├── vscode-extension/   # VS Code Custom Editor extension
@@ -366,7 +366,7 @@ Contributions welcome — see [CONTRIBUTING](#contributing).
 - [ ] WebMCP / OKF agent-readiness layer
 - [ ] Plugins / hooks ecosystem
 
-Track live work on the [project board](https://github.com/AkshatNaruka/barkcli/projects) — or just `barkcli` it.
+Track live work on [GitHub Projects](https://github.com/AkshatNaruka/barkcli/projects) — or just `barkcli` it.
 
 ---
 

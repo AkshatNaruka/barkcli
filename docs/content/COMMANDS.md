@@ -303,7 +303,7 @@ barkcli hooks status              # show installed hooks
 Launch different UIs.
 
 ```shell
-barkcli tui                        # terminal kanban board
+barkcli tui                        # terminal board
 barkcli serve                      # web app on localhost:4321
 barkcli serve --open               # open in browser
 barkcli serve --port 8080          # custom port

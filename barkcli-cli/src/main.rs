@@ -98,7 +98,7 @@ fn run_serve(args: &[String]) {
 fn print_serve_help() {
     println!("Usage: barkcli serve [OPTIONS] [BOARD]");
     println!();
-    println!("Browser kanban server. Default: http://localhost:{} (unique to barkcli —", DEFAULT_SERVE_PORT);
+    println!("Web app server. Default: http://localhost:{} (unique to barkcli —", DEFAULT_SERVE_PORT);
     println!("avoids collisions with Next.js/Vite on :3000).");
     println!();
     println!("Options:");

@@ -1,6 +1,6 @@
 [package]
 name = "barkcli-core"
-description = "Core library for barkcli — Git-native task tracking"
+description = "Core library for barkcli — the management layer for AI agents"
 license = "MIT"
 authors = ["Akshat Naruka <narukaakshat@gmail.com>"]
 version = "0.4.0"

@@ -273,7 +273,7 @@ export const commands: Command[] = [
   {
     slug: "tui",
     name: "barkcli tui",
-    description: "Launch the interactive terminal UI with kanban board, list, tree, and agenda views.",
+    description: "Launch the interactive terminal UI with board, list, tree, and agenda views.",
     category: "Interfaces",
     usage: "barkcli tui",
     examples: ["barkcli tui"],
@@ -281,7 +281,7 @@ export const commands: Command[] = [
   {
     slug: "serve",
     name: "barkcli serve",
-    description: "Launch the web-based kanban board with drag-and-drop, calendar, and reports.",
+    description: "Launch the web app — Mind, Board, Specs and Agents — with drag-and-drop, calendar, and reports.",
     category: "Interfaces",
     usage: "barkcli serve [options]",
     examples: [

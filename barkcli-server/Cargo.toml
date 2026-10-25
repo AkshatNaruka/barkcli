@@ -1,6 +1,6 @@
 [package]
 name = "barkcli-server"
-description = "Web server for barkcli — browser Kanban with Axum"
+description = "Web server for barkcli — the management layer for AI agents, in the browser (Axum)"
 license = "MIT"
 authors = ["Akshat Naruka <narukaakshat@gmail.com>"]
 version = "0.4.0"

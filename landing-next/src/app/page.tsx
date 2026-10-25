@@ -100,7 +100,7 @@ const FEATURES = [
   },
   {
     icon: CloudOff,
-    title: "Offline Git-Native",
+    title: "Offline & Repo-Native",
     description: "No cloud required, no accounts, no per-seat pricing. MIT licensed, built in Rust. Your data stays in your repo.",
     code: "$ barkcli list  # Works without internet",
     gradient: "from-teal-500/20 to-cyan-500/20",
@@ -168,7 +168,7 @@ $ barkcli move deploy-to-production done
     id: "tui",
     title: "Terminal UI",
     icon: Monitor,
-    description: "Interactive kanban board right in your terminal. Navigate with vim keys, filter, sort, and manage tasks visually.",
+    description: "Interactive board right in your terminal. Navigate with vim keys, filter, sort, and manage tasks visually.",
     demo: `┌─────────────────────────────────────────────────────────┐
 │ Todo              Doing               Done              │
 ├─────────────────────────────────────────────────────────┤
@@ -231,7 +231,7 @@ const FAQ = [
 ];
 
 const AGENT_PROMPTS: Record<string, string> = {
-  claude: `Please run the following commands to install and set up barkcli (git-native project management) in this project:
+  claude: `Please run the following commands to install and set up barkcli (the management layer for AI agents) in this project:
 
 1. First, install barkcli:
 curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
@@ -268,7 +268,7 @@ After running these commands, barkcli will be fully configured. The autonomous l
 You rarely need CLI commands — open "barkcli serve --open" and decide what gets built.
 
 For the full AI agent prompt with all commands, run: barkcli --help`,
-  opencode: `Please run the following commands to install and set up barkcli (git-native project management) in this project:
+  opencode: `Please run the following commands to install and set up barkcli (the management layer for AI agents) in this project:
 
 1. First, install barkcli:
 curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
@@ -305,7 +305,7 @@ After running these commands, barkcli will be fully configured. The autonomous l
 You rarely need CLI commands — open "barkcli serve --open" and decide what gets built.
 
 For the full AI agent prompt with all commands, run: barkcli --help`,
-  cursor: `Please run the following commands to install and set up barkcli (git-native project management) in this project:
+  cursor: `Please run the following commands to install and set up barkcli (the management layer for AI agents) in this project:
 
 1. First, install barkcli:
 curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
@@ -342,7 +342,7 @@ After running these commands, barkcli will be fully configured. The autonomous l
 You rarely need CLI commands — open "barkcli serve --open" and decide what gets built.
 
 For the full AI agent prompt with all commands, run: barkcli --help`,
-  generic: `Please run the following commands to install and set up barkcli (git-native project management) in this project:
+  generic: `Please run the following commands to install and set up barkcli (the management layer for AI agents) in this project:
 
 1. First, install barkcli:
 curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
@@ -739,37 +739,6 @@ export default function Home() {
             </span>
           </div>
         </main>
-
-        {/* Footer */}
-        <footer className="relative z-10 flex items-center justify-center gap-4 h-12 shrink-0 text-[11px] text-white/50 font-mono">
-          <span>barkcli</span>
-          <span className="opacity-40">·</span>
-          <a
-            href="/docs"
-            className="hover:text-white transition-colors"
-          >
-            Docs
-          </a>
-          {ON_PAGES && (
-            <>
-              <span className="opacity-40">·</span>
-              <a href={`${BASE}/app/`} className="hover:text-white transition-colors">
-                Live preview
-              </a>
-            </>
-          )}
-          <span className="opacity-40">·</span>
-          <a
-            href="https://github.com/AkshatNaruka/barkcli"
-            target="_blank"
-            rel="noreferrer"
-            className="hover:text-white transition-colors"
-          >
-            GitHub
-          </a>
-          <span className="opacity-40">·</span>
-          <span>MIT License</span>
-        </footer>
       </section>
 
       {/* Product Section — the management layer UI */}
