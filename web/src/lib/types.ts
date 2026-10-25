@@ -220,3 +220,63 @@ export interface BlameEntry {
   at: string;
   op: string;
 }
+
+export interface GitCommit {
+  sha: string;
+  parents: string[];
+  subject: string;
+  body: string;
+  author: string;
+  author_email: string;
+  date: string;
+  trailers: Array<[string, string]>;
+  is_merge: boolean;
+  is_empty: boolean;
+  files_changed: string[];
+  additions: number;
+  deletions: number;
+  patch_id?: string | null;
+}
+
+export interface GitCommitsResponse {
+  branch: string;
+  branches: string[];
+  commits: GitCommit[];
+}
+
+export interface GitDiffResponse {
+  sha: string;
+  message: string;
+  diff: string;
+  files_changed: string[];
+  additions: number;
+  deletions: number;
+}
+
+export interface AssignCommitRequest {
+  board_name?: string;
+  commit_sha?: string;
+  title: string;
+  description?: string;
+  column?: string;
+  priority?: string;
+  agent_id?: string;
+  files_context?: string[];
+  acceptance_criteria?: string[];
+}
+
+export interface AssignCommitResponse {
+  card_id: string;
+  task_id?: string;
+  board_name: string;
+  agent_id?: string;
+  title: string;
+  status: string;
+}
+
+export interface AgentItem {
+  id: string;
+  name: string;
+  role: string;
+  status: string;
+}

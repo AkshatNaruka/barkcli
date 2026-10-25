@@ -14,11 +14,13 @@ use std::process::Command;
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Maximum commits to read per scan (safety cap for very large repos).
 pub const DEFAULT_MAX_COMMITS: usize = 500;
 
 /// Raw commit data extracted from git log.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RawCommit {
     pub sha: String,
     pub parents: Vec<String>,

@@ -16,13 +16,12 @@ use axum::{
 };
 use chrono::{DateTime, Local, Utc};
 use futures::{SinkExt, StreamExt};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, Mutex};
 use tower_http::services::ServeDir;
 
 use barkcli_core::agent::{
-    AgentIdentity, AgentRegistry, AgentRole, TaskQueue, TaskRequest, TaskResult, TaskStatus,
-    VelocityTracker,
+    AgentIdentity, AgentRegistry, AgentRole, TaskQueue, TaskRequest, TaskStatus,
 };
 use barkcli_core::code::SymbolIndex;
 use barkcli_core::memory::store::{MemoryEntry, MemoryStore, MemoryTier, ProjectFact};
@@ -185,6 +184,10 @@ pub async fn run(
         .route("/api/bundles/merge", post(merge_bundles_handler))
         .route("/api/bundles/split", post(split_bundle_handler))
         .route("/api/bundles/move", post(move_commit_handler))
+        // Git history & visualizer
+        .route("/api/git/commits", get(git_commits_handler))
+        .route("/api/git/diff/{sha}", get(git_diff_handler))
+        .route("/api/git/assign", post(git_assign_handler))
         // Skills endpoints (SPEC-004 R2)
         .route("/api/skills", get(list_skills_handler))
         .route("/api/skills/{id}", get(get_skill_handler))
@@ -3468,6 +3471,226 @@ async fn export_branch_handler(
         "tip_sha": tip,
         "original_branch_untouched": true,
     })))
+}
+
+// ── Git history & visualizer handlers ───────────────────────────────────────
+
+#[derive(Deserialize)]
+struct GitCommitsQuery {
+    branch: Option<String>,
+    since: Option<String>,
+    limit: Option<usize>,
+}
+
+#[derive(Serialize)]
+struct GitCommitsResponse {
+    branch: String,
+    branches: Vec<String>,
+    commits: Vec<barkcli_core::history::git::RawCommit>,
+}
+
+async fn git_commits_handler(
+    State(_state): State<Arc<AppState>>,
+    Query(query): Query<GitCommitsQuery>,
+) -> Result<Json<GitCommitsResponse>, ServerError> {
+    let root = barkcli_core::storage::board_dir::find_project_root()
+        .unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let branches = barkcli_core::history::git::list_branches(&root);
+    let current = barkcli_core::history::git::current_branch(&root);
+    let branch = query.branch.unwrap_or_else(|| {
+        if current.is_empty() {
+            "HEAD".to_string()
+        } else {
+            current
+        }
+    });
+    let limit = query.limit.unwrap_or(60).clamp(1, 300);
+    let commits = barkcli_core::history::git::read_commits(
+        &root,
+        &branch,
+        query.since.as_deref(),
+        limit,
+    ).unwrap_or_default();
+
+    Ok(Json(GitCommitsResponse {
+        branch,
+        branches,
+        commits,
+    }))
+}
+
+#[derive(Serialize)]
+struct GitDiffResponse {
+    sha: String,
+    message: String,
+    diff: String,
+    files_changed: Vec<String>,
+    additions: u64,
+    deletions: u64,
+}
+
+async fn git_diff_handler(
+    State(_state): State<Arc<AppState>>,
+    Path(sha): Path<String>,
+) -> Result<Json<GitDiffResponse>, ServerError> {
+    let root = barkcli_core::storage::board_dir::find_project_root()
+        .unwrap_or_else(|_| std::path::PathBuf::from("."));
+    if !barkcli_core::history::git::commit_exists(&root, &sha) {
+        return Err(ServerError::bad(format!("commit '{}' not found", sha)));
+    }
+    let message = barkcli_core::history::git::commit_message(&root, &sha);
+    let diff = barkcli_core::history::git::commit_diff(&root, &sha);
+
+    let mut files_changed = Vec::new();
+    let mut additions = 0u64;
+    let mut deletions = 0u64;
+
+    if let Ok(commits) = barkcli_core::history::git::read_commits(&root, &sha, None, 1) {
+        if let Some(c) = commits.into_iter().next() {
+            files_changed = c.files_changed;
+            additions = c.additions;
+            deletions = c.deletions;
+        }
+    }
+
+    Ok(Json(GitDiffResponse {
+        sha,
+        message,
+        diff,
+        files_changed,
+        additions,
+        deletions,
+    }))
+}
+
+#[derive(Deserialize)]
+struct GitAssignRequest {
+    board_name: Option<String>,
+    commit_sha: Option<String>,
+    title: String,
+    description: Option<String>,
+    column: Option<String>,
+    priority: Option<String>,
+    agent_id: Option<String>,
+    files_context: Option<Vec<String>>,
+    acceptance_criteria: Option<Vec<String>>,
+}
+
+#[derive(Serialize)]
+struct GitAssignResponse {
+    card_id: String,
+    task_id: Option<String>,
+    board_name: String,
+    agent_id: Option<String>,
+    title: String,
+    status: String,
+}
+
+async fn git_assign_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<GitAssignRequest>,
+) -> Result<Json<GitAssignResponse>, ServerError> {
+    let board_name = resolve_board_name(&state, req.board_name)?;
+    let title = req.title.trim().to_string();
+    if title.is_empty() {
+        return Err(ServerError::bad("Task title is required"));
+    }
+
+    let mut created_card_id = String::new();
+    let target_col = req.column.clone();
+    let card_desc = req.description.clone();
+    let card_prio = req.priority.clone();
+    let acc_criteria = req.acceptance_criteria.clone().unwrap_or_default();
+    let files = req.files_context.clone().unwrap_or_default();
+    let commit_sha_opt = req.commit_sha.clone();
+    let assigned_agent_req = req.agent_id.clone().filter(|s| !s.trim().is_empty());
+
+    // 1. Update board atomically with lock
+    barkcli_core::storage::board_file::update_board(&board_name, |board| {
+        let existing_ids: Vec<String> = board.cards.iter().map(|c| c.id.clone()).collect();
+        let fresh_id = barkcli_core::util::slug::unique_slug(&title, &existing_ids);
+        created_card_id = fresh_id.clone();
+
+        let col_id = target_col.clone().unwrap_or_else(|| {
+            board.columns.first().map(|c| c.id.clone()).unwrap_or_else(|| "todo".into())
+        });
+
+        let mut card = barkcli_core::models::card::Card::new(&fresh_id, &title, &col_id);
+        card.priority = card_prio.clone().unwrap_or_else(|| "medium".into());
+        card.description = card_desc.clone();
+        card.acceptance_criteria = acc_criteria.clone();
+        if let Some(ref aid) = assigned_agent_req {
+            card.assignee = Some(aid.clone());
+        }
+
+        let mut labels = vec!["git".to_string()];
+        if let Some(ref sha) = commit_sha_opt {
+            labels.push(format!("commit:{}", &sha[..7.min(sha.len())]));
+        }
+        card.labels = labels;
+
+        board.cards.push(card);
+        Ok(())
+    }).map_err(|e| ServerError::internal(format!("Failed to save board card: {}", e)))?;
+
+    // 2. Create task in task queue
+    let tasks_dir = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .join("tasks");
+    let _ = std::fs::create_dir_all(&tasks_dir);
+    let tasks_path = tasks_dir.join(format!("{}.json", board_name));
+
+    let mut queue = if tasks_path.exists() {
+        TaskQueue::load(&tasks_path).unwrap_or_else(|_| TaskQueue::new())
+    } else {
+        TaskQueue::new()
+    };
+
+    let context_files: Vec<barkcli_core::agent::queue::FileContext> = files
+        .into_iter()
+        .map(|path| barkcli_core::agent::queue::FileContext {
+            content: std::fs::read_to_string(&path).ok(),
+            symbols: Vec::new(),
+            call_graph: None,
+            test_coverage: None,
+            path,
+        })
+        .collect();
+
+    let task = barkcli_core::agent::queue::create_task(
+        &created_card_id,
+        &title,
+        req.description.as_deref().unwrap_or(""),
+        req.acceptance_criteria.clone().unwrap_or_default(),
+        context_files,
+        req.priority.as_deref().unwrap_or("medium"),
+    );
+
+    let mut assigned_agent = None;
+    let mut status = "created".to_string();
+
+    if let Some(ref agent_id) = assigned_agent_req {
+        if queue.claim(&task.id, agent_id, None, 60).is_ok() {
+            let _ = agent_start_task(agent_id, &task.id);
+            assigned_agent = Some(agent_id.clone());
+            status = "assigned".to_string();
+        }
+    }
+
+    queue.add(task.clone());
+    let _ = queue.save(&tasks_path);
+
+    // 3. Broadcast reload
+    let _ = state.tx.send("reload".to_string());
+
+    Ok(Json(GitAssignResponse {
+        card_id: created_card_id,
+        task_id: Some(task.id),
+        board_name,
+        agent_id: assigned_agent,
+        title,
+        status,
+    }))
 }
 
 async fn list_skills_handler() -> Result<Json<serde_json::Value>, ServerError> {

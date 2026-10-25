@@ -96,6 +96,66 @@ export async function fetchBundleTree(): Promise<string> {
   return data.tree || "";
 }
 
+export interface GitCommit {
+  sha: string;
+  parents: string[];
+  subject: string;
+  body: string;
+  author: string;
+  author_email: string;
+  date: string;
+  trailers: Array<[string, string]>;
+  is_merge: boolean;
+  is_empty: boolean;
+  files_changed: string[];
+  additions: number;
+  deletions: number;
+  patch_id?: string | null;
+}
+
+export interface GitCommitsResponse {
+  branch: string;
+  branches: string[];
+  commits: GitCommit[];
+}
+
+export interface GitDiffResponse {
+  sha: string;
+  message: string;
+  diff: string;
+  files_changed: string[];
+  additions: number;
+  deletions: number;
+}
+
+export interface AssignCommitRequest {
+  board_name?: string;
+  commit_sha?: string;
+  title: string;
+  description?: string;
+  column?: string;
+  priority?: string;
+  agent_id?: string;
+  files_context?: string[];
+  acceptance_criteria?: string[];
+}
+
+export interface AssignCommitResponse {
+  card_id: string;
+  task_id?: string;
+  board_name: string;
+  agent_id?: string;
+  title: string;
+  status: string;
+}
+
+export interface AgentItem {
+  id: string;
+  name: string;
+  role: string;
+  status: string;
+}
+
 // ── Access token ──
 // The server may require a token (barkcli serve --token X). The CLI opens the
 // browser with ?token=...; we persist it for the tab's lifetime.
@@ -153,6 +213,40 @@ export async function saveBoard(board: Board, name?: string): Promise<void> {
     return saveBoardVsCode(board);
   }
   return saveBoardHttp(board, name);
+}
+
+export async function fetchGitCommits(branch?: string, limit?: number): Promise<GitCommitsResponse> {
+  const params = new URLSearchParams();
+  if (branch) params.set("branch", branch);
+  if (limit) params.set("limit", limit.toString());
+  const res = await fetch(withToken(`/api/git/commits?${params.toString()}`));
+  if (!res.ok) throw new Error("Failed to fetch git commits");
+  return res.json();
+}
+
+export async function fetchCommitDiff(sha: string): Promise<GitDiffResponse> {
+  const res = await fetch(withToken(`/api/git/diff/${encodeURIComponent(sha)}`));
+  if (!res.ok) throw new Error("Failed to fetch commit diff");
+  return res.json();
+}
+
+export async function assignCommitToAgent(payload: AssignCommitRequest): Promise<AssignCommitResponse> {
+  const res = await fetch(withToken("/api/git/assign"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || "Failed to assign commit task");
+  }
+  return res.json();
+}
+
+export async function fetchAgentsList(): Promise<{ agents: AgentItem[] }> {
+  const res = await fetch(withToken("/api/agents"));
+  if (!res.ok) throw new Error("Failed to fetch agents");
+  return res.json();
 }
 
 export async function fetchSprints(name?: string): Promise<Sprint[]> {
