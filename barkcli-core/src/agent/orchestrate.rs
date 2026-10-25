@@ -1,16 +1,15 @@
 use std::collections::HashMap;
-use std::path::Path;
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::models::{Board, Card, Sprint};
+use crate::models::{Board, Card};
 
-use super::capacity::{VelocityTracker, calculate_velocity_from_data};
+use super::capacity::VelocityTracker;
 use super::decompose::{CardDecompositionContext, TaskPlan, decompose_task};
-use super::identity::{AgentIdentity, AgentRegistry, AgentStatus};
-use super::queue::{TaskQueue, TaskRequest, TaskResult, TaskStatus};
+use super::identity::AgentRegistry;
+use super::queue::{TaskQueue, TaskStatus};
 use super::roles::AgentRole;
 
 /// Orchestration engine state

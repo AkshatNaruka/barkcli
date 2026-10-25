@@ -1,10 +1,58 @@
 use anyhow::{bail, Result};
-
 use chrono::Datelike;
+use serde::{Deserialize, Serialize};
 
 use crate::models::Card;
 use crate::storage::board_file::read_board;
 use crate::util::style;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgendaSummary {
+    pub board_name: String,
+    pub today: String,
+    pub overdue_count: usize,
+    pub today_count: usize,
+    pub upcoming_count: usize,
+    pub backlog_count: usize,
+    pub total_active: usize,
+}
+
+pub fn get_agenda_summary(board_name: &str) -> Result<AgendaSummary> {
+    let board = read_board(board_name)?;
+    let today = today();
+
+    let mut overdue_count = 0;
+    let mut today_count = 0;
+    let mut upcoming_count = 0;
+    let mut backlog_count = 0;
+
+    for card in &board.cards {
+        if is_done(card) {
+            continue;
+        }
+        match card.due_date.as_deref().and_then(date_of) {
+            Some(d) if d < today => overdue_count += 1,
+            Some(d) if d == today => today_count += 1,
+            Some(d) if d <= day_after(7) => upcoming_count += 1,
+            _ => {}
+        }
+        if card.due_date.is_none() {
+            backlog_count += 1;
+        }
+    }
+
+    let total_active = board.cards.iter().filter(|c| !is_done(c)).count();
+
+    Ok(AgendaSummary {
+        board_name: board_name.to_string(),
+        today,
+        overdue_count,
+        today_count,
+        upcoming_count,
+        backlog_count,
+        total_active,
+    })
+}
 
 /// Date portion of an ISO timestamp, or `None` for missing/garbage values.
 fn date_of(s: &str) -> Option<String> {

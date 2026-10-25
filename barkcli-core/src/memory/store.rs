@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
@@ -71,6 +71,7 @@ pub struct ConsolidationReport {
     pub promoted: usize,
     pub compressed: bool,
     pub evicted: usize,
+    pub deduplicated: usize,
 }
 
 fn recency_signal(entry: &MemoryEntry) -> f32 {
@@ -297,9 +298,10 @@ impl MemoryStore {
         touched
     }
 
-    /// Run the full maintenance cycle: promote, compress, evict. Called at
-    /// the end of each session ingest.
+    /// Run the full maintenance cycle: deduplicate, promote, compress, evict.
+    /// Called at the end of each session ingest.
     pub fn consolidate(&mut self) -> ConsolidationReport {
+        let deduplicated = self.deduplicate_entries();
         let promoted = self.promote_entries();
         // Compress only when short-term accumulates; recent sessions stay as
         // their own memories instead of being flattened into one blob.
@@ -323,7 +325,32 @@ impl MemoryStore {
             promoted,
             compressed,
             evicted,
+            deduplicated,
         }
+    }
+
+    /// Deduplicate entries with identical trimmed content, keeping the highest importance entry.
+    pub fn deduplicate_entries(&mut self) -> usize {
+        let mut seen = HashMap::new();
+        let mut deduped = Vec::new();
+        let mut removed = 0;
+
+        for entry in self.memory.entries.drain(..) {
+            let key = entry.content.trim().to_lowercase();
+            if let Some(&existing_idx) = seen.get(&key) {
+                let existing: &mut MemoryEntry = &mut deduped[existing_idx];
+                if entry.importance > existing.importance {
+                    existing.importance = entry.importance;
+                }
+                existing.access_count += entry.access_count;
+                removed += 1;
+            } else {
+                seen.insert(key, deduped.len());
+                deduped.push(entry);
+            }
+        }
+        self.memory.entries = deduped;
+        removed
     }
 
     /// Top memories by importance + graph centrality + recency, for agent
@@ -511,4 +538,26 @@ fn memory_path(board_name: &str) -> Result<PathBuf> {
     let dir = board_dir.join("memory");
     std::fs::create_dir_all(&dir).ok();
     Ok(dir.join(format!("{}.json", board_name)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_deduplicate_entries() {
+        let mut store = MemoryStore {
+            board_name: "test".to_string(),
+            path: PathBuf::from("test.json"),
+            memory: Memory::default(),
+        };
+        store.memory.entries.push(MemoryEntry::new("Unique fact 1", MemoryTier::ShortTerm));
+        store.memory.entries.push(MemoryEntry::new("Unique fact 1", MemoryTier::ShortTerm));
+        store.memory.entries.push(MemoryEntry::new("Unique fact 2", MemoryTier::ShortTerm));
+
+        assert_eq!(store.len(), 3);
+        let removed = store.deduplicate_entries();
+        assert_eq!(removed, 1);
+        assert_eq!(store.len(), 2);
+    }
 }

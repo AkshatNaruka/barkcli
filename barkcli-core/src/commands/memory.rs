@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 use crate::memory::store::{MemoryEntry, MemoryStore, MemoryTier};
 use crate::util::style;

@@ -15,8 +15,6 @@ use std::process::Command;
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 
-use crate::models::bundle::CommitRef;
-
 /// Maximum commits to read per scan (safety cap for very large repos).
 pub const DEFAULT_MAX_COMMITS: usize = 500;
 

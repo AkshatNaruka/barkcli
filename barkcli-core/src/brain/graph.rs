@@ -113,6 +113,67 @@ impl BrainGraph {
         m
     }
 
+    /// Extract a focused subgraph starting from `root_id` up to `max_depth` hops.
+    pub fn subgraph(&self, root_id: &str, max_depth: usize) -> Self {
+        let mut visited: HashSet<String> = HashSet::new();
+        let mut current_frontier: HashSet<String> = HashSet::new();
+        current_frontier.insert(root_id.to_string());
+        visited.insert(root_id.to_string());
+
+        for _ in 0..max_depth {
+            let mut next_frontier: HashSet<String> = HashSet::new();
+            for id in &current_frontier {
+                for edge in &self.edges {
+                    if edge.from == *id && !visited.contains(&edge.to) {
+                        visited.insert(edge.to.clone());
+                        next_frontier.insert(edge.to.clone());
+                    } else if edge.to == *id && !visited.contains(&edge.from) {
+                        visited.insert(edge.from.clone());
+                        next_frontier.insert(edge.from.clone());
+                    }
+                }
+            }
+            if next_frontier.is_empty() {
+                break;
+            }
+            current_frontier = next_frontier;
+        }
+
+        let nodes: Vec<BrainNode> = self
+            .nodes
+            .iter()
+            .filter(|n| visited.contains(&n.id))
+            .cloned()
+            .collect();
+        let edges: Vec<BrainEdge> = self
+            .edges
+            .iter()
+            .filter(|e| visited.contains(&e.from) && visited.contains(&e.to))
+            .cloned()
+            .collect();
+
+        Self {
+            version: self.version,
+            nodes,
+            edges,
+        }
+    }
+
+    /// Return nodes ranked by degree centrality (most connected first).
+    pub fn centrality_ranked_nodes(&self) -> Vec<(&BrainNode, usize)> {
+        let degrees = self.degree_map();
+        let mut ranked: Vec<(&BrainNode, usize)> = self
+            .nodes
+            .iter()
+            .map(|n| {
+                let d = degrees.get(&n.id).copied().unwrap_or(0);
+                (n, d)
+            })
+            .collect();
+        ranked.sort_by(|a, b| b.1.cmp(&a.1));
+        ranked
+    }
+
     /// Rebuild the graph from memory entries + sessions + facts.
     pub fn build(board: &str) -> Result<Self> {
         use crate::brain::relations;

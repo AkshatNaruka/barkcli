@@ -1,7 +1,5 @@
 use anyhow::{Context, Result};
-use chrono::Utc;
-
-use crate::agent::queue::{CompletionStatus, TaskQueue, TaskResults, TaskStatus};
+use crate::agent::queue::{TaskQueue, TaskResults, TaskStatus};
 use crate::storage::board_file::{read_board, write_board};
 use crate::util::style;
 

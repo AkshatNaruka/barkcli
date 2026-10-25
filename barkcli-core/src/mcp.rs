@@ -83,16 +83,14 @@
 //! }
 //! ```
 
-use std::collections::HashMap;
 use std::io::{self, BufRead, Write};
-use std::path::Path;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::agent::{
-    AgentIdentity, AgentRegistry, AgentRole, TaskQueue, TaskRequest, TaskStatus,
+    AgentIdentity, AgentRegistry, AgentRole, TaskQueue, TaskStatus,
 };
 use crate::code::{CallGraph, SymbolIndex};
 use crate::models::{Board, Card, Column};
@@ -1871,18 +1869,18 @@ impl McpServer {
             .map(|arr| {
                 arr.iter()
                     .enumerate()
-                    .map(|(i, col)| Column {
-                        id: col.as_str().unwrap_or(&format!("col-{}", i)).to_string(),
-                        name: col.as_str().unwrap_or(&format!("Column {}", i)).to_string(),
-                    })
+                    .map(|(i, col)| Column::new(
+                        col.as_str().unwrap_or(&format!("col-{}", i)).to_string(),
+                        col.as_str().unwrap_or(&format!("Column {}", i)).to_string(),
+                    ))
                     .collect()
             })
             .unwrap_or_else(|| {
                 vec![
-                    Column { id: "todo".to_string(), name: "Todo".to_string() },
-                    Column { id: "doing".to_string(), name: "Doing".to_string() },
-                    Column { id: "review".to_string(), name: "Review".to_string() },
-                    Column { id: "done".to_string(), name: "Done".to_string() },
+                    Column::new("todo", "Todo"),
+                    Column::new("doing", "Doing"),
+                    Column::new("review", "Review"),
+                    Column::new("done", "Done"),
                 ]
             });
 

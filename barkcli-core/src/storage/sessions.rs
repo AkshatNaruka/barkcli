@@ -1,12 +1,21 @@
 use std::io::Write;
 
 use anyhow::{Context, Result};
+use serde::{Deserialize, Serialize};
 
 use crate::models::session::SessionEntry;
 use crate::storage::board_dir::find_board_dir;
 use crate::util::redact::redact_text;
 
 const SESSIONS_DIR: &str = "sessions";
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionStats {
+    pub total_sessions: usize,
+    pub total_files_touched: usize,
+    pub unique_agents: usize,
+    pub average_files_per_session: f32,
+}
 
 /// Append a session entry to `.board/sessions/<board>.jsonl`.
 /// All free-text fields are redacted before hitting disk. Cards whose mapped
@@ -110,6 +119,74 @@ pub fn read_sessions(board_name: &str) -> Result<Vec<SessionEntry>> {
         }
     }
     Ok(entries)
+}
+
+/// Filter sessions by query text, agent, card id, and limit.
+pub fn filter_sessions(
+    board_name: &str,
+    query: Option<&str>,
+    agent: Option<&str>,
+    card_id: Option<&str>,
+    limit: Option<usize>,
+) -> Result<Vec<SessionEntry>> {
+    let mut entries = read_sessions(board_name)?;
+    // Newest first
+    entries.reverse();
+
+    if let Some(q) = query {
+        let q_lower = q.to_lowercase();
+        entries.retain(|s| {
+            s.summary.as_deref().map(|t| t.to_lowercase().contains(&q_lower)).unwrap_or(false)
+                || s.prompt.as_deref().map(|t| t.to_lowercase().contains(&q_lower)).unwrap_or(false)
+                || s.files_touched.iter().any(|f| f.to_lowercase().contains(&q_lower))
+        });
+    }
+
+    if let Some(a) = agent {
+        entries.retain(|s| s.agent.as_deref() == Some(a));
+    }
+
+    if let Some(cid) = card_id {
+        entries.retain(|s| s.matched_card_ids.iter().any(|id| id == cid));
+    }
+
+    if let Some(lim) = limit {
+        entries.truncate(lim);
+    }
+
+    Ok(entries)
+}
+
+/// Compute session activity statistics.
+pub fn session_stats(board_name: &str) -> Result<SessionStats> {
+    let sessions = read_sessions(board_name)?;
+    let total_sessions = sessions.len();
+    let mut files_set = std::collections::HashSet::new();
+    let mut agents_set = std::collections::HashSet::new();
+
+    let mut total_files_count = 0;
+    for s in &sessions {
+        total_files_count += s.files_touched.len();
+        for f in &s.files_touched {
+            files_set.insert(f.clone());
+        }
+        if let Some(ref a) = s.agent {
+            agents_set.insert(a.clone());
+        }
+    }
+
+    let avg = if total_sessions > 0 {
+        total_files_count as f32 / total_sessions as f32
+    } else {
+        0.0
+    };
+
+    Ok(SessionStats {
+        total_sessions,
+        total_files_touched: files_set.len(),
+        unique_agents: agents_set.len(),
+        average_files_per_session: avg,
+    })
 }
 
 #[cfg(test)]

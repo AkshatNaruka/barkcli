@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use serde::{Deserialize, Serialize};
 
 /// File-level complexity metrics

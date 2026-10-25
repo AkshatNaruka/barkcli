@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 
 use crate::agent::identity::{AgentRegistry, AgentStatus};
 use crate::agent::queue::{TaskQueue, TaskStatus};
@@ -55,7 +55,7 @@ fn render_dashboard(board_name: &str, board: &crate::models::Board) -> Result<()
     for col in &columns {
         let count = col_counts.get(col).unwrap_or(&0);
         let bar = "█".repeat(*count);
-        let empty = "░".repeat((10 - count.min(&10)));
+        let empty = "░".repeat(10 - count.min(&10));
         println!("  {:>8} {:>3} {}{}", col, count, style::column(bar.as_str()), style::muted(&empty));
     }
     println!("  {:>8} {:>3}", "total", board.cards.len());

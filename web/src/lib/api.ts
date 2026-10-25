@@ -256,18 +256,68 @@ export async function fetchHistory(cardId?: string, limit?: number): Promise<His
   }
 }
 
-export async function fetchSessions(limit?: number): Promise<SessionEntry[]> {
+export async function fetchSessions(limit?: number, q?: string, agent?: string, cardId?: string): Promise<SessionEntry[]> {
   if (isVscode && vscodeApi) {
     return fetchSessionsVsCode();
   }
   try {
-    const qs = limit ? `?limit=${limit}` : "";
+    const params = new URLSearchParams();
+    if (limit) params.set("limit", String(limit));
+    if (q) params.set("q", q);
+    if (agent) params.set("agent", agent);
+    if (cardId) params.set("card_id", cardId);
+    const qs = params.toString() ? `?${params.toString()}` : "";
     const res = await fetch(withToken(`/api/sessions${qs}`));
     if (!res.ok) return [];
     const data = await res.json();
     return Array.isArray(data.sessions) ? data.sessions : [];
   } catch {
     return [];
+  }
+}
+
+export async function fetchSessionStats(name?: string): Promise<{ total_sessions: number; total_files_touched: number; unique_agents: number; average_files_per_session: number } | null> {
+  try {
+    const qs = name ? `?name=${encodeURIComponent(name)}` : "";
+    const res = await fetch(withToken(`/api/sessions/stats${qs}`));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchAgenda(name?: string): Promise<{ board_name: string; today: string; overdue_count: number; today_count: number; upcoming_count: number; backlog_count: number; total_active: number } | null> {
+  try {
+    const qs = name ? `?name=${encodeURIComponent(name)}` : "";
+    const res = await fetch(withToken(`/api/agenda${qs}`));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchReportsData(name?: string): Promise<{
+  board_name: string;
+  total_cards: number;
+  completed_cards: number;
+  in_progress_cards: number;
+  blocked_cards: number;
+  todo_cards: number;
+  completion_rate: number;
+  total_effort: number;
+  completed_effort: number;
+  by_priority: Record<string, number>;
+  by_column: Record<string, number>;
+} | null> {
+  try {
+    const qs = name ? `?name=${encodeURIComponent(name)}` : "";
+    const res = await fetch(withToken(`/api/reports${qs}`));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
   }
 }
 

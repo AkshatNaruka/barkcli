@@ -1,5 +1,6 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import type { Board as BoardType, Card, Sprint } from "../lib/types";
+import { fetchReportsData } from "../lib/api";
 
 function Bar({ label, value, max, tone, suffix }: {
   label: string;
@@ -41,6 +42,23 @@ function sprintTag(s: Sprint) {
 
 export function ReportsView({ board, sprints }: { board: BoardType; sprints: Sprint[] }) {
   const today = new Date().toISOString().slice(0, 10);
+  const [reportsData, setReportsData] = useState<{
+    board_name: string;
+    total_cards: number;
+    completed_cards: number;
+    in_progress_cards: number;
+    blocked_cards: number;
+    todo_cards: number;
+    completion_rate: number;
+    total_effort: number;
+    completed_effort: number;
+    by_priority: Record<string, number>;
+    by_column: Record<string, number>;
+  } | null>(null);
+
+  useEffect(() => {
+    fetchReportsData(board.title).then(setReportsData);
+  }, [board.title]);
 
   const report = useMemo(() => {
     // Effort by column
@@ -81,6 +99,44 @@ export function ReportsView({ board, sprints }: { board: BoardType; sprints: Spr
   return (
     <div className="h-full overflow-auto">
       <div className="w-full max-w-[1600px] mx-auto p-4 space-y-6">
+        {/* Executive Delivery Metrics */}
+        {reportsData && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-surface rounded-lg p-3">
+              <div className="text-[10px] uppercase tracking-wider text-muted">Completion Rate</div>
+              <div className="text-xl font-bold font-mono text-success mt-0.5">
+                {reportsData.completion_rate.toFixed(1)}%
+              </div>
+              <div className="text-[11px] text-muted mt-0.5">
+                {reportsData.completed_cards} of {reportsData.total_cards} cards completed
+              </div>
+            </div>
+            <div className="bg-surface rounded-lg p-3">
+              <div className="text-[10px] uppercase tracking-wider text-muted">Effort Delivered</div>
+              <div className="text-xl font-bold font-mono text-accent mt-0.5">
+                {reportsData.completed_effort} / {reportsData.total_effort}
+              </div>
+              <div className="text-[11px] text-muted mt-0.5">Story points completed</div>
+            </div>
+            <div className="bg-surface rounded-lg p-3">
+              <div className="text-[10px] uppercase tracking-wider text-muted">In Flight Execution</div>
+              <div className="text-xl font-bold font-mono text-warning mt-0.5">
+                {reportsData.in_progress_cards}
+              </div>
+              <div className="text-[11px] text-muted mt-0.5">
+                {reportsData.blocked_cards} blocked cards
+              </div>
+            </div>
+            <div className="bg-surface rounded-lg p-3">
+              <div className="text-[10px] uppercase tracking-wider text-muted">Unscheduled / Todo</div>
+              <div className="text-xl font-bold font-mono text-muted-strong mt-0.5">
+                {reportsData.todo_cards}
+              </div>
+              <div className="text-[11px] text-muted mt-0.5">Cards ready for dispatch</div>
+            </div>
+          </div>
+        )}
+
         {/* Sprint burndown */}
         <Section title="Sprint burndown">
           {report.sprintRows.length === 0 && (

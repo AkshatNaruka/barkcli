@@ -114,12 +114,13 @@ impl TierManager {
     }
 
     /// Get recency weight based on last access time.
+    ///
+    /// Implements bounded exponential memory decay with a 0.3x floor for stale memories
+    /// and a 1.5x peak for fresh memories across a 7-day (168h) decay curve.
     pub fn recency_weight(last_accessed: chrono::DateTime<chrono::Utc>) -> f32 {
-        let age_hours = (chrono::Utc::now() - last_accessed).num_hours() as f32;
-
-        // Exponential decay: recent access = higher weight
-        // Half-life of 24 hours
-        (-age_hours / 24.0_f32.ln()).exp().min(2.0)
+        let age_hours = (chrono::Utc::now() - last_accessed).num_hours().max(0) as f32;
+        let decay = (-age_hours / 168.0).exp();
+        0.3 + 1.2 * decay
     }
 }
 
@@ -165,5 +166,16 @@ mod tests {
     fn test_tier_weights() {
         assert!(TierManager::tier_weight(MemoryTier::Working) > TierManager::tier_weight(MemoryTier::External));
         assert!(TierManager::tier_weight(MemoryTier::ShortTerm) > TierManager::tier_weight(MemoryTier::LongTerm));
+    }
+
+    #[test]
+    fn test_recency_decay_floor_and_ceiling() {
+        let now = chrono::Utc::now();
+        let fresh_weight = TierManager::recency_weight(now);
+        assert!(fresh_weight >= 1.49 && fresh_weight <= 1.51);
+
+        let stale_date = now - chrono::Duration::days(365);
+        let stale_weight = TierManager::recency_weight(stale_date);
+        assert!(stale_weight >= 0.29 && stale_weight <= 0.31);
     }
 }

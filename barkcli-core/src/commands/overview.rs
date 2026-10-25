@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use comfy_table::{Cell, Table};
+use comfy_table::Cell;
 
 use crate::mind::snapshot;
 use crate::util::{display, style};

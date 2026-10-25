@@ -27,6 +27,8 @@ pub struct Blocker {
     pub title: String,
     pub blocked_by: Vec<String>,
     pub column: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resolution_hint: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -65,6 +67,8 @@ pub struct MindSnapshot {
     pub top_memories: Vec<MemoryEntry>,
     pub velocity: Option<VelocityReport>,
     pub bundle_stats: Option<BundleStats>,
+    #[serde(default)]
+    pub health_score: f32,
 }
 
 /// Bundle statistics for mind snapshot.
@@ -127,11 +131,27 @@ pub fn build(board_name: &str) -> Result<MindSnapshot> {
             }
         }
         if !blocked_by.is_empty() {
+            let all_done = blocked_by.iter().all(|target_id| {
+                board.cards.iter().any(|other| other.id == *target_id && other.column == "done")
+            });
+            let hint = if all_done {
+                Some("All blockers resolved — ready to move to doing".into())
+            } else {
+                let any_doing = blocked_by.iter().any(|target_id| {
+                    board.cards.iter().any(|other| other.id == *target_id && other.column == "doing")
+                });
+                if any_doing {
+                    Some("Prerequisite currently in progress".into())
+                } else {
+                    Some("Waiting on prerequisite to be scheduled".into())
+                }
+            };
             blockers.push(Blocker {
                 card_id: c.id.clone(),
                 title: c.title.clone(),
                 blocked_by,
                 column: c.column.clone(),
+                resolution_hint: hint,
             });
         }
     }
@@ -159,6 +179,15 @@ pub fn build(board_name: &str) -> Result<MindSnapshot> {
 
     // Next actions heuristics
     let mut next_actions: Vec<NextAction> = Vec::new();
+    let dependency_cycles = board.detect_dependency_cycles();
+    if !dependency_cycles.is_empty() {
+        for cycle in &dependency_cycles {
+            next_actions.push(NextAction {
+                action: format!("barkcli link {} --unlink", cycle.first().cloned().unwrap_or_default()),
+                reason: format!("Dependency deadlock cycle detected: {}", cycle.join(" -> ")),
+            });
+        }
+    }
     let todo_no_ac: Vec<&crate::models::card::Card> = board
         .cards
         .iter()
@@ -295,6 +324,14 @@ pub fn build(board_name: &str) -> Result<MindSnapshot> {
         }
     };
 
+    // Health score computation (0.0 to 100.0)
+    let completion_pct = board.completion_rate();
+    let blocker_penalty = (blockers.len() as f32 * 10.0).min(40.0);
+    let stale_penalty = (stale_cards.len() as f32 * 5.0).min(30.0);
+    let cycle_penalty = if dependency_cycles.is_empty() { 0.0 } else { 25.0 };
+    let base_score = (completion_pct * 0.6) + 40.0;
+    let health_score = (base_score - blocker_penalty - stale_penalty - cycle_penalty).clamp(0.0, 100.0);
+
     Ok(MindSnapshot {
         board_name: board_name.to_string(),
         generated_at: Utc::now(),
@@ -308,6 +345,7 @@ pub fn build(board_name: &str) -> Result<MindSnapshot> {
         top_memories,
         velocity,
         bundle_stats,
+        health_score,
     })
 }
 

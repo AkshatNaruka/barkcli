@@ -4,7 +4,6 @@ use anyhow::{Context, Result};
 
 use crate::history;
 use crate::history::llm;
-use crate::history::store;
 use crate::models::bundle::{BundleKind, BundleStatus};
 use crate::util::style;
 

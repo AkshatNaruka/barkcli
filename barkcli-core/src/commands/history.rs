@@ -1,9 +1,8 @@
 //! `barkcli history` — scan, watch, install-hooks, tree.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 use crate::history;
-use crate::history::store;
 use crate::util::style;
 
 /// `barkcli history scan [--since <sha>] [--all] [--branch <name>] [--no-llm]`

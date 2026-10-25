@@ -156,6 +156,22 @@ pub fn dispatch_scores(
     items
 }
 
+/// Return only collision-free runnable tasks: tasks whose required context files
+/// have zero intersection with any currently active claimed tasks in the queue.
+pub fn collision_free_candidates(
+    queue: &TaskQueue,
+    registry: &AgentRegistry,
+    role: &AgentRole,
+) -> Vec<ReadyItem> {
+    dispatch_scores(queue, registry, role)
+        .into_iter()
+        .filter(|item| {
+            let rep = overlap(queue, &item.task_id);
+            rep.shared_files.is_empty()
+        })
+        .collect()
+}
+
 /// Fleet reconciler state (persisted per board).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ReconcilerState {
@@ -298,6 +314,14 @@ mod tests {
         let id = q.tasks[0].id.clone();
         let rep = overlap(&q, &id);
         assert!(rep.overlapping_tasks.is_empty());
+    }
+
+    #[test]
+    fn test_collision_free_candidates() {
+        let q = test_queue();
+        let reg = AgentRegistry::new();
+        let free = collision_free_candidates(&q, &reg, &AgentRole::TechLead);
+        assert_eq!(free.len(), 2);
     }
 
     #[test]

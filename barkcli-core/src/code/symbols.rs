@@ -67,6 +67,17 @@ static GO: Lazy<Vec<Regex>> = Lazy::new(|| {
     .collect()
 });
 
+static C_CPP: Lazy<Vec<Regex>> = Lazy::new(|| {
+    [
+        r"(?m)^\s*(?:[a-zA-Z_]\w*::)?(?:[a-zA-Z_]\w*\s+)+([a-zA-Z_]\w*)\s*\([^)]*\)\s*\{",
+        r"(?m)^\s*(?:class|struct|enum(?:\s+class)?)\s+([a-zA-Z_]\w*)",
+        r"(?m)^\s*#define\s+([a-zA-Z_]\w*)",
+    ]
+    .iter()
+    .map(|p| Regex::new(p).unwrap())
+    .collect()
+});
+
 static OTHER: Lazy<Vec<Regex>> = Lazy::new(|| {
     [
         r"(?m)^\s*(?:public|private|protected|internal|static)?\s*(?:function|def|sub)\s+([a-zA-Z_$]\w*)",
@@ -88,7 +99,9 @@ fn patterns_for(path: &str) -> Vec<&'static Regex> {
         PYTHON.iter().collect()
     } else if lower.ends_with(".go") {
         GO.iter().collect()
-    } else if lower.ends_with(".rb") || lower.ends_with(".php") || lower.ends_with(".java") || lower.ends_with(".kt") || lower.ends_with(".c") || lower.ends_with(".h") || lower.ends_with(".cpp") || lower.ends_with(".hpp") || lower.ends_with(".cs") || lower.ends_with(".swift") {
+    } else if lower.ends_with(".c") || lower.ends_with(".h") || lower.ends_with(".cpp") || lower.ends_with(".hpp") || lower.ends_with(".cc") || lower.ends_with(".cxx") {
+        C_CPP.iter().collect()
+    } else if lower.ends_with(".rb") || lower.ends_with(".php") || lower.ends_with(".java") || lower.ends_with(".kt") || lower.ends_with(".cs") || lower.ends_with(".swift") {
         OTHER.iter().collect()
     } else {
         Vec::new()

@@ -252,7 +252,16 @@ export function CalendarView({ board, sprints, onEditCard, onAddCard }: Props) {
 
       {/* Agenda sidebar */}
       <aside className="lg:w-80 shrink-0 border-t lg:border-t-0 lg:border-l border-border p-4 overflow-y-auto">
-        <h3 className="text-sm font-bold text-text mb-3">Agenda</h3>
+        <div className="mb-3">
+          <h3 className="text-sm font-bold text-text">Agenda</h3>
+          <div className="flex items-center gap-1.5 mt-1 text-[11px] font-mono text-muted">
+            <span className={overdue.length > 0 ? "text-danger font-semibold" : ""}>{overdue.length} overdue</span>
+            <span>·</span>
+            <span className={dueToday.length > 0 ? "text-accent font-semibold" : ""}>{dueToday.length} today</span>
+            <span>·</span>
+            <span>{upcoming.length} this week</span>
+          </div>
+        </div>
 
         <AgendaSection title="Overdue" count={overdue.length} tone="danger">
           {overdue.map((c) => (

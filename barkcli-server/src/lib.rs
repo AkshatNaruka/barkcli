@@ -83,6 +83,9 @@ pub async fn run(
         .route("/api/sprints/end", post(end_sprint_handler))
         .route("/api/history", get(history_handler))
         .route("/api/sessions", get(sessions_handler))
+        .route("/api/sessions/stats", get(session_stats_handler))
+        .route("/api/agenda", get(agenda_handler))
+        .route("/api/reports", get(reports_handler))
         .route("/api/run/live", get(run_live_handler))
         .route("/api/context", get(context_handler))
         .route("/api/context/sync", post(sync_context_handler))
@@ -289,10 +292,10 @@ async fn auto_init() {
             title: "My Project".into(),
             description: Some("Default board created by barkcli serve".into()),
             columns: vec![
-                barkcli_core::models::Column { id: "todo".into(), name: "To Do".into() },
-                barkcli_core::models::Column { id: "doing".into(), name: "Doing".into() },
-                barkcli_core::models::Column { id: "review".into(), name: "Review".into() },
-                barkcli_core::models::Column { id: "done".into(), name: "Done".into() },
+                barkcli_core::models::Column::new("todo", "To Do"),
+                barkcli_core::models::Column::new("doing", "Doing"),
+                barkcli_core::models::Column::new("review", "Review"),
+                barkcli_core::models::Column::new("done", "Done"),
             ],
             cards: vec![],
         };
@@ -724,6 +727,9 @@ struct SessionsQuery {
     name: Option<String>,
     limit: Option<usize>,
     since: Option<String>,
+    q: Option<String>,
+    agent: Option<String>,
+    card_id: Option<String>,
 }
 
 async fn sessions_handler(
@@ -731,10 +737,89 @@ async fn sessions_handler(
     Query(query): Query<SessionsQuery>,
 ) -> Result<Json<SessionsResponse>, ServerError> {
     let board_name = resolve_board_name(&state, query.name)?;
-    let mut all = sessions::read_sessions(&board_name).map_err(|e| ServerError::internal(e.to_string()))?;
-    all.reverse(); // newest first
+    let all = sessions::filter_sessions(
+        &board_name,
+        query.q.as_deref(),
+        query.agent.as_deref(),
+        query.card_id.as_deref(),
+        None,
+    ).map_err(|e| ServerError::internal(e.to_string()))?;
     let all = filter_entries(all, &query.since, query.limit, |e| &e.at);
     Ok(Json(SessionsResponse { sessions: all }))
+}
+
+async fn session_stats_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<BoardQuery>,
+) -> Result<Json<barkcli_core::storage::sessions::SessionStats>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let stats = sessions::session_stats(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(stats))
+}
+
+async fn agenda_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<BoardQuery>,
+) -> Result<Json<barkcli_core::commands::agenda::AgendaSummary>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let summary = barkcli_core::commands::agenda::get_agenda_summary(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(summary))
+}
+
+#[derive(serde::Serialize)]
+struct ReportsResponse {
+    board_name: String,
+    total_cards: usize,
+    completed_cards: usize,
+    in_progress_cards: usize,
+    blocked_cards: usize,
+    todo_cards: usize,
+    completion_rate: f32,
+    total_effort: u32,
+    completed_effort: u32,
+    by_priority: std::collections::HashMap<String, usize>,
+    by_column: std::collections::HashMap<String, usize>,
+}
+
+async fn reports_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<BoardQuery>,
+) -> Result<Json<ReportsResponse>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let board = read_board(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let total_cards = board.cards.len();
+    let completed_cards = board.cards.iter().filter(|c| c.column == "done").count();
+    let in_progress_cards = board.cards.iter().filter(|c| c.column == "doing" || c.column == "review").count();
+    let blocked_cards = board.cards.iter().filter(|c| c.blocked_by.is_some() || c.links.iter().any(|l| l.ty == barkcli_core::models::card::LinkType::BlockedBy)).count();
+    let todo_cards = board.cards.iter().filter(|c| c.column == "todo").count();
+    let completion_rate = board.completion_rate();
+    let total_effort = board.total_effort();
+    let completed_effort = board.completed_effort();
+
+    let mut by_priority = std::collections::HashMap::new();
+    let mut by_column = std::collections::HashMap::new();
+    for c in &board.cards {
+        *by_priority.entry(c.priority.clone()).or_insert(0) += 1;
+        *by_column.entry(c.column.clone()).or_insert(0) += 1;
+    }
+
+    Ok(Json(ReportsResponse {
+        board_name,
+        total_cards,
+        completed_cards,
+        in_progress_cards,
+        blocked_cards,
+        todo_cards,
+        completion_rate,
+        total_effort,
+        completed_effort,
+        by_priority,
+        by_column,
+    }))
 }
 
 #[derive(serde::Serialize)]
@@ -2975,10 +3060,10 @@ async fn create_board_handler(
     let board = Board {
         title: req.title,
         description: req.description,
-        columns: columns.iter().map(|c| barkcli_core::models::Column {
-            id: c.clone(),
-            name: c.clone(),
-        }).collect(),
+        columns: columns
+            .iter()
+            .map(|c| barkcli_core::models::Column::new(c, c))
+            .collect(),
         cards: vec![],
     };
 

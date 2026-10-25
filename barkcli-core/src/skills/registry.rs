@@ -188,11 +188,17 @@ mod tests {
     #[test]
     fn load_all_has_four_builtins() {
         let reg = SkillRegistry::load_all(None).unwrap();
-        assert!(reg.skills.len() >= 4);
+        assert!(reg.skills.len() >= 10);
         assert!(reg.get("mvp").is_some());
         assert!(reg.get("planning").is_some());
         assert!(reg.get("scrum-master").is_some());
         assert!(reg.get("test").is_some());
+        assert!(reg.get("tdd").is_some());
+        assert!(reg.get("code-review").is_some());
+        assert!(reg.get("security-audit").is_some());
+        assert!(reg.get("performance-engineer").is_some());
+        assert!(reg.get("database-architect").is_some());
+        assert!(reg.get("architecture-review").is_some());
     }
 
     #[test]

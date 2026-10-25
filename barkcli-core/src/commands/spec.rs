@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use comfy_table::{Attribute, Cell};
 
 use crate::models::spec::{Requirement, RequirementStatus, Spec, SpecStatus};
-use crate::storage::board_file::{list_board_files, read_board};
+use crate::storage::board_file::list_board_files;
 use crate::storage::specs::{
     calculate_coverage, get_spec, mark_stale_requirements, read_specs, remove_spec, upsert_spec,
 };

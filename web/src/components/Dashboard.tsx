@@ -130,38 +130,77 @@ export function Dashboard({
           </div>
         )}
 
-        {/* Mind — blockers / stale / next (from new MR) */}
+        {/* Mind — health / blockers / stale / next */}
         {mind && (
-          <div className="grid md:grid-cols-3 gap-3">
-            <div className="bg-surface rounded-lg p-3">
-              <h3 className="text-xs font-semibold text-text mb-2">Blockers</h3>
-              {mind.blockers?.length ? mind.blockers.slice(0, 4).map((b: any) => (
-                <div key={b.card_id} className="text-xs py-1 border-b border-border/50 last:border-0">
-                  <span className="text-text">{b.title}</span>
-                  <span className="text-muted"> → {b.blocked_by?.join(", ")}</span>
+          <div className="space-y-3">
+            <div className="bg-surface rounded-lg p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="text-xs font-semibold text-text flex items-center gap-2">
+                  <span>Project Health Index</span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                    (mind.health_score ?? 100) >= 80
+                      ? "bg-success/15 text-success"
+                      : (mind.health_score ?? 100) >= 50
+                      ? "bg-warning/15 text-warning"
+                      : "bg-danger/15 text-danger"
+                  }`}>
+                    {Math.round(mind.health_score ?? 100)} / 100
+                  </span>
                 </div>
-              )) : <p className="text-xs text-muted">No blockers</p>}
+                <div className="text-[11px] text-muted mt-0.5">
+                  Calculated automatically from card completion ratios, active blockers, and stale work
+                </div>
+              </div>
+              <div className="w-full sm:w-48">
+                <div className="h-2 bg-bg rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      (mind.health_score ?? 100) >= 80 ? "bg-success" : (mind.health_score ?? 100) >= 50 ? "bg-warning" : "bg-danger"
+                    }`}
+                    style={{ width: `${Math.round(mind.health_score ?? 100)}%` }}
+                  />
+                </div>
+              </div>
             </div>
-            <div className="bg-surface rounded-lg p-3">
-              <h3 className="text-xs font-semibold text-text mb-2">Stale &gt;7d</h3>
-              {mind.stale_cards?.length ? mind.stale_cards.slice(0, 4).map((s: any) => (
-                <div key={s.id} className="text-xs py-1 border-b border-border/50 last:border-0">
-                  <span className="text-text">{s.title}</span>
-                  <span className="text-muted"> ({s.column}, {s.days}d)</span>
-                </div>
-              )) : <p className="text-xs text-muted">No stale</p>}
-            </div>
-            <div className="bg-surface rounded-lg p-3">
-              <h3 className="text-xs font-semibold text-text mb-2">Next</h3>
-              {mind.next_actions?.length ? mind.next_actions.slice(0, 3).map((a: any, i: number) => (
-                <div key={i} className="text-xs py-1 border-b border-border/50 last:border-0">
-                  <span className="font-mono text-accent">{a.action}</span>
-                  <span className="text-muted"> — {a.reason}</span>
-                </div>
-              )) : <p className="text-xs text-muted">All clear</p>}
-              {mind.top_memories?.length ? (
-                <p className="text-[11px] text-muted mt-2 line-clamp-2">{mind.top_memories[0].content.slice(0, 80)}…</p>
-              ) : null}
+
+            <div className="grid md:grid-cols-3 gap-3">
+              <div className="bg-surface rounded-lg p-3">
+                <h3 className="text-xs font-semibold text-text mb-2">Blockers</h3>
+                {mind.blockers?.length ? mind.blockers.slice(0, 4).map((b: any) => (
+                  <div key={b.card_id} className="text-xs py-1.5 border-b border-border/50 last:border-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-text font-medium truncate">{b.title}</span>
+                      <span className="text-muted text-[10px] shrink-0">blocked by {b.blocked_by?.join(", ")}</span>
+                    </div>
+                    {b.resolution_hint && (
+                      <div className="text-[10px] text-accent mt-0.5 font-mono">
+                        ↳ {b.resolution_hint}
+                      </div>
+                    )}
+                  </div>
+                )) : <p className="text-xs text-muted">No blockers</p>}
+              </div>
+              <div className="bg-surface rounded-lg p-3">
+                <h3 className="text-xs font-semibold text-text mb-2">Stale &gt;7d</h3>
+                {mind.stale_cards?.length ? mind.stale_cards.slice(0, 4).map((s: any) => (
+                  <div key={s.id} className="text-xs py-1.5 border-b border-border/50 last:border-0">
+                    <span className="text-text font-medium">{s.title}</span>
+                    <span className="text-muted"> ({s.column}, {s.days}d)</span>
+                  </div>
+                )) : <p className="text-xs text-muted">No stale</p>}
+              </div>
+              <div className="bg-surface rounded-lg p-3">
+                <h3 className="text-xs font-semibold text-text mb-2">Next Actions</h3>
+                {mind.next_actions?.length ? mind.next_actions.slice(0, 3).map((a: any, i: number) => (
+                  <div key={i} className="text-xs py-1.5 border-b border-border/50 last:border-0">
+                    <span className="font-mono text-accent">{a.action}</span>
+                    <span className="text-muted"> — {a.reason}</span>
+                  </div>
+                )) : <p className="text-xs text-muted">All clear</p>}
+                {mind.top_memories?.length ? (
+                  <p className="text-[11px] text-muted mt-2 line-clamp-2">{mind.top_memories[0].content.slice(0, 80)}…</p>
+                ) : null}
+              </div>
             </div>
           </div>
         )}

@@ -8,10 +8,10 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-use crate::memory::store::{MemoryEntry, MemoryStore, MemoryTier};
+use crate::memory::store::{MemoryStore, MemoryTier};
 use crate::models::SessionEntry;
 use crate::storage::board_dir::find_board_dir;
 use crate::storage::sessions::read_sessions;

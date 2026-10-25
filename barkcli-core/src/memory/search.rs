@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::embeddings::{Embedding, EmbeddingEngine};
+use super::embeddings::EmbeddingEngine;
 use super::store::MemoryEntry;
 use super::tiers::TierManager;
 

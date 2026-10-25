@@ -1,23 +1,35 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { HistoryEntry, SessionEntry } from "../lib/types";
-import { fetchHistory, fetchSessions } from "../lib/api";
+import { fetchHistory, fetchSessions, fetchSessionStats } from "../lib/api";
 
 type Filter = "all" | "history" | "session";
 
 export function ActivityView({ boardName }: { boardName: string | null }) {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [sessions, setSessions] = useState<SessionEntry[]>([]);
+  const [stats, setStats] = useState<{
+    total_sessions: number;
+    total_files_touched: number;
+    unique_agents: number;
+    average_files_per_session: number;
+  } | null>(null);
+  const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchHistory(undefined, 300), fetchSessions(100)]).then(([h, s]) => {
+    Promise.all([
+      fetchHistory(undefined, 300),
+      fetchSessions(100, search ? search : undefined),
+      fetchSessionStats(boardName || undefined),
+    ]).then(([h, s, st]) => {
       setHistory(h);
       setSessions(s);
+      setStats(st);
       setLoading(false);
     });
-  }, [boardName]);
+  }, [boardName, search]);
 
   const groups = useMemo(() => {
     type Item =
@@ -56,8 +68,38 @@ export function ActivityView({ boardName }: { boardName: string | null }) {
   return (
     <div className="h-full overflow-auto">
       <div className="w-full max-w-[1600px] mx-auto p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-text">Activity</h2>
+        {stats && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-surface rounded-lg p-3">
+              <div className="text-[10px] uppercase tracking-wider text-muted">Total Sessions</div>
+              <div className="text-xl font-bold font-mono text-accent mt-0.5">{stats.total_sessions}</div>
+            </div>
+            <div className="bg-surface rounded-lg p-3">
+              <div className="text-[10px] uppercase tracking-wider text-muted">Unique Agents</div>
+              <div className="text-xl font-bold font-mono text-text mt-0.5">{stats.unique_agents}</div>
+            </div>
+            <div className="bg-surface rounded-lg p-3">
+              <div className="text-[10px] uppercase tracking-wider text-muted">Files Touched</div>
+              <div className="text-xl font-bold font-mono text-success mt-0.5">{stats.total_files_touched}</div>
+            </div>
+            <div className="bg-surface rounded-lg p-3">
+              <div className="text-[10px] uppercase tracking-wider text-muted">Avg Files / Session</div>
+              <div className="text-xl font-bold font-mono text-muted-strong mt-0.5">{stats.average_files_per_session.toFixed(1)}</div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <h2 className="text-sm font-semibold text-text">Activity</h2>
+            <input
+              type="text"
+              placeholder="Search activity or agent..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="bg-surface text-text border border-border rounded px-2.5 py-1 text-xs focus:outline-none focus:border-accent w-56"
+            />
+          </div>
           <div className="flex bg-surface rounded-md p-0.5">
             {(["all", "history", "session"] as Filter[]).map((f) => (
               <button

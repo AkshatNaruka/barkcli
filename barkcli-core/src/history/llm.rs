@@ -7,14 +7,13 @@
 //! Input to LLM: per-commit one-line summaries (NOT full diffs).
 //! Output from LLM: refined boundaries, titles, summaries, kinds, confidence.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::ai::{chat_json, resolve_config, ChatMessage};
 use crate::history::heuristics::CandidateGroup;
 use crate::history::git;
 use crate::models::bundle::BundleKind;
-use crate::util::redact::redact_text;
 
 /// Maximum diff size (KB) to send to LLM.
 pub const DEFAULT_MAX_DIFF_KB: usize = 30;
@@ -285,6 +284,7 @@ pub fn generate_changelog(bundles: &[crate::models::bundle::Bundle]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::util::redact::redact_text;
 
     #[test]
     fn llm_enabled_default() {

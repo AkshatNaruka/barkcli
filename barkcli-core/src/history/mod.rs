@@ -27,7 +27,7 @@ use anyhow::{Context, Result};
 use crate::history::heuristics::{group_commits, title_for_group, HeuristicConfig};
 use crate::history::store::{
     cursor_for_branch, load_all_bundles, open_bundles, remove_bundle, unsorted_bundle,
-    update_cursor, upsert_bundle, validate_bundles,
+    update_cursor, upsert_bundle,
 };
 use crate::models::bundle::{Bundle, BundleKind, BundleSource, BundleStatus};
 
