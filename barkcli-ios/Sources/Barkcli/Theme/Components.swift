@@ -42,20 +42,27 @@ public enum StatusBadgeVariant: Sendable, Hashable {
     case success
     case warning
     case danger
+    case cyber
+    case electric
+    case emerald
+    case amber
+    case crimson
     case custom(Color)
 
     public var foregroundColor: Color {
         switch self {
         case .neutral:
             return .barkcliTextMuted
-        case .accent:
-            return .barkcliAccentPurple
-        case .success:
-            return .barkcliSuccessEmerald
-        case .warning:
-            return .barkcliWarningAmber
-        case .danger:
-            return .barkcliDangerRose
+        case .accent, .electric:
+            return .barkcliElectricViolet
+        case .success, .emerald:
+            return .barkcliEmeraldGate
+        case .warning, .amber:
+            return .barkcliAmberPulse
+        case .danger, .crimson:
+            return .barkcliCrimsonBlocker
+        case .cyber:
+            return .barkcliCyberCyan
         case .custom(let color):
             return color
         }
@@ -380,3 +387,169 @@ public struct SectionHeader: View {
         }
     }
 }
+
+// MARK: - Kanban & Board Visual Components
+
+public struct WIPLimitBadge: View {
+    public let count: Int
+    public let limit: Int?
+
+    public init(count: Int, limit: Int? = nil) {
+        self.count = count
+        self.limit = limit
+    }
+
+    private var isOverLimit: Bool {
+        guard let limit else { return false }
+        return count > limit
+    }
+
+    private var isAtLimit: Bool {
+        guard let limit else { return false }
+        return count == limit
+    }
+
+    private var badgeColor: Color {
+        if isOverLimit {
+            return .barkcliCrimsonBlocker
+        } else if isAtLimit {
+            return .barkcliAmberPulse
+        } else {
+            return .barkcliTextMuted
+        }
+    }
+
+    public var body: some View {
+        HStack(spacing: 3) {
+            if isOverLimit {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 9))
+                    .foregroundColor(.barkcliCrimsonBlocker)
+            }
+            Text(limit != nil ? "\(count)/\(limit!)" : "\(count)")
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundColor(badgeColor)
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 2.5)
+        .background(
+            Capsule()
+                .fill(isOverLimit ? Color.barkcliCrimsonBlocker.opacity(0.16) : Color.barkcliBorderHairline.opacity(0.4))
+        )
+        .overlay(
+            Capsule()
+                .strokeBorder(isOverLimit ? Color.barkcliCrimsonBlocker : Color.barkcliBorderHairline.opacity(0.6), lineWidth: 0.5)
+        )
+    }
+}
+
+public struct SpecLinkChip: View {
+    public let specId: String
+
+    public init(_ specId: String) {
+        self.specId = specId
+    }
+
+    public var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "doc.text.magnifyingglass")
+                .font(.system(size: 10, weight: .semibold))
+            Text("spec: \(specId)")
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+        }
+        .foregroundColor(.barkcliCyberCyan)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(
+            Capsule()
+                .fill(Color.barkcliCyberCyan.opacity(0.12))
+        )
+        .overlay(
+            Capsule()
+                .strokeBorder(Color.barkcliCyberCyan.opacity(0.3), lineWidth: 0.5)
+        )
+    }
+}
+
+public struct ChecklistProgressBar: View {
+    public let completed: Int
+    public let total: Int
+
+    public init(completed: Int, total: Int) {
+        self.completed = completed
+        self.total = max(0, total)
+    }
+
+    private var fraction: Double {
+        guard total > 0 else { return 0 }
+        return min(1.0, Double(completed) / Double(total))
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack {
+                HStack(spacing: 3) {
+                    Image(systemName: completed == total && total > 0 ? "checkmark.circle.fill" : "checklist")
+                        .font(.system(size: 10))
+                        .foregroundColor(completed == total && total > 0 ? .barkcliEmeraldGate : .barkcliTextMuted)
+                    Text("\(completed)/\(total)")
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .foregroundColor(.barkcliTextMuted)
+                }
+
+                Spacer()
+
+                Text("\(Int(fraction * 100))%")
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundColor(fraction == 1.0 ? .barkcliEmeraldGate : .barkcliTextMuted)
+            }
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.barkcliBorderHairline.opacity(0.5))
+                        .frame(height: 4)
+
+                    Capsule()
+                        .fill(fraction == 1.0 ? Color.barkcliEmeraldGate : Color.barkcliElectricViolet)
+                        .frame(width: max(0, geo.size.width * fraction), height: 4)
+                }
+            }
+            .frame(height: 4)
+        }
+    }
+}
+
+public struct BlockedIndicatorBanner: View {
+    public let blockerIds: [String]
+
+    public init(blockerIds: [String]) {
+        self.blockerIds = blockerIds
+    }
+
+    public var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "exclamationmark.octagon.fill")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(.barkcliCrimsonBlocker)
+
+            Text("Blocked by \(blockerIds.joined(separator: ", "))")
+                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .foregroundColor(.barkcliCrimsonBlocker)
+                .lineLimit(1)
+
+            Spacer()
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(Color.barkcliCrimsonBlocker.opacity(0.12))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .strokeBorder(Color.barkcliCrimsonBlocker.opacity(0.4), lineWidth: 0.5)
+        )
+    }
+}
+

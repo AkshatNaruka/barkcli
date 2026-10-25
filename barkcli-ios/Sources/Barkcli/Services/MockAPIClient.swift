@@ -5,6 +5,7 @@ import Observation
 /// Provides 100% offline feature parity with `LiveAPIClient`, satisfying Requirement R3.
 @Observable
 public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
+    public static let shared = MockAPIClient()
     public let store: DemoStore
 
     public init(store: DemoStore = .shared) {

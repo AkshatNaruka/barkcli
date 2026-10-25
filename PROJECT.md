@@ -73,7 +73,7 @@
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
 | M1 | Models, Serde & Bundled Datasets | Complete Swift models, JSON serialization tests, and rich `DemoData.swift` / `DemoStore.swift` | none | DONE |
-| M2 | Networking, Discovery & Auto-Init | `APIClientProtocol`, `LiveAPIClient`, `MockAPIClient`, Bonjour discovery, and auto-setup flow | M1 | PLANNED |
+| M2 | Networking, Discovery & Auto-Init | `APIClientProtocol`, `LiveAPIClient`, `MockAPIClient`, Bonjour discovery, and auto-setup flow | M1 | DONE |
 | M3 | Codex Design System & Core Views | Theme tokens, liquid glass, `MindDashboardView`, `KanbanBoardView`, `CardDetailView` | M1, M2 | PLANNED |
 | M4 | Fleet Orchestration, Specs & Git | `AgentsOrchestrationView`, `SpecsMatrixView`, `GitHistoryView`, `DiffInspectorView` | M2, M3 | PLANNED |
 | M5 | Intent Prompting & Autopilot Loop | `IntentBar`, `PlanProposalSheet`, Autopilot state machine, and `WorkspaceSwitcherView` | M3, M4 | PLANNED |
