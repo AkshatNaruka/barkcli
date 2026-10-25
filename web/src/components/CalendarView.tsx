@@ -32,7 +32,7 @@ function toDateStr(d: Date): string {
 }
 
 function sprintNameOf(card: Card): string | undefined {
-  return card.labels.find((l) => l.startsWith("sprint:"))?.slice(7);
+  return card.labels?.find((l) => l.startsWith("sprint:"))?.slice(7);
 }
 
 function sprintColor(name: string | undefined, sprints: Sprint[]): string | undefined {

@@ -159,14 +159,14 @@ export function SpecsView({ boardName }: { boardName: string | null }) {
           <div className="p-3 border-b border-border text-xs text-muted">
             <div className="flex justify-between">
               <span>Coverage</span>
-              <span className={coverage.coverage_percent >= 80 ? "text-success" : coverage.coverage_percent >= 50 ? "text-warning" : "text-danger"}>
-                {coverage.coverage_percent.toFixed(0)}%
+              <span className={(coverage.coverage_percent || 0) >= 80 ? "text-success" : (coverage.coverage_percent || 0) >= 50 ? "text-warning" : "text-danger"}>
+                {(coverage.coverage_percent || 0).toFixed(0)}%
               </span>
             </div>
             <div className="w-full bg-surface rounded-full h-1.5 mt-1">
               <div
                 className="bg-accent h-1.5 rounded-full transition-all"
-                style={{ width: `${coverage.coverage_percent}%` }}
+                style={{ width: `${coverage.coverage_percent || 0}%` }}
               />
             </div>
             <div className="flex justify-between mt-1 text-[10px]">

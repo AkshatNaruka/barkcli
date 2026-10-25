@@ -301,7 +301,7 @@ export function MemoryView({ boardName }: { boardName: string | null }) {
                       {f.category}
                     </span>
                     <span className="text-[10px] text-muted">
-                      confidence: {(f.confidence * 100).toFixed(0)}%
+                      confidence: {((f.confidence || 0) * 100).toFixed(0)}%
                     </span>
                     {f.sources.length > 0 && (
                       <span className="text-[10px] text-muted">

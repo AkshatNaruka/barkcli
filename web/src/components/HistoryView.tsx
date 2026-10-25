@@ -78,22 +78,22 @@ const CommitFlowNode = React.memo(function CommitFlowNode({
       />
       <div className="flex items-center justify-between text-[11px] text-muted mb-1.5">
         <span className="font-mono bg-surface px-1.5 py-0.5 rounded text-accent-text font-semibold border border-border">
-          {c.sha.slice(0, 7)}
+          {c.sha ? c.sha.slice(0, 7) : ""}
         </span>
-        <span className="truncate max-w-[110px]" title={c.author}>
-          {c.author}
+        <span className="truncate max-w-[110px]" title={c.author || ""}>
+          {c.author || "Unknown"}
         </span>
       </div>
 
       <div className="text-xs font-medium text-text leading-snug line-clamp-2 mb-2">
-        {c.subject}
+        {c.subject || "No subject"}
       </div>
 
       <div className="flex items-center justify-between text-[10px] text-muted pt-1 border-t border-border">
         <div className="flex items-center gap-2 font-mono">
-          {c.additions > 0 && <span className="text-success">+{c.additions}</span>}
-          {c.deletions > 0 && <span className="text-danger">-{c.deletions}</span>}
-          {c.additions === 0 && c.deletions === 0 && <span>0 diff</span>}
+          {(c.additions ?? 0) > 0 && <span className="text-success">+{c.additions}</span>}
+          {(c.deletions ?? 0) > 0 && <span className="text-danger">-{c.deletions}</span>}
+          {(c.additions ?? 0) === 0 && (c.deletions ?? 0) === 0 && <span>0 diff</span>}
         </div>
         <button
           onClick={(e) => {
@@ -257,7 +257,7 @@ function BundleCard({
             >
               <div className="flex items-center gap-2 min-w-0">
                 <span className="font-mono text-accent-text font-semibold">
-                  {c.sha.slice(0, 7)}
+                  {c.sha ? c.sha.slice(0, 7) : ""}
                 </span>
                 <span className="text-text truncate">{c.subject}</span>
               </div>
@@ -386,7 +386,7 @@ export function HistoryView({ boardName }: { boardName: string | null }) {
     setAssignSha(c.sha);
     setAssignTitle(c.subject);
     setAssignDesc(
-      `Autonomous execution derived from commit ${c.sha.slice(0, 8)} authored by ${c.author}.\n\nMessage:\n${c.body || c.subject}`
+      `Autonomous execution derived from commit ${c.sha ? c.sha.slice(0, 8) : ""} authored by ${c.author || "Unknown"}.\n\nMessage:\n${c.body || c.subject || ""}`
     );
     setAssignFiles(c.files_changed || []);
     if (agents.length > 0 && !assignAgentId) {
@@ -714,21 +714,21 @@ export function HistoryView({ boardName }: { boardName: string | null }) {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-mono text-xs text-accent-text font-bold bg-surface px-1.5 py-0.5 rounded border border-border">
-                            {c.sha.slice(0, 7)}
+                            {c.sha ? c.sha.slice(0, 7) : ""}
                           </span>
                           <span className="text-xs font-semibold text-text truncate">
                             {c.subject}
                           </span>
                         </div>
                         <div className="flex items-center gap-3 text-[11px] text-muted mt-1 font-mono">
-                          <span>{c.author}</span>
+                          <span>{c.author || "Unknown"}</span>
                           <span>•</span>
-                          <span>{c.date.slice(0, 10)}</span>
+                          <span>{c.date ? c.date.slice(0, 10) : ""}</span>
                           <span>•</span>
-                          <span className="text-success font-semibold">+{c.additions}</span>
-                          <span className="text-danger font-semibold">-{c.deletions}</span>
+                          <span className="text-success font-semibold">+{(c.additions ?? 0)}</span>
+                          <span className="text-danger font-semibold">-{(c.deletions ?? 0)}</span>
                           <span>•</span>
-                          <span>{c.files_changed.length} files</span>
+                          <span>{(c.files_changed || []).length} files</span>
                         </div>
                       </div>
                     </div>
@@ -791,7 +791,7 @@ export function HistoryView({ boardName }: { boardName: string | null }) {
           <div className="p-4 border-b border-border flex items-center justify-between bg-surface">
             <div className="flex items-center gap-2 min-w-0">
               <span className="font-mono text-sm font-bold text-accent-text bg-card px-2 py-0.5 rounded border border-border">
-                {inspectSha.slice(0, 8)}
+                {inspectSha ? inspectSha.slice(0, 8) : ""}
               </span>
               <h3 className="text-sm font-semibold text-text truncate">Codex Diff Inspector</h3>
             </div>

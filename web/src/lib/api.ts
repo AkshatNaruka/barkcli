@@ -375,7 +375,11 @@ export async function fetchSessionStats(name?: string): Promise<{ total_sessions
     const qs = name ? `?name=${encodeURIComponent(name)}` : "";
     const res = await fetch(withToken(`/api/sessions/stats${qs}`));
     if (!res.ok) return null;
-    return await res.json();
+    const data = await res.json();
+    if (data && typeof data.total_sessions === "number" && typeof data.average_files_per_session === "number") {
+      return data;
+    }
+    return null;
   } catch {
     return null;
   }
@@ -386,7 +390,11 @@ export async function fetchAgenda(name?: string): Promise<{ board_name: string; 
     const qs = name ? `?name=${encodeURIComponent(name)}` : "";
     const res = await fetch(withToken(`/api/agenda${qs}`));
     if (!res.ok) return null;
-    return await res.json();
+    const data = await res.json();
+    if (data && typeof data.today === "string") {
+      return data;
+    }
+    return null;
   } catch {
     return null;
   }
@@ -409,7 +417,11 @@ export async function fetchReportsData(name?: string): Promise<{
     const qs = name ? `?name=${encodeURIComponent(name)}` : "";
     const res = await fetch(withToken(`/api/reports${qs}`));
     if (!res.ok) return null;
-    return await res.json();
+    const data = await res.json();
+    if (data && typeof data.completion_rate === "number") {
+      return data;
+    }
+    return null;
   } catch {
     return null;
   }

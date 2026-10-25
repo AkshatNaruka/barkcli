@@ -516,7 +516,7 @@ function CodeSection({ context, cardId, onOpenFile }: { context: CardContext | n
           {context!.ai && (
             <div className="rounded-lg bg-surface p-3 mt-2">
               <p className="text-[11px] font-medium text-muted mb-1">
-                AI context · {context!.ai.model || "model"} · {context!.ai.at?.slice(0, 10)} · {(context!.ai.confidence * 100).toFixed(0)}%
+                AI context · {context!.ai.model || "model"} · {context!.ai.at?.slice(0, 10)} · {((context!.ai.confidence || 0) * 100).toFixed(0)}%
               </p>
               <p className="text-xs text-text whitespace-pre-wrap">{context!.ai.summary}</p>
               {context!.ai.next_steps.length > 0 && (

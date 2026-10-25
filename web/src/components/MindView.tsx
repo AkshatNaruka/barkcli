@@ -40,7 +40,7 @@ interface AgentRec {
 }
 
 function isBlocked(c: Card): boolean {
-  return Boolean(c.blocked_by) || c.links.some((l) => l.ty === "blocked-by");
+  return Boolean(c.blocked_by) || Boolean(c.links && c.links.some((l) => l.ty === "blocked-by"));
 }
 
 function statusChip(c: Card): string | null {
@@ -54,7 +54,7 @@ function statusChip(c: Card): string | null {
 
 function MindCard({ card }: { card: Card }) {
   const chip = statusChip(card);
-  const bug = card.labels.includes("bug");
+  const bug = Boolean(card.labels && card.labels.includes("bug"));
   const blocked = isBlocked(card);
   return (
     <button

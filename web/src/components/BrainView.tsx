@@ -248,7 +248,7 @@ export function BrainView({ boardName }: { boardName: string | null }) {
             </div>
             <p className="text-sm text-text font-medium mt-2 leading-snug">{selected.label}</p>
             <div className="mt-2.5 text-[11px] text-muted space-y-1">
-              <div className="flex justify-between"><span>Importance</span><span className="text-text">{(selected.importance * 100).toFixed(0)}%</span></div>
+              <div className="flex justify-between"><span>Importance</span><span className="text-text">{((selected.importance || 0) * 100).toFixed(0)}%</span></div>
               <div className="flex justify-between"><span>Accessed</span><span className="text-text">{selected.access_count}×</span></div>
               {selected.tier && <div className="flex justify-between"><span>Layer</span><span className="text-text">{TIER[selected.tier]?.label ?? selected.tier}</span></div>}
             </div>

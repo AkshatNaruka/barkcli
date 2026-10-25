@@ -26,6 +26,7 @@ import type {
   ProjectFact,
   SessionEntry,
   Sprint,
+  GitCommit,
 } from "./types";
 
 // Real repo docs, served by the Docs tab exactly like `barkcli serve` would.
@@ -448,6 +449,101 @@ function seed(): DemoStore {
   };
 }
 
+const DEMO_COMMITS: GitCommit[] = [
+  {
+    sha: "b7b647b29a8f4c1e0b53d7119f4a13c9e6d8a701",
+    parents: ["5dbb04fc819e4a3b7d6c52a09f8e12b7a4c9d602"],
+    subject: "feat: git history visualizer with flow graph, tree dag, codex diff drawer, and agent task assignment",
+    body: "Implement n8n-style workflow canvas, DAG tree timeline, and Codex diff drawer for autonomous worktrees.",
+    author: "Agent Architect",
+    author_email: "agent@barkcli.internal",
+    date: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+    trailers: [["Card", "history-bundles"]],
+    is_merge: false,
+    is_empty: false,
+    files_changed: [
+      "barkcli-core/src/history/git.rs",
+      "barkcli-server/src/lib.rs",
+      "web/src/components/HistoryView.tsx",
+      "web/src/lib/api.ts",
+      "web/src/lib/types.ts",
+    ],
+    additions: 1332,
+    deletions: 90,
+  },
+  {
+    sha: "5dbb04fc819e4a3b7d6c52a09f8e12b7a4c9d602",
+    parents: ["685e74fe10a7b9c4d3e218f7a6b5c4d3e21f0987"],
+    subject: "feat: complete master upgrade across sixteen core management subsystems",
+    body: "Upgrade Mind, Board, Specs, Agents, Sprints, Code, Context, Memory, Brain, Skills, Docs, Calendar, Reports, Timeline, History, Activity.",
+    author: "DeepMind Engineer",
+    author_email: "engineer@barkcli.internal",
+    date: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
+    trailers: [["Subsystems", "all"]],
+    is_merge: false,
+    is_empty: false,
+    files_changed: [
+      "barkcli-core/src/mind/snapshot.rs",
+      "barkcli-core/src/models/board.rs",
+      "barkcli-core/src/memory/store.rs",
+      "barkcli-server/src/lib.rs",
+    ],
+    additions: 2480,
+    deletions: 142,
+  },
+  {
+    sha: "685e74fe10a7b9c4d3e218f7a6b5c4d3e21f0987",
+    parents: ["3a2b1c0d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b"],
+    subject: "feat(orchestrate): collision-free parallel agent dispatch with worktree leases",
+    body: "Isolate concurrent workers and evaluate file touch overlaps before dispatch.",
+    author: "Agent Dispatcher",
+    author_email: "dispatcher@barkcli.internal",
+    date: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
+    trailers: [],
+    is_merge: false,
+    is_empty: false,
+    files_changed: [
+      "barkcli-core/src/agent/queue.rs",
+      "barkcli-core/src/agent/orchestrate.rs",
+    ],
+    additions: 384,
+    deletions: 28,
+  },
+  {
+    sha: "3a2b1c0d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b",
+    parents: ["1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b"],
+    subject: "feat(memory): multi-tier memory store with BM25 and TF-IDF hybrid search",
+    body: "Local offline semantic retrieval and time-decay consolidation loop.",
+    author: "Agent Architect",
+    author_email: "agent@barkcli.internal",
+    date: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
+    trailers: [],
+    is_merge: false,
+    is_empty: false,
+    files_changed: [
+      "barkcli-core/src/memory/store.rs",
+      "barkcli-core/src/memory/search.rs",
+    ],
+    additions: 612,
+    deletions: 45,
+  },
+  {
+    sha: "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b",
+    parents: [],
+    subject: "initial commit: barkcli autonomous agent management layer",
+    body: "Intent in, plans out, isolated worktrees, tests as the gate, merge train.",
+    author: "DeepMind Engineer",
+    author_email: "engineer@barkcli.internal",
+    date: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
+    trailers: [],
+    is_merge: false,
+    is_empty: false,
+    files_changed: ["Cargo.toml", "README.md", "barkcli-core/src/lib.rs"],
+    additions: 890,
+    deletions: 0,
+  },
+];
+
 function getStore(): DemoStore {
   if (!store) {
     try {
@@ -825,6 +921,149 @@ const ROUTES: Route[] = [
   },
   {
     method: "GET", re: /^\/api\/sessions$/, handle: () => ({ sessions: getStore().sessions }),
+  },
+  {
+    method: "GET", re: /^\/api\/sessions\/stats$/, handle: () => {
+      const s = getStore();
+      const sessions = s.sessions || [];
+      const total_sessions = sessions.length;
+      const unique_agents = new Set(sessions.map((x) => x.agent).filter(Boolean)).size;
+      const total_files_touched = sessions.reduce((acc, x) => acc + (x.files_touched?.length || 0), 0);
+      const average_files_per_session = total_sessions > 0 ? total_files_touched / total_sessions : 0;
+      return {
+        total_sessions,
+        total_files_touched,
+        unique_agents,
+        average_files_per_session,
+      };
+    },
+  },
+  {
+    method: "GET", re: /^\/api\/reports$/, handle: (_m, { q }) => {
+      const { b, key } = boardFor(q.get("name"));
+      const cards = b.cards || [];
+      const total_cards = cards.length;
+      const completed_cards = cards.filter((c) => c.column === "done").length;
+      const in_progress_cards = cards.filter((c) => c.column === "doing" || c.column === "in-progress" || c.column === "in_progress").length;
+      const blocked_cards = cards.filter((c) => Boolean(c.blocked_by) || (c.links && c.links.some(l => l.ty === "blocked-by"))).length;
+      const todo_cards = cards.filter((c) => c.column === "todo").length;
+      const total_effort = cards.reduce((acc, c) => acc + (c.effort || 0), 0);
+      const completed_effort = cards.filter((c) => c.column === "done").reduce((acc, c) => acc + (c.effort || 0), 0);
+      const completion_rate = total_cards > 0 ? (completed_cards / total_cards) * 100 : 0;
+      const by_priority: Record<string, number> = {};
+      const by_column: Record<string, number> = {};
+      for (const c of cards) {
+        by_priority[c.priority || "medium"] = (by_priority[c.priority || "medium"] || 0) + 1;
+        by_column[c.column] = (by_column[c.column] || 0) + 1;
+      }
+      return {
+        board_name: key,
+        total_cards,
+        completed_cards,
+        in_progress_cards,
+        blocked_cards,
+        todo_cards,
+        completion_rate,
+        total_effort,
+        completed_effort,
+        by_priority,
+        by_column,
+      };
+    },
+  },
+  {
+    method: "GET", re: /^\/api\/agenda$/, handle: (_m, { q }) => {
+      const { b, key } = boardFor(q.get("name"));
+      const today = new Date().toISOString().slice(0, 10);
+      const cards = b.cards || [];
+      const overdue_count = cards.filter((c) => c.column !== "done" && c.due_date && c.due_date < today).length;
+      const today_count = cards.filter((c) => c.due_date === today).length;
+      const upcoming_count = cards.filter((c) => c.column !== "done" && c.due_date && c.due_date > today).length;
+      const backlog_count = cards.filter((c) => c.column === "todo" && !c.due_date).length;
+      const total_active = cards.filter((c) => c.column !== "done").length;
+      return {
+        board_name: key,
+        today,
+        overdue_count,
+        today_count,
+        upcoming_count,
+        backlog_count,
+        total_active,
+      };
+    },
+  },
+  {
+    method: "GET", re: /^\/api\/git\/commits$/, handle: () => {
+      return {
+        branch: "master",
+        branches: ["master", "feature/agent-orchestration", "feature/smart-history"],
+        commits: DEMO_COMMITS,
+      };
+    },
+  },
+  {
+    method: "GET", re: /^\/api\/git\/diff\/([^/]+)$/, handle: (m) => {
+      const sha = m[1];
+      const c = DEMO_COMMITS.find((x) => x.sha.startsWith(sha) || sha.startsWith(x.sha)) || DEMO_COMMITS[0];
+      return {
+        sha: c.sha,
+        message: `${c.subject}\n\n${c.body}`,
+        diff: `diff --git a/${c.files_changed[0] || "src/lib.rs"} b/${c.files_changed[0] || "src/lib.rs"}\n--- a/${c.files_changed[0] || "src/lib.rs"}\n+++ b/${c.files_changed[0] || "src/lib.rs"}\n@@ -1,10 +1,15 @@\n+// Autonomous worktree change\n+pub fn run_acceptance_gate() -> bool {\n+    true\n+}\n`,
+        files_changed: c.files_changed,
+        additions: c.additions,
+        deletions: c.deletions,
+      };
+    },
+  },
+  {
+    method: "POST", re: /^\/api\/git\/assign$/, handle: (_m, { body, q }) => {
+      const s = getStore();
+      const { b, key } = boardFor(body.board_name || q.get("name"));
+      const id = slugify(body.title || "git-task", b.cards.map((c) => c.id));
+      const card: Card = {
+        id,
+        title: body.title || "Git task",
+        description: body.description || "",
+        column: body.column || "todo",
+        priority: body.priority || "medium",
+        labels: ["git", ...(body.commit_sha ? [`commit:${body.commit_sha.slice(0, 7)}`] : [])],
+        assignee: body.agent_id || undefined,
+        checklist: [],
+        comments: [],
+        attachments: [],
+        links: [],
+        acceptance_criteria: body.acceptance_criteria || ["Acceptance tests pass"],
+        pinned: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      b.cards.push(card);
+      const task: TaskRec = {
+        id: newId("task"),
+        card_id: id,
+        title: card.title,
+        description: card.description || "",
+        status: body.agent_id ? "InProgress" : "Pending",
+        assigned_agent: body.agent_id,
+        priority: card.priority,
+        created_at: new Date().toISOString(),
+      };
+      s.tasks.push(task);
+      if (body.agent_id) {
+        const ag = s.agents.find((a) => a.id === body.agent_id);
+        if (ag) ag.active_tasks.push(task.id);
+      }
+      persist();
+      emitChange();
+      return {
+        card_id: id,
+        task_id: task.id,
+        board_name: key,
+        agent_id: body.agent_id || null,
+        title: card.title,
+        status: body.agent_id ? "assigned" : "created",
+      };
+    },
   },
   // Context (card file refs)
   {
@@ -1458,7 +1697,10 @@ export function installDemoApi(): void {
         return data instanceof Response ? data : json(data);
       }
     }
-    // Unknown endpoints: respond benign so views degrade to empty states.
-    return json({ error: `demo: no handler for ${method} ${path}` }, 200);
+    // Unknown endpoints: respond 404 so fetch callers fail soft and fall back gracefully.
+    return new Response(JSON.stringify({ error: `demo: no handler for ${method} ${path}` }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
   };
 }

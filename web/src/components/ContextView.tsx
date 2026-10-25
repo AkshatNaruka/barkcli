@@ -182,7 +182,7 @@ export function ContextView({ boardName }: { boardName: string | null }) {
           <span className="text-yellow-500 font-medium">⚠ Drift detected</span> — these sections may be
           out of date:{" "}
           {flagged
-            .map(f => `${f.id} (${f.staleness.toFixed(2)})`)
+            .map(f => `${f.id} (${(f.staleness || 0).toFixed(2)})`)
             .join(", ")}
           . Run <code className="text-text bg-card px-1 rounded">barkcli context verify</code> to re-check
           against git.
@@ -249,7 +249,7 @@ function ContextBlockCard({
             className="px-1.5 py-0.5 rounded text-[10px] font-medium"
             style={{ backgroundColor: `${color}22`, color }}
           >
-            {block.staleness.toFixed(2)} · {stalenessLabel(block.staleness)}
+            {(block.staleness || 0).toFixed(2)} · {stalenessLabel(block.staleness || 0)}
           </span>
           {block.manual && (
             <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-500/15 text-purple-400">
