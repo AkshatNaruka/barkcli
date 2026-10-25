@@ -254,4 +254,30 @@ final class BarkcliTests: XCTestCase {
         XCTAssertEqual(decoded.agentId, "opencode-1")
         XCTAssertEqual(decoded.status, "running")
     }
+
+    func testReviewGateResultCodable() throws {
+        let result = ReviewGateResult(
+            cardId: "card_jwt_auth",
+            passed: true,
+            totalTests: 18,
+            passedTests: 18,
+            failedTests: 0,
+            durationSeconds: 1.45,
+            logs: ["[PASS] Acceptance criterion 1 verified", "[PASS] Isolated git worktree branch verified"]
+        )
+
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(result)
+
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(ReviewGateResult.self, from: data)
+
+        XCTAssertEqual(decoded.cardId, "card_jwt_auth")
+        XCTAssertTrue(decoded.passed)
+        XCTAssertEqual(decoded.totalTests, 18)
+        XCTAssertEqual(decoded.passedTests, 18)
+        XCTAssertEqual(decoded.failedTests, 0)
+        XCTAssertEqual(decoded.logs.count, 2)
+    }
 }
+

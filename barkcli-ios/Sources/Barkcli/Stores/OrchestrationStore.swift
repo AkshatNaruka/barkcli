@@ -129,10 +129,12 @@ public final class OrchestrationStore: @unchecked Sendable {
         do {
             let result = try await client.triggerOrchestrationCycle()
             self.lastCycleResult = result
-            // Refresh tasks and sessions after dispatching a cycle
+            // Refresh agents, tasks, and sessions after dispatching a cycle
+            async let fetchedAgents = client.listAgents()
             async let fetchedTasks = client.listTasks()
             async let fetchedSessions = client.getLiveSessions()
-            let (t, s) = try await (fetchedTasks, fetchedSessions)
+            let (a, t, s) = try await (fetchedAgents, fetchedTasks, fetchedSessions)
+            self.agents = a
             self.tasks = t
             self.liveSessions = s
             return result

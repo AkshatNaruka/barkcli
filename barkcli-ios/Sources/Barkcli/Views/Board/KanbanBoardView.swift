@@ -15,9 +15,8 @@ public struct KanbanBoardView: View {
     public init() {}
 
     public var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                // Filter Header: Search Bar + Priority Filter Bar
+        VStack(spacing: 0) {
+            // Filter Header: Search Bar + Priority Filter Bar
                 filterHeaderView
 
                 // Column Tab Picker (All, Todo, Doing, Review, Done)
@@ -89,7 +88,6 @@ public struct KanbanBoardView: View {
                     await boardStore.loadBoards()
                 }
             }
-        }
     }
 
     // MARK: - Filter Header

@@ -15,10 +15,9 @@ public struct MindDashboardView: View {
     public init() {}
 
     public var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 18) {
-                    // Header Bar with Workspace Status & Actions
+        ScrollView {
+            VStack(spacing: 18) {
+                // Header Bar with Workspace Status & Actions
                     headerDeckView
 
                     // Autopilot Attention Strip
@@ -120,12 +119,14 @@ public struct MindDashboardView: View {
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
+            .sheet(item: $selectedProposal) { proposal in
+                PlanProposalSheet(proposal: proposal)
+            }
             .task {
                 if mindStore.snapshot == nil {
                     await mindStore.refresh()
                 }
             }
-        }
     }
 
     // MARK: - Header Deck

@@ -599,3 +599,46 @@ public struct AssignCommitResponse: Codable, Sendable, Hashable {
         self.status = status
     }
 }
+
+public struct ReviewGateResult: Codable, Sendable, Identifiable, Hashable {
+    public var id: String { "\(cardId):\(timestamp.timeIntervalSince1970)" }
+    public var cardId: String
+    public var passed: Bool
+    public var totalTests: Int
+    public var passedTests: Int
+    public var failedTests: Int
+    public var durationSeconds: Double
+    public var logs: [String]
+    public var timestamp: Date
+
+    enum CodingKeys: String, CodingKey {
+        case cardId = "card_id"
+        case passed
+        case totalTests = "total_tests"
+        case passedTests = "passed_tests"
+        case failedTests = "failed_tests"
+        case durationSeconds = "duration_seconds"
+        case logs
+        case timestamp
+    }
+
+    public init(
+        cardId: String = "",
+        passed: Bool = true,
+        totalTests: Int = 18,
+        passedTests: Int = 18,
+        failedTests: Int = 0,
+        durationSeconds: Double = 1.45,
+        logs: [String] = [],
+        timestamp: Date = Date()
+    ) {
+        self.cardId = cardId
+        self.passed = passed
+        self.totalTests = totalTests
+        self.passedTests = passedTests
+        self.failedTests = failedTests
+        self.durationSeconds = durationSeconds
+        self.logs = logs
+        self.timestamp = timestamp
+    }
+}

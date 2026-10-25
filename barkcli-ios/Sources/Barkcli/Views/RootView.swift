@@ -44,8 +44,17 @@ public struct RootView: View {
     @State private var specsStore = SpecsStore.shared
     @State private var gitStore = GitStore.shared
 
-    @State private var showPlanProposalSheet: Bool = false
     @State private var activeProposalToReview: PlanProposal? = nil
+
+    private var proposalReviewBinding: Binding<PlanProposal?> {
+        Binding(
+            get: { activeProposalToReview ?? mindStore.activeProposalToReview },
+            set: {
+                activeProposalToReview = $0
+                mindStore.activeProposalToReview = $0
+            }
+        )
+    }
 
     public init() {}
 
@@ -112,11 +121,11 @@ public struct RootView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 // Persistent Intent Input Bar
-                IntentBar()
+                IntentBar(onSubmit: handleIntentSubmit)
             }
             .background(Color.barkcliDarkBackground.ignoresSafeArea())
         }
-        .sheet(item: $activeProposalToReview) { proposal in
+        .sheet(item: proposalReviewBinding) { proposal in
             PlanProposalSheet(proposal: proposal)
         }
     }
@@ -132,17 +141,61 @@ public struct RootView: View {
 
             // Pinned Floating Controls Deck: IntentBar + Custom Liquid Glass TabBar
             VStack(spacing: 6) {
+                if let proposal = mindStore.activeProposal, selectedTab != .mind {
+                    proposalBannerPill(proposal)
+                }
+
                 // Persistent Floating Intent Capsule
-                IntentBar()
+                IntentBar(onSubmit: handleIntentSubmit)
 
                 // Custom Liquid Glass Bottom Tab Bar
                 liquidGlassTabBar
             }
         }
         .background(Color.barkcliDarkBackground.ignoresSafeArea())
-        .sheet(item: $activeProposalToReview) { proposal in
+        .sheet(item: proposalReviewBinding) { proposal in
             PlanProposalSheet(proposal: proposal)
         }
+    }
+
+    private func handleIntentSubmit(prompt: String, kind: IntentKind) async {
+        do {
+            _ = try await mindStore.submitIntent(prompt: prompt, kind: kind.apiValue)
+            if let proposal = mindStore.activeProposal {
+                activeProposalToReview = proposal
+            }
+        } catch {
+            // Handled in store
+        }
+    }
+
+    private func proposalBannerPill(_ proposal: PlanProposal) -> some View {
+        Button {
+            activeProposalToReview = proposal
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles")
+                    .foregroundColor(.barkcliAmberPulse)
+                Text("Review Plan Proposal: \(proposal.cardTitle)")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.barkcliTextPrimary)
+                    .lineLimit(1)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.barkcliTextMuted)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(Color.barkcliSpaceBlack.opacity(0.9))
+            .clipShape(Capsule())
+            .overlay(
+                Capsule()
+                    .strokeBorder(Color.barkcliAmberPulse.opacity(0.4), lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
     }
 
     // MARK: - Tab Content View Router

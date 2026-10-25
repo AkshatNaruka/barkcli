@@ -126,10 +126,15 @@ final class OrchestrationTests: XCTestCase {
         let store = OrchestrationStore(client: mockClient)
         await store.load()
 
+        let initialAgentCount = store.agents.count
+        XCTAssertGreaterThan(initialAgentCount, 0)
+
         let cycleResult = try await store.runCycle()
         XCTAssertNotNil(store.lastCycleResult)
         XCTAssertEqual(store.lastCycleResult?.cycleNumber, cycleResult.cycleNumber)
         XCTAssertGreaterThanOrEqual(cycleResult.tasksDispatched, 0)
+        XCTAssertFalse(store.agents.isEmpty, "Agents must be refreshed after running cycle")
+        XCTAssertEqual(store.agents.count, initialAgentCount)
     }
 
     // MARK: - SpecsStore Tests

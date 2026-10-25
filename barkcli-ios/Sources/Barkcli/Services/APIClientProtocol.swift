@@ -17,6 +17,7 @@ public protocol APIClientProtocol: Sendable {
     func submitIntent(prompt: String, kind: String?) async throws -> IntentResponse
     func approvePlan(cardId: String) async throws
     func rejectPlan(cardId: String, reason: String?) async throws
+    func runReviewGate(cardId: String) async throws -> ReviewGateResult
 
     // MARK: - Orchestration & Fleet
     func listAgents() async throws -> [AgentItem]

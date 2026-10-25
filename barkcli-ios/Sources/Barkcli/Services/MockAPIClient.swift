@@ -131,6 +131,10 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
         store.rejectPlan(cardId: cardId, reason: reason, boardName: board)
     }
 
+    public func runReviewGate(cardId: String) async throws -> ReviewGateResult {
+        store.runReviewGate(cardId: cardId)
+    }
+
     // MARK: - Orchestration & Fleet
 
     public func listAgents() async throws -> [AgentItem] {

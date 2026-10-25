@@ -263,11 +263,11 @@ public struct AgentsOrchestrationView: View {
             } else {
                 VStack(spacing: 12) {
                     ForEach(store.agents) { agent in
-                        AgentCardView(agent: agent) {
+                        AgentCardView(agent: agent, onRemove: {
                             Task {
                                 try? await store.removeAgent(id: agent.id)
                             }
-                        }
+                        })
                     }
                 }
             }

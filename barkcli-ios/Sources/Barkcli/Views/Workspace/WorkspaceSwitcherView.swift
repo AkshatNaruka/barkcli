@@ -17,10 +17,9 @@ public struct WorkspaceSwitcherView: View {
     public init() {}
 
     public var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Active Workspace Hero Card
+        ScrollView {
+            VStack(spacing: 20) {
+                // Active Workspace Hero Card
                     activeWorkspaceHeroCard
 
                     // Missing .board/ Auto-Init Alert Banner (if detected)
@@ -71,7 +70,6 @@ public struct WorkspaceSwitcherView: View {
             .task {
                 await workspaceStore.scanForInstances()
             }
-        }
     }
 
     // MARK: - Active Workspace Hero Card

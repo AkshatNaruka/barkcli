@@ -66,7 +66,7 @@ public struct SpecsMatrixView: View {
                     Spacer()
 
                     // Coverage percentage pill
-                    Text(String(format: "%.0f%% Verified", store.coveragePercent))
+                    Text(String(format: "Implementation: %.0f%%", store.coveragePercent))
                         .font(.system(size: 13, weight: .bold, design: .monospaced))
                         .foregroundColor(.barkcliEmeraldGate)
                         .padding(.horizontal, 10)

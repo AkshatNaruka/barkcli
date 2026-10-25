@@ -15,6 +15,7 @@ public final class MindStore: @unchecked Sendable {
     public var isLoading: Bool
     public var lastRefreshed: Date?
     public var lastError: String?
+    public var activeProposalToReview: PlanProposal?
 
     // MARK: - Active API Client
     public var client: any APIClientProtocol

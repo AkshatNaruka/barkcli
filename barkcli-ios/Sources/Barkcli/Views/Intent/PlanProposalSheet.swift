@@ -18,6 +18,7 @@ public struct PlanProposalSheet: View {
     @State private var showRejectReasonInput: Bool = false
     @State private var rejectReasonText: String = ""
     @State private var gateVerdictMessage: String?
+    @State private var gatePassed: Bool = false
 
     public init(
         proposal: PlanProposal,
@@ -31,6 +32,10 @@ public struct PlanProposalSheet: View {
 
     private var mindStore: MindStore {
         envMindStore ?? fallbackMindStore
+    }
+
+    private var client: any APIClientProtocol {
+        mindStore.client
     }
 
     public var body: some View {
@@ -269,12 +274,12 @@ public struct PlanProposalSheet: View {
     private func gateVerdictCard(_ message: String) -> some View {
         GlassCard(padding: 12) {
             HStack(spacing: 8) {
-                Image(systemName: "checkmark.seal.fill")
-                    .foregroundColor(.barkcliEmeraldGate)
+                Image(systemName: gatePassed ? "checkmark.seal.fill" : "xmark.octagon.fill")
+                    .foregroundColor(gatePassed ? .barkcliEmeraldGate : .barkcliCrimsonBlocker)
 
                 Text(message)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.barkcliEmeraldGate)
+                    .foregroundColor(gatePassed ? .barkcliEmeraldGate : .barkcliCrimsonBlocker)
             }
         }
     }
@@ -320,9 +325,14 @@ public struct PlanProposalSheet: View {
                 Task {
                     isRunningGate = true
                     defer { isRunningGate = false }
-                    // Trigger gate via client
-                    try? await Task.sleep(nanoseconds: 500_000_000)
-                    gateVerdictMessage = "Acceptance gate test suite passed cleanly with 0 failures."
+                    do {
+                        let result = try await client.runReviewGate(cardId: proposal.cardId)
+                        gatePassed = result.passed
+                        gateVerdictMessage = "\(result.passedTests)/\(result.totalTests) project acceptance gate tests passed (\(String(format: "%.2f", result.durationSeconds))s)"
+                    } catch {
+                        gatePassed = false
+                        gateVerdictMessage = "Acceptance gate execution failed: \(error.localizedDescription)"
+                    }
                 }
             }
 

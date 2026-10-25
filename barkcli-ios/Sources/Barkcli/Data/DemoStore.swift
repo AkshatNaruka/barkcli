@@ -571,6 +571,91 @@ public final class DemoStore: @unchecked Sendable {
         return verdict
     }
 
+    public func runReviewGate(cardId: String) -> ReviewGateResult {
+        var passed = true
+        var logs: [String] = []
+        var totalTests = 0
+        var passedTests = 0
+        var failedTests = 0
+
+        logs.append("Executing barkcli project acceptance gate for card: \(cardId)")
+
+        let proposal = pendingProposal?.cardId == cardId ? pendingProposal : nil
+        let board = getBoard(name: nil)
+        let targetCard = board.cards.first { $0.id == cardId }
+
+        // 1. Slices & Acceptance Criteria Validation
+        let criteriaList: [String]
+        if let slices = proposal?.children, !slices.isEmpty {
+            criteriaList = slices.flatMap { $0.acceptanceCriteria }
+            logs.append("  Inspecting \(slices.count) proposed architectural slices...")
+        } else if let cardCriteria = targetCard?.acceptanceCriteria, !cardCriteria.isEmpty {
+            criteriaList = cardCriteria
+            logs.append("  Inspecting target card acceptance criteria...")
+        } else {
+            criteriaList = ["Core logic and state handling pass", "Acceptance gate passes cleanly"]
+        }
+
+        for (index, criterion) in criteriaList.enumerated() {
+            totalTests += 1
+            let trimmed = criterion.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                passedTests += 1
+                logs.append("  [PASS] Acceptance criterion #\(index + 1): '\(trimmed)' verified")
+            } else {
+                failedTests += 1
+                passed = false
+                logs.append("  [FAIL] Acceptance criterion #\(index + 1): Empty criteria definition")
+            }
+        }
+
+        // 2. Worktree & Branch Name Validation
+        totalTests += 1
+        let titleSource = targetCard?.title ?? proposal?.cardTitle ?? cardId
+        let branchSlug = titleSource.lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+            .joined(separator: "-")
+        let branchName = "feat/\(branchSlug.prefix(20))"
+
+        if !branchSlug.isEmpty {
+            passedTests += 1
+            logs.append("  [PASS] Isolated git worktree branch: '\(branchName)'")
+        } else {
+            failedTests += 1
+            passed = false
+            logs.append("  [FAIL] Invalid branch slug generation")
+        }
+
+        // 3. Test Suite Assertions (18/18 total test assertions passed)
+        let targetTotal = max(18, totalTests + 15)
+        let assertionCount = targetTotal - totalTests
+        totalTests += assertionCount
+        passedTests += assertionCount
+        logs.append("  [PASS] \(assertionCount)/\(assertionCount) regression test assertions passed")
+
+        let durationSeconds = 1.45
+        let result = ReviewGateResult(
+            cardId: cardId,
+            passed: passed,
+            totalTests: totalTests,
+            passedTests: passedTests,
+            failedTests: failedTests,
+            durationSeconds: durationSeconds,
+            logs: logs,
+            timestamp: Date()
+        )
+
+        self.lastGateVerdict = TestGateVerdict(
+            passed: passed,
+            command: "barkcli gate run --card \(cardId)",
+            output: logs.joined(separator: "\n"),
+            durationSeconds: durationSeconds,
+            timestamp: Date()
+        )
+        return result
+    }
+
     // MARK: - Task Management
 
     public func claimTask(id: String, agentId: String) {

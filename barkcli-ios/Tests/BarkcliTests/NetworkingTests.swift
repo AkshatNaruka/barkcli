@@ -82,6 +82,15 @@ final class NetworkingTests: XCTestCase {
         // Approve plan
         try await client.approvePlan(cardId: intentResponse.cardId)
 
+        // Run Review Gate
+        let gateResult = try await client.runReviewGate(cardId: intentResponse.cardId)
+        XCTAssertTrue(gateResult.passed)
+        XCTAssertGreaterThanOrEqual(gateResult.totalTests, 18)
+        XCTAssertEqual(gateResult.passedTests, gateResult.totalTests)
+        XCTAssertEqual(gateResult.failedTests, 0)
+        XCTAssertGreaterThan(gateResult.durationSeconds, 0)
+        XCTAssertFalse(gateResult.logs.isEmpty)
+
         // Reject plan workflow
         try await client.rejectPlan(cardId: "fake-card", reason: "Scope too broad")
     }

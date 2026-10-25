@@ -131,7 +131,7 @@ public struct SpecDetailRow: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         ForEach(req.linkedCode, id: \.self) { codePath in
-                            SpecLinkChip(codePath)
+                            CodeLinkChip(codePath)
                         }
                     }
                 }

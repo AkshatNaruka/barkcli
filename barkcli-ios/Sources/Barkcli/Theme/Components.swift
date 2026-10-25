@@ -471,6 +471,34 @@ public struct SpecLinkChip: View {
     }
 }
 
+public struct CodeLinkChip: View {
+    public let path: String
+
+    public init(_ path: String) {
+        self.path = path
+    }
+
+    public var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "doc.text")
+                .font(.system(size: 10, weight: .semibold))
+            Text(path)
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+        }
+        .foregroundColor(.barkcliCyberCyan)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(
+            Capsule()
+                .fill(Color.barkcliCyberCyan.opacity(0.12))
+        )
+        .overlay(
+            Capsule()
+                .strokeBorder(Color.barkcliCyberCyan.opacity(0.3), lineWidth: 0.5)
+        )
+    }
+}
+
 public struct ChecklistProgressBar: View {
     public let completed: Int
     public let total: Int
