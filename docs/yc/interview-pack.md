@@ -36,9 +36,9 @@ $99/team/mo · 10k teams = $11.9M ARR · solo, 25, Indore, can be in SF Jan.
 ### 5. You're free forever — how do you make money?
 > The CLI is MIT and stays free — it's distribution. The company sells the hosted
 > team layer: shared live agent sessions, cloud board sync, and reliability
-> analytics at $99/month per team — flat, not per seat, which undercuts a
-> 10-person Linear bill. 10k teams = $11.9M ARR. No revenue today; the hosted
-> layer is in development, the free core stays free.
+> analytics at $99/month per team — flat, not per seat — about what a 10-person
+> Linear bill costs, for a layer Linear doesn't provide. 10k teams = $11.9M ARR.
+> No revenue today; the hosted layer is in development, the free core stays free.
 
 ### 6. What's your traction?
 > Honest: `[FILL: X stars, Y downloads, Z users, N stories]` since launch on
@@ -112,8 +112,9 @@ $99/team/mo · 10k teams = $11.9M ARR · solo, 25, Indore, can be in SF Jan.
 ### 18. How big can this be? Bottom-up.
 > Every team that employs coding agents needs coordination and verification. At
 > $99/team/mo, 10k teams = $11.9M ARR; 100k teams = $119M. Comparable PM seats
-> price at $10–20/user/mo, so we're cheaper than a 10-person Linear bill. YC's
-> Fall '26 RFS names "Multiplayer AI" as the area — shared agents for teams.
+> price at $8–20/user/mo, so we're priced like a 10-person Linear bill — for a
+> layer Linear doesn't provide. YC's Fall '26 RFS names "Multiplayer AI" as the
+> area — shared agents for teams.
 
 ### 19. What would make you give up?
 > If teams using agents at scale told me verification doesn't matter because the

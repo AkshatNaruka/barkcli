@@ -216,6 +216,12 @@ export function App() {
   const boardRef = useRef(board);
   boardRef.current = board;
 
+  // Window title follows the active view — the "barkcli mind" framing.
+  useEffect(() => {
+    const label = route === "dashboard" ? "mind" : route;
+    document.title = `barkcli ${label}`;
+  }, [route]);
+
   const [gitInfo, setGitInfo] = useState<GitInfo | null>(null);
   const [historyCard, setHistoryCard] = useState<{ id: string; entries: any[] } | null>(null);
   const [activityCard, setActivityCard] = useState<{ id: string; history: HistoryEntry[]; sessions: SessionEntry[] } | null>(null);

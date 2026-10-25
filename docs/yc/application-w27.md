@@ -145,10 +145,11 @@ shipping.
 > The CLI is free and MIT forever — it is the distribution engine. The company
 > sells the hosted team layer: multiplayer live agent sessions, cloud board sync,
 > and reliability/audit analytics, at **$99/month per team** — flat, not per seat.
-> That undercuts a 10-person Linear bill ($100–200/mo at $10–20/seat).
+> That is roughly what a 10-person team already pays for a seat-based PM tool
+> ($8–20/seat/mo), for a layer those tools don't provide.
 >
 > Math: 10,000 teams × $99/mo = $11.9M ARR; 100,000 teams = $119M ARR. Comparable
-> seat-based PM tools (Linear, Jira) price at $10–20/user/mo; every team adopting
+> seat-based PM tools (Linear, Jira) price at $8–20/user/mo; every team adopting
 > coding agents needs a coordination and verification layer. No revenue today;
 > the hosted layer is in development. The free core stays free forever.
 
@@ -156,22 +157,24 @@ shipping.
 
 > GitHub has 100M+ developers, and coding agents went from demos to daily
 > production use in under two years (Claude Code, Codex, Cursor). The management
-> layer is a new seat category: comparable PM tools charge $10–20/user/mo, and
+> layer is a new seat category: comparable PM tools charge $8–20/user/mo, and
 > YC's own Fall 2026 Requests for Startups names "Multiplayer AI" — shared agents
 > for engineering teams — as an area to fund. Bottom-up: every team that employs
 > coding agents needs coordination, visibility, and verification; at 10k teams ×
-> $99/mo the market is $11.9M ARR before the long tail, and the flat team price
-> sits below what a 10-person team already pays for seat-based PM tools.
+> $99/mo the market is $11.9M ARR before the long tail, and the flat team price is
+> in line with a 10-person seat-based PM bill — for a layer those tools don't
+> provide.
 > `[VERIFY: add 1–2 links/sources before submitting]`
 
 ### Tell us about your team.
 
 > Solo founder: Akshat Naruka, 25, Indore. I have shipped 14 products solo —
-> Swift/macOS utilities, Go CLIs, Next.js SaaS — while working full-time as a
-> software developer at Siemens, and I do the engineering, design, and
-> distribution myself. barkcli is the most serious of them: a Rust binary with
-> web app, TUI, VS Code extension, MCP server, and 257 tests in ~12 weeks. I'm
-> open to a strong technical cofounder who complements me on growth/distribution.
+> Swift/macOS utilities, Go CLIs, Next.js SaaS — including recent ones while
+> working full-time as a software developer at Siemens, and I do the engineering,
+> design, and distribution myself. barkcli is the most serious of them: a Rust
+> binary with web app, TUI, VS Code extension, MCP server, and 257 tests in
+> ~12 weeks. I'm open to a strong technical cofounder who complements me on
+> growth/distribution.
 
 ### What do you think your team has that others don't?
 
@@ -196,10 +199,10 @@ shipping.
 > I turn ideas into shipped products fast and alone: 14 products across
 > Swift/macOS, Go, Rust, and Next.js by 25 — Saasuji (3,000 visitors, ~100
 > products submitted) and Skilluply (50–100 daily users, ~6–7k visitors total)
-> among them — while working full-time as a software developer at Siemens, with
-> Product Hunt launches and write-ups along the way. barkcli is the most serious
-> of them: a full management stack (CLI, web, TUI, VS Code, MCP, registry, 257
-> tests) built in ~12 weeks.
+> among them — with Product Hunt launches and write-ups along the way; the recent
+> ones shipped while working full-time as a software developer at Siemens.
+> barkcli is the most serious of them: a full management stack (CLI, web, TUI,
+> VS Code, MCP, registry, 257 tests) built in ~12 weeks.
 
 ### What have you learned so far?
 

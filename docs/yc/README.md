@@ -4,8 +4,9 @@ Everything needed to submit the YC Winter 2027 application and run launch week.
 
 **Shipped Oct 25:** replay demo live at
 `https://akshatnaruka.github.io/barkcli/app/?run=replay#/mind` (3 agents,
-gate verdicts, merge train — real UI, recorded data), landing "Multiplayer AI"
-section with the CTA, and this pack.
+gate verdicts, merge train — real UI, recorded data), the mockup-aligned
+control-center UI (MANAGE/BUILD sidebar, Mind board, live Agents rail), landing
+"Multiplayer AI" section with the CTA, and this pack.
 
 **Updated Oct 25 (facts locked):** pricing confirmed — free MIT core + hosted team
 layer at **$99/month per team**; founder education, work history (Siemens, Infosys,
