@@ -1,0 +1,382 @@
+import SwiftUI
+
+public struct GlassCard<Content: View>: View {
+    private let cornerRadius: CGFloat
+    private let paddingAmount: CGFloat
+    private let borderColor: Color
+    private let backgroundColor: Color
+    private let content: Content
+
+    public init(
+        cornerRadius: CGFloat = 14,
+        padding: CGFloat = 16,
+        borderColor: Color = .barkcliBorderSubtle,
+        backgroundColor: Color = .barkcliCard.opacity(0.85),
+        @ViewBuilder content: () -> Content
+    ) {
+        self.cornerRadius = cornerRadius
+        self.paddingAmount = padding
+        self.borderColor = borderColor
+        self.backgroundColor = backgroundColor
+        self.content = content()
+    }
+
+    public var body: some View {
+        content
+            .padding(paddingAmount)
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(backgroundColor)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(borderColor, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    }
+}
+
+public enum StatusBadgeVariant: Sendable, Hashable {
+    case neutral
+    case accent
+    case success
+    case warning
+    case danger
+    case custom(Color)
+
+    public var foregroundColor: Color {
+        switch self {
+        case .neutral:
+            return .barkcliTextMuted
+        case .accent:
+            return .barkcliAccentPurple
+        case .success:
+            return .barkcliSuccessEmerald
+        case .warning:
+            return .barkcliWarningAmber
+        case .danger:
+            return .barkcliDangerRose
+        case .custom(let color):
+            return color
+        }
+    }
+
+    public var backgroundColor: Color {
+        foregroundColor.opacity(0.14)
+    }
+
+    public var borderColor: Color {
+        foregroundColor.opacity(0.28)
+    }
+}
+
+public struct StatusBadge: View {
+    public let text: String
+    public let systemImage: String?
+    public let variant: StatusBadgeVariant
+
+    public init(
+        _ text: String,
+        systemImage: String? = nil,
+        variant: StatusBadgeVariant = .neutral
+    ) {
+        self.text = text
+        self.systemImage = systemImage
+        self.variant = variant
+    }
+
+    public var body: some View {
+        HStack(spacing: 5) {
+            if let systemImage {
+                Image(systemName: systemImage)
+                    .font(.system(size: 11, weight: .semibold))
+            } else {
+                Circle()
+                    .fill(variant.foregroundColor)
+                    .frame(width: 6, height: 6)
+            }
+            Text(text)
+                .font(.system(size: 12, weight: .medium))
+        }
+        .foregroundColor(variant.foregroundColor)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 4)
+        .background(
+            Capsule()
+                .fill(variant.backgroundColor)
+        )
+        .overlay(
+            Capsule()
+                .strokeBorder(variant.borderColor, lineWidth: 1)
+        )
+    }
+}
+
+public enum MetricTrend: Sendable, Hashable {
+    case up(String)
+    case down(String)
+    case neutral(String)
+
+    public var text: String {
+        switch self {
+        case .up(let val):
+            return val
+        case .down(let val):
+            return val
+        case .neutral(let val):
+            return val
+        }
+    }
+
+    public var iconName: String {
+        switch self {
+        case .up:
+            return "arrow.up.right"
+        case .down:
+            return "arrow.down.right"
+        case .neutral:
+            return "arrow.right"
+        }
+    }
+
+    public var color: Color {
+        switch self {
+        case .up:
+            return .barkcliSuccessEmerald
+        case .down:
+            return .barkcliDangerRose
+        case .neutral:
+            return .barkcliTextMuted
+        }
+    }
+}
+
+public struct MetricTile: View {
+    public let title: String
+    public let value: String
+    public let subtitle: String?
+    public let systemImage: String?
+    public let trend: MetricTrend?
+    public let accentColor: Color
+
+    public init(
+        title: String,
+        value: String,
+        subtitle: String? = nil,
+        systemImage: String? = nil,
+        trend: MetricTrend? = nil,
+        accentColor: Color = .barkcliAccentPurple
+    ) {
+        self.title = title
+        self.value = value
+        self.subtitle = subtitle
+        self.systemImage = systemImage
+        self.trend = trend
+        self.accentColor = accentColor
+    }
+
+    public var body: some View {
+        GlassCard(padding: 14) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(title.uppercased())
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.barkcliTextMuted)
+                        .tracking(0.5)
+                    Spacer()
+                    if let systemImage {
+                        Image(systemName: systemImage)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(accentColor)
+                    }
+                }
+
+                Text(value)
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .foregroundColor(.barkcliTextPrimary)
+
+                if let trend {
+                    HStack(spacing: 4) {
+                        Image(systemName: trend.iconName)
+                            .font(.system(size: 10, weight: .bold))
+                        Text(trend.text)
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundColor(trend.color)
+                } else if let subtitle {
+                    Text(subtitle)
+                        .font(.system(size: 12))
+                        .foregroundColor(.barkcliTextMuted)
+                }
+            }
+        }
+    }
+}
+
+public enum ActionButtonVariant: Sendable, Hashable {
+    case primary
+    case secondary
+    case destructive
+    case ghost
+}
+
+public struct ActionButton: View {
+    public let title: String
+    public let systemImage: String?
+    public let variant: ActionButtonVariant
+    public let isLoading: Bool
+    public let isDisabled: Bool
+    public let action: () -> Void
+
+    public init(
+        _ title: String,
+        systemImage: String? = nil,
+        variant: ActionButtonVariant = .primary,
+        isLoading: Bool = false,
+        isDisabled: Bool = false,
+        action: @escaping () -> Void
+    ) {
+        self.title = title
+        self.systemImage = systemImage
+        self.variant = variant
+        self.isLoading = isLoading
+        self.isDisabled = isDisabled
+        self.action = action
+    }
+
+    public var body: some View {
+        Button(action: action) {
+            HStack(spacing: 7) {
+                if isLoading {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: foregroundColor))
+                        .scaleEffect(0.85)
+                } else if let systemImage {
+                    Image(systemName: systemImage)
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .foregroundColor(foregroundColor)
+            .background(backgroundView)
+            .overlay(borderOverlay)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .disabled(isDisabled || isLoading)
+        .opacity(isDisabled ? 0.45 : 1.0)
+    }
+
+    private var foregroundColor: Color {
+        switch variant {
+        case .primary:
+            return .white
+        case .secondary:
+            return .barkcliTextPrimary
+        case .destructive:
+            return .white
+        case .ghost:
+            return .barkcliTextMuted
+        }
+    }
+
+    @ViewBuilder
+    private var backgroundView: some View {
+        switch variant {
+        case .primary:
+            Color.barkcliAccentPurple
+        case .secondary:
+            Color.barkcliCard
+        case .destructive:
+            Color.barkcliDangerRose
+        case .ghost:
+            Color.clear
+        }
+    }
+
+    @ViewBuilder
+    private var borderOverlay: some View {
+        switch variant {
+        case .secondary:
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Color.barkcliBorderSubtle, lineWidth: 1)
+        case .ghost:
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Color.barkcliBorderSubtle.opacity(0.4), lineWidth: 1)
+        default:
+            EmptyView()
+        }
+    }
+}
+
+public struct SectionHeader: View {
+    public let title: String
+    public let subtitle: String?
+    public let count: Int?
+    public let systemImage: String?
+    public let actionTitle: String?
+    public let action: (() -> Void)?
+
+    public init(
+        _ title: String,
+        subtitle: String? = nil,
+        count: Int? = nil,
+        systemImage: String? = nil,
+        actionTitle: String? = nil,
+        action: (() -> Void)? = nil
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.count = count
+        self.systemImage = systemImage
+        self.actionTitle = actionTitle
+        self.action = action
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 8) {
+                if let systemImage {
+                    Image(systemName: systemImage)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.barkcliAccentPurple)
+                }
+
+                Text(title)
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundColor(.barkcliTextPrimary)
+
+                if let count {
+                    Text("\(count)")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.barkcliTextMuted)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(
+                            Capsule()
+                                .fill(Color.barkcliBorderSubtle.opacity(0.6))
+                        )
+                }
+
+                Spacer()
+
+                if let actionTitle, let action {
+                    Button(action: action) {
+                        Text(actionTitle)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.barkcliAccentPurple)
+                    }
+                }
+            }
+
+            if let subtitle {
+                Text(subtitle)
+                    .font(.system(size: 13))
+                    .foregroundColor(.barkcliTextMuted)
+            }
+        }
+    }
+}
