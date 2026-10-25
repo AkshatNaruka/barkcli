@@ -917,12 +917,12 @@ export default function Home() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/run-agents-demo.gif"
-                alt="barkcli run --agents 3: three agents working in worktrees, live session rows pulsing, tasks completing and merging in real time"
+                alt="barkcli run --agents 3: three agents working in worktrees, live agent rows pulsing, tasks completing and merging in real time in the Mind view"
                 className="w-full h-auto"
                 loading="lazy"
               />
               <div className="absolute bottom-3 right-4 text-[10px] font-mono text-white/40">
-                recorded live — Orchestrate view, /api/run/live
+                recorded run — Mind view, replay
               </div>
             </div>
           </AnimatedSection>
