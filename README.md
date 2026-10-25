@@ -65,9 +65,9 @@ Like `.git` but for Kanban boards. Project management for the terminal era — a
 | 📋 **Kanban Board** | Columns, priorities, labels, assignees, checklists, comments, effort, due dates, reminders. Drag-and-drop in the web app. |
 | 🔗 **Spec Traceability** | Specs → requirements → code. Every card links to its spec and to the code that implements it. |
 | 🛠 **MCP Server** | 56 tools for AI coding agents — board, task, memory, specs, orchestration, sessions. `barkcli mcp`. |
-| 🤖 **Autopilot** | Intent → plan gate → dispatched packets → review → merge gate. Agent-driven with human approval. |
+| 🤖 **Autopilot** | Intent → plan gate → dispatched packets → review → merge gate. Or go fully autonomous: `barkcli run "<intent>" --agents 3 --yes` — parallel agents in worktrees, your tests as the gate, merge train for the winners. |
 | 🧠 **Memory** | Four-tier local memory + project facts that persist across sessions. Hybrid search. |
-| 📦 **BMAD Skills** | Reusable conventions (mvp, planning, scrum-master, test) versioned in your repo, injected into agent prompts. |
+| 📦 **Skills Registry** | Playbooks injected into agent prompts on trigger matches. Install from any git repo (`skills install owner/repo`), pinned in a committed `skills.lock` (rev + sha256), publish back via PR. |
 | 📅 **Sprints** | Time-boxed planning with velocity tracking. |
 | 🎯 **Code Context** | Symbol search (`barkcli code`), file-to-card mapping, git-aware refresh. |
 | ⏱ **Timeline** | Checkpoints, undo, diff, blame, validate, doctor. Your board, version-controlled. |
@@ -158,6 +158,30 @@ You (intent)  →  barkcli (plan)  →  Agent (work)  →  barkcli (review)  →
 
 Read the full [Autopilot guide](https://barkcli.vercel.app/docs/autopilot).
 
+### Or: one prompt to merged code
+
+```bash
+barkcli run "ship the settings redesign" --agents 3 --yes
+```
+
+![barkcli run --agents 3 — live Orchestrate view](.github/assets/run-agents-demo.gif)
+
+The autonomy loop plans the intent into tasks, spawns up to N agents into isolated
+worktrees, watches each transcript, and runs **your project's own tests** as the
+acceptance gate:
+
+- **Done means the gate passed in the worktree** — never that the agent said so. A
+  crashed agent with no changes and a no-op gate still fails.
+- Gate-passing branches ride a **merge train** in finish order; a conflicted branch
+  re-queues and re-runs **solo** once the pool drains, against a frozen main — merges
+  converge instead of thrashing.
+- Every verdict is recorded in the run report (`parallel`, `workers_peak`,
+  `merged_branches`) and in cross-session memory, so the next run doesn't repeat
+  the last one's mistakes.
+
+Watch it live in the web app's Orchestrate view (`/api/run/live`), or read
+[the command reference](https://barkcli.vercel.app/docs/commands/run).
+
 ---
 
 ## CLI Reference
@@ -190,9 +214,11 @@ Management layer
   barkcli intake "<text>"       Classify intent → card + spec
   barkcli plan <card>           Spec + decomposition
   barkcli dispatch              Run orchestration cycle
+  barkcli run "<intent>"        Autonomous loop: --agents N, --yes, --offline,
+                                --test-cmd, --max-attempts, --dry-run
   barkcli review [--all]        Validate completed work
   barkcli mind sync|show        Project health snapshot
-  barkcli skills list|show      BMAD skills
+  barkcli skills install|lock|publish   Registry skills pinned in skills.lock
   barkcli memory add|search     Four-tier memory
 
 Pro commands (free, included in MIT)
@@ -270,6 +296,18 @@ The 56 tools cover boards, cards, tasks, agents, memory, specs, sessions, orches
 
 ## Benchmarks & Comparisons
 
+**Context benchmark:** a cold agent session costs ~29,400 tokens of listing, searching
+and reading before the first edit on this repo; one read of the auto-maintained
+`project_context.md` is ~515. That's **57.1×** less context at `339f66a` — a
+deterministic proxy, re-runnable on any repo:
+
+```bash
+barkcli context benchmark --json
+```
+
+Try it interactively (paste your own output) at
+[barkcli.vercel.app/benchmark](https://barkcli.vercel.app/benchmark).
+
 | vs | Read the take |
 |---|---|
 | [Linear](https://barkcli.vercel.app/compare/linear) | Git-native vs cloud-first |
@@ -322,10 +360,10 @@ Contributions welcome — see [CONTRIBUTING](#contributing).
 
 ## Roadmap
 
-- [ ] Multi-agent fleet improvements (worktrees, leases, dispatcher v2)
+- [x] Multi-agent fleet improvements (worktrees, leases, dispatcher v2)
+- [x] Skills registry + starter templates (`barkcli skills install`, `templates/`)
 - [ ] Web intent UI + interactive init polish
 - [ ] WebMCP / OKF agent-readiness layer
-- [ ] More BMAD skills and templates
 - [ ] Plugins / hooks ecosystem
 
 Track live work on the [project board](https://github.com/AkshatNaruka/barkcli/projects) — or just `barkcli` it.
