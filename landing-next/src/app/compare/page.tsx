@@ -23,7 +23,7 @@ const faqs = [
   {
     question: "Is barkcli free?",
     answer:
-      "Yes. barkcli is MIT licensed and free forever. No per-seat pricing, no subscription tiers.",
+      "Yes. barkcli is MIT licensed — the CLI is free forever, with no per-seat pricing. A hosted team layer is planned at $99/month per team.",
   },
   {
     question: "Can barkcli replace Linear/Jira for teams?",
@@ -108,7 +108,7 @@ export default function ComparePage() {
       <div className="mt-16 rounded-xl border border-white/10 bg-white/5 p-8 text-center">
         <h2 className="mb-2 text-2xl font-bold">Try barkcli Free</h2>
         <p className="mx-auto mb-6 max-w-md text-white/60">
-          Tasks in your repo, AI agents in your loop, $0 forever. Install in 10
+          Tasks in your repo, AI agents in your loop, free core forever. Install in 10
           seconds.
         </p>
         <div className="flex flex-wrap justify-center gap-4">

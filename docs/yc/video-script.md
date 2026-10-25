@@ -99,7 +99,7 @@ For the live web view in the same take:
 
 ```bash
 barkcli serve --port 4331 --open   # keep this running in a second tab
-# run the command above while the Orchestrate view is open
+# run the command above while the Mind view is open
 ```
 
 If `barkcli serve` needs the built web assets in the demo repo, copy them once:
@@ -112,8 +112,8 @@ If `barkcli serve` needs the built web assets in the demo repo, copy them once:
 1. **A-roll, 3 takes:** the full script to camera. Pick the take with the best energy.
 2. **Terminal, 1 take:** `cd /tmp/bark-demo`, clear screen, run the `barkcli run`
    command. Start recording *before* pressing enter. Let it finish; don't cut mid-run.
-3. **Web, 1 take:** Orchestrate tab open, run again with `--agents 3`; capture the
-   three workers going live and the merge report. Slow down the mouse.
+3. **Web, 1 take:** Mind tab open, run again with `--agents 3`; capture the
+   three workers going live in the Agents rail and the merge report. Slow down the mouse.
 4. **Merge proof, 5 seconds:** `git log --oneline -3` on main showing the merged work.
 5. **Face, 2 takes:** the closing two lines, for a clean ending.
 

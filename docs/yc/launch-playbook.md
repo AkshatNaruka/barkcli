@@ -53,13 +53,14 @@ Backups:
 >
 > Demo GIF and docs: https://akshatnaruka.github.io/barkcli
 > Watch a recorded 3-agent run in the real UI (no install):
-> https://akshatnaruka.github.io/barkcli/app/?run=replay#/orchestrate
+> https://akshatnaruka.github.io/barkcli/app/?run=replay#/mind
 > Interactive benchmark: https://akshatnaruka.github.io/barkcli/benchmark
 > (57× smaller context via the auto-maintained project context — a deterministic
 > proxy for cold-start cost, re-runnable with `barkcli context benchmark --json`.)
 >
-> The core is free and MIT forever. I'm building the multiplayer layer — shared
-> live agent sessions, cloud sync, reliability analytics — as the company.
+> The core is free and MIT forever. I'm building the hosted team layer — shared
+> live agent sessions, cloud sync, reliability analytics — at $99/month per team,
+> flat, not per seat.
 >
 > I'd especially love feedback from people running agents on real repos: what
 > breaks first for you? Happy to answer anything.
@@ -89,7 +90,7 @@ wrong, say what's true and move on — never argue.
    forfeit, and an acceptance gate that runs *your* tests. Only gate-passing
    branches merge — through a merge train, with conflicts re-run solo.
 4. **Demo:** [GIF] Three agents, one board, live view. Done = gate passed.
-   Replay it in the real UI: akshatnaruka.github.io/barkcli/app/?run=replay#/orchestrate
+   Replay it in the real UI: akshatnaruka.github.io/barkcli/app/?run=replay#/mind
 5. **Built:** 257 tests · 5 platform binaries · crates.io + Homebrew · 71 MCP tools
    · VS Code + TUI + web app · skills registry with a sha-pinned lockfile.
 6. **Free:** Core is MIT forever. The company is the multiplayer layer: shared live

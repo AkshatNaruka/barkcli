@@ -1,6 +1,6 @@
 # YC W27 application — barkcli (draft v1)
 
-**Status:** paste-ready answers. `[FILL]` = only Akshat can supply. `[DECIDE]` = needs a decision.
+**Status:** paste-ready answers. `[FILL]` = only Akshat can supply. `[CONFIRM]` = validate wording.
 **Deadline:** Nov 2, 8pm PT (= Nov 3, 8:30am IST). **Target submit: Sat Nov 1, evening IST.**
 **Batch:** Winter 2027 · in-person SF, Jan–Mar · applying solo.
 
@@ -15,10 +15,10 @@
 - **URL:** https://akshatnaruka.github.io/barkcli
 - **50 chars or less:** `Multiplayer management layer for AI coding agents` (49 chars)
 - **What are you applying for:** Winter 2027 batch
-- **Have you applied to YC before?** `[FILL: no / details]`
-- **How did you hear about YC?** `[FILL]`
+- **Have you applied to YC before?** Yes — applied in the last YC session; not accepted. Back with barkcli.
+- **How did you hear about YC?** From founders on X.
 - **Are you applying with a co-founder?** No — solo.
-- **Incorporated?** `[FILL: not yet — YC incorporates at acceptance]`
+- **Incorporated?** Not yet — YC incorporates at acceptance.
 - **Where do you live now?** Indore, India
 - **Where will the company be based after YC?** San Francisco (can relocate Jan–Mar for the batch; visa logistics via YC guidance) `[FILL: confirm visa status]`
 
@@ -26,16 +26,20 @@
 
 ## Founder
 
-**Akshat Naruka, 25, Indore, India.** Indie hacker. 14 products shipped solo across
-Swift/macOS, Go CLIs, Rust, and Next.js SaaS. GitHub: 53 public repos.
-Product Hunt maker; writes on X/Medium about shipping.
+**Akshat Naruka, 25, Indore, India.** Indie hacker and software developer at
+Siemens. 14 products shipped solo across Swift/macOS, Go CLIs, Rust, and Next.js
+SaaS. GitHub: 53 public repos. Product Hunt maker; writes on X/Medium about
+shipping.
 
 - GitHub: https://github.com/AkshatNaruka
 - LinkedIn: https://www.linkedin.com/in/akshatnaruka/
 - X: https://x.com/probiex007
 - Portfolio: https://akshatnaruka.github.io/Portoflio/ `[FILL: fix the age/stats counter — it renders wrong]`
-- Education: `[FILL: school, degree, year]`
-- Work history: `[FILL: jobs / freelance / self-employed dates]`
+- Education: B.Tech in Computer Science, SRM Institute of Science and Technology,
+  Chennai (2020–2024). School: St. Paul Higher Secondary School, Indore.
+- Work history: Software Developer, Siemens — Aug 2024–present. iOS Application
+  Developer, Infosys — Apr–May 2023. Network Research Intern, La Trobe University
+  — Aug–Oct 2022.
 - Most-used languages: TypeScript, Swift, Go, Rust, Python
 
 ---
@@ -86,7 +90,7 @@ Product Hunt maker; writes on X/Medium about shipping.
 > worktree-per-attempt; 30s lease heartbeats so dead agents forfeit; acceptance
 > gates running the project's own tests; merge train with solo-drain conflict
 > re-dispatch; live session view (`/api/run/live`) in the web app; run reports
-> (`workers_peak`, `merged_branches`); 56-tool MCP server; skills registry with a
+> (`workers_peak`, `merged_branches`); 71-tool MCP server; skills registry with a
 > committed `skills.lock` (rev + sha256); 257 tests; five-platform release
 > pipeline (macOS/Linux/Windows), crates.io, Homebrew; three starter templates.
 >
@@ -139,14 +143,14 @@ Product Hunt maker; writes on X/Medium about shipping.
 ### How will you make money? How much could you make?
 
 > The CLI is free and MIT forever — it is the distribution engine. The company
-> charges teams for what only a server can do: multiplayer live agent sessions,
-> cloud board sync, and reliability/audit analytics, at ~$20/user/month.
+> sells the hosted team layer: multiplayer live agent sessions, cloud board sync,
+> and reliability/audit analytics, at **$99/month per team** — flat, not per seat.
+> That undercuts a 10-person Linear bill ($100–200/mo at $10–20/seat).
 >
-> Math: 10,000 teams × 10 seats × $20/mo = $24M ARR; 100,000 teams = $240M ARR.
-> Comparable seat-based PM tools (Linear, Jira) price at $10–20/user/mo; every
-> team adopting coding agents needs a coordination and verification layer.
-> No revenue today. The first paid feature ships only when teams ask for it —
-> the free core stays free. `[DECIDE: confirm this is your conviction before submitting]`
+> Math: 10,000 teams × $99/mo = $11.9M ARR; 100,000 teams = $119M ARR. Comparable
+> seat-based PM tools (Linear, Jira) price at $10–20/user/mo; every team adopting
+> coding agents needs a coordination and verification layer. No revenue today;
+> the hosted layer is in development. The free core stays free forever.
 
 ### Where's the evidence for your claim of market size?
 
@@ -156,16 +160,18 @@ Product Hunt maker; writes on X/Medium about shipping.
 > YC's own Fall 2026 Requests for Startups names "Multiplayer AI" — shared agents
 > for engineering teams — as an area to fund. Bottom-up: every team that employs
 > coding agents needs coordination, visibility, and verification; at 10k teams ×
-> 10 seats × $20/mo the market is $24M ARR before the long tail.
+> $99/mo the market is $11.9M ARR before the long tail, and the flat team price
+> sits below what a 10-person team already pays for seat-based PM tools.
 > `[VERIFY: add 1–2 links/sources before submitting]`
 
 ### Tell us about your team.
 
 > Solo founder: Akshat Naruka, 25, Indore. I have shipped 14 products solo —
-> Swift/macOS utilities, Go CLIs, Next.js SaaS — and I do the engineering, design,
-> and distribution myself. barkcli is the most serious of them: a Rust binary
-> with web app, TUI, VS Code extension, MCP server, and 257 tests in ~12 weeks.
-> `[DECIDE: if you're open to a cofounder, add one honest line about actively looking]`
+> Swift/macOS utilities, Go CLIs, Next.js SaaS — while working full-time as a
+> software developer at Siemens, and I do the engineering, design, and
+> distribution myself. barkcli is the most serious of them: a Rust binary with
+> web app, TUI, VS Code extension, MCP server, and 257 tests in ~12 weeks. I'm
+> open to a strong technical cofounder who complements me on growth/distribution.
 
 ### What do you think your team has that others don't?
 
@@ -178,20 +184,22 @@ Product Hunt maker; writes on X/Medium about shipping.
 
 ### Please tell us about an interesting project, preferably outside of class or work.
 
-> `[FILL — pick 1–2 from the portfolio with real numbers. Suggested:]`
-> SpaceEX — a native macOS storage explorer and manager in Swift: scans volumes,
-> finds large/duplicate files, and reclaims space with a real UI. Notchly — a
-> widget hub for the MacBook notch, shipped to users. I like building things that
-> make a computer feel better to use; barkcli is the same instinct applied to
-> agents.
+> Saasuji — a product-discovery site I built, shipped, and run solo: 3,000
+> visitors and ~100 products submitted to date, on a Next.js stack I designed,
+> built, and marketed myself. Also SpaceEX, a native macOS storage explorer in
+> Swift: scans volumes, finds large/duplicate files, and reclaims space with a
+> real UI. I like building things that make a computer feel better to use;
+> barkcli is the same instinct applied to agents.
 
 ### Please tell us in one or two sentences about the most impressive thing other than this startup that you or your team has built or done.
 
 > I turn ideas into shipped products fast and alone: 14 products across
-> Swift/macOS, Go, Rust, and Next.js by 25 — including Saasuji
-> `[FILL: users/revenue]` — with Product Hunt launches and write-ups along the
-> way. barkcli is the most serious of them: a full management stack (CLI, web,
-> TUI, VS Code, MCP, registry, 257 tests) built in ~12 weeks.
+> Swift/macOS, Go, Rust, and Next.js by 25 — Saasuji (3,000 visitors, ~100
+> products submitted) and Skilluply (50–100 daily users, ~6–7k visitors total)
+> among them — while working full-time as a software developer at Siemens, with
+> Product Hunt launches and write-ups along the way. barkcli is the most serious
+> of them: a full management stack (CLI, web, TUI, VS Code, MCP, registry, 257
+> tests) built in ~12 weeks.
 
 ### What have you learned so far?
 
@@ -214,20 +222,22 @@ Product Hunt maker; writes on X/Medium about shipping.
 
 > Links: demo GIF on the landing page; interactive benchmark at `/benchmark`;
 > skills registry at github.com/AkshatNaruka/barkcli-skills; v0.4.0 release with
-> five-platform binaries. I'm applying solo, can be in San Francisco in January,
-> and I'm fully committed to this for the long run.
+> five-platform binaries. I'm currently a software developer at Siemens and have
+> been building barkcli nights and weekends; if accepted I go full-time
+> immediately. I can be in San Francisco in January and I'm fully committed to
+> this for the long run. `[CONFIRM: phrase the Siemens → full-time transition as you mean it]`
 
 ---
 
 ## Before-submit checklist (Sat Nov 1)
 
 - [ ] Launch happened; real numbers replace every `[FILL after launch]`
-- [ ] Saasuji / Skilluply numbers filled (users, revenue — honest, even zero)
+- [x] Saasuji / Skilluply numbers filled (3k visitors · ~100 products submitted · 50–100 daily users · ~6–7k total visitors)
 - [ ] Portfolio stats fixed (age 25, real repo/product counts)
-- [ ] Education + work history filled
+- [x] Education + work history filled
 - [ ] `[VERIFY]` competitor names checked against reality
 - [ ] Market-size answer has 1–2 links/sources
-- [ ] `[DECIDE]` monetization conviction confirmed — the interview will probe it
+- [x] Monetization confirmed: free MIT core + $99/mo hosted team layer
 - [ ] Video recorded (see `video-script.md`), under 60s, plays with sound
 - [ ] Application reread aloud once — every sentence specific, no buzzwords
 - [ ] Submitted by Sat evening IST (deadline Nov 2, 8pm PT = Nov 3, 8:30am IST)

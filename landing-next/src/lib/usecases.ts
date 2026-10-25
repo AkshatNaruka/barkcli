@@ -15,7 +15,7 @@ export const useCases: UseCase[] = [
     description: "Manage your personal projects without SaaS subscriptions. Tasks live in your repo, version controlled with your code.",
     icon: "SOLO",
     benefits: [
-      "No subscription fees — free forever",
+      "Free forever — MIT, no subscription",
       "Tasks travel with your code",
       "Works offline on planes, trains, cafes",
       "AI agents can read your task list",

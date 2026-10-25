@@ -13,7 +13,7 @@ barkcli is a local-first management layer. Humans write intent, agents do work, 
 
 - A git-native Kanban board plus AI agent orchestration, all in one binary.
 - Tasks are YAML files (\`.board/*.board\`) committed to your repository — diff them, merge them, grep them, roll them back with git.
-- No cloud, no accounts, no subscriptions. Works fully offline.
+- No cloud required, no accounts, no subscriptions. Works fully offline.
 - Four interfaces over one data source: CLI, terminal UI (TUI), web app, and VS Code extension.
 - ${MCP_TOOL_COUNT} MCP tools let AI coding agents (Claude Code, OpenCode, Cursor) read tasks, claim work, and update progress.
 
@@ -29,7 +29,7 @@ barkcli is a local-first management layer. Humans write intent, agents do work, 
 - **Multi-interface:** CLI, Terminal UI, Web App, VS Code extension.
 - **AI/MCP:** 71 tools for Claude Code, OpenCode, Cursor integration.
 - **Sprints:** Start/end sprints with velocity tracking.
-- **Free forever:** MIT license, no subscriptions, no per-seat pricing.
+- **Free core:** MIT license, free CLI forever, no per-seat pricing. Hosted team layer planned at $99/month per team.
 
 ## Quick Start
 
@@ -75,7 +75,7 @@ Cargo: \`cargo install barkcli\`
 
 ## Pricing
 
-Free and open source (MIT) — $0 forever. No tiers, no per-seat fees. See [pricing details](/pricing.md).
+The CLI is free and open source (MIT) — free forever. A hosted team layer (multiplayer sessions, cloud sync, reliability analytics) is planned at $99/month per team, flat. See [pricing details](/pricing.md).
 
 ## Source Code
 

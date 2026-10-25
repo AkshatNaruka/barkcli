@@ -392,7 +392,7 @@ Configure MCP server for Claude Code, OpenCode, or Cursor:
 
 ## Pricing
 
-Free and open source (MIT license). No subscriptions, no per-seat pricing.
+The CLI is free and open source (MIT license) — free forever. A hosted team layer (multiplayer sessions, cloud sync, reliability analytics) is planned at $99/month per team, flat, not per seat.
 
 ## Source Code
 

@@ -53,7 +53,7 @@ Like `.git` but for Kanban boards. Project management for the terminal era — a
 - **Tasks are files.** Boards are plain YAML committed to your repo. Diff them, merge them, grep them, roll them back — exactly like code.
 - **One binary, four interfaces.** CLI, terminal UI (ratatui), web app (axum), and a VS Code Custom Editor. Same data, every surface.
 - **AI agents in the loop.** 71 MCP tools let Claude Code, OpenCode, and Cursor read tasks, claim work, and update progress — with full project context.
-- **No cloud. No accounts. No subscriptions.** Works fully offline. MIT licensed. Your data never leaves your machine.
+- **Local-first, free core.** No accounts, no subscriptions to use it. Works fully offline. MIT licensed — your data never leaves your machine. A hosted team layer (multiplayer, cloud sync, analytics) is planned at $99/month per team.
 
 ---
 
@@ -85,7 +85,7 @@ Like `.git` but for Kanban boards. Project management for the terminal era — a
 |:---:|:---:|
 | ![](.github/assets/brain-dark.png) | ![](.github/assets/calendar-light.png) |
 
-Try it live without installing — [**the Web demo**](https://akshatnaruka.github.io/barkcli/app/) runs the full interface on demo data (every interaction works), or [**watch a recorded 3-agent run**](https://akshatnaruka.github.io/barkcli/app/?run=replay#/orchestrate) in the real Orchestrate view — live session rows, gate verdicts, and the merge train.
+Try it live without installing — [**the Web demo**](https://akshatnaruka.github.io/barkcli/app/) runs the full interface on demo data (every interaction works), or [**watch a recorded 3-agent run**](https://akshatnaruka.github.io/barkcli/app/?run=replay#/mind) in the real Mind view — live agent rows, gate verdicts, and the merge train.
 
 ---
 

@@ -6,7 +6,7 @@ know — here's how I'd find out." Never argue, never bluff.
 
 **Memorize these:** 257 tests · 71 MCP tools · 5 platforms · 57.1× context proxy
 (29,400 → 515 tokens) · 14 products · 53 repos · ~12 weeks · v0.4.0 Oct 25 ·
-$20/seat/mo · 10k teams × 10 seats = $24M ARR · solo, 25, Indore, can be in SF Jan.
+$99/team/mo · 10k teams = $11.9M ARR · solo, 25, Indore, can be in SF Jan.
 
 ---
 
@@ -19,8 +19,8 @@ $20/seat/mo · 10k teams × 10 seats = $24M ARR · solo, 25, Indore, can be in S
 
 ### 2. Who is it for? Who's using it today?
 > Engineers and small teams already running Claude Code, Codex, or OpenCode on real
-> repos. Today: me daily, plus `[FILL: real users from launch]`. The buyer is the
-> eng lead who has 3–10 agents running and no idea what they're doing.
+> repos. Today: me every night, plus `[FILL: real users from launch]`. The buyer is
+> the eng lead who has 3–10 agents running and no idea what they're doing.
 
 ### 3. Why won't Linear/Jira/GitHub Projects just do this?
 > They're human-first cloud databases. They track what people say they did. They
@@ -34,10 +34,11 @@ $20/seat/mo · 10k teams × 10 seats = $24M ARR · solo, 25, Indore, can be in S
 > self-reported; we're the cross-agent layer with an external gate.
 
 ### 5. You're free forever — how do you make money?
-> The CLI is MIT and stays free — it's distribution. The company sells what only a
-> server can do: shared live agent sessions, cloud board sync, and reliability
-> analytics. ~$20/user/month. 10k teams × 10 seats = $24M ARR. No revenue today;
-> the paid layer ships when teams ask for it.
+> The CLI is MIT and stays free — it's distribution. The company sells the hosted
+> team layer: shared live agent sessions, cloud board sync, and reliability
+> analytics at $99/month per team — flat, not per seat, which undercuts a
+> 10-person Linear bill. 10k teams = $11.9M ARR. No revenue today; the hosted
+> layer is in development, the free core stays free.
 
 ### 6. What's your traction?
 > Honest: `[FILL: X stars, Y downloads, Z users, N stories]` since launch on
@@ -47,13 +48,13 @@ $20/seat/mo · 10k teams × 10 seats = $24M ARR · solo, 25, Indore, can be in S
 ### 7. Why are you the right person?
 > I've been the customer for three months and I ship the whole stack alone: Rust
 > core, web app, TUI, VS Code, MCP, five distribution channels. 14 products before
-> this. Every mechanism in barkcli came from a failure I personally hit.
+> this — the recent ones built while working full-time as a software developer at
+> Siemens. Every mechanism in barkcli came from a failure I personally hit.
 
 ### 8. You're solo. Why? Would you take a cofounder?
 > Solo because I can build and ship the entire stack, and I've done it 14 times.
-> `[DECIDE: "I'm open to a technical cofounder strong in growth/devrel" OR "I'm not
-> looking — I'd rather hire around the gaps after the batch."]` The batch is where
-> I'd fix that.
+> I'm open to a strong technical cofounder who complements me on
+> growth/distribution. The batch is where I'd fix that.
 
 ### 9. What's the hardest technical problem you solved?
 > Making "done" trustworthy under parallelism. Each attempt gets a worktree and a
@@ -110,9 +111,9 @@ $20/seat/mo · 10k teams × 10 seats = $24M ARR · solo, 25, Indore, can be in S
 
 ### 18. How big can this be? Bottom-up.
 > Every team that employs coding agents needs coordination and verification. At
-> $20/seat, 10k teams × 10 seats = $24M ARR; 100k teams = $240M. Comparable PM
-> seats price at $10–20/user/mo. YC's Fall '26 RFS names "Multiplayer AI" as the
-> area — shared agents for teams.
+> $99/team/mo, 10k teams = $11.9M ARR; 100k teams = $119M. Comparable PM seats
+> price at $10–20/user/mo, so we're cheaper than a 10-person Linear bill. YC's
+> Fall '26 RFS names "Multiplayer AI" as the area — shared agents for teams.
 
 ### 19. What would make you give up?
 > If teams using agents at scale told me verification doesn't matter because the
@@ -123,6 +124,17 @@ $20/seat/mo · 10k teams × 10 seats = $24M ARR · solo, 25, Indore, can be in S
 > I want the batch's pressure on distribution and the network for design partners
 > and hiring. I can be in SF Jan–Mar. I'm building the company, not a side project
 > — the free core is the funnel, the multiplayer layer is the business.
+
+---
+
+## They will ask: "Are you full-time on this?"
+
+> Not yet — I'm a software developer at Siemens (Aug 2024–present). barkcli has
+> had my nights and weekends for ~12 weeks; if accepted I resign and go full-time
+> immediately. `[CONFIRM: this is the plan]`
+
+Do not dodge this one. Say it in one breath, then pivot to shipping velocity:
+"257 tests, five platforms, 71 MCP tools in 12 weeks of nights."
 
 ---
 

@@ -40,7 +40,7 @@ export default async function IntegrationPage({ params }: PageProps) {
     },
     {
       question: `Is ${integration.name} integration free?`,
-      answer: "Yes. barkcli is MIT licensed and the MCP server is included in the binary — no subscription, no per-seat fee, no cloud.",
+      answer: "Yes. barkcli is MIT licensed and the MCP server is included in the binary — free forever, no per-seat fee, no account required. A hosted team layer is planned at $99/month per team.",
     },
     {
       question: "Does barkcli upload my tasks to the cloud?",

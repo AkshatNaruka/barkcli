@@ -101,7 +101,7 @@ const FEATURES = [
   {
     icon: CloudOff,
     title: "Offline Git-Native",
-    description: "No cloud, no accounts, no per-seat pricing. MIT licensed, built in Rust. Your data stays in your repo.",
+    description: "No cloud required, no accounts, no per-seat pricing. MIT licensed, built in Rust. Your data stays in your repo.",
     code: "$ barkcli list  # Works without internet",
     gradient: "from-teal-500/20 to-cyan-500/20",
   },
@@ -963,14 +963,14 @@ export default function Home() {
                 </p>
                 <h3 className="text-lg font-semibold mb-1">Your team, in the same agent session.</h3>
                 <p className="text-white/45 text-xs leading-relaxed">
-                  Watch a recorded 3-agent run in the real Orchestrate view — live session rows,
+                  Watch a recorded 3-agent run in the real Mind view — live agent rows,
                   gate verdicts, and the merge train. Next: shared live sessions, cloud board sync,
-                  and reliability analytics for teams. The CLI stays free and MIT forever.
+                  and reliability analytics for teams at $99/month per team. The CLI stays free and MIT forever.
                 </p>
               </div>
               {ON_PAGES && (
                 <a
-                  href={`${BASE}/app/?run=replay#/orchestrate`}
+                  href={`${BASE}/app/?run=replay#/mind`}
                   className="shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#B8845C] text-white text-sm font-medium hover:bg-[#a5764f] transition-colors"
                 >
                   <Play className="w-4 h-4" />

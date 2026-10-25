@@ -218,7 +218,7 @@ const structuredData = {
           name: "Is barkcli free?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "Yes. barkcli is fully free and open source under the MIT license — no subscriptions, no per-seat pricing, no cloud. Pro commands are included for free.",
+            text: "Yes. barkcli is free and open source under the MIT license — the CLI is free forever, with no per-seat pricing and no account required. A hosted team layer (multiplayer sessions, cloud sync, analytics) is planned at $99/month per team.",
           },
         },
         {

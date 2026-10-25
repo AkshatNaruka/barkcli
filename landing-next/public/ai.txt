@@ -34,11 +34,11 @@ The barkcli website is the landing page and documentation home for barkcli, an o
 ## Key facts
 
 - A single static Rust binary. macOS (Apple Silicon + Intel), Linux, and Windows builds.
-- Free and open source under the MIT license. No cloud, no accounts, no subscriptions.
+- Free and open source under the MIT license — the CLI is free forever. No accounts, no subscriptions to use it. A hosted team layer (multiplayer, cloud sync, analytics) is planned at $99/month per team.
 - Boards are YAML files (<name>.board) committed to the repo; metadata lives in a gitignored .board/ directory.
 - Four interfaces over one data source: CLI, terminal UI (ratatui), axum web server, and VS Code Custom Editor.
 - Card fields: title, description, column, priority, labels, assignee, checklist, comments, links (parent/child/related/blocked-by), acceptance criteria, effort, area, due date, reminder.
-- Extras: agent sessions, checkpoints, sprints, BMAD skills, four-tier memory, specs with traceability, 56 MCP tools for AI agents, autopilot loop.
+- Extras: agent sessions, checkpoints, sprints, BMAD skills, four-tier memory, specs with traceability, 71 MCP tools for AI agents, autopilot loop.
 - Install with: `curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh`
 
 ## Documentation
@@ -46,7 +46,7 @@ The barkcli website is the landing page and documentation home for barkcli, an o
 - [barkcli packaging](https://github.com/AkshatNaruka/barkcli) — source, issues, releases, MIT license
 - [AGENTS.md](https://github.com/AkshatNaruka/barkcli/blob/main/AGENTS.md) — agent instructions and architecture
 - [LICENSE](https://github.com/AkshatNaruka/barkcli/blob/main/LICENSE) — MIT license text
-- [pricing.md](https://akshatnaruka.github.io/barkcli/pricing.md) — pricing details (free)
+- [pricing.md](https://akshatnaruka.github.io/barkcli/pricing.md) — pricing details (free core; hosted team layer $99/mo planned)
 
 ## Contact
 

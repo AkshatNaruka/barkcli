@@ -19,7 +19,7 @@ export const comparisons: Comparison[] = [
     description: "Linear is a polished SaaS issue tracker. barkcli keeps tasks in your repo as YAML files — no cloud, no accounts, no subscriptions.",
     barkcliAdvantages: [
       "Tasks live in your repo — diff, merge, grep them like code",
-      "Zero cost — MIT licensed, no per-seat pricing",
+      "Free core — MIT licensed, no per-seat pricing",
       "Works offline — no internet required",
       "AI agents can read tasks directly from the codebase",
       "Branch-aware — tasks travel with feature branches",
@@ -238,7 +238,7 @@ export const comparisons: Comparison[] = [
     description: "Traditional PM tools are cloud SaaS. barkcli is a local binary that keeps tasks in your repo.",
     barkcliAdvantages: [
       "Tasks are code — diff, merge, grep, version control",
-      "Zero cost — no subscriptions, no per-seat pricing",
+      "Free core — no per-seat pricing, flat team pricing planned",
       "Works offline — no internet, no accounts",
       "AI agents read tasks directly from files",
       "Portable — works with any git host",
