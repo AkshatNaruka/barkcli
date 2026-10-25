@@ -42,7 +42,7 @@ public final class WorkspaceAutoInitService: Sendable {
                     id: "starter-card",
                     title: "Explore barkcli Management Layer",
                     column: "todo",
-                    description: "Auto-initialized by mobile client. Intent → Plan → Isolated Worktree → Test Gate → Merge Train.",
+                    description: "Auto initialized by mobile client. Intent → Plan → Isolated Worktree → Test Gate → Merge Train.",
                     priority: .high,
                     labels: ["welcome", "onboarding"],
                     acceptanceCriteria: [

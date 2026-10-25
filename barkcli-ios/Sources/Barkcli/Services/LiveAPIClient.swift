@@ -110,7 +110,7 @@ public final class LiveAPIClient: APIClientProtocol, @unchecked Sendable {
         }
 
         guard let httpResponse = response as? HTTPURLResponse else {
-            throw BarkcliError.serverError(statusCode: 0, message: "Non-HTTP response received from server")
+            throw BarkcliError.serverError(statusCode: 0, message: "Non HTTP response received from server")
         }
 
         switch httpResponse.statusCode {
@@ -163,7 +163,7 @@ public final class LiveAPIClient: APIClientProtocol, @unchecked Sendable {
         return AutoInitResult(
             created: true,
             boardPath: ".board/\(title).board",
-            message: "Workspace auto-initialized with '\(title)' board"
+            message: "Workspace auto initialized with '\(title)' board"
         )
     }
 
@@ -221,7 +221,7 @@ public final class LiveAPIClient: APIClientProtocol, @unchecked Sendable {
         }
         let boardData = try encoder.encode(board)
         guard let boardJsonString = String(data: boardData, encoding: .utf8) else {
-            throw BarkcliError.encodingError("Could not serialize board to UTF-8")
+            throw BarkcliError.encodingError("Could not serialize board to UTF8")
         }
         let payload = ImportPayload(name: name ?? board.title, json: boardJsonString)
         let payloadData = try encoder.encode(payload)

@@ -23,11 +23,11 @@ public enum DemoData: Sendable {
                 id: "add-oauth",
                 title: "Add OAuth login",
                 column: "todo",
-                description: "Sign in with GitHub / Google behind the sso spec — provider adapters, redirect round-trip, session bootstrap.",
+                description: "Sign in with GitHub / Google behind the sso spec: provider adapters, redirect roundtrip, session bootstrap.",
                 priority: .high,
                 labels: ["auth"],
                 acceptanceCriteria: [
-                    "Callback round-trips without a 500",
+                    "Callback roundtrips without a 500",
                     "Session cookie set on success"
                 ],
                 effort: Effort(3),
@@ -89,7 +89,7 @@ public enum DemoData: Sendable {
                 id: "oauth-flow",
                 title: "Implement OAuth flow",
                 column: "doing",
-                description: "Wiring the redirect round-trip: authorize URL, code exchange, and the first session write.",
+                description: "Wiring the redirect roundtrip: authorize URL, code exchange, and the first session write.",
                 priority: .high,
                 labels: ["auth"],
                 checklist: [
@@ -155,7 +155,7 @@ public enum DemoData: Sendable {
                 id: "kiosk-mode",
                 title: "Kiosk mode for wall displays",
                 column: "done",
-                description: "Fullscreen chrome-less board mode with auto-scrolling column presets.",
+                description: "Fullscreen chromeless board mode with autoscrolling column presets.",
                 priority: .high,
                 labels: ["web"],
                 checklist: [ChecklistItem(text: "Hide chrome + autoscroll board", done: true)],
@@ -203,7 +203,7 @@ public enum DemoData: Sendable {
                 id: "skill-registry",
                 title: "Skills registry in .board/",
                 column: "done",
-                description: "BMAD-style skills served to agents via /api/skills.",
+                description: "BMAD style skills served to agents via /api/skills.",
                 priority: .low,
                 labels: ["orchestrate"],
                 effort: Effort(2),
@@ -243,7 +243,7 @@ public enum DemoData: Sendable {
             ),
             Card(
                 id: "autopilot-intake",
-                title: "Plain-language intent intake",
+                title: "Plain language intent intake",
                 column: "done",
                 description: "One text box translates intent into cards with acceptance criteria.",
                 priority: .medium,
@@ -257,7 +257,7 @@ public enum DemoData: Sendable {
                 id: "brain-view-polish",
                 title: "Brain graph polish",
                 column: "done",
-                description: "Auto layout, minimap search focus, and connected-node inspector for the memory graph.",
+                description: "Auto layout, minimap search focus, and connected node inspector for the memory graph.",
                 priority: .medium,
                 labels: ["web", "memory"],
                 effort: Effort(2),
@@ -280,7 +280,7 @@ public enum DemoData: Sendable {
                 id: "vscode-sync-review",
                 title: "VS Code: review card diff before save",
                 column: "done",
-                description: "Show a diff preview tree-side before writing YAML back to the board file.",
+                description: "Show a diff preview tree side before writing YAML back to the board file.",
                 priority: .medium,
                 labels: ["vscode"],
                 effort: Effort(2),
@@ -292,7 +292,7 @@ public enum DemoData: Sendable {
 
         let devBoard = Board(
             title: "dev",
-            description: "The management layer for AI agents — CLI, TUI, web and VS Code from one binary.",
+            description: "The management layer for AI agents: CLI, TUI, web and VS Code from one binary.",
             columns: [
                 Column(id: "todo", name: "Todo"),
                 Column(id: "doing", name: "Doing"),
@@ -316,9 +316,9 @@ public enum DemoData: Sendable {
             ),
             Card(
                 id: "rm-multi-repo",
-                title: "Multi-repo memory hub",
+                title: "Multirepo memory hub",
                 column: "idea",
-                description: "Cross-repository memory and architecture fact synchronization via local SQLite vector store.",
+                description: "Cross repository memory and architecture fact synchronization via local SQLite vector store.",
                 priority: .medium,
                 labels: ["memory"],
                 effort: Effort(5),
@@ -483,7 +483,7 @@ public enum DemoData: Sendable {
                 id: "task-1",
                 cardId: "oauth-flow",
                 title: "OAuth flow",
-                description: "Drive the Implement OAuth flow card: redirect round-trip, token exchange, session write.",
+                description: "Drive the Implement OAuth flow card: redirect roundtrip, token exchange, session write.",
                 priority: .high,
                 assignedAgent: "opencode-1",
                 createdAt: daysAgo(1),
@@ -493,7 +493,7 @@ public enum DemoData: Sendable {
                 id: "task-2",
                 cardId: "store-tokens",
                 title: "Token storage",
-                description: "Keychain-backed token storage hardening for the sso spec.",
+                description: "Keychain backed token storage hardening for the sso spec.",
                 priority: .medium,
                 assignedAgent: "claude-2",
                 createdAt: daysAgo(1),
@@ -503,7 +503,7 @@ public enum DemoData: Sendable {
                 id: "task-3",
                 cardId: "store-tokens",
                 title: "Review queue",
-                description: "Human review gate for the store-tokens slice.",
+                description: "Human review gate for the store tokens slice.",
                 priority: .medium,
                 assignedAgent: "human-you",
                 createdAt: hoursAgo(4),
@@ -513,7 +513,7 @@ public enum DemoData: Sendable {
                 id: "task-4",
                 cardId: "add-oauth",
                 title: "Add OAuth login",
-                description: "Slice add-oauth once the flow branch lands.",
+                description: "Slice add oauth once the flow branch lands.",
                 priority: .high,
                 createdAt: hoursAgo(2),
                 status: .pending
@@ -531,7 +531,7 @@ public enum DemoData: Sendable {
                 id: "task-6",
                 cardId: "kiosk-mode",
                 title: "Finish kiosk renderer",
-                description: "Ship chrome-less fullscreen board mode.",
+                description: "Ship chromeless fullscreen board mode.",
                 priority: .high,
                 assignedAgent: "opencode-1",
                 createdAt: daysAgo(3),
@@ -551,7 +551,7 @@ public enum DemoData: Sendable {
                 id: "task-8",
                 cardId: "add-oauth",
                 title: "OAuth callback tests",
-                description: "Regression coverage for the callback round-trip before the flow merges.",
+                description: "Regression coverage for the callback roundtrip before the flow merges.",
                 priority: .high,
                 assignedAgent: "codex-1",
                 createdAt: hoursAgo(1),
@@ -575,7 +575,7 @@ public enum DemoData: Sendable {
                 pid: 48123,
                 startedAt: hoursAgo(1),
                 lastHeartbeat: Date(),
-                note: "Redirect round-trip: authorize URL builds state+nonce",
+                note: "Redirect roundtrip: authorize URL builds state+nonce",
                 fresh: true
             ),
             LiveSession(
@@ -589,7 +589,7 @@ public enum DemoData: Sendable {
                 pid: 48124,
                 startedAt: hoursAgo(2),
                 lastHeartbeat: Date(),
-                note: "Keychain-backed token cache reviewed; rotation ready for sign-off",
+                note: "Keychain backed token cache reviewed; rotation ready for signoff",
                 fresh: true
             ),
             LiveSession(
@@ -615,14 +615,14 @@ public enum DemoData: Sendable {
         [
             Spec(
                 id: "sso",
-                title: "Single sign-on (OAuth)",
-                description: "Provider-backed sign-in: redirect round-trip, token exchange, secure token storage.",
+                title: "Single sign on (OAuth)",
+                description: "Provider backed sign in: redirect roundtrip, token exchange, secure token storage.",
                 status: .inProgress,
                 priority: "high",
                 requirements: [
                     SpecRequirement(
                         id: "req-7",
-                        title: "OAuth redirect round-trip",
+                        title: "OAuth redirect roundtrip",
                         description: "State + nonce validated; callback never returns 500.",
                         status: .inProgress,
                         acceptanceCriteria: ["State + nonce validated", "Callback never 500s"],
@@ -645,9 +645,9 @@ public enum DemoData: Sendable {
                     SpecRequirement(
                         id: "req-9",
                         title: "GitHub + Google providers",
-                        description: "Feature-flagged provider authentication adapters.",
+                        description: "Feature flagged provider authentication adapters.",
                         status: .pending,
-                        acceptanceCriteria: ["Feature-flagged provider list"],
+                        acceptanceCriteria: ["Feature flagged provider list"],
                         stale: false,
                         updatedAt: daysAgo(2)
                     )
@@ -668,7 +668,7 @@ public enum DemoData: Sendable {
                         title: "Scan git log into bundles",
                         description: "Automated commit grouping from commit messages and worktrees.",
                         status: .implemented,
-                        acceptanceCriteria: ["Runs offline", "Stable ids under re-scan"],
+                        acceptanceCriteria: ["Runs offline", "Stable ids under rescan"],
                         linkedCode: ["barkcli-core/src/history.rs"],
                         linkedTests: ["barkcli-core/tests/bundles.rs"],
                         stale: false,
@@ -686,12 +686,12 @@ public enum DemoData: Sendable {
                     ),
                     SpecRequirement(
                         id: "req-3",
-                        title: "Squash-merge detection",
-                        description: "Detect squash merges and re-link commits to original intent cards.",
+                        title: "Squash merge detection",
+                        description: "Detect squash merges and relink commits to original intent cards.",
                         status: .pending,
                         acceptanceCriteria: ["95% recall on sample repo"],
                         stale: true,
-                        staleReason: "Card changed hands; re-triage before work",
+                        staleReason: "Card changed hands; retriage before work",
                         updatedAt: daysAgo(2)
                     )
                 ],
@@ -702,16 +702,16 @@ public enum DemoData: Sendable {
             Spec(
                 id: "autopilot",
                 title: "Autopilot phases",
-                description: "Card-by-card agent loop with human gates at plan/review/merge.",
+                description: "Autonomous agent loop with human gates at plan, review, and merge.",
                 status: .draft,
                 priority: "high",
                 requirements: [
                     SpecRequirement(
                         id: "req-4",
                         title: "Phase machine with human prompts",
-                        description: "Gate rendered in web UI and mobile interface; CLI equivalent exits non-zero when blocked.",
+                        description: "Gate rendered in web UI and mobile interface; CLI equivalent exits non zero when blocked.",
                         status: .inProgress,
-                        acceptanceCriteria: ["Gate rendered in UI", "CLI equivalent exits non-zero when blocked"],
+                        acceptanceCriteria: ["Gate rendered in UI", "CLI equivalent exits non zero when blocked"],
                         linkedCode: ["barkcli-core/src/autopilot.rs"],
                         linkedTasks: ["task-5"],
                         stale: false,
@@ -729,7 +729,7 @@ public enum DemoData: Sendable {
                     SpecRequirement(
                         id: "req-6",
                         title: "Reviewer pass scoring",
-                        description: "Multi-agent review scoring with automated lint and test verdicts.",
+                        description: "Multi agent review scoring with automated lint and test verdicts.",
                         status: .pending,
                         acceptanceCriteria: [],
                         stale: false,
@@ -743,7 +743,7 @@ public enum DemoData: Sendable {
             Spec(
                 id: "checkout",
                 title: "Checkout flow",
-                description: "Buy path hardening: anonymous cart guard and crash-free checkout.",
+                description: "Buy path hardening: anonymous cart guard and crash free checkout.",
                 status: .draft,
                 priority: "high",
                 requirements: [
@@ -808,7 +808,7 @@ public enum DemoData: Sendable {
             GitCommit(
                 sha: "685e74fe10a7b9c4d3e218f7a6b5c4d3e21f0987",
                 parents: ["3a2b1c0d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b"],
-                subject: "feat(orchestrate): collision-free parallel agent dispatch with worktree leases",
+                subject: "feat(orchestrate): collision free parallel agent dispatch with worktree leases",
                 body: "Isolate concurrent workers and evaluate file touch overlaps before dispatch.",
                 author: "Agent Dispatcher",
                 authorEmail: "dispatcher@barkcli.internal",
@@ -823,8 +823,8 @@ public enum DemoData: Sendable {
             GitCommit(
                 sha: "3a2b1c0d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b",
                 parents: ["1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b"],
-                subject: "feat(memory): multi-tier memory store with BM25 and TF-IDF hybrid search",
-                body: "Local offline semantic retrieval and time-decay consolidation loop.",
+                subject: "feat(memory): multi tier memory store with BM25 and TF IDF hybrid search",
+                body: "Local offline semantic retrieval and time decay consolidation loop.",
                 author: "Agent Architect",
                 authorEmail: "agent@barkcli.internal",
                 date: daysAgo(1),
@@ -897,7 +897,7 @@ public enum DemoData: Sendable {
             ),
             "685e74fe10a7b9c4d3e218f7a6b5c4d3e21f0987": GitDiffResponse(
                 sha: "685e74fe10a7b9c4d3e218f7a6b5c4d3e21f0987",
-                message: "feat(orchestrate): collision-free parallel agent dispatch with worktree leases",
+                message: "feat(orchestrate): collision free parallel agent dispatch with worktree leases",
                 diff: diff2,
                 filesChanged: [
                     "barkcli-core/src/agent/queue.rs",
@@ -916,14 +916,14 @@ public enum DemoData: Sendable {
             GitBundle(
                 id: "bundle-1",
                 title: "Kiosk mode for wall displays",
-                summary: "Fullscreen chrome-less board with auto-scroll.",
+                summary: "Fullscreen chromeless board with autoscroll.",
                 kind: .feat,
                 status: .sealed,
                 cardId: "kiosk-mode",
                 branch: "feat/kiosk",
                 commits: [
                     BundleCommitRef(sha: "3aa91c7", subject: "feat(web): kiosk toggle in top bar", author: "orbiter", date: daysAgo(3)),
-                    BundleCommitRef(sha: "41cd905", subject: "feat(web): auto-scroll column presets", author: "orbiter", date: daysAgo(3)),
+                    BundleCommitRef(sha: "41cd905", subject: "feat(web): autoscroll column presets", author: "orbiter", date: daysAgo(3)),
                     BundleCommitRef(sha: "77b2e10", subject: "fix(web): pause scroll on hover", author: "you", date: daysAgo(2)),
                     BundleCommitRef(sha: "9f4bd21", subject: "docs: kiosk mode notes", author: "you", date: daysAgo(2))
                 ],
@@ -955,7 +955,7 @@ public enum DemoData: Sendable {
             GitBundle(
                 id: "bundle-3",
                 title: "Memory tier consolidation",
-                summary: "Decay scheduler and promotion to long-term memory tier.",
+                summary: "Decay scheduler and promotion to long term memory tier.",
                 kind: .chore,
                 status: .open,
                 cardId: "memory-tiers",
@@ -980,7 +980,7 @@ public enum DemoData: Sendable {
         [
             MemoryEntry(
                 id: "mem-1",
-                content: "Board YAML is the source of truth — the client saves the whole board via PUT /api/board, never per-card writes.",
+                content: "Board YAML is the source of truth: the client saves the whole board via PUT /api/board, never per card writes.",
                 tier: .longTerm,
                 tags: ["architecture"],
                 source: "AIDER",
@@ -1064,7 +1064,7 @@ public enum DemoData: Sendable {
                 createdAt: daysAgo(40)
             ),
             ProjectFact(
-                fact: "The client derives card mutations client-side, then persists via PUT /api/board.",
+                fact: "The client derives card mutations client side, then persists via PUT /api/board.",
                 category: "architecture",
                 confidence: 0.9,
                 sources: ["web/src/App.tsx"],
@@ -1109,7 +1109,7 @@ public enum DemoData: Sendable {
                 prompt: "Implement the OAuth flow card",
                 commitSha: "a1d9c02",
                 filesTouched: ["web/src/lib/auth.ts", "web/src/App.tsx"],
-                summary: "Redirect round-trip: authorize URL builds state+nonce, exchange endpoint stubbed.",
+                summary: "Redirect roundtrip: authorize URL builds state+nonce, exchange endpoint stubbed.",
                 at: "1 hour ago",
                 durationMs: 1120000
             ),
@@ -1120,7 +1120,7 @@ public enum DemoData: Sendable {
                 board: "dev",
                 prompt: "Store tokens securely card",
                 filesTouched: ["web/src/lib/auth.ts"],
-                summary: "Keychain-backed token cache reviewed; rotation ready for sign-off.",
+                summary: "Keychain backed token cache reviewed; rotation ready for signoff.",
                 at: "2 hours ago",
                 durationMs: 640000
             ),
@@ -1130,7 +1130,7 @@ public enum DemoData: Sendable {
                 board: "dev",
                 prompt: "Review the review queue",
                 filesTouched: ["dev.board"],
-                summary: "Reviewing Store tokens securely — 2 acceptance criteria checked, 1 open.",
+                summary: "Reviewing Store tokens securely: 2 acceptance criteria checked, 1 open.",
                 at: "3 hours ago",
                 durationMs: 180000
             ),
@@ -1142,7 +1142,7 @@ public enum DemoData: Sendable {
                 prompt: "Implement kiosk mode for wall displays",
                 commitSha: "9f4bd21",
                 filesTouched: ["web/src/components/BoardView.tsx", "web/src/App.tsx"],
-                summary: "Kiosk mode hides chrome, auto-scrolls board columns, 10s refresh.",
+                summary: "Kiosk mode hides chrome, autoscrolls board columns, 10s refresh.",
                 at: "6 hours ago",
                 durationMs: 1420000
             ),

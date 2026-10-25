@@ -2,7 +2,8 @@ import SwiftUI
 
 public struct CardDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(AppState.self) private var appState
+    @Environment(BoardStore.self) private var boardStore: BoardStore?
+    @Environment(AppState.self) private var appState: AppState?
 
     public let card: Card
 
@@ -97,7 +98,13 @@ public struct CardDetailSheet: View {
         ) {
             Button("Delete Card", role: .destructive) {
                 Task {
-                    await appState.deleteCard(cardId: card.id)
+                    if let boardStore {
+                        try? await boardStore.deleteCard(cardId: card.id)
+                    } else if let appState {
+                        await appState.deleteCard(cardId: card.id)
+                    } else {
+                        try? await BoardStore.shared.deleteCard(cardId: card.id)
+                    }
                     dismiss()
                 }
             }
@@ -567,7 +574,13 @@ public struct CardDetailSheet: View {
                         let clean = newCommentText.trimmingCharacters(in: .whitespacesAndNewlines)
                         guard !clean.isEmpty else { return }
                         Task {
-                            await appState.addComment(cardId: card.id, text: clean, author: "human")
+                            if let boardStore {
+                                try? await boardStore.addComment(cardId: card.id, text: clean, author: "human")
+                            } else if let appState {
+                                await appState.addComment(cardId: card.id, text: clean, author: "human")
+                            } else {
+                                try? await BoardStore.shared.addComment(cardId: card.id, text: clean, author: "human")
+                            }
                             comments.append(CardComment(author: "human", text: clean, at: Date()))
                             newCommentText = ""
                         }
@@ -597,7 +610,11 @@ public struct CardDetailSheet: View {
             ) {
                 Task {
                     isRequestingPlan = true
-                    await appState.proposePlan(cardId: card.id)
+                    if let appState {
+                        await appState.proposePlan(cardId: card.id)
+                    } else {
+                        _ = try? await (boardStore?.client ?? MockAPIClient()).proposePlan(cardId: card.id)
+                    }
                     isRequestingPlan = false
                     dismiss()
                 }
@@ -635,7 +652,13 @@ public struct CardDetailSheet: View {
         updated.comments = comments
         updated.updatedAt = Date()
 
-        await appState.saveCard(updated)
+        if let boardStore {
+            try? await boardStore.saveCard(updated)
+        } else if let appState {
+            await appState.saveCard(updated)
+        } else {
+            try? await BoardStore.shared.saveCard(updated)
+        }
         dismiss()
     }
 

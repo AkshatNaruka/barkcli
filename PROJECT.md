@@ -61,10 +61,10 @@
 | 14 | Real-time Runner Sessions | Live view of active agent worktree runs (`/api/run/live`) with branch, tests gate status, and logs | M4 | Survey 2, R4 |
 | 15 | Specs Matrix & Traceability | Requirement checklist, coverage bar, status dots (pending/progress/verified/failed), code links | M4 | Survey 2, R2 |
 | 16 | Git History & Codex Diff View | Commit DAG stream, additions/deletions, color-coded diff inspector, and commit-to-agent CTA | M4 | Survey 2, R2 |
-| 17 | Floating Intent Input Bar | Bottom-anchored liquid glass prompt capsule for dispatching natural language intent | M5 | Survey 2, R4 |
-| 18 | Plan Proposal Review & Approval | Decomposed slice inspector with acceptance criteria review, approval, and gate triggers | M5 | Survey 2, R4 |
-| 19 | Workspace Switcher & Status Bar | Switch between Local, Remote IP:Port, and Demo Workspace with live health beacon | M5 | Survey 2, R1, R3 |
-| 20 | E2E Acceptance Test Pass | 100% pass of Tiers 1–4 test suite across models, mock engine, and integration flows | M6 | Survey 3, Acceptance Criteria |
+| 17 | Floating Intent Input Bar | Bottom-anchored liquid glass prompt capsule for dispatching natural language intent | M4 | Survey 2, R4 |
+| 18 | Plan Proposal Review & Approval | Decomposed slice inspector with acceptance criteria review, approval, and gate triggers | M4 | Survey 2, R4 |
+| 19 | Workspace Switcher & Status Bar | Switch between Local, Remote IP:Port, and Demo Workspace with live health beacon | M4 | Survey 2, R1, R3 |
+| 20 | E2E Acceptance Test Pass | 100% pass of Tiers 1–4 test suite across models, mock engine, and integration flows | M5 | Survey 3, Acceptance Criteria |
 
 ---
 
@@ -74,10 +74,9 @@
 |---|------|-------|-------------|--------|
 | M1 | Models, Serde & Bundled Datasets | Complete Swift models, JSON serialization tests, and rich `DemoData.swift` / `DemoStore.swift` | none | DONE |
 | M2 | Networking, Discovery & Auto-Init | `APIClientProtocol`, `LiveAPIClient`, `MockAPIClient`, Bonjour discovery, and auto-setup flow | M1 | DONE |
-| M3 | Codex Design System & Core Views | Theme tokens, liquid glass, `MindDashboardView`, `KanbanBoardView`, `CardDetailView` | M1, M2 | PLANNED |
-| M4 | Fleet Orchestration, Specs & Git | `AgentsOrchestrationView`, `SpecsMatrixView`, `GitHistoryView`, `DiffInspectorView` | M2, M3 | PLANNED |
-| M5 | Intent Prompting & Autopilot Loop | `IntentBar`, `PlanProposalSheet`, Autopilot state machine, and `WorkspaceSwitcherView` | M3, M4 | PLANNED |
-| M6 | Final Acceptance Gate & Hardening | Full build clean verification for iOS 17+, 100% E2E test execution, Reviewer & Auditor pass | M1–M5 | PLANNED |
+| M3 | Codex Design System & Core Views | Theme tokens, liquid glass, `MindDashboardView`, `KanbanBoardView`, `CardDetailView` | M1, M2 | DONE |
+| M4 | Fleet Orchestration, Specs, Git & Intent Autopilot | `AgentsOrchestrationView`, `SpecsMatrixView`, `GitHistoryView`, `DiffInspector`, `IntentBar`, `PlanProposalSheet`, and `RootView` | M2, M3 | DONE |
+| M5 | Final Acceptance Gate, Hardening & 100% E2E Pass | Full build clean verification for iOS 17+, 100% E2E test execution, Reviewer & Auditor pass | M1–M4 | DONE |
 
 ---
 

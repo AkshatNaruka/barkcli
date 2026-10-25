@@ -351,8 +351,8 @@ public final class DemoStore: @unchecked Sendable {
             phase = .needsPlan(cardId: firstUnplanned.id)
             phaseLabel = "Needs Plan"
             needsHuman = true
-            humanPrompt = "Cards need a plan — propose one to launch the autonomy loop."
-            agentAction = "Plan '\(firstUnplanned.id)' — human approves at the gate"
+            humanPrompt = "Cards need a plan: propose one to launch the autonomy loop."
+            agentAction = "Plan '\(firstUnplanned.id)': human approves at the gate"
         } else if inReview > 0 {
             let reviewIds = board.cards.filter { $0.column == "review" }.map(\.id)
             phase = .awaitingMerge(cardIds: reviewIds)
@@ -370,7 +370,7 @@ public final class DemoStore: @unchecked Sendable {
             phase = .running
             phaseLabel = "Running"
             needsHuman = false
-            humanPrompt = "Autopilot is idle — all verification gates clear."
+            humanPrompt = "Autopilot is idle: all verification gates clear."
             agentAction = "Nothing needs a human right now"
         }
 
@@ -459,19 +459,19 @@ public final class DemoStore: @unchecked Sendable {
             proposedBy: "opencode-1",
             requirements: [
                 PlanRequirement(
-                    title: "\(title) — slice 1 (core loop)",
+                    title: "\(title): slice 1 (core loop)",
                     acceptanceCriteria: [criteria.first ?? "Core logic and state handling pass"],
                     effort: slice1Effort
                 ),
                 PlanRequirement(
-                    title: "\(title) — slice 2 (polish + edge cases)",
+                    title: "\(title): slice 2 (polish + edge cases)",
                     acceptanceCriteria: criteria.count > 1 ? [criteria[1]] : ["Acceptance gate passes cleanly"],
                     effort: slice2Effort
                 )
             ],
             children: [
                 PlanChildCard(
-                    title: "\(title) — slice 1 (core loop)",
+                    title: "\(title): slice 1 (core loop)",
                     description: "Core logic and state handling in isolated worktree.\n\nFrom card: \(targetCard?.description ?? "—")",
                     priority: targetCard?.priority ?? .high,
                     effort: slice1Effort,
@@ -479,7 +479,7 @@ public final class DemoStore: @unchecked Sendable {
                     acceptanceCriteria: [criteria.first ?? "Isolated unit tests pass"]
                 ),
                 PlanChildCard(
-                    title: "\(title) — slice 2 (polish + edge cases)",
+                    title: "\(title): slice 2 (polish + edge cases)",
                     description: "Interface integration and acceptance verification.\n\nFrom card: \(targetCard?.description ?? "—")",
                     priority: .medium,
                     effort: slice2Effort,

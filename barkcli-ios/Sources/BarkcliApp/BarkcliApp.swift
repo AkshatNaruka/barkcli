@@ -9,8 +9,7 @@ public struct BarkcliApp: App {
 
     public var body: some Scene {
         WindowGroup {
-            MainView()
-                .environment(appState)
+            RootView()
                 .preferredColorScheme(.dark)
         }
     }

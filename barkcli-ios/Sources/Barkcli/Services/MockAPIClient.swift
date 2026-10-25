@@ -28,7 +28,7 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
         if !store.boardNames.contains(name) {
             let newBoard = Board(
                 title: name,
-                description: "Auto-initialized board for \(name)",
+                description: "Auto initialized board for \(name)",
                 columns: [
                     Column(id: "todo", name: "To Do"),
                     Column(id: "doing", name: "Doing"),

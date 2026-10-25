@@ -252,7 +252,7 @@ public final class BoardStore: @unchecked Sendable {
         effort: Int? = 1,
         labels: [String] = []
     ) async throws -> Card {
-        let newId = "card-\(Int(Date().timeIntervalSince1970) % 100000)"
+        let newId = "card-\(UUID().uuidString.prefix(8).lowercased())"
         let newCard = Card(
             id: newId,
             title: title,
