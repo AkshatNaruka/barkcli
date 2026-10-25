@@ -374,6 +374,10 @@ jobs:
     name: Publish to barkcli.vercel.app (mirror)
     needs: [build, checksums]
     runs-on: ubuntu-latest
+    # Best-effort mirror: the canonical site is GitHub Pages (deployed by
+    # pages.yml) and the canonical installer lives on GitHub Releases. A
+    # paused/over-quota Vercel account must not fail the release itself.
+    continue-on-error: true
     permissions:
       contents: read
     steps:

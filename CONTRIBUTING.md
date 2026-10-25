@@ -5,7 +5,7 @@ Thanks for helping make barkcli better — whether you're shipping code, writing
 ## Ways to contribute
 
 - **Code** — Rust (CLI/TUI/server), TypeScript (web app, landing), or the VS Code extension
-- **Docs** — the [docs site](https://barkcli.vercel.app/docs), this README, and the flat reference set in `docs/`
+- **Docs** — the [docs site](https://akshatnaruka.github.io/barkcli/docs), this README, and the flat reference set in `docs/`
 - **Design** — the web app follows a written design system ([`DESIGN.md`](DESIGN.md)); visual PRs should reference its tokens
 - **Ideas & bugs** — [issues](https://github.com/AkshatNaruka/barkcli/issues) and [discussions](https://github.com/AkshatNaruka/barkcli/discussions)
 

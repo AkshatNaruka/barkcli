@@ -7,7 +7,7 @@ import { integrations } from "@/lib/integrations";
 // Required for `output: "export"` (GitHub Pages) — the route is static either way.
 export const dynamic = "force-static";
 
-const BASE_URL = "https://barkcli.vercel.app";
+const BASE_URL = "https://akshatnaruka.github.io/barkcli";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();

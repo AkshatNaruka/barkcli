@@ -29,7 +29,7 @@ barkcli is a git-native project management tool. Tasks live in your repository a
 
 **macOS / Linux (one-liner):**
 ```bash
-curl -fsSL https://barkcli.vercel.app/install.sh | sh
+curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
 ```
 
 **Homebrew:**
@@ -45,7 +45,7 @@ cargo install barkcli
 
 **Windows (PowerShell):**
 ```powershell
-irm https://barkcli.vercel.app/install.ps1 | iex
+irm https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.ps1 | iex
 ```
 
 ### Verify Installation

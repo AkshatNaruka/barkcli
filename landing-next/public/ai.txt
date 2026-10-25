@@ -17,19 +17,19 @@ The barkcli website is the landing page and documentation home for barkcli, an o
 
 ## Site sections
 
-- [Landing page](https://barkcli.vercel.app): Install command and product overview
-- [Documentation](https://barkcli.vercel.app/docs): Full documentation index
-- [Getting Started](https://barkcli.vercel.app/docs/getting-started): Quick start guide
-- [Core Concepts](https://barkcli.vercel.app/docs/concepts): Tasks, boards, projects, code context
-- [Commands](https://barkcli.vercel.app/docs/commands): CLI command reference
-- [Interfaces](https://barkcli.vercel.app/docs/interfaces): CLI, TUI, Web, and VS Code guides
-- [Web App Guide](https://barkcli.vercel.app/docs/web-app): Complete browser interface guide
-- [API Reference](https://barkcli.vercel.app/docs/api-reference): REST API documentation
-- [Autopilot](https://barkcli.vercel.app/docs/autopilot): Intent → plan → merge loop
-- [Integrations](https://barkcli.vercel.app/integrations): GitHub, GitLab, Neovim, tmux, OpenCode, Claude Code, Cursor
-- [Compare](https://barkcli.vercel.app/compare): barkcli vs Linear, Jira, GitHub Projects, Trello, Notion
-- [Guides](https://barkcli.vercel.app/guides): Migration, team setup, AI agent setup, CI/CD
-- [Use Cases](https://barkcli.vercel.app/use-cases): Solo developers, small teams, AI workflows
+- [Landing page](https://akshatnaruka.github.io/barkcli): Install command and product overview
+- [Documentation](https://akshatnaruka.github.io/barkcli/docs): Full documentation index
+- [Getting Started](https://akshatnaruka.github.io/barkcli/docs/getting-started): Quick start guide
+- [Core Concepts](https://akshatnaruka.github.io/barkcli/docs/concepts): Tasks, boards, projects, code context
+- [Commands](https://akshatnaruka.github.io/barkcli/docs/commands): CLI command reference
+- [Interfaces](https://akshatnaruka.github.io/barkcli/docs/interfaces): CLI, TUI, Web, and VS Code guides
+- [Web App Guide](https://akshatnaruka.github.io/barkcli/docs/web-app): Complete browser interface guide
+- [API Reference](https://akshatnaruka.github.io/barkcli/docs/api-reference): REST API documentation
+- [Autopilot](https://akshatnaruka.github.io/barkcli/docs/autopilot): Intent → plan → merge loop
+- [Integrations](https://akshatnaruka.github.io/barkcli/integrations): GitHub, GitLab, Neovim, tmux, OpenCode, Claude Code, Cursor
+- [Compare](https://akshatnaruka.github.io/barkcli/compare): barkcli vs Linear, Jira, GitHub Projects, Trello, Notion
+- [Guides](https://akshatnaruka.github.io/barkcli/guides): Migration, team setup, AI agent setup, CI/CD
+- [Use Cases](https://akshatnaruka.github.io/barkcli/use-cases): Solo developers, small teams, AI workflows
 
 ## Key facts
 
@@ -39,14 +39,14 @@ The barkcli website is the landing page and documentation home for barkcli, an o
 - Four interfaces over one data source: CLI, terminal UI (ratatui), axum web server, and VS Code Custom Editor.
 - Card fields: title, description, column, priority, labels, assignee, checklist, comments, links (parent/child/related/blocked-by), acceptance criteria, effort, area, due date, reminder.
 - Extras: agent sessions, checkpoints, sprints, BMAD skills, four-tier memory, specs with traceability, 56 MCP tools for AI agents, autopilot loop.
-- Install with: `curl -fsSL https://barkcli.vercel.app/install.sh | sh`
+- Install with: `curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh`
 
 ## Documentation
 
 - [barkcli packaging](https://github.com/AkshatNaruka/barkcli) — source, issues, releases, MIT license
 - [AGENTS.md](https://github.com/AkshatNaruka/barkcli/blob/main/AGENTS.md) — agent instructions and architecture
 - [LICENSE](https://github.com/AkshatNaruka/barkcli/blob/main/LICENSE) — MIT license text
-- [pricing.md](https://barkcli.vercel.app/pricing.md) — pricing details (free)
+- [pricing.md](https://akshatnaruka.github.io/barkcli/pricing.md) — pricing details (free)
 
 ## Contact
 

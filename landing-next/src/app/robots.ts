@@ -39,9 +39,9 @@ export default function robots(): MetadataRoute.Robots {
       },
     ],
     sitemap: [
-      "https://barkcli.vercel.app/sitemap.xml",
-      "https://barkcli.vercel.app/llms.txt",
+      "https://akshatnaruka.github.io/barkcli/sitemap.xml",
+      "https://akshatnaruka.github.io/barkcli/llms.txt",
     ],
-    host: "https://barkcli.vercel.app",
+    host: "https://akshatnaruka.github.io/barkcli",
   };
 }

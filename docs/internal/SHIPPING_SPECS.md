@@ -33,7 +33,7 @@
 
 ### B1: Install Script
 - [x] **B1.1**: Verify install.sh works end-to-end on macOS and Linux
-- [ ] **B1.2**: Test `curl -fsSL https://barkcli.vercel.app | sh` flow (needs DNS + web server)
+- [ ] **B1.2**: Test `curl -fsSL https://akshatnaruka.github.io/barkcli | sh` flow (needs DNS + web server)
 
 ### B2: Homebrew Formula
 - [x] **B2.1**: Create formula at `homebrew/barkcli.rb`
@@ -54,7 +54,7 @@
 
 ### B5: Domain Setup
 - [ ] **B5.1**: Verify `barkcli.vercel.app` DNS → Vercel
-- [ ] **B5.2**: Serve install.sh at `https://barkcli.vercel.app/install.sh`
+- [ ] **B5.2**: Serve install.sh at `https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh`
 
 ---
 

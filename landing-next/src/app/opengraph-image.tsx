@@ -92,7 +92,7 @@ export default function OgImage() {
           }}
         >
           <span>GIT-NATIVE KANBAN · NO CLOUD · MIT</span>
-          <span>barkcli.vercel.app</span>
+          <span>github.com/AkshatNaruka/barkcli</span>
         </div>
       </div>
     ),

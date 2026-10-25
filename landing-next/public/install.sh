@@ -2,7 +2,7 @@
 set -e
 
 # barkcli — Install script
-# Usage: curl -fsSL https://barkcli.vercel.app/install.sh | sh
+# Usage: curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
 #        curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
 # Env vars:
 #   BARKCLI_VERSION=v0.2.0   # pin to a specific version (default: latest)
@@ -27,7 +27,7 @@ case "$OS" in
   Linux)   OS_TARGET="unknown-linux-gnu" ;;
   MINGW*|MSYS*|CYGWIN*)
     echo "Windows detected. Use PowerShell instead:" >&2
-    echo "  irm https://barkcli.vercel.app/install.ps1 | iex" >&2
+    echo "  irm https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.ps1 | iex" >&2
     echo "Or download .zip from https://github.com/${REPO}/releases" >&2
     exit 1
     ;;
@@ -43,13 +43,11 @@ esac
 TARGET="${ARCH_TARGET}-${OS_TARGET}"
 ARCHIVE="barkcli-${TARGET}.tar.gz"
 
-# Build URL list: GitHub primary, Vercel mirror
+# Release asset URL (GitHub releases is the single artifact host)
 if [ -n "$VERSION" ]; then
   GITHUB_URL="https://github.com/${REPO}/releases/download/${VERSION}/${ARCHIVE}"
-  VERCEL_URL="https://barkcli.vercel.app/downloads/${ARCHIVE}"
 else
   GITHUB_URL="https://github.com/${REPO}/releases/latest/download/${ARCHIVE}"
-  VERCEL_URL="https://barkcli.vercel.app/downloads/${ARCHIVE}"
 fi
 
 # Check for required tools
@@ -68,7 +66,7 @@ else
 fi
 echo "Downloading barkcli for ${TARGET}..."
 
-# Try GitHub first, fallback to Vercel
+# Download the release asset
 download() {
   _url="$1"
   _out="$2"
@@ -80,20 +78,16 @@ download() {
 }
 
 if ! download "$GITHUB_URL" "$TMPDIR/barkcli.tar.gz"; then
-  echo "GitHub download failed, trying Vercel mirror..."
-  if ! download "$VERCEL_URL" "$TMPDIR/barkcli.tar.gz"; then
-    echo "" >&2
-    echo "No pre-built binary available for ${TARGET}." >&2
-    echo "Tried:" >&2
-    echo "  $GITHUB_URL" >&2
-    echo "  $VERCEL_URL" >&2
-    echo "" >&2
-    echo "Alternatives:" >&2
-    echo "  cargo install barkcli" >&2
-    echo "  brew install AkshatNaruka/barkcli/barkcli" >&2
-    echo "  https://github.com/${REPO}/releases" >&2
-    exit 1
-  fi
+  echo "" >&2
+  echo "No pre-built binary available for ${TARGET}." >&2
+  echo "Tried:" >&2
+  echo "  $GITHUB_URL" >&2
+  echo "" >&2
+  echo "Alternatives:" >&2
+  echo "  cargo install barkcli" >&2
+  echo "  brew install AkshatNaruka/barkcli/barkcli" >&2
+  echo "  https://github.com/${REPO}/releases" >&2
+  exit 1
 fi
 
 # SHA256 verification against the release SHA256SUMS file.

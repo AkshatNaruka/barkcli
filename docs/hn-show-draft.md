@@ -30,7 +30,7 @@
 - "Jira for humans managers a team; barkcli is the missing manager for your coding agents — boards, specs, memory, skills, and an acceptance-gated merge train, all files in git."
 
 **Asset notes:**
-- GIF: https://github.com/AkshatNaruka/barkcli/raw/master/landing-next/public/run-agents-demo.gif (also embedded on https://barkcli.vercel.app)
-- Benchmark claim (context-file cold start): https://barkcli.vercel.app/benchmark — deterministic, re-runnable via `barkcli context benchmark --json`.
+- GIF: https://github.com/AkshatNaruka/barkcli/raw/master/landing-next/public/run-agents-demo.gif (also embedded on https://akshatnaruka.github.io/barkcli)
+- Benchmark claim (context-file cold start): https://akshatnaruka.github.io/barkcli/benchmark — deterministic, re-runnable via `barkcli context benchmark --json`.
 
 **Reminders for post day:** only post once the repo is public & README is current; monitor thread for 2h; answer technical criticisms with numbers (250 tests, 57.1× @ 339f66a) rather than claims; pin the GIF reply.

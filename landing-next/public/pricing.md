@@ -66,7 +66,7 @@ While labeled "Pro", these are part of the open source binary at no cost:
 
 ```bash
 # One-liner (recommended)
-curl -fsSL https://barkcli.vercel.app/install.sh | sh
+curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
 
 # Homebrew
 brew tap AkshatNaruka/barkcli && brew install barkcli

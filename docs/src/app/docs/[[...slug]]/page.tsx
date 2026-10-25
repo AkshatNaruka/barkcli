@@ -49,7 +49,7 @@ export async function generateMetadata(props: {
     openGraph: {
       title: `${page.data.title} · barkcli`,
       description: page.data.description,
-      url: `https://barkcli.vercel.app/docs/${slug.join("/")}`,
+      url: `https://akshatnaruka.github.io/barkcli/docs/${slug.join("/")}`,
       siteName: "barkcli",
       type: "article",
     },

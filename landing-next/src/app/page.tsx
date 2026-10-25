@@ -41,7 +41,7 @@ import {
   AnyAgentLogo,
 } from "@/components/AgentLogos";
 
-const INSTALL = "curl -fsSL https://barkcli.vercel.app/install.sh | sh";
+const INSTALL = "curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh";
 
 // Hosted GitHub Pages build: link to the interactive board preview served
 // at /app/ (see .github/workflows/pages.yml). Hidden on the Vercel deploy.
@@ -233,7 +233,7 @@ const AGENT_PROMPTS: Record<string, string> = {
   claude: `Please run the following commands to install and set up barkcli (git-native project management) in this project:
 
 1. First, install barkcli:
-curl -fsSL https://barkcli.vercel.app/install.sh | sh
+curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
 
 2. Initialize barkcli in this project:
 barkcli init
@@ -270,7 +270,7 @@ For the full AI agent prompt with all commands, run: barkcli --help`,
   opencode: `Please run the following commands to install and set up barkcli (git-native project management) in this project:
 
 1. First, install barkcli:
-curl -fsSL https://barkcli.vercel.app/install.sh | sh
+curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
 
 2. Initialize barkcli in this project:
 barkcli init
@@ -307,7 +307,7 @@ For the full AI agent prompt with all commands, run: barkcli --help`,
   cursor: `Please run the following commands to install and set up barkcli (git-native project management) in this project:
 
 1. First, install barkcli:
-curl -fsSL https://barkcli.vercel.app/install.sh | sh
+curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
 
 2. Initialize barkcli in this project:
 barkcli init
@@ -344,7 +344,7 @@ For the full AI agent prompt with all commands, run: barkcli --help`,
   generic: `Please run the following commands to install and set up barkcli (git-native project management) in this project:
 
 1. First, install barkcli:
-curl -fsSL https://barkcli.vercel.app/install.sh | sh
+curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
 
 2. Initialize barkcli in this project:
 barkcli init
@@ -1316,11 +1316,11 @@ export default function Home() {
           </AnimatedSection>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {[
-              { title: "macOS / Linux", cmd: "curl -fsSL https://barkcli.vercel.app/install.sh | sh", icon: Terminal },
+              { title: "macOS / Linux", cmd: "curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh", icon: Terminal },
               { title: "Homebrew", cmd: "brew tap AkshatNaruka/barkcli && brew install barkcli", icon: Shield },
               { title: "Cargo (from source)", cmd: "cargo install barkcli", icon: Code },
               { title: "GitHub Releases", cmd: "github.com/AkshatNaruka/barkcli/releases", icon: GitMerge },
-              { title: "Windows", cmd: "irm https://barkcli.vercel.app/install.ps1 | iex", icon: Monitor },
+              { title: "Windows", cmd: "irm https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.ps1 | iex", icon: Monitor },
             ].map((method, i) => (
               <AnimatedSection key={i} delay={i * 0.08}>
                 <div className="group border border-white/10 rounded-xl p-4 hover:border-white/20 transition-all duration-300 h-full">

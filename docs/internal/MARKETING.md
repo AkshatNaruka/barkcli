@@ -35,7 +35,7 @@
 **Post 3:**
 > Install in 10 seconds:
 > 
-> curl -fsSL https://barkcli.vercel.app/install.sh | sh
+> curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
 > 
 > Then:
 > barkcli init
@@ -66,7 +66,7 @@
 > 
 > Tasks are YAML files in your repo. No cloud. No accounts.
 > 
-> Install: curl -fsSL https://barkcli.vercel.app/install.sh | sh
+> Install: curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
 > 
 > Open source. MIT. Built in Rust.
 
@@ -132,7 +132,7 @@
 > 
 > **Try it:**
 > ```bash
-> curl -fsSL https://barkcli.vercel.app/install.sh | sh
+> curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
 > ```
 > 
 > **Links:**
@@ -145,7 +145,7 @@
 
 **Title:** barkcli — Git-native project management (tasks as YAML files)
 
-**URL:** https://barkcli.vercel.app
+**URL:** https://akshatnaruka.github.io/barkcli
 
 **Comment:**
 > I built barkcli because I wanted project management that lives in my repo, not on someone else's server.
@@ -158,7 +158,7 @@
 > - MCP server for AI coding agents
 > - Open source (MIT)
 > 
-> Install: `curl -fsSL https://barkcli.vercel.app/install.sh | sh`
+> Install: `curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh`
 > 
 > Would love feedback!
 
@@ -183,7 +183,7 @@
 > 
 > **Install:**
 > ```bash
-> curl -fsSL https://barkcli.vercel.app/install.sh | sh
+> curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
 > ```
 > 
 > **GitHub:** https://github.com/akshatnaruka/barkcli
@@ -203,7 +203,7 @@
 > 
 > Also includes terminal UI and web app.
 > 
-> Install: `curl -fsSL https://barkcli.vercel.app/install.sh | sh`
+> Install: `curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh`
 
 **r/selfhosted:**
 > **barkcli — Self-hosted project management (tasks in your repo)**
@@ -215,7 +215,7 @@
 > - Works offline
 > - Git-native: diff, merge, version control
 > 
-> Install: `curl -fsSL https://barkcli.vercel.app/install.sh | sh`
+> Install: `curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh`
 
 ## Product Hunt
 
@@ -248,7 +248,7 @@
 **Conclusion:**
 > Try barkcli today:
 > ```bash
-> curl -fsSL https://barkcli.vercel.app/install.sh | sh
+> curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
 > ```
 > 
 > Website: barkcli.vercel.app
@@ -275,7 +275,7 @@
 > 
 > **Install:**
 > ```bash
-> curl -fsSL https://barkcli.vercel.app/install.sh | sh
+> curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
 > ```
 > 
 > **Links:**

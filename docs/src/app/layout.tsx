@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     title: "barkcli Documentation",
     description:
       "Git-native project management — tasks as YAML in your repo.",
-    url: "https://barkcli.vercel.app/docs",
+    url: "https://akshatnaruka.github.io/barkcli/docs",
     siteName: "barkcli",
     type: "website",
     locale: "en_US",

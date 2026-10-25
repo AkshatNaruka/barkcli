@@ -34,7 +34,7 @@ barkcli is a local-first management layer. Humans write intent, agents do work, 
 ## Quick Start
 
 \`\`\`bash
-curl -fsSL https://barkcli.vercel.app/install.sh | sh
+curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
 barkcli init
 barkcli create my-project
 barkcli add "Fix login bug" -p high

@@ -51,7 +51,7 @@
 
 - [ ] **2.6** Test the install flow
   ```bash
-  curl -fsSL https://barkcli.vercel.app/install.sh | sh
+  curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
   ```
   Verify `barkcli --version` outputs correctly.
 
@@ -189,8 +189,8 @@
 | Resource | URL |
 |---|---|
 | GitHub Repo | https://github.com/AkshatNaruka/barkcli |
-| Landing Page | https://barkcli.vercel.app |
-| Install Script | https://barkcli.vercel.app/install.sh |
+| Landing Page | https://akshatnaruka.github.io/barkcli |
+| Install Script | https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh |
 | VS Code Marketplace | https://marketplace.visualstudio.com/manage |
 | Product Hunt Submit | https://www.producthunt.com/posts/new |
 | HN Submit | https://news.ycombinator.com/submit |

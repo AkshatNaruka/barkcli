@@ -1,6 +1,6 @@
 # barkcli — Windows Install script (PowerShell)
 # Usage:
-#   irm https://barkcli.vercel.app/install.ps1 | iex
+#   irm https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.ps1 | iex
 #   irm https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.ps1 | iex
 # Options:
 #   $env:BARKCLI_VERSION = "v0.2.0"
@@ -37,11 +37,9 @@ $Archive = "barkcli-$Target.zip"
 
 if ($Version) {
     $GithubUrl = "https://github.com/$Repo/releases/download/$Version/$Archive"
-    $VercelUrl = "https://barkcli.vercel.app/downloads/$Archive"
     Write-Host "Version: $Version"
 } else {
     $GithubUrl = "https://github.com/$Repo/releases/latest/download/$Archive"
-    $VercelUrl = "https://barkcli.vercel.app/downloads/$Archive"
     Write-Host "Version: latest"
 }
 
@@ -77,17 +75,12 @@ function Download-File($Url, $OutPath) {
 }
 
 $downloaded = Download-File $GithubUrl $ZipPath
-if (-not $downloaded) {
-    Write-Host "GitHub download failed, trying Vercel mirror..." -ForegroundColor Yellow
-    $downloaded = Download-File $VercelUrl $ZipPath
-}
 
 if (-not $downloaded) {
     Write-Host "" 
     Write-Host "No pre-built binary available for $Target." -ForegroundColor Red
     Write-Host "Tried:"
     Write-Host "  $GithubUrl"
-    Write-Host "  $VercelUrl"
     Write-Host ""
     Write-Host "Alternatives:"
     Write-Host "  cargo install barkcli"

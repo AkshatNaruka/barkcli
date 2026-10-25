@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-const SITE_URL = "https://barkcli.vercel.app";
+const SITE_URL = "https://akshatnaruka.github.io/barkcli";
 
 export function generatePageMetadata({
   title,

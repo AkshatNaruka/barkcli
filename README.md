@@ -18,7 +18,7 @@ You decide *what* gets built. Agents propose plans, do the work, and report back
 [![CI](https://github.com/AkshatNaruka/barkcli/actions/workflows/ci.yml/badge.svg)](https://github.com/AkshatNaruka/barkcli/actions/workflows/ci.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-[Install](#install) · [Quick Start](#quick-start) · [Docs](https://barkcli.vercel.app/docs) · [Web App](https://barkcli.vercel.app) · [Live Site](https://akshatnaruka.github.io/barkcli/) · [Live Web Demo](https://akshatnaruka.github.io/barkcli/app/) · [Comparisons](https://barkcli.vercel.app/compare) · [Discussions](https://github.com/AkshatNaruka/barkcli/discussions)
+[Install](#install) · [Quick Start](#quick-start) · [Docs](https://akshatnaruka.github.io/barkcli/docs) · [Web App](https://akshatnaruka.github.io/barkcli) · [Live Site](https://akshatnaruka.github.io/barkcli/) · [Live Web Demo](https://akshatnaruka.github.io/barkcli/app/) · [Comparisons](https://akshatnaruka.github.io/barkcli/compare) · [Discussions](https://github.com/AkshatNaruka/barkcli/discussions)
 
 </div>
 
@@ -85,7 +85,7 @@ Like `.git` but for Kanban boards. Project management for the terminal era — a
 |:---:|:---:|
 | ![](.github/assets/brain-dark.png) | ![](.github/assets/calendar-light.png) |
 
-Try it live without installing — [**the Web demo**](https://akshatnaruka.github.io/barkcli/app/) runs the full interface on demo data (every interaction works), or take the tour in the [docs](https://barkcli.vercel.app/docs).
+Try it live without installing — [**the Web demo**](https://akshatnaruka.github.io/barkcli/app/) runs the full interface on demo data (every interaction works), or take the tour in the [docs](https://akshatnaruka.github.io/barkcli/docs).
 
 ---
 
@@ -94,7 +94,7 @@ Try it live without installing — [**the Web demo**](https://akshatnaruka.githu
 ### One-liner (macOS & Linux)
 
 ```bash
-curl -fsSL https://barkcli.vercel.app/install.sh | sh
+curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
 ```
 
 ### Homebrew
@@ -156,7 +156,7 @@ You (intent)  →  barkcli (plan)  →  Agent (work)  →  barkcli (review)  →
 4. **Review** — completed work is validated before it lands. `barkcli review`.
 5. **Merge** — you merge when review passes.
 
-Read the full [Autopilot guide](https://barkcli.vercel.app/docs/autopilot).
+Read the full [Autopilot guide](https://akshatnaruka.github.io/barkcli/docs/autopilot).
 
 ### Or: one prompt to merged code
 
@@ -180,7 +180,7 @@ acceptance gate:
   the last one's mistakes.
 
 Watch it live in the web app's Orchestrate view (`/api/run/live`), or read
-[the command reference](https://barkcli.vercel.app/docs/commands/run).
+[the command reference](https://akshatnaruka.github.io/barkcli/docs/commands/run).
 
 ---
 
@@ -229,7 +229,7 @@ Pro commands (free, included in MIT)
   barkcli sync --push/--pull    GitHub sync
 ```
 
-Full reference: [docs/COMMANDS.md](docs/COMMANDS.md) · [Online](https://barkcli.vercel.app/docs/commands)
+Full reference: [docs/COMMANDS.md](docs/COMMANDS.md) · [Online](https://akshatnaruka.github.io/barkcli/docs/commands)
 
 ---
 
@@ -255,8 +255,8 @@ barkcli mcp
 
 The 56 tools cover boards, cards, tasks, agents, memory, specs, sessions, orchestration, code search, and autopilot. Agents can read task context, claim work, update progress, and run cycles — all inside your repo.
 
-- [Integration hub](https://barkcli.vercel.app/integrations)
-- [AI agent setup guide](https://barkcli.vercel.app/guides/ai-agent-setup)
+- [Integration hub](https://akshatnaruka.github.io/barkcli/integrations)
+- [AI agent setup guide](https://akshatnaruka.github.io/barkcli/guides/ai-agent-setup)
 - [AI agent prompt](docs/content/AI_AGENT_PROMPT.md) — paste into your coding agent
 - [MCP agents guide](docs/content/MCP_AGENTS.md)
 
@@ -279,8 +279,8 @@ The 56 tools cover boards, cards, tasks, agents, memory, specs, sessions, orches
 
 | Guide | What it covers |
 |---|---|
-| [Autopilot](https://barkcli.vercel.app/docs/autopilot) | The intent → approve → merge loop (start here) |
-| [Getting Started](https://barkcli.vercel.app/docs/getting-started) | Install + first task |
+| [Autopilot](https://akshatnaruka.github.io/barkcli/docs/autopilot) | The intent → approve → merge loop (start here) |
+| [Getting Started](https://akshatnaruka.github.io/barkcli/docs/getting-started) | Install + first task |
 | [Usage manual](docs/content/USAGE_MANUAL.md) | Complete how-to guide |
 | [Web app guide](docs/content/WEB_APP_GUIDE.md) | Browser interface, tabs, shortcuts, daemon mode |
 | [Interfaces](docs/content/INTERFACES.md) | CLI, TUI, web app, VS Code setup |
@@ -290,7 +290,7 @@ The 56 tools cover boards, cards, tasks, agents, memory, specs, sessions, orches
 | [Code context](docs/content/CONTEXT.md) | Linking cards to code |
 | [API reference](docs/content/API_REFERENCE.md) | REST + WebSocket reference |
 | [Advanced](docs/content/ADVANCED.md) | Sessions, checkpoints, sprints, hooks |
-| [Live docs](https://barkcli.vercel.app/docs) | Searchable docs with comparisons |
+| [Live docs](https://akshatnaruka.github.io/barkcli/docs) | Searchable docs with comparisons |
 
 ---
 
@@ -306,15 +306,15 @@ barkcli context benchmark --json
 ```
 
 Try it interactively (paste your own output) at
-[barkcli.vercel.app/benchmark](https://barkcli.vercel.app/benchmark).
+[akshatnaruka.github.io/barkcli/benchmark](https://akshatnaruka.github.io/barkcli/benchmark).
 
 | vs | Read the take |
 |---|---|
-| [Linear](https://barkcli.vercel.app/compare/linear) | Git-native vs cloud-first |
-| [Jira](https://barkcli.vercel.app/compare/jira) | Simple vs enterprise |
-| [Trello](https://barkcli.vercel.app/compare/trello) | Code vs cloud |
-| [Notion](https://barkcli.vercel.app/compare/notion) | Tasks vs everything |
-| [GitHub Projects](https://barkcli.vercel.app/compare/github-projects) | Local vs platform |
+| [Linear](https://akshatnaruka.github.io/barkcli/compare/linear) | Git-native vs cloud-first |
+| [Jira](https://akshatnaruka.github.io/barkcli/compare/jira) | Simple vs enterprise |
+| [Trello](https://akshatnaruka.github.io/barkcli/compare/trello) | Code vs cloud |
+| [Notion](https://akshatnaruka.github.io/barkcli/compare/notion) | Tasks vs everything |
+| [GitHub Projects](https://akshatnaruka.github.io/barkcli/compare/github-projects) | Local vs platform |
 
 The short version: if you want tasks in your repo, offline-ready, with AI agents as first-class workers — barkcli. If you need a mega-platform or enterprise compliance, keep the SaaS tool alongside.
 
@@ -381,13 +381,13 @@ barkcli is open source (MIT) and welcomes contributions of all kinds — code, d
 
 Full environment setup, project layout, commit conventions, and PR guidelines live in **[CONTRIBUTING.md](CONTRIBUTING.md)** — and if you're new, start with a [good first issue](https://github.com/AkshatNaruka/barkcli/labels/good%20first%20issue).
 
-**Not ready to code?** You can still help: star the repo, report [issues](https://github.com/AkshatNaruka/barkcli/issues), answer [discussions](https://github.com/AkshatNaruka/barkcli/discussions), or improve [docs](https://barkcli.vercel.app/docs).
+**Not ready to code?** You can still help: star the repo, report [issues](https://github.com/AkshatNaruka/barkcli/issues), answer [discussions](https://github.com/AkshatNaruka/barkcli/discussions), or improve [docs](https://akshatnaruka.github.io/barkcli/docs).
 
 ---
 
 ## Community
 
-- **Docs & Web App**: <https://barkcli.vercel.app>
+- **Docs & Web App**: <https://akshatnaruka.github.io/barkcli>
 - **Discussions**: <https://github.com/AkshatNaruka/barkcli/discussions>
 - **Issues**: <https://github.com/AkshatNaruka/barkcli/issues>
 - **X / Twitter**: [@probiex007](https://x.com/probiex007)

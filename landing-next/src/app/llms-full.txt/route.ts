@@ -15,7 +15,7 @@ barkcli is a local-first project management tool. Tasks are stored as YAML files
 
 \`\`\`bash
 # macOS / Linux
-curl -fsSL https://barkcli.vercel.app/install.sh | sh
+curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
 
 # cargo
 cargo install barkcli

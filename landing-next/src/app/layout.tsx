@@ -20,7 +20,7 @@ const marck = Marck_Script({
   subsets: ["latin"],
 });
 
-const SITE_URL = "https://barkcli.vercel.app";
+const SITE_URL = "https://akshatnaruka.github.io/barkcli";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

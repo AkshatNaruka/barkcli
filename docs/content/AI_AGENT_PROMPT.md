@@ -25,7 +25,7 @@ barkcli is a CLI tool for task tracking inside any project. Like `.git` but for 
 
 ```bash
 # macOS / Linux
-curl -fsSL https://barkcli.vercel.app/install.sh | sh
+curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
 
 # Homebrew
 brew tap AkshatNaruka/barkcli && brew install barkcli
@@ -34,7 +34,7 @@ brew tap AkshatNaruka/barkcli && brew install barkcli
 cargo install barkcli
 
 # Windows
-irm https://barkcli.vercel.app/install.ps1 | iex
+irm https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.ps1 | iex
 ```
 
 ---

@@ -13,7 +13,7 @@ const interfaces = [
       {
         title: "Installation",
         content: "barkcli is installed via curl or cargo. See the Getting Started guide.",
-        code: "curl -fsSL https://barkcli.vercel.app/install.sh | sh",
+        code: "curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh",
       },
       {
         title: "Basic Usage",

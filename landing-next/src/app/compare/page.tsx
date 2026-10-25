@@ -60,7 +60,7 @@ export default function ComparePage() {
               "@type": "ListItem",
               position: i + 1,
               name: `barkcli vs ${comp.name}`,
-              url: `https://barkcli.vercel.app/compare/${comp.slug}`,
+              url: `https://akshatnaruka.github.io/barkcli/compare/${comp.slug}`,
             })),
           }),
         }}

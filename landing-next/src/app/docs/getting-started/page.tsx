@@ -14,7 +14,7 @@ const steps = [
   {
     name: "Install barkcli",
     text: "Install barkcli with a single command. No dependencies required.",
-    command: "curl -fsSL https://barkcli.vercel.app/install.sh | sh",
+    command: "curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh",
   },
   {
     name: "Initialize your project",
