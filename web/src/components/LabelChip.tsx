@@ -1,17 +1,19 @@
 import React from "react";
 import { labelColor } from "../lib/labels";
 
-// Modern SaaS label chip: colored dot + neutral text on a soft tinted fill —
-// the dot carries the color, the label text stays readable in every theme.
+// Quiet label chip: soft tint + colored text, no dot — reads as one system
+// with the priority and status chips.
 export const LabelChip = React.memo(function LabelChip({ name }: { name: string }) {
   const { color } = labelColor(name);
   return (
     <span
-      className="inline-flex items-center gap-1.5 text-[10px] font-medium px-1.5 py-px rounded-full shrink-0"
-      style={{ background: `color-mix(in srgb, ${color} 14%, transparent)` }}
+      className="inline-flex items-center text-[9px] font-semibold uppercase tracking-[0.08em] px-1.5 py-0.5 rounded shrink-0"
+      style={{
+        background: `color-mix(in srgb, ${color} 13%, transparent)`,
+        color: `color-mix(in srgb, ${color} 80%, var(--text))`,
+      }}
       title={`Label: ${name}`}
     >
-      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
       {name}
     </span>
   );

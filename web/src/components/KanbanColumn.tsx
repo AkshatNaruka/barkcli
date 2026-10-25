@@ -24,22 +24,11 @@ export const KanbanColumn = React.memo(function KanbanColumn({ column, cards, on
 
   return (
     <div
-      className="flex flex-col bg-surface rounded-xl min-w-[280px] max-w-[320px] flex-shrink-0"
+      className="flex flex-col bg-surface border border-border rounded-xl min-w-[300px] max-w-[340px] flex-shrink-0"
     >
-      <div className="flex items-center justify-between px-4 pt-3 pb-1.5">
+      <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span
-            className={`w-2 h-2 rounded-full shrink-0 ${
-              /done/i.test(column.id)
-                ? "bg-success"
-                : /doing|progress|active/i.test(column.id)
-                  ? "bg-accent"
-                  : /review|test/i.test(column.id)
-                    ? "bg-warning"
-                    : "bg-[color-mix(in_srgb,var(--muted)_50%,transparent)]"
-            }`}
-          />
-          <span className="text-[13px] font-medium text-text truncate">{column.name}</span>
+          <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted truncate">{column.name}</span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {pinned > 0 && (
@@ -47,7 +36,7 @@ export const KanbanColumn = React.memo(function KanbanColumn({ column, cards, on
               <Icon name="pin" size={11} />{pinned}
             </span>
           )}
-          <span className="text-xs text-muted font-mono">{cards.length}</span>
+          <span className="text-[10px] font-mono text-muted/80">{cards.length}</span>
         </div>
       </div>
       <div

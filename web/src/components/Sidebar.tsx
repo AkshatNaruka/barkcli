@@ -8,17 +8,20 @@ interface NavItem {
   icon: IconName;
 }
 
-// Notion's sidebar skeleton: ≤7 first-class places; everything else lives in
-// one quiet "More" disclosure so the nav recedes and content leads (Linear 2026).
-const PRIMARY: NavItem[] = [
-  { route: "board", label: "Board", icon: "board" },
+// Two first-class groups, exactly as the control-center mock:
+// MANAGE — the places you steer; BUILD — who is doing the work.
+const MANAGE: NavItem[] = [
   { route: "mind", label: "Mind", icon: "spark" },
+  { route: "board", label: "Board", icon: "board" },
   { route: "specs", label: "Specs", icon: "layers" },
-  { route: "sprints", label: "Sprints", icon: "cycle" },
+];
+
+const BUILD: NavItem[] = [
   { route: "agents", label: "Agents", icon: "users" },
 ];
 
 const MORE: NavItem[] = [
+  { route: "sprints", label: "Sprints", icon: "cycle" },
   { route: "code", label: "Code", icon: "code" },
   { route: "context", label: "Context", icon: "doc" },
   { route: "memory", label: "Memory", icon: "db" },
@@ -41,6 +44,14 @@ export interface SidebarCounts {
   boardOpen: number;
   blockers: number;
   agentsActive: number;
+}
+
+function GroupLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="px-2.5 pt-4 pb-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-muted/70 select-none">
+      {children}
+    </div>
+  );
 }
 
 export function Sidebar({
@@ -77,17 +88,22 @@ export function Sidebar({
         key={item.route}
         onClick={() => onNavigate(item.route)}
         title={item.label}
-        className={`w-full flex items-center gap-2.5 px-2.5 py-[7px] text-[13px] transition-colors rounded-md ${
-          active ? "text-text bg-card font-medium" : "text-muted hover:text-text hover:bg-surface"
+        className={`relative w-full flex items-center gap-2.5 px-2.5 py-[7px] text-[13px] transition-colors rounded-md ${
+          active ? "text-text bg-white/[0.05] font-medium" : "text-muted hover:text-text hover:bg-white/[0.03]"
         }`}
       >
-        <span className="shrink-0 flex">
+        {active && (
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[2px] rounded-full bg-accent" />
+        )}
+        <span className={`shrink-0 flex ${active ? "text-accent" : ""}`}>
           <Icon name={item.icon} size={15} />
         </span>
         {!collapsed && <span className="flex-1 text-left truncate">{item.label}</span>}
         {!collapsed && badge > 0 && (
           <span
-            className={`text-[10px] shrink-0 ${item.route === "mind" ? "text-danger" : "text-muted"}`}
+            className={`min-w-[18px] text-center text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-white/[0.04] shrink-0 ${
+              item.route === "mind" ? "text-danger" : "text-muted"
+            }`}
           >
             {badge}
           </span>
@@ -98,15 +114,15 @@ export function Sidebar({
 
   return (
     <aside
-      className={`flex flex-col border-r border-border bg-surface/40 shrink-0 transition-all ${
-        collapsed ? "w-14" : "w-[224px]"
+      className={`flex flex-col border-r border-border bg-surface/60 shrink-0 transition-all ${
+        collapsed ? "w-14" : "w-[232px]"
       }`}
     >
       {/* Brand + collapse */}
-      <div className="flex items-center justify-between px-3 py-2.5 shrink-0">
+      <div className="flex items-center justify-between px-3 py-3 shrink-0">
         {!collapsed && (
-          <span className="flex items-center gap-1.5 text-sm font-bold text-text">
-            <span className="w-5 h-5 rounded bg-accent text-white flex items-center justify-center text-[10px] font-mono">
+          <span className="flex items-center gap-2 text-sm font-semibold text-text">
+            <span className="w-5 h-5 rounded-md bg-accent text-white flex items-center justify-center text-[10px] font-mono">
               b
             </span>
             barkcli
@@ -123,34 +139,46 @@ export function Sidebar({
 
       {/* Active board context — one quiet line */}
       {!collapsed && boardName && (
-        <div className="px-3.5 pb-2 text-xs font-mono text-muted truncate">{boardName}</div>
+        <div className="px-3.5 pb-1 text-[11px] font-mono text-muted truncate">{boardName}</div>
       )}
 
-      {/* Primary places */}
-      <nav className="flex-1 overflow-y-auto py-1 px-1.5">
-        {PRIMARY.map((item) => (
-          <NavRow key={item.route} item={item} />
-        ))}
+      <nav className="flex-1 overflow-y-auto pb-2 px-1.5">
+        {!collapsed && <GroupLabel>Manage</GroupLabel>}
+        <div className="space-y-px">
+          {MANAGE.map((item) => (
+            <NavRow key={item.route} item={item} />
+          ))}
+        </div>
+
+        {!collapsed && <GroupLabel>Build</GroupLabel>}
+        <div className="space-y-px">
+          {BUILD.map((item) => (
+            <NavRow key={item.route} item={item} />
+          ))}
+        </div>
 
         {/* More — secondary tools behind one disclosure */}
-        <button
-          onClick={() => setMoreOpen((m) => !m)}
-          className={`w-full flex items-center gap-2.5 px-2.5 py-[7px] text-[13px] rounded-md transition-colors ${
-            showMore ? "text-muted" : "text-muted hover:text-text hover:bg-surface"
-          }`}
-          title="More tools"
-        >
-          <span className="shrink-0 flex transition-transform" style={{ transform: showMore ? "rotate(90deg)" : "none" }}>
-            <Icon name="chevR" size={15} />
-          </span>
-          {!collapsed && <span className="flex-1 text-left">More</span>}
-        </button>
-        {showMore &&
-          MORE.map((item) => (
-            <div key={item.route} className="pl-5">
-              <NavRow item={item} />
+        <div className="mt-3 border-t border-border/60 pt-1.5">
+          <button
+            onClick={() => setMoreOpen((m) => !m)}
+            className={`w-full flex items-center gap-2.5 px-2.5 py-[7px] text-[13px] rounded-md transition-colors ${
+              showMore ? "text-muted" : "text-muted hover:text-text hover:bg-white/[0.03]"
+            }`}
+            title="More tools"
+          >
+            <span className="shrink-0 flex transition-transform" style={{ transform: showMore ? "rotate(90deg)" : "none" }}>
+              <Icon name="chevR" size={15} />
+            </span>
+            {!collapsed && <span className="flex-1 text-left">More</span>}
+          </button>
+          {showMore && (
+            <div className="pl-4 space-y-px">
+              {MORE.map((item) => (
+                <NavRow key={item.route} item={item} />
+              ))}
             </div>
-          ))}
+          )}
+        </div>
       </nav>
 
       {/* Utility pinned bottom */}

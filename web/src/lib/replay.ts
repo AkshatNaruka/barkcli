@@ -5,7 +5,7 @@
 // `/api/run/live` shape, the same task-status transitions, no backend.
 //
 // Activation: `?run=replay` (or `?replay=1`). The landing page links to
-// `/app/?run=replay#/orchestrate`; normal demo usage is untouched.
+// `/app/?run=replay#/mind`; normal demo usage is untouched.
 //
 // Timeline (loops every 96s):
 //   0s        3 agents start in their own worktrees

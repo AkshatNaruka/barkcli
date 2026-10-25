@@ -31,7 +31,7 @@ export const KanbanCard = React.memo(function KanbanCard({ card, isOverlay, onEd
 
   return (
     <div
-      className={`bg-card rounded-lg p-3 border transition-colors group relative ${
+      className={`bg-card rounded-xl p-3.5 border transition-colors group relative ${
         blockedBy
           ? "border-danger/60 hover:border-danger"
           : "border-border hover:border-border-strong"
@@ -121,8 +121,8 @@ export const KanbanCard = React.memo(function KanbanCard({ card, isOverlay, onEd
             </span>
           )}
           {(card as any).spec_id && (
-            <span className="text-accent-text" title={`Spec: ${(card as any).spec_id}`}>
-              <Icon name="link" size={12} />
+            <span className="inline-flex items-center gap-0.5 text-[10px] text-accent-text" title={`Spec: ${(card as any).spec_id}`}>
+              <Icon name="link" size={10} />spec
             </span>
           )}
           {blockedBy && (
