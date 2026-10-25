@@ -527,6 +527,10 @@ public struct BlockedIndicatorBanner: View {
         self.blockerIds = blockerIds
     }
 
+    public init(blockerId: String) {
+        self.blockerIds = [blockerId]
+    }
+
     public var body: some View {
         HStack(spacing: 6) {
             Image(systemName: "exclamationmark.octagon.fill")
