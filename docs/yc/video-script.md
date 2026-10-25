@@ -15,7 +15,7 @@ Target: **record final Tue Oct 27**, so launch day (Wed) is free.
 | 0:00–0:07 | Face, medium shot | "I'm Akshat, founder of barkcli. We make coding agents trustworthy." |
 | 0:07–0:18 | Face → cut to terminal | "Every team using Claude Code or Codex hits the same thing: the agent says it's done, and the build is broken. I was re-reading twenty-nine thousand tokens of repo context every session just to check." |
 | 0:18–0:40 | Terminal run → web live view → merge report | "barkcli gives agents a task queue, their own git worktree, and an acceptance gate that runs your tests. Three agents work in parallel. Only branches that pass the gate merge — done means the gate passed, never the agent's word." |
-| 0:40–0:50 | Face | "It's one Rust binary: CLI, web app, VS Code, seventy-one MCP tools. Two hundred fifty-four tests, MIT, and I use it daily on my own products." |
+| 0:40–0:50 | Face | "It's one Rust binary: CLI, web app, VS Code, seventy-one MCP tools. Two hundred fifty-seven tests, MIT, and I use it daily on my own products." |
 | 0:50–0:58 | Face | "Next is the multiplayer layer, so teams share live agent sessions. I'm applying solo to W27 and can be in San Francisco in January. Thanks." |
 
 **Word count:** ~150 — comfortable at a calm pace with pauses.

@@ -2,6 +2,11 @@
 
 Everything needed to submit the YC Winter 2027 application and run launch week.
 
+**Shipped Oct 25:** replay demo live at
+`https://akshatnaruka.github.io/barkcli/app/?run=replay#/orchestrate` (3 agents,
+gate verdicts, merge train — real UI, recorded data), landing "Multiplayer AI"
+section with the CTA, and this pack.
+
 | File | What it is |
 |---|---|
 | `application-w27.md` | Paste-ready answers to the full application. `[FILL]` = only you can supply. `[DECIDE]` = needs your call. |
