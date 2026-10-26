@@ -10,12 +10,12 @@ interface Props {
 }
 
 const SPRINT_COLORS = [
-  "#3b82f6",
-  "#8b5cf6",
-  "#ec4899",
+  "#38bdf8",
+  "#71717a",
+  "#a1a1aa",
   "#f59e0b",
   "#14b8a6",
-  "#6366f1",
+  "#94a3b8",
   "#10b981",
   "#ef4444",
 ];

@@ -132,6 +132,8 @@ public struct RootView: View {
         if horizontalSizeClass == .regular {
             regularSplitLayout
                 .preferredColorScheme(.dark)
+                .tint(Color.barkcliTextPrimary)
+                .accentColor(Color.barkcliTextPrimary)
                 .injectStores(
                     workspace: workspaceStore,
                     mind: mindStore,
@@ -152,6 +154,8 @@ public struct RootView: View {
         } else {
             compactPhoneLayout
                 .preferredColorScheme(.dark)
+                .tint(Color.barkcliTextPrimary)
+                .accentColor(Color.barkcliTextPrimary)
                 .injectStores(
                     workspace: workspaceStore,
                     mind: mindStore,
@@ -173,6 +177,8 @@ public struct RootView: View {
         #else
         regularSplitLayout
             .preferredColorScheme(.dark)
+            .tint(Color.barkcliTextPrimary)
+            .accentColor(Color.barkcliTextPrimary)
             .injectStores(
                 workspace: workspaceStore,
                 mind: mindStore,

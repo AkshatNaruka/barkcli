@@ -5,7 +5,7 @@
 // Sources:
 // - Claude  #D97757 terracotta (official Anthropic brand)
 // - OpenCode #D99C57 gold (opencode.ai brand palette accent)
-// - Cursor  #6B5CE7 violet (Cursor dev-tools palette)
+// - Cursor  #71717A slate (Cursor dev-tools palette)
 // - Codex   #10A37F green (OpenAI ChatGPT green)
 // - Gemini  #4285F4 blue (Google blue)
 // - Human   #34D399 emerald (reviewer/human convention)
@@ -15,7 +15,7 @@ export type AgentTool = "opencode" | "claude" | "cursor" | "codex" | "gemini" | 
 export const AGENT_TOOL_COLORS: Record<Exclude<AgentTool, "other">, string> = {
   opencode: "#D99C57",
   claude: "#D97757",
-  cursor: "#6B5CE7",
+  cursor: "#71717A",
   codex: "#10A37F",
   gemini: "#4285F4",
   human: "#34D399",

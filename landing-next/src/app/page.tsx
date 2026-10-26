@@ -82,7 +82,7 @@ const FEATURES = [
     title: "Board + Traceability",
     description: "Kanban with spec_id on every card — spec ↔ card ↔ task ↔ code, O(1). Diff it, merge it, grep it.",
     code: "$ git diff main..feature -- *.board",
-    gradient: "from-purple-500/20 to-pink-500/20",
+    gradient: "from-zinc-500/20 to-neutral-500/20",
   },
   {
     icon: Bot,

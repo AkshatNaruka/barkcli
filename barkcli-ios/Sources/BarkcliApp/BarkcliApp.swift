@@ -11,6 +11,8 @@ public struct BarkcliApp: App {
         WindowGroup {
             RootView()
                 .preferredColorScheme(.dark)
+                .tint(Color.barkcliTextPrimary)
+                .accentColor(Color.barkcliTextPrimary)
         }
     }
 }

@@ -123,6 +123,20 @@ export function ReportsView({ board, sprints }: { board: BoardType; sprints: Spr
       ? reportsData
       : fallbackMetrics;
 
+  const safeData = activeReportsData || fallbackMetrics || {
+    board_name: board?.title || "",
+    total_cards: 0,
+    completed_cards: 0,
+    in_progress_cards: 0,
+    blocked_cards: 0,
+    todo_cards: 0,
+    completion_rate: 0,
+    total_effort: 0,
+    completed_effort: 0,
+    by_priority: {},
+    by_column: {},
+  };
+
   const report = useMemo(() => {
     // Effort by column
     const colEffort: Record<string, { count: number; effort: number }> = {};
@@ -130,7 +144,8 @@ export function ReportsView({ board, sprints }: { board: BoardType; sprints: Spr
     const areaEffort: Record<string, { count: number; effort: number }> = {};
     // Priority counts
     const prioCount: Record<string, number> = {};
-    for (const c of board.cards) {
+    const cards = board?.cards || [];
+    for (const c of cards) {
       const col = colEffort[c.column] || (colEffort[c.column] = { count: 0, effort: 0 });
       col.count++;
       col.effort += c.effort || 0;
@@ -144,7 +159,7 @@ export function ReportsView({ board, sprints }: { board: BoardType; sprints: Spr
     const sprintRows = sprints
       .map((s) => {
         const label = sprintTag(s);
-        const cards = board.cards.filter((c) => c.labels.includes(label));
+        const cards = (board?.cards || []).filter((c) => c.labels.includes(label));
         const colMix: Record<string, number> = {};
         for (const c of cards) colMix[c.column] = (colMix[c.column] || 0) + 1;
         const totalEffort = cards.reduce((n, c) => n + (c.effort || 0), 0);
@@ -174,8 +189,8 @@ export function ReportsView({ board, sprints }: { board: BoardType; sprints: Spr
   const maxAreaEffort = Math.max(1, ...Object.values(report.areaEffort).map((e) => e.effort));
 
   const safeRate =
-    typeof activeReportsData.completion_rate === "number" && !isNaN(activeReportsData.completion_rate)
-      ? activeReportsData.completion_rate.toFixed(1)
+    typeof safeData.completion_rate === "number" && !isNaN(safeData.completion_rate)
+      ? safeData.completion_rate.toFixed(1)
       : "0.0";
 
   return (
@@ -195,13 +210,13 @@ export function ReportsView({ board, sprints }: { board: BoardType; sprints: Spr
                 {safeRate}%
               </div>
               <div className="text-xs text-muted mt-1">
-                {activeReportsData.completed_cards} of {activeReportsData.total_cards} cards completed
+                {safeData.completed_cards} of {safeData.total_cards} cards completed
               </div>
             </div>
             <div className="w-full h-1.5 bg-card rounded-full overflow-hidden border border-border">
               <div
                 className="h-full bg-success rounded-full transition-all duration-500"
-                style={{ width: `${Math.min(100, Math.max(0, activeReportsData.completion_rate || 0))}%` }}
+                style={{ width: `${Math.min(100, Math.max(0, safeData.completion_rate || 0))}%` }}
               />
             </div>
           </div>
@@ -215,8 +230,8 @@ export function ReportsView({ board, sprints }: { board: BoardType; sprints: Spr
             </div>
             <div className="my-2">
               <div className="text-3xl font-extrabold font-mono text-accent">
-                {activeReportsData.completed_effort}
-                <span className="text-base text-muted font-normal"> / {activeReportsData.total_effort}</span>
+                {safeData.completed_effort}
+                <span className="text-base text-muted font-normal"> / {safeData.total_effort}</span>
               </div>
               <div className="text-xs text-muted mt-1">Story points verified</div>
             </div>
@@ -225,10 +240,10 @@ export function ReportsView({ board, sprints }: { board: BoardType; sprints: Spr
                 className="h-full bg-accent rounded-full transition-all duration-500"
                 style={{
                   width: `${
-                    activeReportsData.total_effort > 0
+                    safeData.total_effort > 0
                       ? Math.min(
                           100,
-                          (activeReportsData.completed_effort / activeReportsData.total_effort) * 100
+                          (safeData.completed_effort / safeData.total_effort) * 100
                         )
                       : 0
                   }%`,
@@ -246,10 +261,10 @@ export function ReportsView({ board, sprints }: { board: BoardType; sprints: Spr
             </div>
             <div className="my-2">
               <div className="text-3xl font-extrabold font-mono text-warning">
-                {activeReportsData.in_progress_cards}
+                {safeData.in_progress_cards}
               </div>
               <div className="text-xs text-muted mt-1">
-                {activeReportsData.blocked_cards} blocked dependencies
+                {safeData.blocked_cards} blocked dependencies
               </div>
             </div>
             <div className="w-full h-1.5 bg-card rounded-full overflow-hidden border border-border">
@@ -257,10 +272,10 @@ export function ReportsView({ board, sprints }: { board: BoardType; sprints: Spr
                 className="h-full bg-warning rounded-full transition-all duration-500"
                 style={{
                   width: `${
-                    activeReportsData.total_cards > 0
+                    safeData.total_cards > 0
                       ? Math.min(
                           100,
-                          (activeReportsData.in_progress_cards / activeReportsData.total_cards) * 100
+                          (safeData.in_progress_cards / safeData.total_cards) * 100
                         )
                       : 0
                   }%`,
@@ -278,7 +293,7 @@ export function ReportsView({ board, sprints }: { board: BoardType; sprints: Spr
             </div>
             <div className="my-2">
               <div className="text-3xl font-extrabold font-mono text-text">
-                {activeReportsData.todo_cards}
+                {safeData.todo_cards}
               </div>
               <div className="text-xs text-muted mt-1">Unscheduled todo items</div>
             </div>
@@ -287,10 +302,10 @@ export function ReportsView({ board, sprints }: { board: BoardType; sprints: Spr
                 className="h-full bg-muted-strong rounded-full transition-all duration-500"
                 style={{
                   width: `${
-                    activeReportsData.total_cards > 0
+                    safeData.total_cards > 0
                       ? Math.min(
                           100,
-                          (activeReportsData.todo_cards / activeReportsData.total_cards) * 100
+                          (safeData.todo_cards / safeData.total_cards) * 100
                         )
                       : 0
                   }%`,
@@ -306,9 +321,9 @@ export function ReportsView({ board, sprints }: { board: BoardType; sprints: Spr
           <div className="flex-1 space-y-1">
             <div className="font-semibold text-text">Velocity & Acceptance Gate Intelligence</div>
             <p className="text-muted leading-relaxed">
-              Tracking {activeReportsData.total_cards} cards across {board.columns.length} columns.
-              {activeReportsData.blocked_cards > 0
-                ? ` ${activeReportsData.blocked_cards} work item(s) currently await prerequisite card completion before agent dispatch.`
+              Tracking {safeData.total_cards} cards across {board?.columns?.length || 0} columns.
+              {safeData.blocked_cards > 0
+                ? ` ${safeData.blocked_cards} work item(s) currently await prerequisite card completion before agent dispatch.`
                 : " All todo work items have unblocked dependency chains ready for immediate parallel execution."}
             </p>
           </div>

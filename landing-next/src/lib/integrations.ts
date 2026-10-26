@@ -140,7 +140,7 @@ export const integrations: Integration[] = [
       "Use barkcli alongside Cursor. Tasks live in your repo and Cursor's AI gets full task context through MCP while you manage boards from the terminal.",
     icon: "E",
     logo: "/logos/cursor.svg",
-    brandColor: "#6B5CE7",
+    brandColor: "#71717A",
     setupSteps: [
       "Install barkcli binary and run `barkcli init`",
       "Configure barkcli as an MCP server in Cursor",

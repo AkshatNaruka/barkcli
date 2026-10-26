@@ -107,7 +107,7 @@ export const TIER: Record<string, { color: string; label: string }> = {
   working: { color: "#60a5fa", label: "Working" },
   short_term: { color: "#facc15", label: "Short-term" },
   long_term: { color: "#4ade80", label: "Long-term" },
-  external: { color: "#c084fc", label: "External" },
+  external: { color: "#94a3b8", label: "External" },
 };
 
 // Kind = what the node IS (icon, resolved by our Icon set)

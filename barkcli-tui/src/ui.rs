@@ -506,7 +506,7 @@ fn draw_code(f: &mut Frame, app: &App, area: Rect) {
 
 /// Brand color for a coding-agent tool, detected from agent id/name.
 /// Same hexes as web/src/lib/agents.ts and the landing-page hero mock:
-/// OpenCode gold #D99C57, Claude terracotta #D97757, Cursor violet #6B5CE7,
+/// OpenCode gold #D99C57, Claude terracotta #D97757, Cursor slate #71717A,
 /// Codex green #10A37F, Gemini blue #4285F4, human emerald #34D399.
 fn agent_tool_color(id: &str, name: &str) -> Option<Color> {
     let hay = format!("{id} {name}").to_lowercase();
@@ -515,7 +515,7 @@ fn agent_tool_color(id: &str, name: &str) -> Option<Color> {
     } else if hay.contains("claude") {
         Some(Color::Rgb(217, 119, 87))
     } else if hay.contains("cursor") {
-        Some(Color::Rgb(107, 92, 231))
+        Some(Color::Rgb(113, 113, 122))
     } else if hay.contains("codex") || hay.contains("openai") {
         Some(Color::Rgb(16, 163, 127))
     } else if hay.contains("gemini") {

@@ -19,7 +19,7 @@
    - `NetworkDiscoveryService`: Bonjour/mDNS service browser (`_barkcli._tcp`) and subnet probe for daemon port 4321.
    - `NetworkMonitor`: NWPathMonitor wrapper reporting live/cellular/offline connectivity states.
 3. **Theme & Design System** (Codex & t3codes Aesthetics):
-   - `BarkcliColors`: Obsidian Dark canvas (`#0A0A0E`), Space Black surfaces (`#12131A`), Slate Glass cards (`#181924`), Electric Violet (`#8B5CF6`), Cyber Cyan (`#06B6D4`), Amber pulse (`#F59E0B`), Emerald gate (`#10B981`), Crimson blocker (`#EF4444`).
+   - `BarkcliColors`: Pitch Black canvas (`#000000`), Deep Charcoal surfaces (`#0D0D11`), Subtle Card surfaces (`#141418`), Hairline borders (`#222226`), Pure White typography (`#FFFFFF`), Amber warning (`#F59E0B`), Emerald gate (`#10B981`), Crimson blocker (`#EF4444`).
    - `BarkcliTypography`: Monospace SF Mono tokens for hashes, paths, and metrics; crisp hierarchy for titles and badges.
    - `LiquidGlassModifier`: Translucent `.ultraThinMaterial` / `.glassEffect` with hairline borders and subtle glows.
    - Reusable components: `GlassCard`, `StatusBadge`, `MetricTile`, `ActionButton`, `SectionHeader`.

@@ -252,7 +252,7 @@ function ContextBlockCard({
             {(block.staleness || 0).toFixed(2)} · {stalenessLabel(block.staleness || 0)}
           </span>
           {block.manual && (
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-500/15 text-purple-400">
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-white/10 text-zinc-300 border border-white/15">
               manual
             </span>
           )}

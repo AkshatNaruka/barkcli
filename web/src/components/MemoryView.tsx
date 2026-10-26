@@ -7,7 +7,7 @@ const TIER_COLORS: Record<string, string> = {
   working: "#60a5fa",
   short_term: "#facc15",
   long_term: "#4ade80",
-  external: "#c084fc",
+  external: "#94a3b8",
 };
 
 const TIER_LABELS: Record<string, string> = {

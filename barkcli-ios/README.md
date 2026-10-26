@@ -37,7 +37,7 @@ barkcli-ios/
 │       ├── State/
 │       │   └── AppState.swift       # Central @Observable application state container
 │       ├── Theme/
-│       │   ├── Colors.swift         # Semantic dark palette (purple accent, emerald, amber)
+│       │   ├── Colors.swift         # Semantic dark palette (monochrome xAI palette, emerald, amber)
 │       │   └── Components.swift     # GlassCard, MetricTile, StatusBadge, ActionButton
 │       └── Views/
 │           ├── MainView.swift       # Shell with liquid glass header and bottom navigation
