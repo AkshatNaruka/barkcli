@@ -35,7 +35,11 @@ pub fn main_is_dirty() -> Result<bool> {
     }
     Ok(String::from_utf8_lossy(&out.stdout)
         .lines()
-        .any(|l| !l.starts_with("??")))
+        .filter(|l| !l.starts_with("??"))
+        .any(|l| {
+            let path = if l.len() >= 3 { l[3..].trim() } else { "" };
+            !path.ends_with(".board") && path != "project_context.md" && !path.ends_with(".board.lock")
+        }))
 }
 
 fn git_in(root: &PathBuf, args: &[&str]) -> Result<String> {
