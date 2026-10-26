@@ -291,15 +291,39 @@ public struct CardDetailSheet: View {
                     Spacer()
 
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("ASSIGNEE")
+                        Text("AGENT BACKEND")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundColor(.barkcliTextMuted)
                             .tracking(0.6)
 
-                        TextField("Assignee", text: $assignee)
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.barkcliTextPrimary)
-                            .textFieldStyle(.plain)
+                        Menu {
+                            ForEach(["opencode", "board", "codex", "claude"], id: \.self) { b in
+                                Button {
+                                    assignee = b
+                                    labels.removeAll { $0.hasPrefix("agent:") }
+                                    labels.append("agent:\(b)")
+                                } label: {
+                                    HStack {
+                                        Text(b.capitalized)
+                                        if assignee.lowercased() == b {
+                                            Image(systemName: "checkmark")
+                                        }
+                                    }
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Circle()
+                                    .fill(Color.barkcliTextPrimary)
+                                    .frame(width: 6, height: 6)
+                                Text(assignee.isEmpty ? "opencode" : assignee)
+                                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                                    .foregroundColor(.barkcliTextPrimary)
+                                Spacer()
+                                Image(systemName: "chevron.up.chevron.down")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.barkcliTextMuted)
+                            }
                             .padding(.horizontal, 10)
                             .padding(.vertical, 7)
                             .background(Color.barkcliSurface)
@@ -308,6 +332,7 @@ public struct CardDetailSheet: View {
                                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                                     .strokeBorder(Color.barkcliBorderSubtle, lineWidth: 1)
                             )
+                        }
                     }
                 }
             }
@@ -615,6 +640,26 @@ public struct CardDetailSheet: View {
 
     private var actionsSection: some View {
         VStack(spacing: 12) {
+            ActionButton(
+                "Plan & Implement",
+                systemImage: "bolt.fill",
+                variant: .primary,
+                isLoading: isRequestingPlan
+            ) {
+                Task {
+                    isRequestingPlan = true
+                    selectedColumn = "doing"
+                    await saveChanges()
+                    if let appState {
+                        await appState.proposePlan(cardId: card.id)
+                    } else {
+                        _ = try? await (boardStore?.client ?? MockAPIClient()).proposePlan(cardId: card.id)
+                    }
+                    isRequestingPlan = false
+                    dismiss()
+                }
+            }
+
             ActionButton(
                 "Propose Agent Plan",
                 systemImage: "wand.and.stars",

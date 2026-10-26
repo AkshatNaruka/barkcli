@@ -301,14 +301,16 @@ public final class LiveAPIClient: APIClientProtocol, @unchecked Sendable {
         return try await performRequest(request)
     }
 
-    public func submitIntent(prompt: String, kind: String? = "feature") async throws -> IntentResponse {
+    public func submitIntent(prompt: String, kind: String? = "feature", backend: String? = "opencode") async throws -> IntentResponse {
         struct IntakePayload: Codable {
             let text: String
             let kind: String?
             let board: String?
+            let backend: String?
+            let auto_run: Bool?
         }
         let url = try makeURL(path: "api/intake")
-        let bodyData = try encoder.encode(IntakePayload(text: prompt, kind: kind, board: "dev"))
+        let bodyData = try encoder.encode(IntakePayload(text: prompt, kind: kind, board: "dev", backend: backend, auto_run: true))
         let request = makeRequest(url: url, method: "POST", body: bodyData)
         let (data, _) = try await execute(request)
 

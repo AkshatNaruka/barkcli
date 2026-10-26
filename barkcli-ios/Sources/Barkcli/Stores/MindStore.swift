@@ -105,9 +105,9 @@ public final class MindStore: @unchecked Sendable {
     }
 
     // MARK: - Intent & Autopilot Operations
-    public func submitIntent(prompt: String, kind: String? = "feature") async throws -> IntentResponse {
+    public func submitIntent(prompt: String, kind: String? = "feature", backend: String? = "opencode") async throws -> IntentResponse {
         do {
-            let response = try await client.submitIntent(prompt: prompt, kind: kind)
+            let response = try await client.submitIntent(prompt: prompt, kind: kind, backend: backend)
             await refresh()
             return response
         } catch {

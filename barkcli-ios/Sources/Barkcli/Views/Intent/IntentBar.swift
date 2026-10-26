@@ -1,19 +1,35 @@
 import SwiftUI
 
 public enum IntentKind: String, CaseIterable, Identifiable, Sendable {
-    case auto = "Auto"
+    case task = "Task"
     case feature = "Feature"
     case bug = "Bug"
-    case mvp = "MVP"
 
     public var id: String { rawValue }
 
     public var apiValue: String {
         switch self {
-        case .auto: return "feature"
+        case .task: return "task"
         case .feature: return "feature"
         case .bug: return "bug"
-        case .mvp: return "feature"
+        }
+    }
+}
+
+public enum AgentBackend: String, CaseIterable, Identifiable, Sendable {
+    case opencode = "OpenCode"
+    case board = "Board Pool"
+    case codex = "Codex"
+    case claude = "Claude Code"
+
+    public var id: String { rawValue }
+
+    public var apiValue: String {
+        switch self {
+        case .opencode: return "opencode"
+        case .board: return "board"
+        case .codex: return "codex"
+        case .claude: return "claude"
         }
     }
 }
@@ -23,7 +39,8 @@ public struct IntentBar: View {
     @State private var fallbackMindStore = MindStore.shared
 
     @State private var promptText: String = ""
-    @State private var selectedKind: IntentKind = .auto
+    @State private var selectedKind: IntentKind = .feature
+    @State private var selectedBackend: AgentBackend = .opencode
     @State private var isSubmitting: Bool = false
     @FocusState private var isFocused: Bool
 
@@ -56,6 +73,41 @@ public struct IntentBar: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text(selectedKind.rawValue)
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .foregroundColor(.barkcliTextPrimary)
+
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 9))
+                            .foregroundColor(.barkcliTextMuted)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(Color.barkcliCardSubtle)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .strokeBorder(Color.barkcliBorder, lineWidth: 1)
+                    )
+                }
+
+                Menu {
+                    ForEach(AgentBackend.allCases) { backend in
+                        Button {
+                            selectedBackend = backend
+                        } label: {
+                            HStack {
+                                Text(backend.rawValue)
+                                if selectedBackend == backend {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(Color.barkcliTextPrimary)
+                            .frame(width: 5, height: 5)
+                        Text(selectedBackend.rawValue)
                             .font(.system(size: 11, weight: .bold, design: .monospaced))
                             .foregroundColor(.barkcliTextPrimary)
 
@@ -144,7 +196,11 @@ public struct IntentBar: View {
                 await onSubmit(clean, selectedKind)
             } else {
                 do {
-                    _ = try await mindStore.submitIntent(prompt: clean, kind: selectedKind.apiValue)
+                    _ = try await mindStore.submitIntent(
+                        prompt: clean,
+                        kind: selectedKind.apiValue,
+                        backend: selectedBackend.apiValue
+                    )
                 } catch {
                     // Handled in store
                 }

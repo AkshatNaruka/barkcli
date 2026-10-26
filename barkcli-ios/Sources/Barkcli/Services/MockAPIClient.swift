@@ -96,8 +96,8 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
         store.getAutopilotStatus(boardName: board)
     }
 
-    public func submitIntent(prompt: String, kind: String? = "feature") async throws -> IntentResponse {
-        let card = store.submitIntent(text: prompt, kind: kind ?? "feature", boardName: nil)
+    public func submitIntent(prompt: String, kind: String? = "feature", backend: String? = "opencode") async throws -> IntentResponse {
+        let card = store.submitIntent(text: prompt, kind: kind ?? "feature", boardName: nil, backend: backend)
         return IntentResponse(
             cardId: card.id,
             title: card.title,
@@ -107,7 +107,7 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
     }
 
     public func submitIntent(text: String, kind: String? = "feature", board: String? = nil) async throws -> String {
-        let card = store.submitIntent(text: text, kind: kind ?? "feature", boardName: board)
+        let card = store.submitIntent(text: text, kind: kind ?? "feature", boardName: board, backend: "opencode")
         return "Created card \(card.id): \(card.title)"
     }
 

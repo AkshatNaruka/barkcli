@@ -484,7 +484,7 @@ public final class DemoStore: @unchecked Sendable {
         )
     }
 
-    public func submitIntent(text: String, kind: String = "feature", boardName: String? = nil) -> Card {
+    public func submitIntent(text: String, kind: String = "feature", boardName: String? = nil, backend: String? = "opencode") -> Card {
         lock.lock()
         defer { lock.unlock() }
         let key = boardName ?? boardNames.first ?? "dev"
@@ -497,13 +497,15 @@ public final class DemoStore: @unchecked Sendable {
             .joined(separator: "_")
         let cardId = "intent_\(slug.isEmpty ? "task" : slug)"
 
+        let assignedAgent = backend ?? "opencode"
         let newCard = Card(
             id: cardId,
             title: text,
-            column: "todo",
+            column: "doing",
             description: "Natural language intent registered for autonomous execution: '\(text)'",
             priority: .high,
-            labels: [kind, "autopilot"],
+            labels: [kind, "autopilot", "agent:\(assignedAgent)", "type:\(kind)"],
+            assignee: assignedAgent,
             acceptanceCriteria: [
                 "Intent behavior verified with automated tests",
                 "Worktree builds cleanly and passes acceptance gate"

@@ -29,6 +29,17 @@ export const KanbanCard = React.memo(function KanbanCard({ card, isOverlay, onEd
     card.column !== "done" &&
     Date.now() - new Date(card.updated_at).getTime() > 7 * 24 * 3600 * 1000;
 
+  const cardType = card.labels.find((l) => l.startsWith("type:"))?.replace("type:", "");
+  const agentBackend =
+    card.labels.find((l) => l.startsWith("agent:"))?.replace("agent:", "") ||
+    (["opencode", "board", "codex", "claude"].includes(card.assignee?.toLowerCase() || "")
+      ? card.assignee?.toLowerCase()
+      : null);
+
+  const displayLabels = card.labels
+    .filter((l) => !l.startsWith("type:") && !l.startsWith("agent:"))
+    .slice(0, 2);
+
   return (
     <div
       className={`bg-card rounded-xl p-3.5 border transition-colors group relative ${
@@ -100,14 +111,27 @@ export const KanbanCard = React.memo(function KanbanCard({ card, isOverlay, onEd
         </div>
       )}
 
-      {/* Badges — priority icon speaks, labels capped at two */}
+      {/* Badges — type, agent, priority, and user labels */}
       <div className="flex flex-wrap items-center gap-1.5 mt-2">
+        {cardType && (
+          <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-surface border border-border/80 text-muted">
+            {cardType}
+          </span>
+        )}
+        {agentBackend && (
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface border border-accent/40 text-accent-text flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+            {agentBackend}
+          </span>
+        )}
         {card.priority !== "low" && <PriorityBadge priority={card.priority} iconOnly />}
-        {card.labels.slice(0, 2).map((l) => (
+        {displayLabels.map((l) => (
           <LabelChip key={l} name={l} />
         ))}
-        {card.labels.length > 2 && (
-          <span className="text-[10px] text-muted">+{card.labels.length - 2}</span>
+        {card.labels.filter((l) => !l.startsWith("type:") && !l.startsWith("agent:")).length > 2 && (
+          <span className="text-[10px] text-muted">
+            +{card.labels.filter((l) => !l.startsWith("type:") && !l.startsWith("agent:")).length - 2}
+          </span>
         )}
       </div>
 

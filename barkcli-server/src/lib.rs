@@ -104,6 +104,8 @@ pub async fn run(
         .route("/api/tasks/{task_id}/claim", post(claim_task_handler))
         .route("/api/tasks/{task_id}/complete", post(complete_task_handler))
         .route("/api/tasks/{task_id}/fail", post(fail_task_handler))
+        .route("/api/tasks/create-and-run", post(create_and_run_task_handler))
+        .route("/api/board/cards/{card_id}/plan-and-run", post(card_plan_and_run_handler))
         .route("/api/agents", get(list_agents_handler).post(register_agent_handler))
         .route(
             "/api/agents/{agent_id}",
@@ -3166,6 +3168,68 @@ struct IntakeRequest {
     text: String,
     kind: Option<String>,
     board: Option<String>,
+    backend: Option<String>,
+    auto_run: Option<bool>,
+}
+
+fn dispatch_backend_plan(
+    board_name: &str,
+    card_id: &str,
+    backend_name: &str,
+    intent_text: &str,
+) -> Result<serde_json::Value, String> {
+    let b_name = backend_name.to_lowercase();
+    let b_tag = format!("agent:{}", b_name);
+
+    let mut card_title = String::new();
+    barkcli_core::storage::board_file::update_board(board_name, |b| {
+        if let Some(c) = b.cards.iter_mut().find(|c| c.id == card_id) {
+            c.labels.retain(|l| !l.starts_with("agent:"));
+            c.labels.push(b_tag.clone());
+            c.assignee = Some(b_name.clone());
+            c.column = "doing".to_string();
+            c.touch();
+            card_title = c.title.clone();
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("Card not found"))
+        }
+    }).map_err(|e| e.to_string())?;
+
+    let mut st = barkcli_core::agent::autopilot::AutopilotState::load(board_name);
+    let proposal = st.propose(board_name, card_id, &b_name).map_err(|e| e.to_string())?;
+    let _ = st.approve(board_name, card_id, true);
+
+    if b_name == "board" {
+        if let Ok(board) = barkcli_core::storage::board_file::read_board(board_name) {
+            if let Ok(mut engine) = barkcli_core::agent::orchestrate::OrchestrationEngine::new(
+                board_name,
+                barkcli_core::agent::roles::AgentRole::ScrumMaster,
+                board,
+            ) {
+                let _ = engine.run_cycle();
+            }
+        }
+    } else {
+        let b_str = b_name.clone();
+        let b_board = board_name.to_string();
+        let prompt = if intent_text.trim().is_empty() {
+            card_title
+        } else {
+            intent_text.to_string()
+        };
+        tokio::task::spawn_blocking(move || {
+            let backend_parsed = barkcli_core::agent::SessionBackend::parse(&b_str);
+            let mut run_opts = barkcli_core::commands::run_cmd::RunOptions::default();
+            run_opts.intent = prompt;
+            run_opts.board = Some(b_board);
+            run_opts.backend = backend_parsed;
+            run_opts.yes = true;
+            let _ = barkcli_core::commands::run_cmd::run(run_opts);
+        });
+    }
+
+    Ok(serde_json::to_value(&proposal).unwrap_or(serde_json::json!({ "card_id": card_id })))
 }
 
 async fn intake_handler(
@@ -3186,13 +3250,130 @@ async fn intake_handler(
     args.push(board_name.clone());
     barkcli_core::commands::intake::run_intake(&args)
         .map_err(|e| ServerError::bad(e.to_string()))?;
-    // run_intake reports via /tmp JSON sidecar for programmatic use.
     let out: serde_json::Value = std::fs::read_to_string(std::env::temp_dir().join("barkcli-intake-last.json"))
         .ok()
         .and_then(|s| serde_json::from_str(&s).ok())
         .unwrap_or(serde_json::json!({}));
+
+    let card_id = out.get("card_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let mut plan_val = serde_json::Value::Null;
+
+    if !card_id.is_empty() {
+        let b_name = req.backend.as_deref().unwrap_or("").to_lowercase();
+        let k_name = req.kind.as_deref().unwrap_or("task").to_lowercase();
+
+        let _ = barkcli_core::storage::board_file::update_board(&board_name, |b| {
+            if let Some(c) = b.cards.iter_mut().find(|c| c.id == card_id) {
+                if !b_name.is_empty() {
+                    c.labels.retain(|l| !l.starts_with("agent:"));
+                    c.labels.push(format!("agent:{}", b_name));
+                    c.assignee = Some(b_name.clone());
+                }
+                c.labels.retain(|l| !l.starts_with("type:"));
+                c.labels.push(format!("type:{}", k_name));
+                c.touch();
+            }
+            Ok(())
+        });
+
+        if req.auto_run == Some(true) || (!b_name.is_empty() && b_name != "auto") {
+            let target_backend = if b_name.is_empty() || b_name == "auto" { "board" } else { &b_name };
+            if let Ok(p) = dispatch_backend_plan(&board_name, &card_id, target_backend, &req.text) {
+                plan_val = p;
+            }
+        }
+    }
+
     let _ = state.tx.send("reload".to_string());
-    Ok(Json(serde_json::json!({ "board": board_name, "intake": out })))
+    Ok(Json(serde_json::json!({
+        "board": board_name,
+        "intake": out,
+        "plan": plan_val
+    })))
+}
+
+#[derive(Deserialize)]
+struct CreateAndRunRequest {
+    title: String,
+    description: Option<String>,
+    kind: Option<String>,
+    backend: Option<String>,
+    priority: Option<String>,
+    board: Option<String>,
+    acceptance_criteria: Option<Vec<String>>,
+}
+
+async fn create_and_run_task_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<CreateAndRunRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let title = req.title.trim().to_string();
+    if title.is_empty() {
+        return Err(ServerError::bad("Task title is required"));
+    }
+    let board_name = resolve_board_name(&state, req.board)?;
+    let mut card_id = String::new();
+    let b_name = req.backend.unwrap_or_else(|| "board".to_string()).to_lowercase();
+    let k_name = req.kind.unwrap_or_else(|| "task".to_string()).to_lowercase();
+    let prio = req.priority.unwrap_or_else(|| "medium".to_string());
+    let desc = req.description.clone();
+    let ac = req.acceptance_criteria.clone().unwrap_or_default();
+
+    barkcli_core::storage::board_file::update_board(&board_name, |b| {
+        let existing_ids: Vec<String> = b.cards.iter().map(|c| c.id.clone()).collect();
+        let fresh_id = barkcli_core::util::slug::unique_slug(&title, &existing_ids);
+        card_id = fresh_id.clone();
+        let mut card = barkcli_core::models::card::Card::new(&fresh_id, &title, "doing");
+        card.priority = prio;
+        card.description = desc;
+        card.acceptance_criteria = ac;
+        card.assignee = Some(b_name.clone());
+        card.labels = vec![format!("agent:{}", b_name), format!("type:{}", k_name)];
+        b.cards.push(card);
+        Ok(())
+    }).map_err(|e| ServerError::internal(e.to_string()))?;
+
+    let plan_res = dispatch_backend_plan(&board_name, &card_id, &b_name, &title)
+        .map_err(|e| ServerError::internal(e))?;
+    let _ = state.tx.send("reload".to_string());
+
+    Ok(Json(serde_json::json!({
+        "ok": true,
+        "card_id": card_id,
+        "board": board_name,
+        "backend": b_name,
+        "kind": k_name,
+        "plan": plan_res,
+        "status": "running"
+    })))
+}
+
+#[derive(Deserialize)]
+struct CardPlanAndRunRequest {
+    board: Option<String>,
+    backend: Option<String>,
+}
+
+async fn card_plan_and_run_handler(
+    State(state): State<Arc<AppState>>,
+    Path(card_id): Path<String>,
+    Json(req): Json<CardPlanAndRunRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, req.board)?;
+    let b_name = req.backend.unwrap_or_else(|| "board".to_string()).to_lowercase();
+
+    let plan_res = dispatch_backend_plan(&board_name, &card_id, &b_name, "")
+        .map_err(|e| ServerError::internal(e))?;
+    let _ = state.tx.send("reload".to_string());
+
+    Ok(Json(serde_json::json!({
+        "ok": true,
+        "card_id": card_id,
+        "board": board_name,
+        "backend": b_name,
+        "plan": plan_res,
+        "status": "running"
+    })))
 }
 
 #[derive(Deserialize)]

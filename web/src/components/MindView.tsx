@@ -105,7 +105,8 @@ export function MindView({ boardName, board }: { boardName: string | null; board
   const [syncing, setSyncing] = useState(false);
   const [auto, setAuto] = useState<AutopilotStatus | null>(null);
   const [intent, setIntent] = useState("");
-  const [intentKind, setIntentKind] = useState("auto");
+  const [intentKind, setIntentKind] = useState("feature");
+  const [backend, setBackend] = useState("opencode");
   const [submitting, setSubmitting] = useState(false);
   const [acting, setActing] = useState(false);
   const [specs, setSpecs] = useState<unknown[]>([]);
@@ -173,7 +174,13 @@ export function MindView({ boardName, board }: { boardName: string | null; board
     if (!text || submitting) return;
     setSubmitting(true);
     try {
-      await submitIntent(text, intentKind === "auto" ? undefined : intentKind, boardName || undefined);
+      await submitIntent(
+        text,
+        intentKind,
+        boardName || undefined,
+        backend === "auto" ? undefined : backend,
+        true
+      );
       setIntent("");
     } catch {}
     setSubmitting(false);
@@ -309,19 +316,31 @@ export function MindView({ boardName, board }: { boardName: string | null; board
             <select
               value={intentKind}
               onChange={e => setIntentKind(e.target.value)}
-              title="Card type"
-              className="bg-transparent text-xs text-muted focus:outline-none pr-0.5"
+              title="Work item type"
+              className="bg-surface/80 border border-border/60 text-xs text-text rounded px-2 py-1 focus:outline-none focus:border-accent"
             >
-              <option value="auto">Auto</option>
+              <option value="task">Task</option>
               <option value="feature">Feature</option>
               <option value="bug">Bug</option>
+            </select>
+            <select
+              value={backend}
+              onChange={e => setBackend(e.target.value)}
+              title="Agent backend"
+              className="bg-surface/80 border border-border/60 text-xs font-mono text-text rounded px-2 py-1 focus:outline-none focus:border-accent"
+            >
+              <option value="opencode">OpenCode</option>
+              <option value="board">Board Pool</option>
+              <option value="codex">Codex</option>
+              <option value="claude">Claude</option>
+              <option value="auto">Auto Agent</option>
             </select>
             <button
               onClick={submit}
               disabled={!intent.trim() || submitting}
-              className="px-3.5 py-1.5 bg-accent text-white text-sm rounded-md font-medium hover:bg-accent-hover disabled:opacity-40"
+              className="px-3.5 py-1.5 bg-accent text-white text-xs rounded-md font-medium hover:bg-accent-hover disabled:opacity-40 tracking-tight"
             >
-              {submitting ? "Adding…" : "Add"}
+              {submitting ? "Planning…" : "Plan & Implement"}
             </button>
           </div>
         </div>

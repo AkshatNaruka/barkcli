@@ -53,6 +53,14 @@ export function CardForm({
   onDelete,
   onOpenFile,
 }: Props) {
+  const detectedType = card?.labels?.find((l) => l.startsWith("type:"))?.replace("type:", "") || "feature";
+  const [itemType, setItemType] = useState<"task" | "feature" | "bug">(
+    (["task", "feature", "bug"].includes(detectedType) ? detectedType : "feature") as any
+  );
+  const detectedBackend = card?.labels?.find((l) => l.startsWith("agent:"))?.replace("agent:", "") ||
+    (["opencode", "board", "codex", "claude"].includes(card?.assignee?.toLowerCase() || "") ? card?.assignee?.toLowerCase() : "opencode");
+  const [backend, setBackend] = useState<string>(detectedBackend || "opencode");
+
   const [title, setTitle] = useState(card?.title || "");
   const [desc, setDesc] = useState(card?.description || "");
   const [column, setColumn] = useState(card?.column || defaultColumn || columns[0]?.id || "");
@@ -131,6 +139,14 @@ export function CardForm({
     setLinks(links.filter((_, i) => i !== idx));
   };
 
+  const buildCleanLabels = () => {
+    const baseLabels = labels.split(",").map((s) => s.trim()).filter(Boolean);
+    const filtered = baseLabels.filter((l) => !l.startsWith("type:") && !l.startsWith("agent:"));
+    filtered.push(`type:${itemType}`);
+    filtered.push(`agent:${backend}`);
+    return filtered;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
@@ -140,8 +156,8 @@ export function CardForm({
       description: desc.trim(),
       column,
       priority,
-      labels: labels.split(",").map((s) => s.trim()).filter(Boolean),
-      assignee: assignee.trim() || undefined,
+      labels: buildCleanLabels(),
+      assignee: assignee.trim() || backend,
       due_date: dueDate ? `${dueDate}T00:00:00Z` : undefined,
       remind_at: remindAt ? `${remindAt}:00Z` : undefined,
       effort: Number.isFinite(parsedEffort) ? parsedEffort : undefined,
@@ -150,6 +166,29 @@ export function CardForm({
       acceptance_criteria: acceptance,
       links,
       spec_id: specId.trim() || undefined,
+    } as any);
+  };
+
+  const handlePlanAndBuild = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    const parsedEffort = effort ? parseInt(effort, 10) : undefined;
+    onSave({
+      title: title.trim(),
+      description: desc.trim(),
+      column: "doing",
+      priority,
+      labels: buildCleanLabels(),
+      assignee: backend,
+      due_date: dueDate ? `${dueDate}T00:00:00Z` : undefined,
+      remind_at: remindAt ? `${remindAt}:00Z` : undefined,
+      effort: Number.isFinite(parsedEffort) ? parsedEffort : undefined,
+      area: area.trim() || undefined,
+      checklist,
+      acceptance_criteria: acceptance,
+      links,
+      spec_id: specId.trim() || undefined,
+      auto_run: true,
     } as any);
   };
 
@@ -213,6 +252,45 @@ export function CardForm({
             rows={2}
             placeholder="Description…"
           />
+
+          {/* Work Item Type & Agent Backend */}
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2 bg-surface/50 p-2.5 rounded-lg border border-border/40">
+            <div>
+              <span className={fieldName}>Item Type</span>
+              <div className="inline-flex rounded-md p-0.5 bg-surface border border-border/60 text-xs">
+                {(["task", "feature", "bug"] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setItemType(t)}
+                    className={`px-2.5 py-1 rounded capitalize text-xs font-medium transition-colors ${
+                      itemType === t ? "bg-accent text-white" : "text-muted hover:text-text"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <span className={fieldName}>Agent Backend</span>
+              <QuietSelect
+                value={backend}
+                onChange={(e) => {
+                  setBackend(e.target.value);
+                  if (!assignee || ["opencode", "board", "codex", "claude"].includes(assignee.toLowerCase())) {
+                    setAssignee(e.target.value);
+                  }
+                }}
+                className="w-full bg-surface px-2.5 py-1.5 text-xs text-text font-mono"
+              >
+                <option value="opencode">OpenCode</option>
+                <option value="board">Board Runner Pool</option>
+                <option value="codex">Codex</option>
+                <option value="claude">Claude Code</option>
+              </QuietSelect>
+            </div>
+          </div>
 
           {/* Meta: the four questions asked of every card */}
           <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
@@ -461,14 +539,21 @@ export function CardForm({
           )}
 
           {/* ── Footer ───────────────────────────────────────────────── */}
-          <div className="flex items-center justify-between mt-2">
+          <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/40">
             {onDelete && card ? (
               <button type="button" onClick={onDelete} className="px-2.5 py-1.5 text-xs text-danger hover:bg-danger-soft rounded-md transition-colors">Delete</button>
             ) : <span />}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <button type="button" onClick={onCancel} className="px-3 py-1.5 text-xs text-muted hover:text-text rounded-md transition-colors">Cancel</button>
-              <button type="submit" className="px-3.5 py-1.5 text-xs rounded-md bg-accent text-white hover:bg-accent-hover font-medium transition-colors">
-                {card ? "Save" : "Add"}
+              <button type="submit" className="px-3 py-1.5 text-xs rounded-md border border-border text-text hover:bg-surface font-medium transition-colors">
+                {card ? "Save" : "Save Draft"}
+              </button>
+              <button
+                type="button"
+                onClick={handlePlanAndBuild}
+                className="px-3.5 py-1.5 text-xs rounded-md bg-accent text-white hover:bg-accent-hover font-medium transition-colors shadow-sm"
+              >
+                Plan & Implement
               </button>
             </div>
           </div>

@@ -14,7 +14,7 @@ public protocol APIClientProtocol: Sendable {
     // MARK: Mind and Autopilot
     func getMindSnapshot() async throws -> MindSnapshot
     func getAutopilotStatus() async throws -> AutopilotStatus
-    func submitIntent(prompt: String, kind: String?) async throws -> IntentResponse
+    func submitIntent(prompt: String, kind: String?, backend: String?) async throws -> IntentResponse
     func approvePlan(cardId: String) async throws
     func rejectPlan(cardId: String, reason: String?) async throws
     func runReviewGate(cardId: String) async throws -> ReviewGateResult
@@ -89,8 +89,12 @@ public extension APIClientProtocol {
         try await getAutopilotStatus(board: nil)
     }
 
+    func submitIntent(prompt: String, kind: String?) async throws -> IntentResponse {
+        try await submitIntent(prompt: prompt, kind: kind, backend: "opencode")
+    }
+
     func submitIntent(prompt: String) async throws -> IntentResponse {
-        try await submitIntent(prompt: prompt, kind: "feature")
+        try await submitIntent(prompt: prompt, kind: "feature", backend: "opencode")
     }
 
     func approvePlan(cardId: String) async throws {

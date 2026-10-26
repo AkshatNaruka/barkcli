@@ -1277,8 +1277,24 @@ export async function fetchAutopilotStatus(name?: string): Promise<AutopilotStat
   } catch { return null; }
 }
 
-export async function submitIntent(text: string, kind?: string, name?: string): Promise<any | null> {
-  return postJson("/api/intake", { text, kind, board: name });
+export async function submitIntent(text: string, kind?: string, name?: string, backend?: string, autoRun?: boolean): Promise<any | null> {
+  return postJson("/api/intake", { text, kind, board: name, backend, auto_run: autoRun });
+}
+
+export async function createAndRunTask(payload: {
+  title: string;
+  description?: string;
+  kind?: string;
+  backend?: string;
+  priority?: string;
+  board?: string;
+  acceptance_criteria?: string[];
+}): Promise<any | null> {
+  return postJson("/api/tasks/create-and-run", payload);
+}
+
+export async function cardPlanAndRun(cardId: string, backend?: string, name?: string): Promise<any | null> {
+  return postJson(`/api/board/cards/${encodeURIComponent(cardId)}/plan-and-run`, { board: name, backend });
 }
 
 export async function proposePlan(cardId: string, name?: string): Promise<PlanProposal | null> {

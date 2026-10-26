@@ -453,7 +453,7 @@ public final class AppState: @unchecked Sendable {
 
     // MARK: Autopilot Intent and Plan Proposals
 
-    public func submitIntent(text: String, kind: String = "feature") async {
+    public func submitIntent(text: String, kind: String = "feature", backend: String = "opencode") async {
         let cleanText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanText.isEmpty else { return }
 
@@ -461,7 +461,7 @@ public final class AppState: @unchecked Sendable {
         defer { isSubmittingIntent = false }
 
         if isDemoMode {
-            let createdCard = demoStore.submitIntent(text: cleanText, kind: kind, boardName: currentBoardName)
+            let createdCard = demoStore.submitIntent(text: cleanText, kind: kind, boardName: currentBoardName, backend: backend)
             currentBoard = demoStore.getBoard(name: currentBoardName)
             mindSnapshot = demoStore.getMindSnapshot(boardName: currentBoardName)
             intentDraft = ""
@@ -470,7 +470,7 @@ public final class AppState: @unchecked Sendable {
         }
 
         do {
-            _ = try await apiClient.submitIntent(text: cleanText, kind: kind, board: currentBoardName)
+            _ = try await apiClient.submitIntent(prompt: cleanText, kind: kind, backend: backend)
             intentDraft = ""
             await refresh()
             statusBannerMessage = "Intent submitted successfully to agent runtime"
