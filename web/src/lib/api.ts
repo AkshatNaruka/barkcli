@@ -14,6 +14,11 @@ import type {
   DiffCard,
   DiffMoved,
   BlameEntry,
+  ThreadEvent,
+  ThreadSummary,
+  ThreadDetail,
+  SessionTranscript,
+  TaskDiff,
 } from "./types";
 import { load as yamlParse, dump as yamlDump } from "js-yaml";
 import { isDemoMode, getDemoCardHistory, onDemoChange } from "./demo";
@@ -1311,4 +1316,80 @@ export async function rejectPlan(cardId: string, reason?: string, name?: string)
 
 export async function runReview(name?: string): Promise<any | null> {
   return postJson("/api/review", { board: name, all: true, auto: true });
+}
+
+export async function fetchThreads(name?: string): Promise<ThreadSummary[]> {
+  if (isVscode) return [];
+  try {
+    const qs = name ? `?name=${encodeURIComponent(name)}` : "";
+    const res = await fetch(withToken(`/api/threads${qs}`));
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchThread(id: string, name?: string): Promise<ThreadDetail | null> {
+  if (isVscode) return null;
+  try {
+    const qs = name ? `?name=${encodeURIComponent(name)}` : "";
+    const res = await fetch(withToken(`/api/threads/${encodeURIComponent(id)}${qs}`));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function createThread(payload: {
+  text: string;
+  kind?: string;
+  backend?: string;
+  mode?: string;
+  board?: string;
+}): Promise<any | null> {
+  return postJson("/api/threads", payload);
+}
+
+export async function postThreadMessage(
+  id: string,
+  text: string,
+  opts?: { author?: string; backend?: string; board?: string }
+): Promise<ThreadEvent | null> {
+  return postJson(`/api/threads/${encodeURIComponent(id)}/messages`, {
+    text,
+    author: opts?.author,
+    backend: opts?.backend,
+    board: opts?.board,
+  });
+}
+
+export async function fetchSessionTranscript(
+  sessionId: string,
+  lines: number = 50
+): Promise<SessionTranscript | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(withToken(`/api/sessions/${encodeURIComponent(sessionId)}/transcript?lines=${lines}`));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchTaskDiff(taskId: string): Promise<TaskDiff | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(withToken(`/api/tasks/${encodeURIComponent(taskId)}/diff`));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export function streamThreadUrl(id: string): string {
+  return withToken(`/api/threads/${encodeURIComponent(id)}/stream`);
 }

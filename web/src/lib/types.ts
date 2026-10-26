@@ -280,3 +280,45 @@ export interface AgentItem {
   role: string;
   status: string;
 }
+
+export interface ThreadEvent {
+  id: string;
+  card_id: string;
+  kind: string;
+  author: string;
+  text: string;
+  data?: any;
+  created_at: string;
+}
+
+export interface ThreadSummary {
+  id: string;
+  title: string;
+  status_group: "needs_you" | "running" | "features" | "settled" | string;
+  event_count: number;
+  last_event?: ThreadEvent;
+  updated_at: string;
+  column: string;
+  backend?: string;
+}
+
+export interface ThreadDetail {
+  id: string;
+  card?: Card;
+  events: ThreadEvent[];
+}
+
+export interface SessionTranscript {
+  id: string;
+  status: string;
+  lines: string[];
+  total_lines: number;
+  transcript_path?: string;
+}
+
+export interface TaskDiff {
+  task_id: string;
+  branch: string;
+  diff: string;
+  files: string[];
+}

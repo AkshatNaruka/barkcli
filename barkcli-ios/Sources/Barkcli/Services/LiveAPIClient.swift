@@ -301,7 +301,7 @@ public final class LiveAPIClient: APIClientProtocol, @unchecked Sendable {
         return try await performRequest(request)
     }
 
-    public func submitIntent(prompt: String, kind: String? = "feature", backend: String? = "opencode") async throws -> IntentResponse {
+    public func submitIntent(prompt: String, kind: String? = "feature", backend: String? = "opencode", board: String? = nil) async throws -> IntentResponse {
         struct IntakePayload: Codable {
             let text: String
             let kind: String?
@@ -310,7 +310,8 @@ public final class LiveAPIClient: APIClientProtocol, @unchecked Sendable {
             let auto_run: Bool?
         }
         let url = try makeURL(path: "api/intake")
-        let bodyData = try encoder.encode(IntakePayload(text: prompt, kind: kind, board: "dev", backend: backend, auto_run: true))
+        let targetBoard = board ?? "dev"
+        let bodyData = try encoder.encode(IntakePayload(text: prompt, kind: kind, board: targetBoard, backend: backend, auto_run: true))
         let request = makeRequest(url: url, method: "POST", body: bodyData)
         let (data, _) = try await execute(request)
 
@@ -320,14 +321,90 @@ public final class LiveAPIClient: APIClientProtocol, @unchecked Sendable {
         return IntentResponse(
             cardId: "card_\(abs(prompt.hashValue % 10000))",
             title: prompt,
-            board: "dev",
+            board: targetBoard,
             status: "created"
         )
     }
 
     public func submitIntent(text: String, kind: String? = "feature", board: String? = nil) async throws -> String {
-        let response = try await submitIntent(prompt: text, kind: kind)
+        let response = try await submitIntent(prompt: text, kind: kind, backend: "opencode", board: board)
         return "Created card \(response.cardId): \(response.title)"
+    }
+
+    public func planAndRun(cardId: String, board: String? = nil, backend: String? = nil) async throws {
+        struct PlanAndRunPayload: Codable {
+            let board: String?
+            let backend: String?
+        }
+        let cleanId = cardId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? cardId
+        let url = try makeURL(path: "api/board/cards/\(cleanId)/plan-and-run")
+        let bodyData = try encoder.encode(PlanAndRunPayload(board: board, backend: backend))
+        let request = makeRequest(url: url, method: "POST", body: bodyData)
+        _ = try await execute(request)
+    }
+
+    // MARK: - Threads Engine
+    public func listThreads(board: String? = nil) async throws -> [ThreadSummaryItem] {
+        var queryItems: [URLQueryItem] = []
+        if let b = board {
+            queryItems.append(URLQueryItem(name: "name", value: b))
+        }
+        let url = try makeURL(path: "api/threads", queryItems: queryItems)
+        let request = makeRequest(url: url)
+        return try await performRequest(request)
+    }
+
+    public func getThread(id: String, board: String? = nil) async throws -> ThreadDetailItem {
+        var queryItems: [URLQueryItem] = []
+        if let b = board {
+            queryItems.append(URLQueryItem(name: "name", value: b))
+        }
+        let cleanId = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
+        let url = try makeURL(path: "api/threads/\(cleanId)", queryItems: queryItems)
+        let request = makeRequest(url: url)
+        return try await performRequest(request)
+    }
+
+    public func createThread(text: String, kind: String? = "feature", backend: String? = "opencode", mode: String? = "plan_first", board: String? = nil) async throws -> String {
+        struct CreateThreadPayload: Codable {
+            let text: String
+            let kind: String?
+            let backend: String?
+            let mode: String?
+            let board: String?
+        }
+        let url = try makeURL(path: "api/threads")
+        let payload = CreateThreadPayload(text: text, kind: kind, backend: backend, mode: mode, board: board)
+        let bodyData = try encoder.encode(payload)
+        let request = makeRequest(url: url, method: "POST", body: bodyData)
+        let (data, _) = try await execute(request)
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let threadId = json["thread_id"] as? String {
+            return threadId
+        }
+        return "thread_\(abs(text.hashValue % 10000))"
+    }
+
+    public func postThreadMessage(id: String, text: String, author: String? = "you", board: String? = nil, backend: String? = nil) async throws -> ThreadEventItem {
+        struct MessagePayload: Codable {
+            let text: String
+            let author: String?
+            let board: String?
+            let backend: String?
+        }
+        let cleanId = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
+        let url = try makeURL(path: "api/threads/\(cleanId)/messages")
+        let payload = MessagePayload(text: text, author: author, board: board, backend: backend)
+        let bodyData = try encoder.encode(payload)
+        let request = makeRequest(url: url, method: "POST", body: bodyData)
+        return try await performRequest(request)
+    }
+
+    public func getTaskDiff(taskId: String) async throws -> TaskDiffResult {
+        let cleanId = taskId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? taskId
+        let url = try makeURL(path: "api/tasks/\(cleanId)/diff")
+        let request = makeRequest(url: url)
+        return try await performRequest(request)
     }
 
     public func proposePlan(cardId: String, board: String? = nil) async throws -> PlanProposal {

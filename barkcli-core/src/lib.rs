@@ -12,4 +12,5 @@ pub mod mind;
 pub mod models;
 pub mod skills;
 pub mod storage;
+pub mod threads;
 pub mod util;

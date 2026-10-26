@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 export type Route =
+  | "threads"
   | "dashboard"
   | "board"
   | "mind"
@@ -20,9 +21,12 @@ export type Route =
   | "history"
   | "settings"
   | "agent-prompt"
-  | "docs";
+  | "docs"
+  | "project"
+  | "insights";
 
 const ROUTES: Route[] = [
+  "threads",
   "dashboard",
   "board",
   "mind",
@@ -43,12 +47,14 @@ const ROUTES: Route[] = [
   "settings",
   "agent-prompt",
   "docs",
+  "project",
+  "insights",
 ];
 
 export function parseRoute(hash: string): Route {
   const h = hash.replace(/^#\/?/, "").split("?")[0].trim().toLowerCase();
-  // Mind is the homepage (DESIGN.md §3.1); dashboard renders Mind.
-  return (ROUTES as string[]).includes(h) ? (h as Route) : "mind";
+  if (h === "inbox") return "threads";
+  return (ROUTES as string[]).includes(h) ? (h as Route) : "threads";
 }
 
 export function navigate(route: Route) {

@@ -96,12 +96,12 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
         store.getAutopilotStatus(boardName: board)
     }
 
-    public func submitIntent(prompt: String, kind: String? = "feature", backend: String? = "opencode") async throws -> IntentResponse {
-        let card = store.submitIntent(text: prompt, kind: kind ?? "feature", boardName: nil, backend: backend)
+    public func submitIntent(prompt: String, kind: String? = "feature", backend: String? = "opencode", board: String? = nil) async throws -> IntentResponse {
+        let card = store.submitIntent(text: prompt, kind: kind ?? "feature", boardName: board, backend: backend)
         return IntentResponse(
             cardId: card.id,
             title: card.title,
-            board: "dev",
+            board: board ?? "dev",
             status: "created"
         )
     }
@@ -109,6 +109,11 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
     public func submitIntent(text: String, kind: String? = "feature", board: String? = nil) async throws -> String {
         let card = store.submitIntent(text: text, kind: kind ?? "feature", boardName: board, backend: "opencode")
         return "Created card \(card.id): \(card.title)"
+    }
+
+    public func planAndRun(cardId: String, board: String? = nil, backend: String? = nil) async throws {
+        _ = try await proposePlan(cardId: cardId, board: board)
+        try await approvePlan(cardId: cardId, board: board)
     }
 
     public func proposePlan(cardId: String, board: String? = nil) async throws -> PlanProposal {
@@ -125,6 +130,92 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
 
     public func runReviewGate(cardId: String) async throws -> ReviewGateResult {
         store.runReviewGate(cardId: cardId)
+    }
+
+    // MARK: - Threads Engine
+    public func listThreads(board: String? = nil) async throws -> [ThreadSummaryItem] {
+        let b = store.getBoard(name: board ?? "dev")
+        return b.cards.map { card in
+            let statusGroup: String
+            switch card.column.lowercased() {
+            case "doing":
+                statusGroup = "running"
+            case "review":
+                statusGroup = "needs_you"
+            case "done":
+                statusGroup = "settled"
+            default:
+                statusGroup = "features"
+            }
+            let updatedStr = card.updatedAt.map { ISO8601DateFormatter().string(from: $0) } ?? ISO8601DateFormatter().string(from: Date())
+            return ThreadSummaryItem(
+                id: card.id,
+                title: card.title,
+                statusGroup: statusGroup,
+                eventCount: 3,
+                updatedAt: updatedStr,
+                column: card.column,
+                backend: card.assignee ?? "opencode"
+            )
+        }
+    }
+
+    public func getThread(id: String, board: String? = nil) async throws -> ThreadDetailItem {
+        let b = store.getBoard(name: board ?? "dev")
+        let card = b.cards.first(where: { $0.id == id })
+        let now = ISO8601DateFormatter().string(from: Date())
+        let events = [
+            ThreadEventItem(
+                id: "evt_1_\(id)",
+                cardId: id,
+                kind: .user,
+                author: "you",
+                text: card?.title ?? "Plan feature",
+                createdAt: now
+            ),
+            ThreadEventItem(
+                id: "evt_2_\(id)",
+                cardId: id,
+                kind: .assistant,
+                author: "barkcli",
+                text: "Requirements analyzed and slice plan generated.",
+                createdAt: now
+            ),
+            ThreadEventItem(
+                id: "evt_3_\(id)",
+                cardId: id,
+                kind: .planProposed,
+                author: "barkcli",
+                text: "Proposed plan with atomic tasks.",
+                createdAt: now
+            )
+        ]
+        return ThreadDetailItem(id: id, card: card, events: events)
+    }
+
+    public func createThread(text: String, kind: String? = "feature", backend: String? = "opencode", mode: String? = "plan_first", board: String? = nil) async throws -> String {
+        let card = store.submitIntent(text: text, kind: kind ?? "feature", boardName: board, backend: backend)
+        return card.id
+    }
+
+    public func postThreadMessage(id: String, text: String, author: String? = "you", board: String? = nil, backend: String? = nil) async throws -> ThreadEventItem {
+        let now = ISO8601DateFormatter().string(from: Date())
+        return ThreadEventItem(
+            id: "evt_\(Int(Date().timeIntervalSince1970))",
+            cardId: id,
+            kind: .user,
+            author: author ?? "you",
+            text: text,
+            createdAt: now
+        )
+    }
+
+    public func getTaskDiff(taskId: String) async throws -> TaskDiffResult {
+        TaskDiffResult(
+            taskId: taskId,
+            diff: "diff --git a/src/main.rs b/src/main.rs\nindex 123..456 100644\n--- a/src/main.rs\n+++ b/src/main.rs\n@@ -1,3 +1,4 @@\n+// Added feature in worktree\n",
+            hasDiff: true
+        )
     }
 
     // MARK: - Orchestration & Fleet

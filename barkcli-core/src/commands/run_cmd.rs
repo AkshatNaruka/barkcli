@@ -59,7 +59,9 @@ use super::intake::{
 
 #[derive(Debug, Clone)]
 pub struct RunOptions {
-    /// Natural-language intent.
+    /// Optional existing card identifier to run without creating a duplicate card.
+    pub card_id: Option<String>,
+    /// Natural language intent.
     pub intent: String,
     /// Target board (defaults to the first `.board` file).
     pub board: Option<String>,
@@ -94,6 +96,7 @@ pub struct RunOptions {
 impl Default for RunOptions {
     fn default() -> Self {
         Self {
+            card_id: None,
             intent: String::new(),
             board: None,
             backend: None,
@@ -236,9 +239,17 @@ pub fn run_cli(args: &[String]) -> Result<()> {
                     .parse()
                     .map_err(|_| anyhow!("--max-attempts expects a number"))?;
             }
+            "--card" | "--card-id" => {
+                i += 1;
+                opts.card_id = Some(
+                    args.get(i)
+                        .ok_or_else(|| anyhow!("--card expects a card identifier"))?
+                        .clone(),
+                );
+            }
             _ if a.starts_with('-') => {
                 anyhow::bail!(
-                    "unknown flag '{}'. usage: barkcli run \"<intent>\" [--backend NAME] [--agents N] [--yes] [--offline] [--bug|--feature] [--test-cmd CMD] [--max-minutes N] [--idle-minutes N] [--max-attempts N] [--no-spec] [--dry-run] [--json]",
+                    "unknown flag '{}'. usage: barkcli run \"<intent>\" [--card ID] [--backend NAME] [--agents N] [--yes] [--offline] [--bug|--feature] [--test-cmd CMD] [--max-minutes N] [--idle-minutes N] [--max-attempts N] [--no-spec] [--dry-run] [--json]",
                     a
                 );
             }
@@ -248,9 +259,9 @@ pub fn run_cli(args: &[String]) -> Result<()> {
     }
 
     opts.intent = text_parts.join(" ");
-    if opts.intent.is_empty() {
+    if opts.intent.is_empty() && opts.card_id.is_none() {
         anyhow::bail!(
-            "usage: barkcli run \"<intent>\" [--backend NAME] [--agents N] [--yes] [--offline] [--test-cmd CMD]"
+            "usage: barkcli run \"<intent>\" [--card ID] [--backend NAME] [--agents N] [--yes] [--offline] [--test-cmd CMD]"
         );
     }
 
@@ -296,95 +307,143 @@ pub fn run(opts: RunOptions) -> Result<RunReport> {
         super::init::run(&[])?;
     }
 
-    // 1. Intake — classify the intent (LLM, falling back to heuristics when
-    //    no provider is configured; `--offline` skips the LLM entirely).
-    let classification: IntakeClassification = if opts.offline {
-        heuristic_intake(&opts.intent, opts.force_bug, opts.force_feature)
-    } else {
-        classify_input(&opts.intent, opts.force_bug, opts.force_feature)
-    };
-
     let board_name = match &opts.board {
         Some(b) => b.clone(),
         None => first_board()?,
     };
 
+    let (card_id, classification) = if let Some(ref cid) = opts.card_id {
+        let card = find_card(&board_name, cid)?;
+        let class = IntakeClassification {
+            card_type: if card.labels.iter().any(|l| l == "bug") { "bug".into() } else { "feature".into() },
+            priority: card.priority.clone(),
+            scope: "medium".into(),
+            area: card.area.clone().unwrap_or_else(|| "fullstack".into()),
+            title: card.title.clone(),
+            description: card.description.clone().unwrap_or_default(),
+            labels: card.labels.clone(),
+            acceptance_criteria: card.acceptance_criteria.clone(),
+        };
+        (cid.clone(), class)
+    } else {
+        // 1. Intake: classify the intent (LLM, falling back to heuristics when
+        // no provider is configured; `--offline` skips the LLM entirely).
+        let classification: IntakeClassification = if opts.offline {
+            heuristic_intake(&opts.intent, opts.force_bug, opts.force_feature)
+        } else {
+            classify_input(&opts.intent, opts.force_bug, opts.force_feature)
+        };
+
+        if opts.dry_run {
+            println!("{}", style::accent("Run (dry):"));
+            println!("  Type:     {}", classification.card_type);
+            println!("  Priority: {}", classification.priority);
+            println!("  Title:    {}", classification.title);
+            println!(
+                "  AC:       {} criteria",
+                classification.acceptance_criteria.len()
+            );
+            println!("  Board:    {}", board_name);
+            println!("  Backend:  {}", backend_line(&opts));
+            println!("  Workers:  {}", opts.max_agents);
+            return Ok(RunReport {
+                intent: opts.intent.clone(),
+                card_id: String::new(),
+                backend_used: None,
+                tasks: Vec::new(),
+                completed: 0,
+                failed: 0,
+                queued: 0,
+                duration_seconds: started.elapsed().as_secs(),
+                note: Some("dry run: nothing created".into()),
+                parallel: parallel_opt(&opts),
+                workers_peak: None,
+                merged_branches: None,
+            });
+        }
+
+        let cid = create_card_from_classification(&board_name, &classification)?;
+        println!(
+            "{} Intake: card {} created",
+            style::ok("OK"),
+            style::strong(&cid)
+        );
+
+        // Spec (never blocks the run on failure).
+        if !opts.no_spec {
+            if create_spec_from_intake(&board_name, &cid, &classification).unwrap_or(false) {
+                let _ = update_board(&board_name, |b| {
+                    if let Some(c) = b.cards.iter_mut().find(|c| c.id == cid) {
+                        c.spec_id = Some(crate::util::slug::to_slug(&classification.title));
+                        c.touch();
+                    }
+                    Ok(())
+                });
+            }
+        }
+        (cid, classification)
+    };
+
     if opts.dry_run {
         println!("{}", style::accent("Run (dry):"));
-        println!("  Type:     {}", classification.card_type);
-        println!("  Priority: {}", classification.priority);
+        println!("  Card:     {}", card_id);
         println!("  Title:    {}", classification.title);
-        println!(
-            "  AC:       {} criteria",
-            classification.acceptance_criteria.len()
-        );
         println!("  Board:    {}", board_name);
         println!("  Backend:  {}", backend_line(&opts));
         println!("  Workers:  {}", opts.max_agents);
         return Ok(RunReport {
             intent: opts.intent.clone(),
-            card_id: String::new(),
+            card_id,
             backend_used: None,
             tasks: Vec::new(),
             completed: 0,
             failed: 0,
             queued: 0,
             duration_seconds: started.elapsed().as_secs(),
-            note: Some("dry run — nothing created".into()),
+            note: Some("dry run: nothing created".into()),
             parallel: parallel_opt(&opts),
             workers_peak: None,
             merged_branches: None,
         });
     }
 
-    let card_id = create_card_from_classification(&board_name, &classification)?;
-    println!(
-        "{} Intake: card {} created",
-        style::ok("OK"),
-        style::strong(&card_id)
-    );
-
-    // Spec (never blocks the run on failure).
-    if !opts.no_spec {
-        if create_spec_from_intake(&board_name, &card_id, &classification).unwrap_or(false) {
-            let _ = update_board(&board_name, |b| {
-                if let Some(c) = b.cards.iter_mut().find(|c| c.id == card_id) {
-                    c.spec_id = Some(crate::util::slug::to_slug(&classification.title));
-                    c.touch();
-                }
-                Ok(())
-            });
-        }
-    }
-
-    // 2. Plan — decompose the card into concrete tasks.
-    let card = find_card(&board_name, &card_id)?;
-    let plan = decompose_task(
-        &card,
-        &AgentRole::TechLead,
-        Some(&CardDecompositionContext::default()),
-    );
-    println!(
-        "{} Plan: {} tasks decomposed",
-        style::ok("OK"),
-        plan.child_cards.len()
-    );
-
-    // 3. Queue — persist tasks; the queue survives crashes/restarts.
+    // 2. Plan and Queue: reuse existing queue tasks for this card if already present.
     let mut q = load_queue(&board_name)?;
-    for child in &plan.child_cards {
-        let ctx_files = populate_context_files(&card_id, &board_name);
-        let task = create_task(
-            &card_id,
-            &child.title,
-            &child.description,
-            child.acceptance_criteria.clone(),
-            ctx_files,
-            &child.priority,
+    let existing_count = q.tasks.iter().filter(|t| t.card_id == card_id).count();
+    if existing_count == 0 {
+        let card = find_card(&board_name, &card_id)?;
+        let plan = decompose_task(
+            &card,
+            &AgentRole::TechLead,
+            Some(&CardDecompositionContext::default()),
         );
-        q.add(task);
+        println!(
+            "{} Plan: {} tasks decomposed",
+            style::ok("OK"),
+            plan.child_cards.len()
+        );
+
+        for child in &plan.child_cards {
+            let ctx_files = populate_context_files(&card_id, &board_name);
+            let task = create_task(
+                &card_id,
+                &child.title,
+                &child.description,
+                child.acceptance_criteria.clone(),
+                ctx_files,
+                &child.priority,
+            );
+            q.add(task);
+        }
+        save_queue(&board_name, &q)?;
+    } else {
+        println!(
+            "{} Queue: found {} existing tasks for card {}",
+            style::ok("OK"),
+            existing_count,
+            style::strong(&card_id)
+        );
     }
-    save_queue(&board_name, &q)?;
 
     // 4. Registry — the runner is itself an agent in the registry.
     let mut registry = load_registry()?;
@@ -555,10 +614,14 @@ pub fn run(opts: RunOptions) -> Result<RunReport> {
         }
 
         if in_flight == 0 {
-            // The run is over only when the queue has nothing pending — a
-            // just-requeued failure will be redispatched (fresh attempt).
+            // The run is over only when the queue has nothing pending.
+            // When targeting a specific card, only pending tasks for that card are considered.
             let q = load_queue(&board_name)?;
-            if q.next_pending().is_none() {
+            let pending_remains = match &opts.card_id {
+                Some(cid) => q.tasks.iter().any(|t| &t.card_id == cid && t.status == TaskStatus::Pending),
+                None => q.next_pending().is_some(),
+            };
+            if !pending_remains {
                 break;
             }
             continue;
@@ -668,9 +731,15 @@ fn dispatch_next(
         Some(tid) => match q.tasks.iter().find(|t| t.id == *tid) {
             Some(t) if t.status == TaskStatus::Pending => tid.to_string(),
             _ => return Ok(DispatchNext::Idle),
-        },        None => match q.next_pending().map(|t| t.id.clone()) {
-            Some(id) => id,
-            None => return Ok(DispatchNext::Idle),
+        },        None => match &opts.card_id {
+            Some(cid) => match q.tasks.iter().find(|t| &t.card_id == cid && t.status == TaskStatus::Pending).map(|t| t.id.clone()) {
+                Some(id) => id,
+                None => return Ok(DispatchNext::Idle),
+            },
+            None => match q.next_pending().map(|t| t.id.clone()) {
+                Some(id) => id,
+                None => return Ok(DispatchNext::Idle),
+            },
         },
     };
     let idx = q
@@ -699,6 +768,20 @@ fn dispatch_next(
     q.claim(&task_id, "runner", Some(&session.id), opts.max_minutes as i64)?;
     q.start(&task_id)?;
     save_queue(board_name, &q)?;
+
+    let spawn_ev = crate::threads::ThreadEvent::new(
+        &task.card_id,
+        crate::threads::ThreadEventKind::TaskSpawned,
+        "barkcli",
+        format!("Worker attempt {} of {} started for {}", attempt_no, opts.max_attempts, task.title),
+        Some(serde_json::json!({
+            "task_id": task.id,
+            "title": task.title,
+            "session_id": session.id,
+            "attempt": attempt_no,
+        })),
+    );
+    let _ = crate::threads::append_event(&task.card_id, &spawn_ev);
 
     println!(
         "{} {} (attempt {}/{})",
@@ -1078,6 +1161,24 @@ fn handle_done(
         ),
     }
 
+    let gate_ev = crate::threads::ThreadEvent::new(
+        &task.card_id,
+        crate::threads::ThreadEventKind::Gate,
+        "barkcli",
+        format!(
+            "Gate {}: {}",
+            if done.gate.ok { "passed" } else { "failed" },
+            done.gate.cmd.as_deref().unwrap_or("no test command detected")
+        ),
+        Some(serde_json::json!({
+            "task_id": task.id,
+            "passed": done.gate.ok,
+            "command": done.gate.cmd,
+            "output": done.gate.tail,
+        })),
+    );
+    let _ = crate::threads::append_event(&task.card_id, &gate_ev);
+
     if candidates_ok {
         if !opts.yes {
             q.add_note(
@@ -1123,6 +1224,17 @@ fn handle_done(
                 }
                 save_queue(board_name, &q)?;
                 println!("{} merged {}", style::ok("✔"), style::strong(&branch));
+                let merge_ev = crate::threads::ThreadEvent::new(
+                    &task.card_id,
+                    crate::threads::ThreadEventKind::Merge,
+                    "barkcli",
+                    format!("Merged branch {} into main", branch),
+                    Some(serde_json::json!({
+                        "task_id": task.id,
+                        "branch": branch,
+                    })),
+                );
+                let _ = crate::threads::append_event(&task.card_id, &merge_ev);
                 merged_branches.push(branch);
                 outcomes.push(TaskOutcome {
                     task_id: task_id.clone(),
@@ -1649,3 +1761,17 @@ fn print_report(report: &RunReport, json: bool) -> Result<()> {
     );
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn run_options_default_has_none_card_id() {
+        let opts = RunOptions::default();
+        assert!(opts.card_id.is_none());
+        assert_eq!(opts.max_agents, 1);
+        assert_eq!(opts.max_attempts, 3);
+    }
+}
+

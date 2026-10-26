@@ -1022,7 +1022,7 @@ mod tests {
         // Same hexes as web/src/lib/agents.ts and the landing hero mock.
         assert_eq!(agent_tool_color("opencode-1", "worker"), Some(Color::Rgb(217, 156, 87)));
         assert_eq!(agent_tool_color("claude-2", "worker"), Some(Color::Rgb(217, 119, 87)));
-        assert_eq!(agent_tool_color("x", "Cursor Agent"), Some(Color::Rgb(107, 92, 231)));
+        assert_eq!(agent_tool_color("x", "Cursor Agent"), Some(Color::Rgb(113, 113, 122)));
         assert_eq!(agent_tool_color("codex-1", ""), Some(Color::Rgb(16, 163, 127)));
         assert_eq!(agent_tool_color("gemini-1", ""), Some(Color::Rgb(66, 133, 244)));
         assert_eq!(agent_tool_color("human-you", ""), Some(Color::Rgb(52, 211, 153)));

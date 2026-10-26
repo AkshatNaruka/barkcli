@@ -14,10 +14,18 @@ public protocol APIClientProtocol: Sendable {
     // MARK: Mind and Autopilot
     func getMindSnapshot() async throws -> MindSnapshot
     func getAutopilotStatus() async throws -> AutopilotStatus
-    func submitIntent(prompt: String, kind: String?, backend: String?) async throws -> IntentResponse
+    func submitIntent(prompt: String, kind: String?, backend: String?, board: String?) async throws -> IntentResponse
+    func planAndRun(cardId: String, board: String?, backend: String?) async throws
     func approvePlan(cardId: String) async throws
     func rejectPlan(cardId: String, reason: String?) async throws
     func runReviewGate(cardId: String) async throws -> ReviewGateResult
+
+    // MARK: Threads Engine
+    func listThreads(board: String?) async throws -> [ThreadSummaryItem]
+    func getThread(id: String, board: String?) async throws -> ThreadDetailItem
+    func createThread(text: String, kind: String?, backend: String?, mode: String?, board: String?) async throws -> String
+    func postThreadMessage(id: String, text: String, author: String?, board: String?, backend: String?) async throws -> ThreadEventItem
+    func getTaskDiff(taskId: String) async throws -> TaskDiffResult
 
     // MARK: Orchestration and Fleet
     func listAgents() async throws -> [AgentItem]
@@ -89,12 +97,28 @@ public extension APIClientProtocol {
         try await getAutopilotStatus(board: nil)
     }
 
+    func submitIntent(prompt: String, kind: String?, backend: String?) async throws -> IntentResponse {
+        try await submitIntent(prompt: prompt, kind: kind, backend: backend, board: nil)
+    }
+
     func submitIntent(prompt: String, kind: String?) async throws -> IntentResponse {
-        try await submitIntent(prompt: prompt, kind: kind, backend: "opencode")
+        try await submitIntent(prompt: prompt, kind: kind, backend: "opencode", board: nil)
     }
 
     func submitIntent(prompt: String) async throws -> IntentResponse {
-        try await submitIntent(prompt: prompt, kind: "feature", backend: "opencode")
+        try await submitIntent(prompt: prompt, kind: "feature", backend: "opencode", board: nil)
+    }
+
+    func listThreads() async throws -> [ThreadSummaryItem] {
+        try await listThreads(board: nil)
+    }
+
+    func getThread(id: String) async throws -> ThreadDetailItem {
+        try await getThread(id: id, board: nil)
+    }
+
+    func planAndRun(cardId: String) async throws {
+        try await planAndRun(cardId: cardId, board: nil, backend: nil)
     }
 
     func approvePlan(cardId: String) async throws {

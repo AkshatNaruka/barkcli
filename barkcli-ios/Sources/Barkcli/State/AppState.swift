@@ -32,6 +32,7 @@ public final class AppState: @unchecked Sendable {
     public let apiClient: APIClient
     public let webSocketClient: WebSocketClient
     public let demoStore: DemoStore
+    public let threadStore: ThreadStore
 
     // MARK: Connection State
 
@@ -107,6 +108,7 @@ public final class AppState: @unchecked Sendable {
         self.apiClient = APIClient(baseURL: initialURL, authToken: authToken)
         self.webSocketClient = WebSocketClient(baseURL: initialURL, authToken: authToken)
         self.demoStore = DemoStore.shared
+        self.threadStore = ThreadStore(client: startInDemo ? MockAPIClient(store: self.demoStore) : self.apiClient)
 
         if startInDemo {
             loadDemoData()
@@ -189,6 +191,7 @@ public final class AppState: @unchecked Sendable {
     public func switchToDemoMode() {
         webSocketClient.disconnect()
         connectionMode = .demoMode
+        threadStore.client = MockAPIClient(store: demoStore)
         statusBannerMessage = "Running in offline demo mode"
         loadDemoData()
     }
@@ -214,6 +217,7 @@ public final class AppState: @unchecked Sendable {
                 self.currentBoardName = first
             }
 
+            threadStore.client = apiClient
             webSocketClient.connect()
             self.connectionMode = .connected
             self.statusBannerMessage = nil
@@ -228,6 +232,7 @@ public final class AppState: @unchecked Sendable {
     public func disconnect() {
         webSocketClient.disconnect()
         connectionMode = .disconnected
+        threadStore.client = MockAPIClient(store: demoStore)
         statusBannerMessage = "Disconnected from server"
     }
 
@@ -283,6 +288,7 @@ public final class AppState: @unchecked Sendable {
             if selectedCommit == nil, let firstCommit = commitsResp.commits.first {
                 await selectCommit(commit: firstCommit)
             }
+            await threadStore.loadThreads(board: currentBoardName)
         } catch {
             self.statusBannerMessage = "Refresh warning: \(error.localizedDescription)"
         }
@@ -305,6 +311,9 @@ public final class AppState: @unchecked Sendable {
             self.selectedCommit = firstCommit
             self.selectedCommitDiff = demoStore.getCommitDiff(sha: firstCommit.sha)
         }
+        Task {
+            await threadStore.loadThreads(board: currentBoardName)
+        }
     }
 
     // MARK: Board Actions
@@ -316,6 +325,7 @@ public final class AppState: @unchecked Sendable {
         if isDemoMode {
             currentBoard = demoStore.getBoard(name: name)
             mindSnapshot = demoStore.getMindSnapshot(boardName: name)
+            await threadStore.loadThreads(board: name)
             return
         }
 
@@ -324,8 +334,9 @@ public final class AppState: @unchecked Sendable {
             let mind = try await apiClient.fetchMindSnapshot(board: name)
             self.currentBoard = board
             self.mindSnapshot = mind
+            await threadStore.loadThreads(board: name)
         } catch {
-            self.statusBannerMessage = "Failed switching to board \(name)"
+            self.statusBannerMessage = "Failed to switch board: \(error.localizedDescription)"
         }
     }
 
@@ -496,6 +507,28 @@ public final class AppState: @unchecked Sendable {
             self.showPlanProposalModal = true
         } catch {
             statusBannerMessage = "Plan proposal error: \(error.localizedDescription)"
+        }
+    }
+
+    public func planAndRun(cardId: String) async {
+        isBusy = true
+        defer { isBusy = false }
+
+        if isDemoMode {
+            _ = demoStore.proposePlan(cardId: cardId, boardName: currentBoardName)
+            _ = demoStore.approvePlan(cardId: cardId, boardName: currentBoardName)
+            currentBoard = demoStore.getBoard(name: currentBoardName)
+            mindSnapshot = demoStore.getMindSnapshot(boardName: currentBoardName)
+            statusBannerMessage = "Plan running for \(cardId)"
+            return
+        }
+
+        do {
+            try await apiClient.planAndRun(cardId: cardId, board: currentBoardName, backend: nil)
+            await refresh()
+            statusBannerMessage = "Plan running for \(cardId)"
+        } catch {
+            statusBannerMessage = "Plan and run error: \(error.localizedDescription)"
         }
     }
 

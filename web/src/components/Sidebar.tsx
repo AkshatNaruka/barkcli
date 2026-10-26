@@ -8,31 +8,31 @@ interface NavItem {
   icon: IconName;
 }
 
-// Two first-class groups, exactly as the control-center mock:
-// MANAGE — the places you steer; BUILD — who is doing the work.
-const MANAGE: NavItem[] = [
-  { route: "mind", label: "Mind", icon: "spark" },
+// Five consolidated areas as specified in the transformation plan:
+// Inbox and Threads, Board, Project, Insights, Settings.
+const WORKSPACE: NavItem[] = [
+  { route: "threads", label: "Inbox & Threads", icon: "inbox" },
   { route: "board", label: "Board", icon: "board" },
-  { route: "specs", label: "Specs", icon: "layers" },
-];
-
-const BUILD: NavItem[] = [
-  { route: "agents", label: "Agents", icon: "users" },
+  { route: "project", label: "Project", icon: "layers" },
+  { route: "insights", label: "Insights", icon: "chart" },
 ];
 
 const MORE: NavItem[] = [
-  { route: "sprints", label: "Sprints", icon: "cycle" },
-  { route: "code", label: "Code", icon: "code" },
+  { route: "specs", label: "Specs", icon: "layers" },
   { route: "context", label: "Context", icon: "doc" },
   { route: "memory", label: "Memory", icon: "db" },
   { route: "brain", label: "Brain", icon: "spark" },
   { route: "skills", label: "Skills", icon: "star" },
+  { route: "code", label: "Code", icon: "code" },
   { route: "docs", label: "Docs", icon: "doc" },
   { route: "calendar", label: "Calendar", icon: "calendar" },
+  { route: "sprints", label: "Sprints", icon: "cycle" },
   { route: "reports", label: "Reports", icon: "chart" },
   { route: "timeline", label: "Timeline", icon: "clock" },
   { route: "history", label: "History", icon: "layers" },
   { route: "activity", label: "Activity", icon: "pulse" },
+  { route: "mind", label: "Mind", icon: "spark" },
+  { route: "agents", label: "Agents", icon: "users" },
 ];
 
 const UTILITY: NavItem[] = [
@@ -72,13 +72,18 @@ export function Sidebar({
 
   const badgeFor = (r: Route): number => {
     if (r === "board") return counts.boardOpen;
-    if (r === "mind") return counts.blockers;
+    if (r === "threads" || r === "mind") return counts.blockers;
     if (r === "agents") return counts.agentsActive;
     return 0;
   };
 
-  const isActive = (r: Route) =>
-    route === r || (r === "agents" && route === "orchestrate") || (r === "mind" && route === "dashboard");
+  const isActive = (r: Route) => {
+    if (route === r) return true;
+    if (r === "threads" && (route === "mind" || route === "dashboard" || route === "orchestrate" || route === "activity")) return true;
+    if (r === "project" && (route === "specs" || route === "context" || route === "memory" || route === "brain" || route === "skills" || route === "code" || route === "docs")) return true;
+    if (r === "insights" && (route === "reports" || route === "timeline" || route === "history")) return true;
+    return false;
+  };
 
   const NavRow = ({ item }: { item: NavItem }) => {
     const badge = badgeFor(item.route);
@@ -137,27 +142,20 @@ export function Sidebar({
         </button>
       </div>
 
-      {/* Active board context — one quiet line */}
+      {/* Active board context: one quiet line */}
       {!collapsed && boardName && (
         <div className="px-3.5 pb-1 text-[11px] font-mono text-muted truncate">{boardName}</div>
       )}
 
       <nav className="flex-1 overflow-y-auto pb-2 px-1.5">
-        {!collapsed && <GroupLabel>Manage</GroupLabel>}
+        {!collapsed && <GroupLabel>Workspace</GroupLabel>}
         <div className="space-y-px">
-          {MANAGE.map((item) => (
+          {WORKSPACE.map((item) => (
             <NavRow key={item.route} item={item} />
           ))}
         </div>
 
-        {!collapsed && <GroupLabel>Build</GroupLabel>}
-        <div className="space-y-px">
-          {BUILD.map((item) => (
-            <NavRow key={item.route} item={item} />
-          ))}
-        </div>
-
-        {/* More — secondary tools behind one disclosure */}
+        {/* More tools behind one disclosure */}
         <div className="mt-3 border-t border-border/60 pt-1.5">
           <button
             onClick={() => setMoreOpen((m) => !m)}

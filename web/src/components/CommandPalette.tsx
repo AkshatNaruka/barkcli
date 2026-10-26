@@ -13,12 +13,24 @@ interface Props {
 }
 
 const VIEWS: { route: Route; label: string; icon: IconName }[] = [
-  { route: "mind", label: "Go to Mind", icon: "spark" },
+  { route: "threads", label: "Go to Inbox & Threads", icon: "inbox" },
   { route: "board", label: "Go to Board", icon: "board" },
+  { route: "project", label: "Go to Project", icon: "layers" },
+  { route: "insights", label: "Go to Insights", icon: "chart" },
+  { route: "mind", label: "Go to Mind", icon: "spark" },
   { route: "agents", label: "Go to Agents", icon: "users" },
   { route: "specs", label: "Go to Specs", icon: "layers" },
+  { route: "context", label: "Go to Context", icon: "doc" },
   { route: "memory", label: "Go to Memory", icon: "db" },
+  { route: "brain", label: "Go to Brain", icon: "spark" },
+  { route: "skills", label: "Go to Skills", icon: "star" },
   { route: "code", label: "Go to Code", icon: "code" },
+  { route: "docs", label: "Go to Docs", icon: "doc" },
+  { route: "sprints", label: "Go to Sprints", icon: "cycle" },
+  { route: "reports", label: "Go to Reports", icon: "chart" },
+  { route: "timeline", label: "Go to Timeline", icon: "clock" },
+  { route: "history", label: "Go to History", icon: "layers" },
+  { route: "settings", label: "Go to Settings", icon: "gear" },
 ];
 
 export function CommandPalette({ board, onClose, onAddCard, onEditCard }: Props) {
@@ -30,7 +42,7 @@ export function CommandPalette({ board, onClose, onAddCard, onEditCard }: Props)
     const q = query.toLowerCase();
     const items: { label: string; icon: IconName; action: () => void }[] = [];
 
-    // View navigation (DESIGN.md §3.6 — ⌘K does everything)
+    // View navigation
     for (const v of VIEWS) {
       if (v.label.toLowerCase().includes(q) || `go to ${v.route}`.includes(q)) {
         items.push({ label: v.label, icon: v.icon, action: () => { navigate(v.route); onClose(); } });
@@ -51,7 +63,7 @@ export function CommandPalette({ board, onClose, onAddCard, onEditCard }: Props)
     // Cards
     for (const card of board.cards) {
       if (card.title.toLowerCase().includes(q)) {
-        items.push({ label: `${card.title} — ${card.column}`, icon: "board", action: () => { onEditCard(card); onClose(); } });
+        items.push({ label: `${card.title}: ${card.column}`, icon: "board", action: () => { onEditCard(card); onClose(); } });
       }
     }
 

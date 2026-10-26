@@ -651,9 +651,9 @@ public struct CardDetailSheet: View {
                     selectedColumn = "doing"
                     await saveChanges()
                     if let appState {
-                        await appState.proposePlan(cardId: card.id)
+                        await appState.planAndRun(cardId: card.id)
                     } else {
-                        _ = try? await (boardStore?.client ?? MockAPIClient()).proposePlan(cardId: card.id)
+                        _ = try? await (boardStore?.client ?? MockAPIClient()).planAndRun(cardId: card.id, board: boardStore?.boardName, backend: nil)
                     }
                     isRequestingPlan = false
                     dismiss()

@@ -17,6 +17,7 @@ import {
   fetchHistory,
   fetchSessions,
   getCardHistory,
+  cardPlanAndRun,
   saveBoard,
   connectWs,
   getGitInfo,
@@ -52,6 +53,9 @@ import { HistoryView } from "./components/HistoryView";
 import { DocsView } from "./components/DocsView";
 import { MindView } from "./components/MindView";
 import { SkillsView } from "./components/SkillsView";
+import { ThreadsShell } from "./shell/ThreadsShell";
+import { ProjectView } from "./shell/ProjectView";
+import { InsightsView } from "./shell/InsightsView";
 
 function isBlockedCard(c: Card): boolean {
   return Boolean(c.blocked_by) || c.links.some((l) => l.ty === "blocked-by");
@@ -381,7 +385,18 @@ export function App() {
     b.cards = [...b.cards, card];
     await doSave(b);
     notify(`Card "${card.title}" added`);
-  }, [doSave, notify]);
+    if ((data as any).auto_run) {
+      cardPlanAndRun(id, data.assignee, boardName || undefined)
+        .then((res) => {
+          if (res && res.error) {
+            notify(`Plan and run failed: ${res.error}`);
+          } else {
+            notify(`Plan proposed and agent dispatched for ${id}`);
+          }
+        })
+        .catch((err) => notify(`Dispatch error: ${err.message || err}`));
+    }
+  }, [doSave, notify, boardName]);
 
   const handleUpdateCard = useCallback(async (id: string, data: Partial<Card>) => {
     if (!boardRef.current) return;
@@ -390,7 +405,18 @@ export function App() {
       c.id === id ? { ...c, ...data, updated_at: new Date().toISOString() } : c
     );
     await doSave(b);
-  }, [doSave]);
+    if ((data as any).auto_run) {
+      cardPlanAndRun(id, data.assignee, boardName || undefined)
+        .then((res) => {
+          if (res && res.error) {
+            notify(`Plan and run failed: ${res.error}`);
+          } else {
+            notify(`Plan proposed and agent dispatched for ${id}`);
+          }
+        })
+        .catch((err) => notify(`Dispatch error: ${err.message || err}`));
+    }
+  }, [doSave, notify, boardName]);
 
   const handleDeleteCard = useCallback(async (id: string) => {
     if (!boardRef.current) return;
@@ -546,6 +572,27 @@ export function App() {
 
       {/* Main content */}
       <main className="flex-1 overflow-hidden">
+        {route === "threads" && (
+          <ThreadsShell
+            boardName={boardName}
+            onOpenCardForm={(card) => handleOpenForm({ card })}
+          />
+        )}
+        {route === "project" && (
+          <ProjectView
+            boardName={boardName}
+            board={board}
+            onOpenFile={openFileInEditor}
+            onEditCard={(card) => handleOpenForm({ card })}
+          />
+        )}
+        {route === "insights" && (
+          <InsightsView
+            boardName={boardName}
+            board={board}
+            sprints={sprints}
+          />
+        )}
         {board && (route === "dashboard" || route === "mind") && (
           <MindView boardName={boardName} board={board} />
         )}

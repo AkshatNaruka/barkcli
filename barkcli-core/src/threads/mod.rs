@@ -1,0 +1,316 @@
+use std::fs::{create_dir_all, File, OpenOptions};
+use std::io::{BufRead, BufReader, Write};
+use std::path::PathBuf;
+
+use anyhow::{Context, Result};
+use chrono::Utc;
+use serde::{Deserialize, Serialize};
+
+use crate::models::Card;
+use crate::storage::board_dir::ensure_board_dir;
+use crate::storage::board_file::read_board;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ThreadEventKind {
+    User,
+    Assistant,
+    PlanProposed,
+    PlanApproved,
+    TaskSpawned,
+    AgentOutput,
+    Gate,
+    Merge,
+    Steer,
+    #[serde(untagged)]
+    Custom(String),
+}
+
+impl ThreadEventKind {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::User => "user",
+            Self::Assistant => "assistant",
+            Self::PlanProposed => "plan_proposed",
+            Self::PlanApproved => "plan_approved",
+            Self::TaskSpawned => "task_spawned",
+            Self::AgentOutput => "agent_output",
+            Self::Gate => "gate",
+            Self::Merge => "merge",
+            Self::Steer => "steer",
+            Self::Custom(s) => s.as_str(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ThreadEvent {
+    pub id: String,
+    pub card_id: String,
+    pub kind: ThreadEventKind,
+    pub author: String,
+    pub text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data: Option<serde_json::Value>,
+    pub created_at: String,
+}
+
+impl ThreadEvent {
+    pub fn new(
+        card_id: impl Into<String>,
+        kind: ThreadEventKind,
+        author: impl Into<String>,
+        text: impl Into<String>,
+        data: Option<serde_json::Value>,
+    ) -> Self {
+        let cid = card_id.into();
+        let now = Utc::now();
+        let id = format!("evt_{}_{}", now.timestamp_millis(), crate::util::slug::to_slug(&cid));
+        Self {
+            id,
+            card_id: cid,
+            kind,
+            author: author.into(),
+            text: text.into(),
+            data,
+            created_at: now.to_rfc3339(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ThreadSummary {
+    pub id: String,
+    pub title: String,
+    pub status_group: String,
+    pub event_count: usize,
+    pub last_event: Option<ThreadEvent>,
+    pub updated_at: String,
+    pub column: String,
+    pub backend: Option<String>,
+}
+
+pub fn threads_dir() -> Result<PathBuf> {
+    let board_dir = ensure_board_dir()?;
+    let path = board_dir.join("threads");
+    if !path.exists() {
+        create_dir_all(&path).context("failed to create threads directory")?;
+    }
+    Ok(path)
+}
+
+pub fn thread_path(card_id: &str) -> Result<PathBuf> {
+    let dir = threads_dir()?;
+    let safe_name = crate::util::slug::to_slug(card_id);
+    Ok(dir.join(format!("{}.jsonl", safe_name)))
+}
+
+pub fn append_event_to_dir(dir: &std::path::Path, card_id: &str, event: &ThreadEvent) -> Result<()> {
+    if !dir.exists() {
+        create_dir_all(dir).context("failed to create directory")?;
+    }
+    let safe_name = crate::util::slug::to_slug(card_id);
+    let path = dir.join(format!("{}.jsonl", safe_name));
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .with_context(|| format!("failed to open thread file {:?}", path))?;
+    let line = serde_json::to_string(event).context("failed to serialize thread event")?;
+    writeln!(file, "{}", line).context("failed to append thread event")?;
+    Ok(())
+}
+
+pub fn read_events_from_dir(dir: &std::path::Path, card_id: &str) -> Result<Vec<ThreadEvent>> {
+    let safe_name = crate::util::slug::to_slug(card_id);
+    let path = dir.join(format!("{}.jsonl", safe_name));
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let file = File::open(&path).with_context(|| format!("failed to open {:?}", path))?;
+    let reader = BufReader::new(file);
+    let mut events = Vec::new();
+    for line in reader.lines() {
+        let l = line?;
+        let trimmed = l.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if let Ok(ev) = serde_json::from_str::<ThreadEvent>(trimmed) {
+            events.push(ev);
+        }
+    }
+    Ok(events)
+}
+
+pub fn append_event(card_id: &str, event: &ThreadEvent) -> Result<()> {
+    let dir = threads_dir()?;
+    append_event_to_dir(&dir, card_id, event)
+}
+
+pub fn read_events(card_id: &str) -> Result<Vec<ThreadEvent>> {
+    let dir = threads_dir()?;
+    read_events_from_dir(&dir, card_id)
+}
+
+pub fn load_or_init_thread(board_name: &str, card: &Card) -> Result<Vec<ThreadEvent>> {
+    let mut events = read_events(&card.id)?;
+    if events.is_empty() {
+        let initial_text = match &card.description {
+            Some(d) if !d.trim().is_empty() => d.clone(),
+            _ => card.title.clone(),
+        };
+        let user_event = ThreadEvent::new(
+            &card.id,
+            ThreadEventKind::User,
+            "you",
+            initial_text,
+            Some(serde_json::json!({
+                "title": card.title,
+                "priority": card.priority,
+                "column": card.column,
+                "labels": card.labels,
+            })),
+        );
+        append_event(&card.id, &user_event)?;
+        events.push(user_event);
+
+        if let Ok(st) = crate::agent::autopilot::AutopilotState::load(board_name).proposals.get(&card.id).cloned().ok_or(()) {
+            let plan_event = ThreadEvent::new(
+                &card.id,
+                ThreadEventKind::PlanProposed,
+                "barkcli",
+                format!("Proposed plan with {} child tasks", st.children.len()),
+                Some(serde_json::to_value(&st).unwrap_or_default()),
+            );
+            append_event(&card.id, &plan_event)?;
+            events.push(plan_event);
+        }
+    }
+    Ok(events)
+}
+
+pub fn classify_status_group(card: &Card, board_name: &str) -> String {
+    let col = card.column.to_lowercase();
+    if col == "done" {
+        return "settled".to_string();
+    }
+    let st = crate::agent::autopilot::AutopilotState::load(board_name);
+    if st.proposals.contains_key(&card.id) {
+        return "needs_you".to_string();
+    }
+    if col == "doing" {
+        return "running".to_string();
+    }
+    "features".to_string()
+}
+
+pub fn list_threads(board_name: &str) -> Result<Vec<ThreadSummary>> {
+    let board = read_board(board_name)?;
+    let mut summaries = Vec::new();
+    for card in &board.cards {
+        let events = read_events(&card.id).unwrap_or_default();
+        let last_event = events.last().cloned();
+        let count = events.len();
+        let status_group = classify_status_group(card, board_name);
+        let backend = card.assignee.clone().or_else(|| {
+            card.labels
+                .iter()
+                .find(|l| l.starts_with("agent:"))
+                .map(|l| l.trim_start_matches("agent:").to_string())
+        });
+        summaries.push(ThreadSummary {
+            id: card.id.clone(),
+            title: card.title.clone(),
+            status_group,
+            event_count: count,
+            last_event,
+            updated_at: card.updated_at.to_rfc3339(),
+            column: card.column.clone(),
+            backend,
+        });
+    }
+
+    summaries.sort_by(|a, b| {
+        let prio = |sg: &str| match sg {
+            "needs_you" => 0,
+            "running" => 1,
+            "features" => 2,
+            "settled" => 3,
+            _ => 4,
+        };
+        prio(&a.status_group)
+            .cmp(&prio(&b.status_group))
+            .then_with(|| b.updated_at.cmp(&a.updated_at))
+    });
+
+    Ok(summaries)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn thread_event_serialization_roundtrip() {
+        let event = ThreadEvent::new(
+            "auth_flow",
+            ThreadEventKind::User,
+            "tester",
+            "Add google oauth login support",
+            Some(serde_json::json!({ "scope": "auth" })),
+        );
+        let serialized = serde_json::to_string(&event).unwrap();
+        let deserialized: ThreadEvent = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(deserialized.card_id, "auth_flow");
+        assert_eq!(deserialized.author, "tester");
+        assert_eq!(deserialized.kind, ThreadEventKind::User);
+    }
+
+    #[test]
+    fn thread_append_and_replay_preserves_order() {
+        let dir = std::env::temp_dir().join(format!("bark_test_threads_{}", uuid::Uuid::new_v4()));
+        let card_id = "test_feature_card";
+
+        let ev1 = ThreadEvent::new(card_id, ThreadEventKind::User, "alice", "Build stripe webhook", None);
+        let ev2 = ThreadEvent::new(card_id, ThreadEventKind::Assistant, "barkcli", "I will plan this task", None);
+        let ev3 = ThreadEvent::new(card_id, ThreadEventKind::Gate, "barkcli", "cargo test ok", Some(serde_json::json!({ "passed": true })));
+
+        append_event_to_dir(&dir, card_id, &ev1).unwrap();
+        append_event_to_dir(&dir, card_id, &ev2).unwrap();
+        append_event_to_dir(&dir, card_id, &ev3).unwrap();
+
+        let loaded = read_events_from_dir(&dir, card_id).unwrap();
+        assert_eq!(loaded.len(), 3);
+        assert_eq!(loaded[0].kind, ThreadEventKind::User);
+        assert_eq!(loaded[0].text, "Build stripe webhook");
+        assert_eq!(loaded[1].kind, ThreadEventKind::Assistant);
+        assert_eq!(loaded[1].text, "I will plan this task");
+        assert_eq!(loaded[2].kind, ThreadEventKind::Gate);
+        assert_eq!(loaded[2].text, "cargo test ok");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn thread_all_event_kinds_roundtrip() {
+        let kinds = vec![
+            ThreadEventKind::User,
+            ThreadEventKind::Assistant,
+            ThreadEventKind::PlanProposed,
+            ThreadEventKind::PlanApproved,
+            ThreadEventKind::TaskSpawned,
+            ThreadEventKind::AgentOutput,
+            ThreadEventKind::Gate,
+            ThreadEventKind::Merge,
+            ThreadEventKind::Steer,
+        ];
+
+        for kind in kinds {
+            let ev = ThreadEvent::new("card1", kind.clone(), "barkcli", "event text", None);
+            let s = serde_json::to_string(&ev).unwrap();
+            let parsed: ThreadEvent = serde_json::from_str(&s).unwrap();
+            assert_eq!(parsed.kind, kind);
+        }
+    }
+}

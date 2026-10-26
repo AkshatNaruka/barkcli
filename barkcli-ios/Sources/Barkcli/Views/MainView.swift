@@ -1,7 +1,7 @@
 import SwiftUI
 
 public enum MainTab: String, CaseIterable, Identifiable {
-    case mind = "Mind"
+    case threads = "Threads"
     case board = "Board"
     case orchestrate = "Orchestrate"
     case history = "History"
@@ -12,8 +12,8 @@ public enum MainTab: String, CaseIterable, Identifiable {
 
     public var iconName: String {
         switch self {
-        case .mind:
-            return "brain.head.profile"
+        case .threads:
+            return "tray.fill"
         case .board:
             return "rectangle.split.3x1.fill"
         case .orchestrate:
@@ -31,7 +31,7 @@ public enum MainTab: String, CaseIterable, Identifiable {
 public struct MainView: View {
     @Environment(AppState.self) private var appState
 
-    @State private var selectedTab: MainTab = .mind
+    @State private var selectedTab: MainTab = .threads
     @State private var showCreateBoardSheet: Bool = false
     @State private var newBoardTitle: String = ""
 
@@ -198,8 +198,8 @@ public struct MainView: View {
     @ViewBuilder
     private var activeTabContentView: some View {
         switch selectedTab {
-        case .mind:
-            MindView()
+        case .threads:
+            ThreadsContainerView()
         case .board:
             BoardView()
         case .orchestrate:
