@@ -185,7 +185,7 @@ function withToken(url: string): string {
 let ws: WebSocket | null = null;
 
 // Detect VS Code environment
-const isVscode = typeof (window as any).acquireVsCodeApi === "function";
+export const isVscode = typeof (window as any).acquireVsCodeApi === "function";
 let vscodeApi: any = null;
 if (isVscode) {
   vscodeApi = (window as any).acquireVsCodeApi();
@@ -310,6 +310,24 @@ export async function fetchConfig(): Promise<BoardConfig | null> {
   } catch {
     return null;
   }
+}
+
+// ── Liveness ──
+// GET /api/ping is the one public /api route (an uptime monitor cannot hold a
+// token). withToken() is harmless here — the query is simply ignored.
+// The payload is dependency-free: no board/git reads, so a corrupt board can
+// never make a live daemon look dead.
+export interface PingResponse {
+  status: string;
+  timestamp: string;
+  version: string;
+  uptime_seconds: number;
+}
+
+export async function ping(): Promise<PingResponse> {
+  const res = await fetch(withToken("/api/ping"));
+  if (!res.ok) throw new Error(`ping failed: ${res.status}`);
+  return res.json();
 }
 
 export async function fetchCardContext(cardId: string): Promise<CardContext | null> {

@@ -33,6 +33,7 @@ import { ListView } from "./components/ListView";
 import { CardForm } from "./components/CardForm";
 import { CommandPalette } from "./components/CommandPalette";
 import { ThemeDropdown } from "./components/ThemeDropdown";
+import { ServerStatus } from "./components/ServerStatus";
 import { Sidebar } from "./components/Sidebar";
 import { ReportsView } from "./components/ReportsView";
 import { CodeView } from "./components/CodeView";
@@ -565,6 +566,7 @@ export function App() {
               {gitInfo.branch} · {gitInfo.lastCommit}
             </span>
           )}
+          <ServerStatus />
           <InstallButton />
           <ThemeDropdown />
         </div>
