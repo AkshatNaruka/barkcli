@@ -70,7 +70,7 @@ impl Recipe {
                 if !model.is_empty() {
                     c.arg("--model").arg(model);
                 }
-                c.arg(prompt).arg("--auto");
+                c.arg("--auto").arg(prompt);
                 c
             }
             SessionBackend::ClaudeCode => {
