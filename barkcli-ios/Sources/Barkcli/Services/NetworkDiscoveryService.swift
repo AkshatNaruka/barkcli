@@ -112,8 +112,13 @@ public final class NetworkDiscoveryService: @unchecked Sendable {
 
     /// Probes a specific host:port endpoint to determine whether a barkcli daemon is listening.
     /// Measures round-trip HTTP latency in milliseconds.
+    ///
+    /// Uses the public liveness route: `/api/ping` never touches disk and
+    /// returns `version` (which `/api/config` never did, so the version read
+    /// below used to be dead code). Older daemons without the route answer
+    /// `401` because it lives under `/api/`, and that still counts as alive.
     public func probeHost(host: String, port: Int = defaultPort) async -> DiscoveredInstance? {
-        guard let url = URL(string: "http://\(host):\(port)/api/config") else { return nil }
+        guard let url = URL(string: "http://\(host):\(port)/api/ping") else { return nil }
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.timeoutInterval = 1.5
