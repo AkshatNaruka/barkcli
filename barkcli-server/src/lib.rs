@@ -4672,6 +4672,104 @@ mod tests {
         assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
     }
 
+    #[tokio::test]
+    async fn ping_exemption_is_exact_literal_not_a_prefix() {
+        // `/api/ping/...` must stay protected so the public exemption cannot be
+        // widened into a hole for future sub-routes.
+        for uri in ["/api/ping/", "/api/ping/extra", "/api/pingx"] {
+            let app = test_router(test_state(Some("secret")));
+            let res = app.oneshot(get_request(uri)).await.unwrap();
+            assert_eq!(res.status(), StatusCode::UNAUTHORIZED, "{} leaked", uri);
+        }
+    }
+
+    #[tokio::test]
+    async fn ping_ignores_a_bogus_token_query_param() {
+        // Public means public: a stale `?token=` from a browser must not 401.
+        let app = test_router(test_state(Some("secret")));
+        let res = app
+            .oneshot(get_request("/api/ping?token=stale"))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn ping_timestamp_is_the_current_time() {
+        let app = test_router(test_state(Some("secret")));
+        let before = Utc::now();
+        let res = app.oneshot(get_request("/api/ping")).await.unwrap();
+        let after = Utc::now();
+
+        let body = to_bytes(res.into_body(), usize::MAX).await.unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let ts = DateTime::parse_from_rfc3339(value["timestamp"].as_str().unwrap())
+            .unwrap()
+            .with_timezone(&Utc);
+
+        // Freshly stamped, not a cached/constant value, and not in the future.
+        // The payload truncates to milliseconds, so allow 1 ms of rounding.
+        assert!(
+            ts.timestamp_millis() >= before.timestamp_millis() - 1,
+            "timestamp {} predates the request",
+            ts
+        );
+        assert!(
+            ts.timestamp_millis() <= after.timestamp_millis(),
+            "timestamp {} is in the future",
+            ts
+        );
+        assert!((after - ts).num_seconds() < 1);
+    }
+
+    #[tokio::test]
+    async fn ping_uptime_reflects_process_age() {
+        let started = Instant::now()
+            .checked_sub(std::time::Duration::from_secs(90))
+            .expect("platform clock supports subtraction");
+        let payload = ping_payload(started, Utc::now());
+        assert!(
+            payload.uptime_seconds >= 90,
+            "uptime {} should count from process start",
+            payload.uptime_seconds
+        );
+    }
+
+    #[tokio::test]
+    async fn ping_head_returns_headers_only() {
+        // Uptime monitors often probe with HEAD; axum's `get` route serves it.
+        let app = test_router(test_state(Some("secret")));
+        let req = Request::builder()
+            .method("HEAD")
+            .uri("/api/ping")
+            .body(axum::body::Body::empty())
+            .unwrap();
+        let res = app.oneshot(req).await.unwrap();
+
+        assert_eq!(res.status(), StatusCode::OK);
+        assert_eq!(
+            res.headers().get(header::CACHE_CONTROL).unwrap(),
+            "no-store"
+        );
+        let body = to_bytes(res.into_body(), usize::MAX).await.unwrap();
+        assert!(body.is_empty(), "HEAD must not carry a body");
+    }
+
+    #[test]
+    fn ping_payload_exposes_only_liveness_fields() {
+        // No board, config, or filesystem data may appear on the public route.
+        let value = serde_json::to_value(ping_payload(Instant::now(), Utc::now())).unwrap();
+        let mut keys: Vec<&str> = value
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        keys.sort_unstable();
+        assert_eq!(keys, ["status", "timestamp", "uptime_seconds", "version"]);
+        assert_eq!(value["status"], "ok");
+    }
+
     #[test]
     fn sanitize_accepts_safe_names() {
         assert!(sanitize_name("dev").is_ok());
