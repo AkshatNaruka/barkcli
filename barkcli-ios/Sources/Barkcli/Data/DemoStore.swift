@@ -270,6 +270,19 @@ public final class DemoStore: @unchecked Sendable {
         }
     }
 
+    public func saveCard(_ card: Card, boardName: String? = nil) {
+        lock.lock()
+        defer { lock.unlock() }
+        let key = boardName ?? boardNames.first ?? "dev"
+        var board = getBoard(name: key)
+        if let idx = board.cards.firstIndex(where: { $0.id == card.id }) {
+            board.cards[idx] = card
+        } else {
+            board.cards.append(card)
+        }
+        boards[key] = board
+    }
+
     public func removeCard(id: String, boardName: String? = nil) {
         lock.lock()
         defer { lock.unlock() }

@@ -56,13 +56,7 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
     }
 
     public func saveCard(boardName: String, card: Card) async throws {
-        var board = store.getBoard(name: boardName)
-        if let idx = board.cards.firstIndex(where: { $0.id == card.id }) {
-            board.cards[idx] = card
-        } else {
-            board.cards.append(card)
-        }
-        store.saveBoard(board, name: boardName)
+        store.saveCard(card, boardName: boardName)
     }
 
     public func moveCard(boardName: String, cardId: String, toColumn: String) async throws {
