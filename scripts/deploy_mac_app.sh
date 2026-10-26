@@ -53,6 +53,10 @@ if [ -f "$REPO_ROOT/target/debug/barkcli" ]; then
     echo "$SERVER_STATUS"
 fi
 
-echo "Launching $APP_NAME..."
-open "$APP_BUNDLE"
+echo "Terminating any existing instance of $APP_NAME..."
+killall BarkcliApp 2>/dev/null || true
+sleep 0.5
+
+echo "Launching fresh instance of $APP_NAME..."
+open -n "$APP_BUNDLE"
 echo "Launched successfully."
