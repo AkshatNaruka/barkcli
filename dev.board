@@ -1,120 +1,201 @@
 title: dev
 columns:
-  - id: todo
-    name: Todo
-  - id: doing
-    name: Doing
-  - id: review
-    name: Review
-  - id: done
-    name: Done
+- id: todo
+  name: Todo
+- id: doing
+  name: Doing
+- id: review
+  name: Review
+- id: done
+  name: Done
 cards:
-  - id: card-crud
-    title: Card CRUD
-    description: Add, list, show, update, remove cards
-    column: done
-    priority: high
-    labels:
-      - cli
-    checklist: []
-    comments: []
-    attachments: []
-    created_at: 2026-07-30T07:18:05.248Z
-    updated_at: 2026-07-30T07:18:05.248Z
-  - id: board-move-status
-    title: board move/status
-    description: Move cards between columns, quick status transitions
-    column: done
-    priority: high
-    labels:
-      - cli
-    checklist: []
-    comments: []
-    attachments: []
-    created_at: 2026-07-30T07:18:05.271Z
-    updated_at: 2026-07-30T07:18:05.271Z
-  - id: board-validate-doctor
-    title: board validate/doctor
-    description: Validate board files, auto-fix missing fields
-    column: done
-    priority: high
-    labels:
-      - cli
-    checklist: []
-    comments: []
-    attachments: []
-    created_at: 2026-07-30T07:18:05.286Z
-    updated_at: 2026-07-30T07:18:05.286Z
-  - id: board-export-import
-    title: board export/import
-    description: Export board as JSON/YAML, import from stdin/file
-    column: done
-    priority: high
-    labels:
-      - cli
-    checklist: []
-    comments: []
-    attachments: []
-    created_at: 2026-07-30T07:18:05.312Z
-    updated_at: 2026-07-30T07:18:05.312Z
-  - id: history-logging
-    title: History logging
-    description: JSONL history log for all card operations
-    column: review
-    priority: high
-    labels:
-      - cli
-    checklist: []
-    comments: []
-    attachments: []
-    created_at: 2026-07-30T07:18:05.326Z
-    updated_at: '2026-08-06T19:58:32.428Z'
-  - id: vs-code-extension
-    title: VS Code extension
-    description: Custom Editor for .board files with React webview
-    column: done
-    priority: high
-    labels:
-      - extension
-    checklist: []
-    comments: []
-    attachments: []
-    created_at: 2026-07-30T07:18:05.336Z
-    updated_at: 2026-07-30T07:18:05.336Z
-  - id: dark-light-mode
-    title: Dark/light mode
-    description: VS Code theme-aware styling
-    column: done
-    priority: low
-    labels:
-      - extension
-    assignee: future
-    checklist: []
-    comments: []
-    attachments: []
-    created_at: 2026-07-30T07:18:05.371Z
-    updated_at: '2026-08-05T14:46:04.886Z'
-  - id: integration-tests
-    title: Integration tests
-    description: 20 CLI integration tests covering full workflow
-    column: review
-    priority: high
-    labels:
-      - testing
-    checklist: []
-    comments: []
-    attachments: []
-    created_at: 2026-07-30T07:18:05.381Z
-    updated_at: '2026-08-07T11:36:28.293Z'
-  - id: readme
-    title: README
-    description: Create README.md with usage docs
-    column: done
-    priority: high
-    labels:
-      - docs
-    checklist: []
-    comments: []
-    attachments: []
-    created_at: 2026-07-30T07:18:05.395Z
-    updated_at: 2026-07-30T07:18:05.395Z
+- id: card-crud
+  title: Card CRUD
+  description: Add, list, show, update, remove cards
+  column: done
+  priority: high
+  labels:
+  - cli
+  checklist: []
+  comments: []
+  attachments: []
+  pinned: false
+  version: 1
+  created_at: 2026-07-30T07:18:05.248Z
+  updated_at: 2026-07-30T07:18:05.248Z
+- id: board-move-status
+  title: board move/status
+  description: Move cards between columns, quick status transitions
+  column: done
+  priority: high
+  labels:
+  - cli
+  checklist: []
+  comments: []
+  attachments: []
+  pinned: false
+  version: 1
+  created_at: 2026-07-30T07:18:05.271Z
+  updated_at: 2026-07-30T07:18:05.271Z
+- id: board-validate-doctor
+  title: board validate/doctor
+  description: Validate board files, auto-fix missing fields
+  column: done
+  priority: high
+  labels:
+  - cli
+  checklist: []
+  comments: []
+  attachments: []
+  pinned: false
+  version: 1
+  created_at: 2026-07-30T07:18:05.286Z
+  updated_at: 2026-07-30T07:18:05.286Z
+- id: board-export-import
+  title: board export/import
+  description: Export board as JSON/YAML, import from stdin/file
+  column: done
+  priority: high
+  labels:
+  - cli
+  checklist: []
+  comments: []
+  attachments: []
+  pinned: false
+  version: 1
+  created_at: 2026-07-30T07:18:05.312Z
+  updated_at: 2026-07-30T07:18:05.312Z
+- id: history-logging
+  title: History logging
+  description: JSONL history log for all card operations
+  column: review
+  priority: high
+  labels:
+  - cli
+  checklist: []
+  comments: []
+  attachments: []
+  pinned: false
+  version: 1
+  created_at: 2026-07-30T07:18:05.326Z
+  updated_at: 2026-08-06T19:58:32.428Z
+- id: vs-code-extension
+  title: VS Code extension
+  description: Custom Editor for .board files with React webview
+  column: done
+  priority: high
+  labels:
+  - extension
+  checklist: []
+  comments: []
+  attachments: []
+  pinned: false
+  version: 1
+  created_at: 2026-07-30T07:18:05.336Z
+  updated_at: 2026-07-30T07:18:05.336Z
+- id: dark-light-mode
+  title: Dark/light mode
+  description: VS Code theme-aware styling
+  column: done
+  priority: low
+  labels:
+  - extension
+  assignee: future
+  checklist: []
+  comments: []
+  attachments: []
+  pinned: false
+  version: 1
+  created_at: 2026-07-30T07:18:05.371Z
+  updated_at: 2026-08-05T14:46:04.886Z
+- id: integration-tests
+  title: Integration tests
+  description: 20 CLI integration tests covering full workflow
+  column: review
+  priority: high
+  labels:
+  - testing
+  checklist: []
+  comments: []
+  attachments: []
+  pinned: false
+  version: 1
+  created_at: 2026-07-30T07:18:05.381Z
+  updated_at: 2026-08-07T11:36:28.293Z
+- id: readme
+  title: README
+  description: Create README.md with usage docs
+  column: done
+  priority: high
+  labels:
+  - docs
+  checklist: []
+  comments: []
+  attachments: []
+  pinned: false
+  version: 1
+  created_at: 2026-07-30T07:18:05.395Z
+  updated_at: 2026-07-30T07:18:05.395Z
+- id: add-ping-healthcheck-route-returning-timestamp
+  title: Add ping healthcheck route returning timestamp
+  description: Add ping healthcheck route returning timestamp
+  column: todo
+  priority: medium
+  labels: []
+  checklist:
+  - text: AC via heuristic — refine after planning
+    done: false
+  comments: []
+  attachments: []
+  spec_id: add-ping-healthcheck-route-returning-timestamp
+  pinned: false
+  version: 2
+  created_at: 2026-10-26T12:27:24.910663Z
+  updated_at: 2026-10-26T12:27:24.916467Z
+- id: create-ping-uptime-endpoint
+  title: Create ping uptime endpoint
+  description: Create ping uptime endpoint
+  column: todo
+  priority: medium
+  labels: []
+  checklist:
+  - text: AC via heuristic — refine after planning
+    done: false
+  comments: []
+  attachments: []
+  spec_id: create-ping-uptime-endpoint
+  pinned: false
+  version: 2
+  created_at: 2026-10-26T12:27:33.557032Z
+  updated_at: 2026-10-26T12:27:33.560656Z
+- id: add-ping-endpoint-returning-timestamp
+  title: Add ping endpoint returning timestamp
+  description: Add ping endpoint returning timestamp
+  column: todo
+  priority: medium
+  labels: []
+  checklist:
+  - text: AC via heuristic — refine after planning
+    done: false
+  comments: []
+  attachments: []
+  spec_id: add-ping-endpoint-returning-timestamp
+  pinned: false
+  version: 3
+  created_at: 2026-10-26T12:28:29.514849Z
+  updated_at: 2026-10-26T12:31:39.511090Z
+- id: add-ping-endpoint-returning-timestamp
+  title: Add ping endpoint returning timestamp
+  description: Add ping endpoint returning timestamp
+  column: todo
+  priority: medium
+  labels: []
+  checklist:
+  - text: AC via heuristic — refine after planning
+    done: false
+  comments: []
+  attachments: []
+  pinned: false
+  version: 1
+  created_at: 2026-10-26T12:31:39.501010Z
+  updated_at: 2026-10-26T12:31:39.501010Z
