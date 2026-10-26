@@ -31,6 +31,19 @@ Read this file FIRST when starting a session; drill into only what it points at.
 - barkcli-core/src/commands — 1 file(s)
 - …5 more directories
 
+<!-- ctx:block id="conventions" src="memory-facts" updated="2026-10-26T12:01Z" staleness="0.00" -->
+## Conventions & gotchas
+- [pattern] run: task 'Add ping healthcheck endpoint returning timestamp - Design' (attempt 1) failed the acceptance gate `(worktree)`; verdict was recorded on the task (confidence 0.90, 1 source(s))
+- [pattern] run: task 'Add ping healthcheck endpoint returning timestamp - Design' (attempt 2) failed the acceptance gate `(worktree)`; verdict was recorded on the task (confidence 0.90, 1 source(s))
+- [pattern] run: task 'Add ping healthcheck endpoint returning timestamp - Backend' (attempt 1) failed the acceptance gate `(worktree)`; verdict was recorded on the task (confidence 0.90, 1 source(s))
+- [pattern] run: task 'Add ping healthcheck endpoint returning timestamp - Backend' (attempt 2) failed the acceptance gate `(worktree)`; verdict was recorded on the task (confidence 0.90, 1 source(s))
+- [pattern] run: task 'Add ping healthcheck endpoint returning timestamp - Frontend' (attempt 1) failed the acceptance gate `(worktree)`; verdict was recorded on the task (confidence 0.90, 1 source(s))
+- [pattern] run: task 'Add ping healthcheck endpoint returning timestamp - Frontend' (attempt 2) failed the acceptance gate `(worktree)`; verdict was recorded on the task (confidence 0.90, 1 source(s))
+
+<!-- ctx:block id="specs" src="spec-store" updated="2026-10-26T12:01Z" staleness="0.00" -->
+## Specs & requirements
+- [draft] feature: Add ping healthcheck endpoint returning timestamp — 0/1 requirements
+
 <!-- ctx:block id="sessions" src="session-log" updated="2026-10-24T09:46Z" staleness="0.00" manual="true" -->
 ## Recent agent sessions
 - 2026-10-24 opencode — "0 prompts" (13 file(s))
@@ -38,7 +51,7 @@ Read this file FIRST when starting a session; drill into only what it points at.
 - 2026-10-24 opencode — "0 prompts" (13 file(s))
 - 2026-10-24 opencode — "0 prompts" (13 file(s))
 
-<!-- ctx:block id="verify" src="barkcli context digest" updated="2026-10-26T10:14Z" staleness="0.00" -->
+<!-- ctx:block id="verify" src="barkcli context digest" updated="2026-10-26T10:16Z" staleness="0.00" -->
 ## Verification status
-- Verified @ 6341d1f · all sections fresh (staleness < 0.4)
+- Verified @ 9a94442 · all sections fresh (staleness < 0.4)
 - Guide: staleness 0 fresh · ≥0.4 review the section · ≥0.8 likely wrong.

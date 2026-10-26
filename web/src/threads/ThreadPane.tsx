@@ -7,6 +7,10 @@ import {
   rejectPlan,
   streamThreadUrl,
   fetchSessionTranscript,
+  stopSession,
+  steerSession,
+  forkSession,
+  raceTask,
 } from "../lib/api";
 import { Icon } from "../components/Icon";
 
@@ -35,6 +39,9 @@ export function ThreadPane({
   const [transcriptSessionId, setTranscriptSessionId] = useState<string | null>(null);
   const [transcriptLines, setTranscriptLines] = useState<string[]>([]);
   const [transcriptLoading, setTranscriptLoading] = useState(false);
+  const [steerSessionId, setSteerSessionId] = useState<string | null>(null);
+  const [steerPrompt, setSteerPrompt] = useState("");
+  const [actionStatus, setActionStatus] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -165,6 +172,37 @@ export function ThreadPane({
     setTranscriptLoading(false);
   };
 
+  const handleStopSession = async (sessionId: string) => {
+    setActionStatus("Stopping worker session...");
+    await stopSession(sessionId);
+    setActionStatus("Worker session stopped.");
+    setTimeout(() => setActionStatus(null), 3000);
+  };
+
+  const handleSteerSession = async (sessionId: string) => {
+    if (!steerPrompt.trim()) return;
+    setActionStatus("Steering worker session...");
+    await steerSession(sessionId, steerPrompt.trim());
+    setSteerPrompt("");
+    setSteerSessionId(null);
+    setActionStatus("Steering direction sent to worker.");
+    setTimeout(() => setActionStatus(null), 3000);
+  };
+
+  const handleForkSession = async (sessionId: string) => {
+    setActionStatus("Forking worker session...");
+    await forkSession(sessionId);
+    setActionStatus("New branch worker session forked.");
+    setTimeout(() => setActionStatus(null), 3000);
+  };
+
+  const handleRaceTask = async (taskId: string) => {
+    setActionStatus("Starting agent race tournament...");
+    await raceTask(taskId, "opencode", "claude");
+    setActionStatus("Race dispatched between opencode and claude.");
+    setTimeout(() => setActionStatus(null), 3000);
+  };
+
   if (!threadId) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-bg overflow-y-auto">
@@ -256,6 +294,18 @@ export function ThreadPane({
 
   return (
     <div className="flex-1 flex flex-col h-full bg-bg overflow-hidden">
+      {actionStatus && (
+        <div className="bg-surface border-b border-border px-4 py-2 text-[11px] text-accent flex items-center justify-between shrink-0">
+          <span>{actionStatus}</span>
+          <button
+            onClick={() => setActionStatus(null)}
+            className="text-muted hover:text-text p-0.5"
+          >
+            <Icon name="x" size={12} />
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="p-3 border-b border-border flex items-center justify-between gap-3 shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -414,7 +464,7 @@ export function ThreadPane({
               const taskId = ev.data?.task_id || "task";
               const sessionId = ev.data?.session_id;
               return (
-                <div key={ev.id} className="p-3 rounded-lg bg-surface border border-border text-xs max-w-2xl mx-auto space-y-1.5">
+                <div key={ev.id} className="p-3 rounded-lg bg-surface border border-border text-xs max-w-2xl mx-auto space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="text-accent animate-pulse font-bold">◐</span>
@@ -422,14 +472,45 @@ export function ThreadPane({
                         Worker spawned: {taskId}
                       </span>
                     </div>
-                    {sessionId && (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {sessionId && (
+                        <>
+                          <button
+                            onClick={() => handleViewTranscript(sessionId)}
+                            className="text-[10px] px-2 py-0.5 rounded bg-bg border border-border text-muted hover:text-text"
+                          >
+                            Live Transcript
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSteerSessionId(sessionId);
+                              setSteerPrompt("");
+                            }}
+                            className="text-[10px] px-2 py-0.5 rounded bg-bg border border-border text-muted hover:text-text"
+                          >
+                            Steer
+                          </button>
+                          <button
+                            onClick={() => handleForkSession(sessionId)}
+                            className="text-[10px] px-2 py-0.5 rounded bg-bg border border-border text-muted hover:text-text"
+                          >
+                            Fork
+                          </button>
+                          <button
+                            onClick={() => handleStopSession(sessionId)}
+                            className="text-[10px] px-2 py-0.5 rounded bg-bg border border-border text-rose-400 hover:text-rose-300"
+                          >
+                            Stop
+                          </button>
+                        </>
+                      )}
                       <button
-                        onClick={() => handleViewTranscript(sessionId)}
-                        className="text-[10px] px-2 py-0.5 rounded bg-bg border border-border text-muted hover:text-text"
+                        onClick={() => handleRaceTask(taskId)}
+                        className="text-[10px] px-2 py-0.5 rounded bg-bg border border-border text-amber-400 hover:text-amber-300"
                       >
-                        Live Transcript
+                        Race
                       </button>
-                    )}
+                    </div>
                   </div>
                   <div className="text-[11px] text-muted">{ev.text}</div>
                 </div>
@@ -517,6 +598,56 @@ export function ThreadPane({
         </div>
       )}
 
+      {/* Steer Session Modal */}
+      {steerSessionId && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-bg border border-border rounded-xl w-full max-w-md flex flex-col shadow-2xl overflow-hidden">
+            <div className="p-3.5 border-b border-border flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Icon name="spark" size={16} />
+                <span className="text-xs font-semibold text-text uppercase tracking-wider">
+                  Steer Worker Session
+                </span>
+              </div>
+              <button
+                onClick={() => setSteerSessionId(null)}
+                className="p-1 text-muted hover:text-text rounded"
+              >
+                <Icon name="x" size={14} />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <p className="text-xs text-muted leading-relaxed">
+                Direct worker execution with clarifying context or corrective steering instructions.
+              </p>
+              <textarea
+                autoFocus
+                value={steerPrompt}
+                onChange={(e) => setSteerPrompt(e.target.value)}
+                placeholder="Enter steering direction for the running agent..."
+                rows={4}
+                className="w-full bg-surface border border-border rounded-lg p-3 text-xs text-text placeholder-muted focus:outline-none focus:border-accent resize-none"
+              />
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setSteerSessionId(null)}
+                  className="px-3 py-1.5 rounded-lg border border-border text-xs text-muted hover:text-text"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleSteerSession(steerSessionId)}
+                  disabled={!steerPrompt.trim()}
+                  className="px-4 py-1.5 rounded-lg bg-accent text-bg text-xs font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity"
+                >
+                  Send Guidance
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Bottom inline composer */}
       <div className="p-3 border-t border-border bg-surface shrink-0">
         <div className="flex items-center gap-2 mb-2">
@@ -525,7 +656,7 @@ export function ThreadPane({
             onChange={(e) => setBackend(e.target.value)}
             className="bg-bg border border-border rounded px-2 py-1 text-xs text-text"
           >
-            <option value="opencode">opencode</option>
+            <option value="opencode">opencode (deepseek free)</option>
             <option value="claude">claude</option>
             <option value="codex">codex</option>
             <option value="gemini">gemini</option>

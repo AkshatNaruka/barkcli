@@ -4,6 +4,7 @@ public enum InspectorTab: String, CaseIterable, Identifiable {
     case plan = "Plan"
     case diff = "Diff"
     case gate = "Gate"
+    case eval = "Eval"
     case context = "Context"
 
     public var id: String { rawValue }
@@ -16,6 +17,8 @@ public struct ThreadInspectorView: View {
     @State private var selectedTab: InspectorTab = .plan
     @State private var diffResult: TaskDiffResult?
     @State private var isLoadingDiff: Bool = false
+    @State private var evalResult: SessionEvalResult?
+    @State private var isLoadingEval: Bool = false
 
     public init(store: ThreadStore, onClose: @escaping () -> Void) {
         self.store = store
@@ -37,10 +40,12 @@ public struct ThreadInspectorView: View {
         )
         .task(id: store.selectedThreadId) {
             await loadDiffIfActive()
+            await loadEvalIfActive()
         }
         .onChange(of: selectedTab) { _, _ in
             Task {
                 await loadDiffIfActive()
+                await loadEvalIfActive()
             }
         }
     }
@@ -95,6 +100,8 @@ public struct ThreadInspectorView: View {
                     diffView
                 case .gate:
                     gateView
+                case .eval:
+                    evalView
                 case .context:
                     contextView
                 }
@@ -230,6 +237,81 @@ public struct ThreadInspectorView: View {
         }
     }
 
+    private var evalView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("SESSION EVALUATION")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.barkcliTextMuted)
+                .tracking(0.6)
+
+            if isLoadingEval {
+                ProgressView()
+                    .scaleEffect(0.8)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(20)
+            } else if let ev = evalResult {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("Quality Score")
+                            .font(.system(size: 11))
+                            .foregroundColor(.barkcliTextSecondary)
+                        Spacer()
+                        Text("\(Int(ev.qualityScore * 100))%")
+                            .font(.system(size: 15, weight: .bold, design: .monospaced))
+                            .foregroundColor(.barkcliTextPrimary)
+                    }
+
+                    HStack {
+                        Text("Test Gate Status")
+                            .font(.system(size: 11))
+                            .foregroundColor(.barkcliTextSecondary)
+                        Spacer()
+                        Text(ev.testGatePassed ? "Passed" : "Failed")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(ev.testGatePassed ? .barkcliStatusActive : .barkcliTextMuted)
+                    }
+
+                    HStack {
+                        Text("Worker Backend")
+                            .font(.system(size: 11))
+                            .foregroundColor(.barkcliTextSecondary)
+                        Spacer()
+                        Text(ev.backend)
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundColor(.barkcliTextPrimary)
+                    }
+
+                    HStack {
+                        Text("Execution Duration")
+                            .font(.system(size: 11))
+                            .foregroundColor(.barkcliTextSecondary)
+                        Spacer()
+                        Text("\(ev.durationMs / 1000)s")
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundColor(.barkcliTextPrimary)
+                    }
+
+                    HStack {
+                        Text("Files Modified")
+                            .font(.system(size: 11))
+                            .foregroundColor(.barkcliTextSecondary)
+                        Spacer()
+                        Text("\(ev.filesChangedCount)")
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundColor(.barkcliTextPrimary)
+                    }
+                }
+                .padding(12)
+                .background(Color.barkcliCardSubtle)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            } else {
+                Text("No evaluation metrics recorded yet for this session.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.barkcliTextMuted)
+            }
+        }
+    }
+
     private var contextView: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("LIVING PROJECT CONTEXT")
@@ -263,5 +345,12 @@ public struct ThreadInspectorView: View {
         isLoadingDiff = true
         diffResult = await store.fetchDiff(taskId: id)
         isLoadingDiff = false
+    }
+
+    private func loadEvalIfActive() async {
+        guard selectedTab == .eval, let id = store.selectedThreadId else { return }
+        isLoadingEval = true
+        evalResult = await store.fetchSessionEval(sessionId: id)
+        isLoadingEval = false
     }
 }

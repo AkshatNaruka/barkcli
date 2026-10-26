@@ -1393,3 +1393,27 @@ export async function fetchTaskDiff(taskId: string): Promise<TaskDiff | null> {
 export function streamThreadUrl(id: string): string {
   return withToken(`/api/threads/${encodeURIComponent(id)}/stream`);
 }
+
+export async function stopSession(sessionId: string): Promise<any | null> {
+  return postJson(`/api/sessions/${encodeURIComponent(sessionId)}/stop`, {});
+}
+
+export async function steerSession(sessionId: string, guidance: string): Promise<any | null> {
+  return postJson(`/api/sessions/${encodeURIComponent(sessionId)}/steer`, { guidance });
+}
+
+export async function forkSession(sessionId: string): Promise<any | null> {
+  return postJson(`/api/sessions/${encodeURIComponent(sessionId)}/fork`, {});
+}
+
+export async function raceTask(taskId: string, backendA?: string, backendB?: string): Promise<any | null> {
+  return postJson(`/api/tasks/${encodeURIComponent(taskId)}/race`, {
+    backend_a: backendA,
+    backend_b: backendB,
+  });
+}
+
+export async function evalSession(sessionId: string): Promise<any | null> {
+  return postJson(`/api/sessions/${encodeURIComponent(sessionId)}/eval`, {});
+}
+

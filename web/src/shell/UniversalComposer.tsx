@@ -134,7 +134,7 @@ export function UniversalComposer({
                 onChange={(e) => setBackend(e.target.value)}
                 className="w-full bg-surface border border-border rounded-md px-2 py-1.5 text-xs text-text"
               >
-                <option value="opencode">opencode</option>
+                <option value="opencode">opencode (deepseek free)</option>
                 <option value="claude">claude</option>
                 <option value="codex">codex</option>
                 <option value="gemini">gemini</option>

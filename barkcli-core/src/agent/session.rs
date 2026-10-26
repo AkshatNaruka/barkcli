@@ -23,6 +23,10 @@ impl SessionBackend {
         }
     }
 
+    pub fn as_str(&self) -> &str {
+        self.display_name()
+    }
+
     pub fn parse(s: &str) -> Option<Self> {
         match s {
             "opencode" => Some(SessionBackend::Opencode),

@@ -141,3 +141,45 @@ public struct TaskDiffResult: Codable, Sendable {
         self.hasDiff = hasDiff
     }
 }
+
+public struct SessionEvalResult: Codable, Sendable, Hashable {
+    public var sessionId: String
+    public var taskId: String?
+    public var backend: String
+    public var status: String
+    public var durationMs: Int64
+    public var testGatePassed: Bool
+    public var filesChangedCount: Int
+    public var qualityScore: Double
+
+    enum CodingKeys: String, CodingKey {
+        case sessionId = "session_id"
+        case taskId = "task_id"
+        case backend
+        case status
+        case durationMs = "duration_ms"
+        case testGatePassed = "test_gate_passed"
+        case filesChangedCount = "files_changed_count"
+        case qualityScore = "quality_score"
+    }
+
+    public init(
+        sessionId: String,
+        taskId: String? = nil,
+        backend: String = "opencode",
+        status: String = "done",
+        durationMs: Int64 = 0,
+        testGatePassed: Bool = true,
+        filesChangedCount: Int = 0,
+        qualityScore: Double = 0.95
+    ) {
+        self.sessionId = sessionId
+        self.taskId = taskId
+        self.backend = backend
+        self.status = status
+        self.durationMs = durationMs
+        self.testGatePassed = testGatePassed
+        self.filesChangedCount = filesChangedCount
+        self.qualityScore = qualityScore
+    }
+}

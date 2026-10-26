@@ -218,6 +218,31 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
         )
     }
 
+    public func stopSession(id: String) async throws {}
+
+    public func steerSession(id: String, guidance: String) async throws {}
+
+    public func forkSession(id: String) async throws -> String {
+        "\(id)_fork"
+    }
+
+    public func raceTask(id: String, backendA: String? = "opencode", backendB: String? = "claude") async throws -> [String] {
+        ["\(id)_race_a", "\(id)_race_b"]
+    }
+
+    public func evalSession(id: String) async throws -> SessionEvalResult {
+        SessionEvalResult(
+            sessionId: id,
+            taskId: "task_mock",
+            backend: "opencode",
+            status: "done",
+            durationMs: 8400,
+            testGatePassed: true,
+            filesChangedCount: 3,
+            qualityScore: 0.96
+        )
+    }
+
     // MARK: - Orchestration & Fleet
 
     public func listAgents() async throws -> [AgentItem] {

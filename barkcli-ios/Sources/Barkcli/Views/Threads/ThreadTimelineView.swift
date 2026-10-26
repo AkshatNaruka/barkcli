@@ -128,7 +128,9 @@ public struct ThreadTimelineView: View {
             gateCard(event: event)
         case .merge:
             mergeCard(event: event)
-        case .taskSpawned, .agentOutput, .steer, .custom:
+        case .taskSpawned:
+            taskSpawnedCard(event: event)
+        case .agentOutput, .steer, .custom:
             genericEventRow(event: event)
         }
     }
@@ -291,6 +293,74 @@ public struct ThreadTimelineView: View {
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
+    private func taskSpawnedCard(event: ThreadEventItem) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "cpu")
+                    .foregroundColor(.barkcliStatusActive)
+                Text(event.text)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.barkcliTextPrimary)
+                Spacer()
+            }
+
+            HStack(spacing: 8) {
+                Button {
+                    Task {
+                        await store.stopSession(sessionId: event.cardId)
+                    }
+                } label: {
+                    Text("Stop")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.barkcliTextMuted)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.barkcliCardSubtle)
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    Task {
+                        _ = await store.forkSession(sessionId: event.cardId)
+                    }
+                } label: {
+                    Text("Fork")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.barkcliTextSecondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.barkcliCardSubtle)
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    Task {
+                        _ = await store.raceTask(taskId: event.cardId)
+                    }
+                } label: {
+                    Text("Race")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.barkcliTextSecondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.barkcliCardSubtle)
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.barkcliCardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(Color.barkcliBorder, lineWidth: 1)
+        )
+    }
+
     private func genericEventRow(event: ThreadEventItem) -> some View {
         HStack(spacing: 8) {
             Circle()
@@ -313,7 +383,7 @@ public struct ThreadTimelineView: View {
     private func composerBar(cardId: String) -> some View {
         HStack(spacing: 8) {
             Menu {
-                Button("opencode") { selectedBackend = "opencode" }
+                Button("opencode (deepseek free)") { selectedBackend = "opencode" }
                 Button("claude") { selectedBackend = "claude" }
                 Button("codex") { selectedBackend = "codex" }
             } label: {

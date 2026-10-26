@@ -59,6 +59,12 @@ impl Backend for OpencodeBackend {
     fn command(&self, prompt: &str) -> Command {
         let mut cmd = Command::new("opencode");
         cmd.arg("--prompt").arg(prompt);
+        let model = std::env::var("BARKCLI_OPENCODE_MODEL")
+            .or_else(|_| std::env::var("OPENCODE_MODEL"))
+            .unwrap_or_else(|_| "opencode/deepseek-v4.1-flash-free".to_string());
+        if !model.is_empty() {
+            cmd.arg("--model").arg(model);
+        }
         cmd
     }
 }

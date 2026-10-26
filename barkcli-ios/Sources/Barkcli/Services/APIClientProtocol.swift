@@ -27,6 +27,13 @@ public protocol APIClientProtocol: Sendable {
     func postThreadMessage(id: String, text: String, author: String?, board: String?, backend: String?) async throws -> ThreadEventItem
     func getTaskDiff(taskId: String) async throws -> TaskDiffResult
 
+    // MARK: Agent Session Controls
+    func stopSession(id: String) async throws
+    func steerSession(id: String, guidance: String) async throws
+    func forkSession(id: String) async throws -> String
+    func raceTask(id: String, backendA: String?, backendB: String?) async throws -> [String]
+    func evalSession(id: String) async throws -> SessionEvalResult
+
     // MARK: Orchestration and Fleet
     func listAgents() async throws -> [AgentItem]
     func listTasks() async throws -> [TaskRequest]

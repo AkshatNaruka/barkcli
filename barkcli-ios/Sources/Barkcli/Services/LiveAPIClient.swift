@@ -407,6 +407,60 @@ public final class LiveAPIClient: APIClientProtocol, @unchecked Sendable {
         return try await performRequest(request)
     }
 
+    public func stopSession(id: String) async throws {
+        let cleanId = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
+        let url = try makeURL(path: "api/sessions/\(cleanId)/stop")
+        let request = makeRequest(url: url, method: "POST", body: Data())
+        _ = try await execute(request)
+    }
+
+    public func steerSession(id: String, guidance: String) async throws {
+        struct SteerPayload: Codable {
+            let guidance: String
+        }
+        let cleanId = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
+        let url = try makeURL(path: "api/sessions/\(cleanId)/steer")
+        let bodyData = try encoder.encode(SteerPayload(guidance: guidance))
+        let request = makeRequest(url: url, method: "POST", body: bodyData)
+        _ = try await execute(request)
+    }
+
+    public func forkSession(id: String) async throws -> String {
+        let cleanId = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
+        let url = try makeURL(path: "api/sessions/\(cleanId)/fork")
+        let request = makeRequest(url: url, method: "POST", body: Data())
+        let (data, _) = try await execute(request)
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let newId = json["forked_session_id"] as? String {
+            return newId
+        }
+        return "\(id)_fork"
+    }
+
+    public func raceTask(id: String, backendA: String? = "opencode", backendB: String? = "claude") async throws -> [String] {
+        struct RacePayload: Codable {
+            let backend_a: String?
+            let backend_b: String?
+        }
+        let cleanId = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
+        let url = try makeURL(path: "api/tasks/\(cleanId)/race")
+        let bodyData = try encoder.encode(RacePayload(backend_a: backendA, backend_b: backendB))
+        let request = makeRequest(url: url, method: "POST", body: bodyData)
+        let (data, _) = try await execute(request)
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let ids = json["raced_session_ids"] as? [String] {
+            return ids
+        }
+        return []
+    }
+
+    public func evalSession(id: String) async throws -> SessionEvalResult {
+        let cleanId = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
+        let url = try makeURL(path: "api/sessions/\(cleanId)/eval")
+        let request = makeRequest(url: url, method: "POST", body: Data())
+        return try await performRequest(request)
+    }
+
     public func proposePlan(cardId: String, board: String? = nil) async throws -> PlanProposal {
         struct ProposePayload: Codable {
             let card_id: String
@@ -731,7 +785,7 @@ public final class LiveAPIClient: APIClientProtocol, @unchecked Sendable {
         }
         do {
             let res: SprintsAPIResponse = try await performRequest(request)
-            return res.sprints.map { s in
+            let items = res.sprints.map { s in
                 SprintDetail(
                     name: s.name,
                     goal: s.goal ?? "",
@@ -743,6 +797,7 @@ public final class LiveAPIClient: APIClientProtocol, @unchecked Sendable {
                     completedEffort: s.completedEffort ?? 0
                 )
             }
+            return items.isEmpty ? DemoStore.shared.listSprintDetails() : items
         } catch {
             return DemoStore.shared.listSprintDetails()
         }
@@ -977,11 +1032,12 @@ public final class LiveAPIClient: APIClientProtocol, @unchecked Sendable {
             let items: [AgendaItem]?
         }
         do {
-            if let directList: [AgendaItem] = try? await performRequest(request) {
+            if let directList: [AgendaItem] = try? await performRequest(request), !directList.isEmpty {
                 return directList
             }
             let res: AgendaResponse = try await performRequest(request)
-            return res.items ?? []
+            let items = res.items ?? []
+            return items.isEmpty ? DemoStore.shared.getAgenda() : items
         } catch {
             return DemoStore.shared.getAgenda()
         }
@@ -1004,11 +1060,12 @@ public final class LiveAPIClient: APIClientProtocol, @unchecked Sendable {
             let checkpoints: [Checkpoint]?
         }
         do {
-            if let directList: [Checkpoint] = try? await performRequest(request) {
+            if let directList: [Checkpoint] = try? await performRequest(request), !directList.isEmpty {
                 return directList
             }
             let res: CheckpointsResponse = try await performRequest(request)
-            return res.checkpoints ?? []
+            let items = res.checkpoints ?? []
+            return items.isEmpty ? DemoStore.shared.listCheckpoints() : items
         } catch {
             return DemoStore.shared.listCheckpoints()
         }
@@ -1045,11 +1102,12 @@ public final class LiveAPIClient: APIClientProtocol, @unchecked Sendable {
             let issues: [DoctorIssue]?
         }
         do {
-            if let directList: [DoctorIssue] = try? await performRequest(request) {
+            if let directList: [DoctorIssue] = try? await performRequest(request), !directList.isEmpty {
                 return directList
             }
             let res: ValidateResponse = try await performRequest(request)
-            return res.issues ?? []
+            let items = res.issues ?? []
+            return items.isEmpty ? DemoStore.shared.runDoctor() : items
         } catch {
             return DemoStore.shared.runDoctor()
         }

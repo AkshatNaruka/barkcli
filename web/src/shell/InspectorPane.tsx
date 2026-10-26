@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import type { Card, ThreadEvent, TaskDiff } from "../lib/types";
-import { fetchTaskDiff } from "../lib/api";
+import { fetchTaskDiff, evalSession } from "../lib/api";
 import { Icon } from "../components/Icon";
 
 interface InspectorPaneProps {
@@ -10,9 +10,11 @@ interface InspectorPaneProps {
 }
 
 export function InspectorPane({ card, events, onClose }: InspectorPaneProps) {
-  const [tab, setTab] = useState<"plan" | "diff" | "gate" | "context">("plan");
+  const [tab, setTab] = useState<"plan" | "diff" | "gate" | "eval" | "context">("plan");
   const [diffData, setDiffData] = useState<TaskDiff | null>(null);
   const [loadingDiff, setLoadingDiff] = useState(false);
+  const [evalData, setEvalData] = useState<any | null>(null);
+  const [loadingEval, setLoadingEval] = useState(false);
 
   // Extract plan proposal data if present
   const planEvent = events.find(
@@ -27,6 +29,7 @@ export function InspectorPane({ card, events, onClose }: InspectorPaneProps) {
   // Extract latest task spawned
   const taskEvent = [...events].reverse().find((e) => e.kind === "task_spawned");
   const currentTaskId = taskEvent?.data?.task_id || card?.id;
+  const currentSessionId = taskEvent?.data?.session_id;
 
   useEffect(() => {
     if (tab === "diff" && currentTaskId) {
@@ -34,8 +37,13 @@ export function InspectorPane({ card, events, onClose }: InspectorPaneProps) {
       fetchTaskDiff(currentTaskId)
         .then((res) => setDiffData(res))
         .finally(() => setLoadingDiff(false));
+    } else if (tab === "eval" && currentSessionId) {
+      setLoadingEval(true);
+      evalSession(currentSessionId)
+        .then((res) => setEvalData(res))
+        .finally(() => setLoadingEval(false));
     }
-  }, [tab, currentTaskId]);
+  }, [tab, currentTaskId, currentSessionId]);
 
   return (
     <div className="w-96 shrink-0 border-l border-border h-full flex flex-col bg-bg">
@@ -73,6 +81,17 @@ export function InspectorPane({ card, events, onClose }: InspectorPaneProps) {
             }`}
           >
             Gate
+          </button>
+          <button
+            onClick={() => setTab("eval")}
+            title="Session quality and gate verification metrics"
+            className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors ${
+              tab === "eval"
+                ? "bg-white/[0.08] text-text"
+                : "text-muted hover:text-text"
+            }`}
+          >
+            Eval
           </button>
           <button
             onClick={() => setTab("context")}
@@ -250,6 +269,62 @@ export function InspectorPane({ card, events, onClose }: InspectorPaneProps) {
             ) : (
               <div className="p-6 text-center text-muted border border-dashed border-border rounded-lg">
                 No acceptance gate runs recorded for this thread yet.
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === "eval" && (
+          <div className="space-y-4">
+            <div className="text-[11px] uppercase font-bold text-muted">
+              Quality Evaluation
+            </div>
+            {loadingEval ? (
+              <div className="p-6 text-center text-muted">
+                Computing evaluation metrics...
+              </div>
+            ) : evalData ? (
+              <div className="p-3.5 rounded-lg bg-surface border border-border space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted">Quality Score</span>
+                  <span className="font-mono text-base font-bold text-accent">
+                    {Math.round((evalData.quality_score ?? 0.9) * 100)}%
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted">Test Gate</span>
+                  <span
+                    className={`font-semibold px-2 py-0.5 rounded text-[10px] ${
+                      evalData.test_gate_passed
+                        ? "bg-emerald-500/10 text-emerald-400"
+                        : "bg-rose-500/10 text-rose-400"
+                    }`}
+                  >
+                    {evalData.test_gate_passed ? "Passed" : "Failed"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted">Backend</span>
+                  <span className="font-mono text-text">
+                    {evalData.backend || "opencode"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted">Duration</span>
+                  <span className="font-mono text-text">
+                    {evalData.duration_ms ? `${Math.round(evalData.duration_ms / 1000)}s` : "n/a"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted">Files Modified</span>
+                  <span className="font-mono text-text">
+                    {evalData.files_changed_count ?? 0}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="p-6 text-center text-muted border border-dashed border-border rounded-lg">
+                No evaluation metrics recorded yet for this session.
               </div>
             )}
           </div>

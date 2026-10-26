@@ -12,6 +12,7 @@ public final class ThreadStore: @unchecked Sendable {
     public var selectedThreadId: String?
     public var activeThreadDetail: ThreadDetailItem?
     public var taskDiffs: [String: TaskDiffResult]
+    public var sessionEvals: [String: SessionEvalResult]
     public var isLoading: Bool
     public var isSending: Bool
     public var lastError: String?
@@ -26,6 +27,7 @@ public final class ThreadStore: @unchecked Sendable {
         self.selectedThreadId = nil
         self.activeThreadDetail = nil
         self.taskDiffs = [:]
+        self.sessionEvals = [:]
         self.isLoading = false
         self.isSending = false
         self.lastError = nil
@@ -172,6 +174,53 @@ public final class ThreadStore: @unchecked Sendable {
         do {
             let res = try await client.getTaskDiff(taskId: taskId)
             taskDiffs[taskId] = res
+            return res
+        } catch {
+            return nil
+        }
+    }
+
+    public func stopSession(sessionId: String) async {
+        do {
+            try await client.stopSession(id: sessionId)
+        } catch {
+            self.lastError = error.localizedDescription
+        }
+    }
+
+    public func steerSession(sessionId: String, guidance: String) async {
+        do {
+            try await client.steerSession(id: sessionId, guidance: guidance)
+        } catch {
+            self.lastError = error.localizedDescription
+        }
+    }
+
+    public func forkSession(sessionId: String) async -> String? {
+        do {
+            return try await client.forkSession(id: sessionId)
+        } catch {
+            self.lastError = error.localizedDescription
+            return nil
+        }
+    }
+
+    public func raceTask(taskId: String, backendA: String = "opencode", backendB: String = "claude") async -> [String] {
+        do {
+            return try await client.raceTask(id: taskId, backendA: backendA, backendB: backendB)
+        } catch {
+            self.lastError = error.localizedDescription
+            return []
+        }
+    }
+
+    public func fetchSessionEval(sessionId: String) async -> SessionEvalResult? {
+        if let cached = sessionEvals[sessionId] {
+            return cached
+        }
+        do {
+            let res = try await client.evalSession(id: sessionId)
+            sessionEvals[sessionId] = res
             return res
         } catch {
             return nil

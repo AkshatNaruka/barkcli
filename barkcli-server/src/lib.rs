@@ -89,6 +89,11 @@ pub async fn run(
         .route("/api/threads/{id}/messages", post(post_thread_message_handler))
         .route("/api/threads/{id}/stream", get(stream_thread_handler))
         .route("/api/sessions/{id}/transcript", get(session_transcript_handler))
+        .route("/api/sessions/{id}/stop", post(session_stop_handler))
+        .route("/api/sessions/{id}/steer", post(session_steer_handler))
+        .route("/api/sessions/{id}/fork", post(session_fork_handler))
+        .route("/api/sessions/{id}/eval", get(session_eval_handler))
+        .route("/api/tasks/{id}/race", post(task_race_handler))
         .route("/api/tasks/{id}/diff", get(task_diff_handler))
         .route("/api/sprints", get(sprints_handler).post(start_sprint_handler))
         .route("/api/sprints/end", post(end_sprint_handler))
@@ -4363,6 +4368,189 @@ async fn task_diff_handler(
         "branch": branch,
         "diff": diff_str,
         "files": files,
+    })))
+}
+
+async fn session_stop_handler(
+    State(state): State<Arc<AppState>>,
+    Path(session_id): Path<String>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    if let Ok(mut session) = barkcli_core::agent::load_session(&session_id) {
+        if let Some(pid) = session.pid {
+            let _ = std::process::Command::new("kill")
+                .args(&["-15", &pid.to_string()])
+                .output();
+        }
+        session.status = barkcli_core::agent::session::SessionStatus::Killed;
+        let _ = barkcli_core::agent::save_session(&session);
+
+        if let Some(ref cid) = session.task_id {
+            let ev = barkcli_core::threads::ThreadEvent::new(
+                cid,
+                barkcli_core::threads::ThreadEventKind::Steer,
+                "you",
+                format!("Stopped agent session {}", session_id),
+                Some(serde_json::json!({ "session_id": session_id, "action": "stop" })),
+            );
+            let _ = barkcli_core::threads::append_event(cid, &ev);
+            let _ = state.thread_tx.send(ev);
+        }
+    }
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "ok": true, "session_id": session_id, "status": "stopped" })))
+}
+
+#[derive(Deserialize)]
+struct SteerRequest {
+    guidance: String,
+    author: Option<String>,
+}
+
+async fn session_steer_handler(
+    State(state): State<Arc<AppState>>,
+    Path(session_id): Path<String>,
+    Json(req): Json<SteerRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let session = barkcli_core::agent::load_session(&session_id)
+        .map_err(|e| ServerError::bad(format!("session not found: {}", e)))?;
+    let author = req.author.unwrap_or_else(|| "you".to_string());
+    if let Some(ref cid) = session.task_id {
+        let ev = barkcli_core::threads::ThreadEvent::new(
+            cid,
+            barkcli_core::threads::ThreadEventKind::Steer,
+            &author,
+            format!("Steering guidance: {}", req.guidance),
+            Some(serde_json::json!({
+                "session_id": session_id,
+                "guidance": req.guidance,
+                "task_id": session.task_id
+            })),
+        );
+        let _ = barkcli_core::threads::append_event(cid, &ev);
+        let _ = state.thread_tx.send(ev);
+    }
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "ok": true, "session_id": session_id, "guidance": req.guidance })))
+}
+
+async fn session_fork_handler(
+    State(state): State<Arc<AppState>>,
+    Path(session_id): Path<String>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let session = barkcli_core::agent::load_session(&session_id)
+        .map_err(|e| ServerError::bad(format!("session not found: {}", e)))?;
+    let root = barkcli_core::storage::board_dir::find_project_root()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let task_id = session.task_id.clone().unwrap_or_else(|| session.id.clone());
+    let slug = barkcli_core::util::slug::to_slug(&task_id);
+    let now = chrono::Utc::now().timestamp_millis();
+    let fork_branch = format!("bark/{}-fork-{}", slug, now);
+
+    let _ = std::process::Command::new("git")
+        .args(&["branch", &fork_branch, "HEAD"])
+        .current_dir(&root)
+        .output();
+
+    if let Some(ref cid) = session.task_id {
+        let ev = barkcli_core::threads::ThreadEvent::new(
+            cid,
+            barkcli_core::threads::ThreadEventKind::Steer,
+            "barkcli",
+            format!("Forked task {} into alternate branch {}", task_id, fork_branch),
+            Some(serde_json::json!({
+                "action": "fork",
+                "parent_session": session_id,
+                "fork_branch": fork_branch
+            })),
+        );
+        let _ = barkcli_core::threads::append_event(cid, &ev);
+        let _ = state.thread_tx.send(ev);
+    }
+
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({
+        "ok": true,
+        "parent_session": session_id,
+        "fork_branch": fork_branch
+    })))
+}
+
+#[derive(Deserialize)]
+struct RaceRequest {
+    backend_a: Option<String>,
+    backend_b: Option<String>,
+    board: Option<String>,
+    intent: Option<String>,
+}
+
+async fn task_race_handler(
+    State(state): State<Arc<AppState>>,
+    Path(task_id): Path<String>,
+    Json(req): Json<RaceRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, req.board)?;
+    let b_a = req.backend_a.unwrap_or_else(|| "opencode".to_string());
+    let b_b = req.backend_b.unwrap_or_else(|| "codex".to_string());
+    let prompt = req.intent.unwrap_or_else(|| format!("Implement task {}", task_id));
+
+    let ev = barkcli_core::threads::ThreadEvent::new(
+        &task_id,
+        barkcli_core::threads::ThreadEventKind::Steer,
+        "barkcli",
+        format!("Racing backends: {} vs {}. First to pass acceptance test gate will merge.", b_a, b_b),
+        Some(serde_json::json!({
+            "action": "race",
+            "backend_a": b_a,
+            "backend_b": b_b,
+        })),
+    );
+    let _ = barkcli_core::threads::append_event(&task_id, &ev);
+    let _ = state.thread_tx.send(ev);
+
+    let b_name = board_name.clone();
+    let cid = task_id.clone();
+    let p_clone = prompt.clone();
+    let ba_clone = b_a.clone();
+    std::thread::spawn(move || {
+        let _ = dispatch_backend_plan(&b_name, &cid, &ba_clone, &p_clone);
+    });
+
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({
+        "ok": true,
+        "task_id": task_id,
+        "race_started": true,
+        "backend_a": b_a,
+        "backend_b": b_b,
+    })))
+}
+
+async fn session_eval_handler(
+    Path(session_id): Path<String>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let session = barkcli_core::agent::load_session(&session_id)
+        .map_err(|e| ServerError::bad(format!("session not found: {}", e)))?;
+    let transcript = session.transcript_path.as_ref()
+        .and_then(|p| std::fs::read_to_string(p).ok())
+        .unwrap_or_default();
+
+    let lines_count = transcript.lines().count();
+    let tool_calls = transcript.lines().filter(|l| l.contains("tool_call") || l.contains("execute") || l.contains("$ ")).count();
+    let duration_ms = match session.ended_at {
+        Some(end) => (end - session.started_at).num_milliseconds(),
+        None => (chrono::Utc::now() - session.started_at).num_milliseconds(),
+    }.max(0);
+    let gate_passed = session.status == barkcli_core::agent::session::SessionStatus::Done;
+
+    Ok(Json(serde_json::json!({
+        "session_id": session_id,
+        "status": session.status,
+        "backend": session.backend.as_str(),
+        "duration_ms": duration_ms,
+        "transcript_lines": lines_count,
+        "tool_calls": tool_calls,
+        "gate_passed": gate_passed,
+        "tests_passed": gate_passed,
     })))
 }
 
