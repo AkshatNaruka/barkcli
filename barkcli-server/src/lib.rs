@@ -51,6 +51,8 @@ struct AppState {
     tx: broadcast::Sender<String>,
     thread_tx: broadcast::Sender<barkcli_core::threads::ThreadEvent>,
     code_cache: Arc<Mutex<Option<CodeCache>>>,
+    /// Monotonic process start time; feeds `uptime_seconds` on `/api/ping`.
+    started_at: Instant,
 }
 
 struct CodeCache {
@@ -79,6 +81,7 @@ pub async fn run(
         tx: tx.clone(),
         thread_tx: thread_tx.clone(),
         code_cache: Arc::new(Mutex::new(None)),
+        started_at: Instant::now(),
     });
 
     let app = Router::new()
@@ -110,6 +113,8 @@ pub async fn run(
         .route("/api/context/file/digest", post(context_file_digest_handler))
         .route("/api/code", get(code_handler))
         .route("/api/config", get(config_handler))
+        // Liveness probe (public — see `auth_layer`); no disk access.
+        .route("/api/ping", get(ping_handler))
         // Management layer endpoints
         .route("/api/tasks", get(list_tasks_handler).post(create_task_handler))
         .route(
@@ -353,7 +358,11 @@ async fn auth_layer(
     // Static assets (index.html, js, css) are public — the app carries the
     // token on its own /api requests. Protect only data + websocket routes.
     let path = req.uri().path();
-    let is_protected = path == "/ws" || path.starts_with("/api/");
+    // `/api/ping` is the one public API route: uptime monitors cannot carry a
+    // token, and the payload (time, version, uptime) holds no project data.
+    // Exact literal, not a prefix, so it cannot widen to `/api/ping/...`.
+    let is_protected =
+        path == "/ws" || (path.starts_with("/api/") && path != "/api/ping");
     if !is_protected {
         return Ok(next.run(req).await);
     }
@@ -1060,6 +1069,32 @@ async fn config_handler() -> Result<Json<ConfigResponse>, ServerError> {
     Ok(Json(ConfigResponse {
         ai: ConfigAi { base_url: ai.base_url, model: ai.model },
     }))
+}
+
+#[derive(serde::Serialize)]
+struct PingResponse {
+    status: &'static str,
+    timestamp: String,
+    version: &'static str,
+    uptime_seconds: u64,
+}
+
+/// Pure payload builder — the clock is injected so tests need no sleeping.
+fn ping_payload(started_at: Instant, now: DateTime<Utc>) -> PingResponse {
+    PingResponse {
+        status: "ok",
+        timestamp: now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+        version: env!("CARGO_PKG_VERSION"),
+        uptime_seconds: started_at.elapsed().as_secs(),
+    }
+}
+
+/// Liveness probe: infallible, dependency-free (no board or config reads).
+async fn ping_handler(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    (
+        [(header::CACHE_CONTROL, "no-store")],
+        Json(ping_payload(state.started_at, Utc::now())),
+    )
 }
 
 fn paths_match(changed: &str, mapped: &str) -> bool {
@@ -4557,6 +4592,85 @@ async fn session_eval_handler(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::body::to_bytes;
+    use tower::ServiceExt;
+
+    fn test_state(token: Option<&str>) -> Arc<AppState> {
+        let (tx, _) = broadcast::channel(8);
+        let (thread_tx, _) = broadcast::channel(8);
+        Arc::new(AppState {
+            board_name: None,
+            host: "127.0.0.1".into(),
+            token: token.map(str::to_string),
+            tx,
+            thread_tx,
+            code_cache: Arc::new(Mutex::new(None)),
+            started_at: Instant::now(),
+        })
+    }
+
+    /// The real auth middleware around the ping route plus a protected control
+    /// route, so the public-route exemption is exercised, not just the handler.
+    fn test_router(state: Arc<AppState>) -> Router {
+        Router::new()
+            .route("/api/ping", get(ping_handler))
+            .route("/api/config", get(|| async { "config" }))
+            .layer(middleware::from_fn_with_state(state.clone(), auth_layer))
+            .with_state(state)
+    }
+
+    fn get_request(uri: &str) -> Request {
+        Request::builder()
+            .uri(uri)
+            .body(axum::body::Body::empty())
+            .unwrap()
+    }
+
+    #[test]
+    fn ping_payload_matches_contract() {
+        let now = DateTime::parse_from_rfc3339("2026-10-26T12:41:07.412900Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let payload = ping_payload(Instant::now(), now);
+
+        assert_eq!(payload.status, "ok");
+        assert_eq!(payload.version, env!("CARGO_PKG_VERSION"));
+        // Exactly millisecond precision, UTC, `Z` suffix.
+        assert_eq!(payload.timestamp, "2026-10-26T12:41:07.412Z");
+        assert!(payload.timestamp.ends_with('Z'));
+
+        let parsed = DateTime::parse_from_rfc3339(&payload.timestamp).unwrap();
+        assert_eq!(parsed.timestamp_millis(), now.timestamp_millis());
+        assert_eq!(payload.uptime_seconds, 0);
+    }
+
+    #[tokio::test]
+    async fn ping_route_is_public_and_uncacheable() {
+        let app = test_router(test_state(Some("secret")));
+        let res = app.oneshot(get_request("/api/ping")).await.unwrap();
+
+        assert_eq!(res.status(), StatusCode::OK);
+        assert_eq!(
+            res.headers().get(header::CACHE_CONTROL).unwrap(),
+            "no-store"
+        );
+
+        let body = to_bytes(res.into_body(), usize::MAX).await.unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(value["status"], "ok");
+        assert_eq!(value["version"], env!("CARGO_PKG_VERSION"));
+        assert!(value["uptime_seconds"].is_u64());
+        let timestamp = value["timestamp"].as_str().unwrap();
+        assert!(DateTime::parse_from_rfc3339(timestamp).is_ok());
+        assert!(timestamp.ends_with('Z'));
+    }
+
+    #[tokio::test]
+    async fn ping_exemption_does_not_leak_to_other_api_routes() {
+        let app = test_router(test_state(Some("secret")));
+        let res = app.oneshot(get_request("/api/config")).await.unwrap();
+        assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+    }
 
     #[test]
     fn sanitize_accepts_safe_names() {

@@ -533,6 +533,7 @@ POST /api/doctor
 | `POST` | `/api/context/clear?name=` | Clear context |
 | `GET` | `/api/code?name=&q=&top=` | Symbol search |
 | `GET` | `/api/config` | AI settings from config.json |
+| `GET` | `/api/ping` | Liveness probe: `status`, `timestamp`, `version`, `uptime_seconds` (public) |
 | `WS` | `/ws` | WebSocket for live reload |
 
 ## WebSocket Events
@@ -548,7 +549,8 @@ The `version` field increments on each change. The frontend should re-fetch the 
 
 ## Authentication
 
-When `--token` is used, all `/api/*` and `/ws` endpoints require authentication:
+When `--token` is used, all `/api/*` and `/ws` endpoints require authentication
+(except `GET /api/ping`, which stays public so uptime monitors can probe it):
 
 **Option 1: Query parameter**
 ```

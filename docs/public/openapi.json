@@ -532,6 +532,44 @@
         }
       }
     },
+    "/api/ping": {
+      "get": {
+        "operationId": "ping",
+        "summary": "Ping",
+        "description": "Unauthenticated liveness probe. Returns the server clock, version, and uptime. Performs no disk or project reads.",
+        "tags": ["Health"],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Server is alive",
+            "headers": {
+              "Cache-Control": {
+                "schema": { "type": "string" },
+                "description": "Always `no-store`."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["status", "timestamp", "version", "uptime_seconds"],
+                  "properties": {
+                    "status": { "type": "string", "enum": ["ok"] },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "RFC 3339 UTC, millisecond precision."
+                    },
+                    "version": { "type": "string", "example": "0.4.0" },
+                    "uptime_seconds": { "type": "integer", "minimum": 0 }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/config": {
       "get": {
         "operationId": "getConfig",
