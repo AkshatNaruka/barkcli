@@ -38,7 +38,7 @@ Read this file FIRST when starting a session; drill into only what it points at.
 - 2026-10-24 opencode — "0 prompts" (13 file(s))
 - 2026-10-24 opencode — "0 prompts" (13 file(s))
 
-<!-- ctx:block id="verify" src="barkcli context digest" updated="2026-10-25T18:12Z" staleness="0.00" -->
+<!-- ctx:block id="verify" src="barkcli context digest" updated="2026-10-26T04:11Z" staleness="0.00" -->
 ## Verification status
-- Verified @ 25019c2 · all sections fresh (staleness < 0.4)
+- Verified @ 34938d0 · all sections fresh (staleness < 0.4)
 - Guide: staleness 0 fresh · ≥0.4 review the section · ≥0.8 likely wrong.

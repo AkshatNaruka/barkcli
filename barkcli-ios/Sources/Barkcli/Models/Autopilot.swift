@@ -625,10 +625,10 @@ public struct ReviewGateResult: Codable, Sendable, Identifiable, Hashable {
     public init(
         cardId: String = "",
         passed: Bool = true,
-        totalTests: Int = 18,
-        passedTests: Int = 18,
+        totalTests: Int = 0,
+        passedTests: Int = 0,
         failedTests: Int = 0,
-        durationSeconds: Double = 1.45,
+        durationSeconds: Double = 0.0,
         logs: [String] = [],
         timestamp: Date = Date()
     ) {

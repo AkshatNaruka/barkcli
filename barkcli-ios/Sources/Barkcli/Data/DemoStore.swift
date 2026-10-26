@@ -532,7 +532,7 @@ public final class DemoStore: @unchecked Sendable {
             children: [
                 PlanChildCard(
                     title: "\(title): slice 1 (core loop)",
-                    description: "Core logic and state handling in isolated worktree.\n\nFrom card: \(targetCard?.description ?? "—")",
+                    description: "Core logic and state handling in isolated worktree.\n\nFrom card: \(targetCard?.description ?? "")",
                     priority: targetCard?.priority ?? .high,
                     effort: slice1Effort,
                     labels: targetCard?.labels ?? ["autonomy"],
@@ -540,7 +540,7 @@ public final class DemoStore: @unchecked Sendable {
                 ),
                 PlanChildCard(
                     title: "\(title): slice 2 (polish + edge cases)",
-                    description: "Interface integration and acceptance verification.\n\nFrom card: \(targetCard?.description ?? "—")",
+                    description: "Interface integration and acceptance verification.\n\nFrom card: \(targetCard?.description ?? "")",
                     priority: .medium,
                     effort: slice2Effort,
                     labels: targetCard?.labels ?? ["ui"],
@@ -649,8 +649,7 @@ public final class DemoStore: @unchecked Sendable {
         logs.append("Executing barkcli project acceptance gate for card: \(cardId)")
 
         let proposal = pendingProposal?.cardId == cardId ? pendingProposal : nil
-        let board = getBoard(name: nil)
-        let targetCard = board.cards.first { $0.id == cardId }
+        let targetCard = boards.values.flatMap(\.cards).first { $0.id == cardId } ?? getBoard(name: nil).cards.first { $0.id == cardId }
 
         // 1. Slices & Acceptance Criteria Validation
         let criteriaList: [String]
@@ -695,43 +694,27 @@ public final class DemoStore: @unchecked Sendable {
             logs.append("  [FAIL] Invalid branch slug generation")
         }
 
-        // 3. Project Gate Verification Pipeline Assertions
-        struct GateAssertion {
-            let name: String
-            let passes: Bool
+        // 3. Card Properties & Lifecycle Validation
+        totalTests += 1
+        let title = targetCard?.title ?? proposal?.cardTitle ?? ""
+        if !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            passedTests += 1
+            logs.append("  [PASS] Card title registered: '\(title)'")
+        } else {
+            failedTests += 1
+            passed = false
+            logs.append("  [FAIL] Missing card title")
         }
 
-        let pipelineChecks: [GateAssertion] = [
-            GateAssertion(name: "Working directory cleanliness in isolated worktree", passes: true),
-            GateAssertion(name: "Package compilation check without warnings", passes: true),
-            GateAssertion(name: "Interface contract and model conformance", passes: true),
-            GateAssertion(name: "Strict concurrency data race safety", passes: true),
-            GateAssertion(name: "Unit test harness suite execution", passes: true),
-            GateAssertion(name: "State machine lifecycle invariants", passes: true),
-            GateAssertion(name: "Regression test suite assertions", passes: true),
-            GateAssertion(name: "Memory safety and actor isolation bounds", passes: true),
-            GateAssertion(name: "No unhandled error traps or panics", passes: true),
-            GateAssertion(name: "Secret redaction and credential hygiene", passes: true),
-            GateAssertion(name: "Code coverage meets threshold requirement", passes: true),
-            GateAssertion(name: "Git worktree file system boundary verification", passes: true),
-            GateAssertion(name: "Static analysis and linting compliance", passes: true),
-            GateAssertion(name: "Specification requirement traceability verification", passes: true),
-            GateAssertion(name: "Merge conflict risk analysis against main", passes: true),
-            GateAssertion(name: "Git commit provenance and signature validation", passes: true),
-            GateAssertion(name: "Deterministic build artifact receipt validation", passes: true),
-            GateAssertion(name: "Acceptance gate receipt generation for merge train", passes: true)
-        ]
-
-        for check in pipelineChecks {
-            totalTests += 1
-            if check.passes {
-                passedTests += 1
-                logs.append("  [PASS] \(check.name)")
-            } else {
-                failedTests += 1
-                passed = false
-                logs.append("  [FAIL] \(check.name)")
-            }
+        totalTests += 1
+        let priority = targetCard?.priority ?? proposal?.children.first?.priority
+        if priority != nil {
+            passedTests += 1
+            logs.append("  [PASS] Card execution priority assigned: \(priority!.rawValue)")
+        } else {
+            failedTests += 1
+            passed = false
+            logs.append("  [FAIL] Unassigned card priority")
         }
 
         let durationSeconds = 1.45

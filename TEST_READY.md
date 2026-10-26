@@ -1,10 +1,10 @@
 # TEST READY: barkcli-ios Milestone 5 Acceptance
 
-**Date**: 2026-10-25  
+**Date**: 2026-10-26  
 **Package Path**: `/Users/akshatnaruka/Downloads/.ses/barkcli/barkcli-ios`  
 **Test Suite Target**: `BarkcliPackageTests.xctest`  
 **Strict Concurrency**: Swift 6 Complete (`-Xswiftc -warnings-as-errors -Xswiftc -strict-concurrency=complete`)  
-**Overall Status**: **100% PASSED** (57/57 tests executed, 0 failures, 0 warnings)
+**Overall Status**: **100% PASSED** (58/58 tests executed, 0 failures, 0 warnings)
 
 ---
 
@@ -17,7 +17,7 @@ swift test --package-path /Users/akshatnaruka/Downloads/.ses/barkcli/barkcli-ios
 
 ### Test Suites Architecture
 The test suite is structured into 5 distinct XCTest modules located in `barkcli-ios/Tests/BarkcliTests/`:
-1. **`E2EFlowTests.swift`** (14 tests): Tier 4 real world user scenarios, Tier 3 cross feature interactions, and Tier 2 boundary value analysis.
+1. **`E2EFlowTests.swift`** (15 tests): Tier 4 real world user scenarios, Tier 3 cross feature interactions, and Tier 2 boundary value analysis.
 2. **`BarkcliTests.swift`** (14 tests): Tier 1 model serialization, board calculations, priority ordering, and live session codable parity.
 3. **`NetworkingTests.swift`** (10 tests): API client protocols (`MockAPIClient`, `LiveAPIClient`), health checks, auto setup, Bonjour discovery, and typed error handling.
 4. **`OrchestrationTests.swift`** (11 tests): Fleet management, task lifecycle transitions, specs coverage reports, git DAG diffs, and intent proposal sheet cycles.
@@ -29,12 +29,12 @@ The test suite is structured into 5 distinct XCTest modules located in `barkcli-
 
 | Test Suite | Test Count | Passed | Failed | Errors | Duration |
 |------------|:----------:|:------:|:------:|:------:|:--------:|
-| **`E2EFlowTests`** | 14 | 14 | 0 | 0 | 0.225s |
+| **`E2EFlowTests`** | 15 | 15 | 0 | 0 | 0.228s |
 | **`BarkcliTests`** | 14 | 14 | 0 | 0 | 0.011s |
 | **`NetworkingTests`** | 10 | 10 | 0 | 0 | 0.005s |
-| **`OrchestrationTests`** | 11 | 11 | 0 | 0 | 0.006s |
-| **`StoreTests`** | 8 | 8 | 0 | 0 | 0.222s |
-| **Total** | **57** | **57** | **0** | **0** | **0.471s** |
+| **`OrchestrationTests`** | 11 | 11 | 0 | 0 | 0.008s |
+| **`StoreTests`** | 8 | 8 | 0 | 0 | 0.224s |
+| **Total** | **58** | **58** | **0** | **0** | **0.474s** |
 
 ---
 
@@ -52,7 +52,7 @@ The test suite is structured into 5 distinct XCTest modules located in `barkcli-
   - Verifies `IntentResponse` generation with card ID and created status.
   - Proposes architectural plan decomposed into >=2 child slices with effort, acceptance criteria, and rationale.
   - Executes project acceptance review gate via `client.runReviewGate(cardId:)`.
-  - Asserts `ReviewGateResult.passed == true`, `totalTests >= 18`, `passedTests == totalTests`, `failedTests == 0`, `durationSeconds > 0`, and `logs` contains `[PASS]` lines.
+  - Asserts `ReviewGateResult.passed == true`, `totalTests >= 2`, `passedTests == totalTests`, `failedTests == 0`, `durationSeconds > 0`, and `logs` contains `[PASS]` lines.
   - Approves plan: verifies parent card is pinned, child cards are created on board, and child tasks are queued in pending status.
   - Rejects plan with custom refinement reason: verifies proposal dismissal and zero orphaned tasks.
 - **Scenario 3: Interactive Card Lifecycle & Checklist (`testTier4Scenario3_InteractiveCardLifecycleAndChecklist`)**:
@@ -73,6 +73,8 @@ The test suite is structured into 5 distinct XCTest modules located in `barkcli-
   - Triggers `WorkspaceAutoInitService.initializeWorkspace` and verifies created `.board/`, `config.json`, and starter card.
   - Switches between Demo, Localhost, and Remote workspaces cleanly.
 - **Autopilot State Machine Transitions (`testTier4_AutopilotPhaseStateMachineTransitions`)**:
+  - Drives live state transitions across `.needsPlan` -> `.awaitingPlanApproval` -> `.inProgress` -> `.awaitingMerge` with acceptance review gate execution.
+- **Autopilot Phase Codable Roundtrip (`testAutopilotPhaseCodableRoundtrip`)**:
   - Validates Codable serialization roundtrip across all `AutopilotPhase` variants: `.idle`, `.needsPlan`, `.awaitingPlanApproval`, `.inProgress`, `.awaitingMerge`, `.running`, and `.other`.
 
 ### Tier 3: Cross-Feature Interactions & Concurrency
@@ -86,7 +88,7 @@ The test suite is structured into 5 distinct XCTest modules located in `barkcli-
   - Inspects git commit in `GitStore` and calls `assignToAgent(sha:prompt:)`.
   - Verifies new card is created and a corresponding `TaskRequest` is queued for agent execution.
 - **Actor Isolation & Concurrency (`testTier3_ConcurrentStoreMutationsUnderSwift6ActorIsolation`)**:
-  - Executes sequential asynchronous store mutations under Swift 6 actor isolation without data races or memory corruption.
+  - Executes concurrent asynchronous store mutations across parallel tasks via `withThrowingTaskGroup(of: Void.self)` under Swift 6 actor isolation without data races or memory corruption.
 
 ### Tier 2: Boundary Value Analysis & Negative Testing
 - **Empty & Whitespace Intent Validation (`testTier2_EmptyAndWhitespaceIntentValidation`)**:
@@ -130,4 +132,4 @@ The test suite is structured into 5 distinct XCTest modules located in `barkcli-
 | 17 | Floating Intent Input Bar | R4 | `E2EFlowTests.testTier4Scenario2_IntentPromptToPlanApprovalAndAcceptanceGate` | PASS |
 | 18 | Plan Proposal Review & Approval | R4 | `E2EFlowTests.testTier4Scenario2_IntentPromptToPlanApprovalAndAcceptanceGate` | PASS |
 | 19 | Workspace Switcher & Status Bar | R1, R3 | `E2EFlowTests.testTier4Scenario5_WorkspaceSwitcherDiscoveryAndAutoInit` | PASS |
-| 20 | E2E Acceptance Test Pass | All | Full Suite (57/57 Tests) | PASS |
+| 20 | E2E Acceptance Test Pass | All | Full Suite (58/58 Tests) | PASS |
