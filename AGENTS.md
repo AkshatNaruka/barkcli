@@ -164,7 +164,7 @@ The web app uses WebSocket for live reload. All board changes are reflected inst
 
 ## Web API Reference
 
-All endpoints require authentication when `--token` is used.
+All endpoints require authentication when `--token` is used, except `GET /api/ping`.
 
 ### Board Endpoints
 
@@ -268,6 +268,7 @@ All endpoints require authentication when `--token` is used.
 | `POST` | `/api/context/sync` | Git-aware context refresh |
 | `GET` | `/api/code?q=` | Symbol search |
 | `GET` | `/api/config` | AI configuration |
+| `GET` | `/api/ping` | Liveness probe — timestamp, version, uptime (public) |
 | `WS` | `/ws` | WebSocket for live reload |
 
 ## Daemon Management

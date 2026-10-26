@@ -40,6 +40,36 @@ Download the machine-readable API specification:
 
 - [OpenAPI JSON](/openapi.json)
 
+## Health
+
+### Ping
+
+```
+GET /api/ping
+```
+
+Liveness probe for uptime monitors, CI smoke tests, and clients. It performs no
+disk or project reads, so a corrupt board file cannot make the daemon look dead.
+This is the only unauthenticated `/api` route.
+
+```json
+{
+  "status": "ok",
+  "timestamp": "2026-10-26T12:41:07.412Z",
+  "version": "0.4.0",
+  "uptime_seconds": 842
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `status` | string | Always `"ok"`. |
+| `timestamp` | string | Server clock, RFC 3339 UTC with millisecond precision. |
+| `version` | string | Server crate version. |
+| `uptime_seconds` | integer | Seconds since the server process started. |
+
+The response is sent with `Cache-Control: no-store`.
+
 ## Board Endpoints
 
 ### List Boards
