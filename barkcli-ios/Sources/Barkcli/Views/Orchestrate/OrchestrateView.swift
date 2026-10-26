@@ -74,11 +74,11 @@ public struct OrchestrateView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "sparkles")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.barkcliAccentPurple)
+                        .foregroundColor(.barkcliTextSecondary)
 
                     Text("AUTONOMOUS INTENT")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.barkcliAccentPurple)
+                        .foregroundColor(.barkcliTextSecondary)
                         .tracking(0.8)
 
                     Spacer()
@@ -124,10 +124,10 @@ public struct OrchestrateView: View {
                                     .font(.system(size: 13, weight: .bold))
                             }
                         }
-                        .foregroundColor(.white)
+                        .foregroundColor(Color.barkcliCanvas)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
-                        .background(Color.barkcliAccentPurple)
+                        .background(Color.barkcliTextPrimary)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
                     .buttonStyle(.plain)
@@ -172,7 +172,7 @@ public struct OrchestrateView: View {
                         Text("\(proposal.estimatedTotalEffort) pts")
                             .font(.system(size: 12, weight: .semibold))
                     }
-                    .foregroundColor(.barkcliAccentPurple)
+                    .foregroundColor(.barkcliTextSecondary)
 
                     Spacer()
 
@@ -185,10 +185,10 @@ public struct OrchestrateView: View {
                             Image(systemName: "chevron.right")
                                 .font(.system(size: 10, weight: .bold))
                         }
-                        .foregroundColor(.white)
+                        .foregroundColor(Color.barkcliCanvas)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(Color.barkcliAccentPurple)
+                        .background(Color.barkcliTextPrimary)
                         .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
@@ -280,7 +280,7 @@ public struct OrchestrateView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.triangle.branch")
                             .font(.system(size: 11))
-                            .foregroundColor(.barkcliAccentPurple)
+                            .foregroundColor(.barkcliTextSecondary)
                         Text(branch)
                             .font(.system(size: 12, weight: .medium, design: .monospaced))
                             .foregroundColor(.barkcliTextPrimary)
@@ -333,12 +333,16 @@ public struct OrchestrateView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .center, spacing: 10) {
                     Circle()
-                        .fill(Color.barkcliAccentPurple.opacity(0.18))
+                        .fill(Color.barkcliCardSubtle)
                         .frame(width: 34, height: 34)
+                        .overlay(
+                            Circle()
+                                .strokeBorder(Color.barkcliBorder, lineWidth: 1)
+                        )
                         .overlay(
                             Image(systemName: agent.role.iconName)
                                 .font(.system(size: 14))
-                                .foregroundColor(.barkcliAccentPurple)
+                                .foregroundColor(.barkcliTextPrimary)
                         )
 
                     VStack(alignment: .leading, spacing: 2) {
@@ -384,7 +388,7 @@ public struct OrchestrateView: View {
                             .foregroundColor(.barkcliTextMuted)
                         Text("\(Int(agent.metrics.successRate * 100))%")
                             .font(.system(size: 13, weight: .bold, design: .rounded))
-                            .foregroundColor(.barkcliAccentPurple)
+                            .foregroundColor(.barkcliTextPrimary)
                     }
 
                     Spacer()
@@ -442,7 +446,7 @@ public struct OrchestrateView: View {
                         HStack(spacing: 6) {
                             Text(task.id)
                                 .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                .foregroundColor(.barkcliAccentPurple)
+                                .foregroundColor(.barkcliTextPrimary)
 
                             StatusBadge(task.status.displayName, variant: task.status.badgeVariant)
                         }
@@ -484,10 +488,10 @@ public struct OrchestrateView: View {
                         } label: {
                             Text("Claim")
                                 .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(.white)
+                                .foregroundColor(Color.barkcliCanvas)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 5)
-                                .background(Color.barkcliAccentPurple)
+                                .background(Color.barkcliTextPrimary)
                                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                         }
                         .buttonStyle(.plain)

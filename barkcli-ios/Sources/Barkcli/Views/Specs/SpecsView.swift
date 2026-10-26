@@ -60,7 +60,7 @@ public struct SpecsView: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("REQUIREMENTS TRACEABILITY")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.barkcliAccentPurple)
+                            .foregroundColor(.barkcliTextSecondary)
                             .tracking(0.6)
 
                         Text("Acceptance Gate Coverage")
@@ -82,13 +82,7 @@ public struct SpecsView: View {
                             .frame(height: 8)
 
                         Capsule()
-                            .fill(
-                                LinearGradient(
-                                    colors: [.barkcliAccentPurple, .barkcliSuccessEmerald],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
+                            .fill(Color.barkcliSuccessEmerald)
                             .frame(width: max(0, min(geo.size.width, geo.size.width * CGFloat(coverage.coveragePercent / 100.0))), height: 8)
                     }
                 }
@@ -97,7 +91,7 @@ public struct SpecsView: View {
                 HStack(spacing: 10) {
                     statPill(label: "Total", count: coverage.totalRequirements, color: .barkcliTextPrimary)
                     statPill(label: "Implemented", count: coverage.implemented, color: .barkcliSuccessEmerald)
-                    statPill(label: "Verified", count: coverage.verified, color: .barkcliAccentPurple)
+                    statPill(label: "Verified", count: coverage.verified, color: .barkcliStatusInfo)
                     statPill(label: "Stale", count: coverage.stale, color: .barkcliWarningAmber)
                 }
             }
@@ -176,14 +170,14 @@ public struct SpecsView: View {
                 .padding(.vertical, 5)
                 .background(
                     isSelected ?
-                    Color.barkcliAccentPurple.opacity(0.2) :
+                    Color.barkcliCardSubtle :
                     Color.barkcliSurface
                 )
                 .clipShape(Capsule())
                 .overlay(
                     Capsule()
                         .strokeBorder(
-                            isSelected ? Color.barkcliAccentPurple : Color.barkcliBorderSubtle,
+                            isSelected ? Color.barkcliTextPrimary : Color.barkcliBorderSubtle,
                             lineWidth: 1
                         )
                 )
@@ -228,10 +222,10 @@ public struct SpecsView: View {
                         ForEach(spec.tags, id: \.self) { tag in
                             Text(tag)
                                 .font(.system(size: 10, weight: .medium))
-                                .foregroundColor(.barkcliAccentPurple)
+                                .foregroundColor(.barkcliTextSecondary)
                                 .padding(.horizontal, 7)
                                 .padding(.vertical, 3)
-                                .background(Color.barkcliAccentPurple.opacity(0.1))
+                                .background(Color.barkcliCardSubtle)
                                 .clipShape(Capsule())
                         }
                     }
@@ -298,18 +292,22 @@ public struct SpecsView: View {
                 HStack(alignment: .top, spacing: 6) {
                     Image(systemName: "chevron.left.forwardslash.chevron.right")
                         .font(.system(size: 9))
-                        .foregroundColor(.barkcliAccentPurple)
+                        .foregroundColor(.barkcliTextSecondary)
                         .padding(.top, 2)
 
                     FlowLayout(spacing: 4) {
                         ForEach(req.linkedCode, id: \.self) { codePath in
                             Text(codePath)
                                 .font(.system(size: 10, design: .monospaced))
-                                .foregroundColor(.barkcliAccentPurple)
+                                .foregroundColor(.barkcliTextPrimary)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Color.barkcliAccentPurple.opacity(0.1))
+                                .background(Color.barkcliCardSubtle)
                                 .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                        .strokeBorder(Color.barkcliBorder, lineWidth: 1)
+                                )
                         }
                     }
                 }

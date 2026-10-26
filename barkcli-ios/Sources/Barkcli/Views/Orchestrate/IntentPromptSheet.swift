@@ -69,11 +69,15 @@ public struct IntentPromptSheet: View {
                         Text("\(proposal.estimatedTotalEffort) pts total")
                             .font(.system(size: 12, weight: .bold, design: .rounded))
                     }
-                    .foregroundColor(.barkcliAccentPurple)
+                    .foregroundColor(.barkcliTextSecondary)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 4)
-                    .background(Color.barkcliAccentPurple.opacity(0.12))
+                    .background(Color.barkcliCardSubtle)
                     .clipShape(Capsule())
+                    .overlay(
+                        Capsule()
+                            .strokeBorder(Color.barkcliBorder, lineWidth: 1)
+                    )
                 }
 
                 Text(proposal.cardTitle)
@@ -83,7 +87,7 @@ public struct IntentPromptSheet: View {
                 HStack(spacing: 6) {
                     Image(systemName: "cpu")
                         .font(.system(size: 12))
-                        .foregroundColor(.barkcliAccentPurple)
+                        .foregroundColor(.barkcliTextSecondary)
 
                     Text("Proposed by \(proposal.proposedBy)")
                         .font(.system(size: 12, weight: .medium))
@@ -107,11 +111,11 @@ public struct IntentPromptSheet: View {
                 HStack(spacing: 6) {
                     Image(systemName: "sparkles")
                         .font(.system(size: 12))
-                        .foregroundColor(.barkcliAccentPurple)
+                        .foregroundColor(.barkcliTextSecondary)
 
                     Text("AUTONOMOUS RATIONALE")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.barkcliAccentPurple)
+                        .foregroundColor(.barkcliTextSecondary)
                         .tracking(0.6)
                 }
 
@@ -206,7 +210,7 @@ public struct IntentPromptSheet: View {
                                     Text("\(child.effort) pts")
                                         .font(.system(size: 11, weight: .bold, design: .rounded))
                                 }
-                                .foregroundColor(.barkcliAccentPurple)
+                                .foregroundColor(.barkcliTextSecondary)
                             }
                         }
 

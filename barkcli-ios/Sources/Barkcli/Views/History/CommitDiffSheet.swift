@@ -55,11 +55,15 @@ public struct CommitDiffSheet: View {
                 HStack(spacing: 8) {
                     Text(commit.shortSha)
                         .font(.system(size: 13, weight: .bold, design: .monospaced))
-                        .foregroundColor(.barkcliAccentPurple)
+                        .foregroundColor(.barkcliTextPrimary)
                         .padding(.horizontal, 9)
                         .padding(.vertical, 4)
-                        .background(Color.barkcliAccentPurple.opacity(0.14))
+                        .background(Color.barkcliCardSubtle)
                         .clipShape(Capsule())
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(Color.barkcliBorder, lineWidth: 1)
+                        )
 
                     Button {
                         #if os(iOS)
@@ -142,7 +146,7 @@ public struct CommitDiffSheet: View {
             metricBox(
                 label: "Files Changed",
                 value: "\(commit.filesChanged.count)",
-                color: .barkcliAccentPurple,
+                color: .barkcliTextPrimary,
                 icon: "doc.fill"
             )
         }
@@ -180,7 +184,7 @@ public struct CommitDiffSheet: View {
                     HStack(spacing: 6) {
                         Image(systemName: "doc.text")
                             .font(.system(size: 11))
-                            .foregroundColor(.barkcliAccentPurple)
+                            .foregroundColor(.barkcliTextSecondary)
                         Text(file)
                             .font(.system(size: 12, design: .monospaced))
                             .foregroundColor(.barkcliTextPrimary)
@@ -243,7 +247,7 @@ public struct CommitDiffSheet: View {
         } else if line.hasPrefix("-") && !line.hasPrefix("---") {
             return .barkcliDangerRose
         } else if line.hasPrefix("@@") {
-            return .barkcliAccentPurple
+            return .barkcliStatusInfo
         }
         return .barkcliTextMuted
     }

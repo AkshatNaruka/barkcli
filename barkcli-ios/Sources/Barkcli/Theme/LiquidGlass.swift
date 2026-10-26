@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Utilitarian surface modifier inspired by t3 codes developer aesthetic.
-/// Applies crisp hairline borders, dark zinc translucent backings, and compact geometries.
+/// Utilitarian surface modifier inspired by xAI minimalist aesthetic.
+/// Applies crisp hairline borders, pitch black canvas, deep space charcoal surfaces, and razor thin edges.
 public struct LiquidGlassModifier: ViewModifier {
     public let cornerRadius: CGFloat
     public let interactive: Bool
@@ -64,7 +64,7 @@ public struct LiquidGlassModifier: ViewModifier {
 }
 
 public extension View {
-    /// Applies the t3 codes developer surface appearance with hairline border and crisp corner geometry.
+    /// Applies the precision developer surface appearance with hairline border and crisp corner geometry.
     func liquidGlass(
         cornerRadius: CGFloat = 8,
         interactive: Bool = false,

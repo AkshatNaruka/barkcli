@@ -110,7 +110,7 @@ public struct MindView: View {
                         HStack(spacing: 6) {
                             Text("AUTONOMOUS HEALTH")
                                 .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(.barkcliAccentPurple)
+                                .foregroundColor(.barkcliTextSecondary)
                                 .tracking(0.8)
 
                             Spacer()
@@ -212,7 +212,7 @@ public struct MindView: View {
                     value: "\(velocity.totalPoints)",
                     subtitle: "Points earned",
                     systemImage: "chart.line.uptrend.xyaxis",
-                    accentColor: .barkcliAccentPurple
+                    accentColor: .barkcliTextPrimary
                 )
 
                 MetricTile(
@@ -319,13 +319,13 @@ public struct MindView: View {
                     HStack(alignment: .top, spacing: 8) {
                         Image(systemName: "lightbulb.fill")
                             .font(.system(size: 12))
-                            .foregroundColor(.barkcliAccentPurple)
+                            .foregroundColor(.barkcliStatusWarning)
                             .padding(.top, 2)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Resolution Strategy")
                                 .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(.barkcliAccentPurple)
+                                .foregroundColor(.barkcliTextPrimary)
 
                             Text(hint)
                                 .font(.system(size: 12))
@@ -334,8 +334,12 @@ public struct MindView: View {
                     }
                     .padding(10)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.barkcliAccentPurple.opacity(0.08))
+                    .background(Color.barkcliCardSubtle)
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(Color.barkcliBorder, lineWidth: 1)
+                    )
                 }
             }
         }
@@ -357,7 +361,7 @@ public struct MindView: View {
                             HStack(spacing: 6) {
                                 Text(card.id)
                                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                                    .foregroundColor(.barkcliAccentPurple)
+                                    .foregroundColor(.barkcliTextPrimary)
 
                                 StatusBadge(card.column.capitalized, variant: .neutral)
                             }
@@ -396,12 +400,16 @@ public struct MindView: View {
                 GlassCard(padding: 14) {
                     HStack(alignment: .top, spacing: 12) {
                         Circle()
-                            .fill(Color.barkcliAccentPurple.opacity(0.18))
+                            .fill(Color.barkcliCardSubtle)
                             .frame(width: 32, height: 32)
+                            .overlay(
+                                Circle()
+                                    .strokeBorder(Color.barkcliBorder, lineWidth: 1)
+                            )
                             .overlay(
                                 Image(systemName: "arrow.forward")
                                     .font(.system(size: 13, weight: .bold))
-                                    .foregroundColor(.barkcliAccentPurple)
+                                    .foregroundColor(.barkcliTextPrimary)
                             )
 
                         VStack(alignment: .leading, spacing: 4) {

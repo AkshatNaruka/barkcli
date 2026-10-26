@@ -198,39 +198,48 @@ final class StoreTests: XCTestCase {
         XCTAssertFalse(store.allCards.contains(where: { $0.id == newCard.id }))
     }
 
-    // MARK: Theme and Design System Tokens Tests
+    // MARK: Theme and Monochromatic Design System Tokens Tests
 
     func testThemeTokensAndTypography() {
-        // Pitch zinc developer tokens
-        XCTAssertEqual(BarkcliColors.canvas, Color(hex: 0x09090B))
-        XCTAssertEqual(BarkcliColors.cardBackground, Color(hex: 0x121215))
-        XCTAssertEqual(BarkcliColors.cardSubtle, Color(hex: 0x18181B))
-        XCTAssertEqual(BarkcliColors.border, Color(hex: 0x27272A))
-        XCTAssertEqual(BarkcliColors.borderFocus, Color(hex: 0x3F3F46))
+        // Pitch black canvas and charcoal surfaces modeled after xAI
+        XCTAssertEqual(BarkcliColors.canvas, Color(hex: 0x000000))
+        XCTAssertEqual(BarkcliColors.cardBackground, Color(hex: 0x0D0D11))
+        XCTAssertEqual(BarkcliColors.cardSubtle, Color(hex: 0x141418))
+        XCTAssertEqual(BarkcliColors.border, Color(hex: 0x222226))
+        XCTAssertEqual(BarkcliColors.borderFocus, Color(hex: 0x3A3A40))
 
-        // High contrast typography tokens
-        XCTAssertEqual(BarkcliColors.textPrimary, Color(hex: 0xFAFAFA))
-        XCTAssertEqual(BarkcliColors.textSecondary, Color(hex: 0xA1A1AA))
-        XCTAssertEqual(BarkcliColors.textMuted, Color(hex: 0x71717A))
+        // High contrast monochromatic typography tokens
+        XCTAssertEqual(BarkcliColors.textPrimary, Color(hex: 0xFFFFFF))
+        XCTAssertEqual(BarkcliColors.textSecondary, Color(hex: 0x8E8E93))
+        XCTAssertEqual(BarkcliColors.textMuted, Color(hex: 0x55555C))
 
-        // Discrete status indicators
-        XCTAssertEqual(BarkcliColors.statusActive, Color(hex: 0x22C55E))
+        // Functional status indicators
+        XCTAssertEqual(BarkcliColors.statusActive, Color(hex: 0x10B981))
         XCTAssertEqual(BarkcliColors.statusWarning, Color(hex: 0xF59E0B))
         XCTAssertEqual(BarkcliColors.statusError, Color(hex: 0xEF4444))
-        XCTAssertEqual(BarkcliColors.statusInfo, Color(hex: 0x0284C7))
+        XCTAssertEqual(BarkcliColors.statusInfo, Color(hex: 0x38BDF8))
 
-        // Semantic aliases ensure purple elimination
-        XCTAssertEqual(BarkcliColors.accentPurple, BarkcliColors.statusInfo)
+        // Semantic aliases ensure complete purple purge
+        XCTAssertEqual(BarkcliColors.accentPurple, BarkcliColors.textPrimary)
+        let purgedViolet = Color(red: 139.0 / 255.0, green: 92.0 / 255.0, blue: 246.0 / 255.0)
+        XCTAssertNotEqual(BarkcliColors.accentPurple, purgedViolet)
 
-        // Legacy compatibility tokens
-        XCTAssertEqual(BarkcliColors.obsidianDark, Color(hex: 0x0A0A0E))
-        XCTAssertEqual(BarkcliColors.spaceBlack, Color(hex: 0x12131A))
-        XCTAssertEqual(BarkcliColors.slateGlass, Color(hex: 0x181924))
-        XCTAssertEqual(BarkcliColors.borderHairline, Color(hex: 0x2E3142))
+        // Monochromatic mechanical tag backing
+        XCTAssertEqual(BarkcliColors.tagBackground, Color(hex: 0x18181D))
+        XCTAssertEqual(Color.barkcliTagBackground, BarkcliColors.tagBackground)
+
+        // Compatibility tokens point to monochromatic palette
+        XCTAssertEqual(BarkcliColors.obsidianDark, Color(hex: 0x000000))
+        XCTAssertEqual(BarkcliColors.spaceBlack, Color(hex: 0x0D0D11))
+        XCTAssertEqual(BarkcliColors.slateGlass, Color(hex: 0x141418))
+        XCTAssertEqual(BarkcliColors.borderHairline, Color(hex: 0x222226))
+        XCTAssertEqual(BarkcliColors.cyberCyan, Color(hex: 0x38BDF8))
 
         // Color extensions
         XCTAssertEqual(Color.barkcliCanvas, BarkcliColors.canvas)
+        XCTAssertEqual(Color.barkcliCardBackground, BarkcliColors.cardBackground)
         XCTAssertEqual(Color.barkcliBorder, BarkcliColors.border)
+        XCTAssertEqual(Color.barkcliBorderFocus, BarkcliColors.borderFocus)
         XCTAssertEqual(Color.barkcliTextPrimary, BarkcliColors.textPrimary)
         XCTAssertEqual(Color.barkcliStatusInfo, BarkcliColors.statusInfo)
 
@@ -238,5 +247,7 @@ final class StoreTests: XCTestCase {
         XCTAssertEqual(StatusBadgeVariant.emerald.foregroundColor, BarkcliColors.emeraldGate)
         XCTAssertEqual(StatusBadgeVariant.amber.foregroundColor, BarkcliColors.amberPulse)
         XCTAssertEqual(StatusBadgeVariant.crimson.foregroundColor, BarkcliColors.crimsonBlocker)
+        XCTAssertEqual(StatusBadgeVariant.electric.foregroundColor, BarkcliColors.textPrimary)
+        XCTAssertEqual(StatusBadgeVariant.neutral.backgroundColor, BarkcliColors.tagBackground)
     }
 }

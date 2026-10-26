@@ -1,31 +1,31 @@
 import SwiftUI
 
 public struct BarkcliColors: Sendable {
-    // Pitch zinc canvas and surface tokens
-    public static let canvas = Color(hex: 0x09090B)
-    public static let cardBackground = Color(hex: 0x121215)
-    public static let cardSubtle = Color(hex: 0x18181B)
-    public static let border = Color(hex: 0x27272A)
-    public static let borderFocus = Color(hex: 0x3F3F46)
+    // Pitch black canvas and charcoal surfaces modeled after xAI
+    public static let canvas = Color(hex: 0x000000)
+    public static let cardBackground = Color(hex: 0x0D0D11)
+    public static let cardSubtle = Color(hex: 0x141418)
+    public static let border = Color(hex: 0x222226)
+    public static let borderFocus = Color(hex: 0x3A3A40)
+    public static let tagBackground = Color(hex: 0x18181D)
 
-    // Discrete status indicators
-    public static let statusActive = Color(hex: 0x22C55E)
+    // Strictly functional status indicators
+    public static let statusActive = Color(hex: 0x10B981)
     public static let statusWarning = Color(hex: 0xF59E0B)
     public static let statusError = Color(hex: 0xEF4444)
-    public static let statusInfo = Color(hex: 0x0284C7)
+    public static let statusInfo = Color(hex: 0x38BDF8)
 
-    // High contrast typography tokens
-    public static let textPrimary = Color(hex: 0xFAFAFA)
-    public static let textSecondary = Color(hex: 0xA1A1AA)
-    public static let textMuted = Color(hex: 0x71717A)
+    // High contrast monochromatic typography tokens
+    public static let textPrimary = Color(hex: 0xFFFFFF)
+    public static let textSecondary = Color(hex: 0x8E8E93)
+    public static let textMuted = Color(hex: 0x55555C)
 
     // Backward compatibility tokens
-    public static let obsidianDark = Color(hex: 0x0A0A0E)
-    public static let spaceBlack = Color(hex: 0x12131A)
-    public static let slateGlass = Color(hex: 0x181924)
-    public static let borderHairline = Color(hex: 0x2E3142)
-    public static let electricViolet = Color(hex: 0x8B5CF6)
-    public static let cyberCyan = Color(hex: 0x06B6D4)
+    public static let obsidianDark = Color(hex: 0x000000)
+    public static let spaceBlack = Color(hex: 0x0D0D11)
+    public static let slateGlass = Color(hex: 0x141418)
+    public static let borderHairline = Color(hex: 0x222226)
+    public static let cyberCyan = Color(hex: 0x38BDF8)
     public static let amberPulse = Color(hex: 0xF59E0B)
     public static let emeraldGate = Color(hex: 0x10B981)
     public static let crimsonBlocker = Color(hex: 0xEF4444)
@@ -34,7 +34,7 @@ public struct BarkcliColors: Sendable {
     public static let darkBackground = canvas
     public static let surface = cardBackground
     public static let borderSubtle = border
-    public static let accentPurple = statusInfo
+    public static let accentPurple = textPrimary
     public static let successEmerald = statusActive
     public static let dangerRose = statusError
     public static let warningAmber = statusWarning
@@ -76,6 +76,7 @@ public extension Color {
     static let barkcliCardSubtle = BarkcliColors.cardSubtle
     static let barkcliBorder = BarkcliColors.border
     static let barkcliBorderFocus = BarkcliColors.borderFocus
+    static let barkcliTagBackground = BarkcliColors.tagBackground
     static let barkcliStatusActive = BarkcliColors.statusActive
     static let barkcliStatusWarning = BarkcliColors.statusWarning
     static let barkcliStatusError = BarkcliColors.statusError
@@ -100,7 +101,6 @@ public extension Color {
     static let barkcliObsidian = BarkcliColors.obsidianDark
     static let barkcliSpaceBlack = BarkcliColors.spaceBlack
     static let barkcliSlateGlass = BarkcliColors.slateGlass
-    static let barkcliElectricViolet = BarkcliColors.electricViolet
     static let barkcliCyberCyan = BarkcliColors.cyberCyan
     static let barkcliAmberPulse = BarkcliColors.amberPulse
     static let barkcliEmeraldGate = BarkcliColors.emeraldGate

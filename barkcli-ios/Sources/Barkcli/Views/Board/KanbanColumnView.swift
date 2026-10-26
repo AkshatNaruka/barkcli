@@ -184,7 +184,7 @@ public struct KanbanColumnView: View {
         case .high:
             variant = .amber
         case .medium:
-            variant = .electric
+            variant = .accent
         case .low:
             variant = .neutral
         }

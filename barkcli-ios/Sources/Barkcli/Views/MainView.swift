@@ -63,7 +63,7 @@ public struct MainView: View {
             HStack(spacing: 8) {
                 Image(systemName: "circle.grid.cross.fill")
                     .font(.system(size: 16))
-                    .foregroundColor(.barkcliAccentPurple)
+                    .foregroundColor(.barkcliTextPrimary)
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text("barkcli")
@@ -107,7 +107,7 @@ public struct MainView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "square.grid.2x2")
                         .font(.system(size: 12))
-                        .foregroundColor(.barkcliAccentPurple)
+                        .foregroundColor(.barkcliTextSecondary)
 
                     Text(appState.currentBoardName)
                         .font(.system(size: 13, weight: .semibold))
@@ -165,7 +165,7 @@ public struct MainView: View {
         HStack(spacing: 8) {
             Image(systemName: "info.circle.fill")
                 .font(.system(size: 12))
-                .foregroundColor(.barkcliAccentPurple)
+                .foregroundColor(.barkcliStatusInfo)
 
             Text(message)
                 .font(.system(size: 12))
@@ -185,11 +185,11 @@ public struct MainView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(Color.barkcliAccentPurple.opacity(0.15))
+        .background(Color.barkcliCardSubtle)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(Color.barkcliAccentPurple.opacity(0.3), lineWidth: 1)
+                .strokeBorder(Color.barkcliBorder, lineWidth: 1)
         )
         .padding(.horizontal, 16)
         .padding(.top, 8)
@@ -223,7 +223,7 @@ public struct MainView: View {
                     VStack(spacing: 4) {
                         Image(systemName: tab.iconName)
                             .font(.system(size: 17, weight: isSelected ? .bold : .medium))
-                            .foregroundColor(isSelected ? .barkcliAccentPurple : .barkcliTextMuted)
+                            .foregroundColor(isSelected ? .barkcliTextPrimary : .barkcliTextMuted)
 
                         Text(tab.rawValue)
                             .font(.system(size: 10, weight: isSelected ? .bold : .medium))
@@ -233,10 +233,14 @@ public struct MainView: View {
                     .padding(.vertical, 8)
                     .background(
                         isSelected ?
-                        Color.barkcliAccentPurple.opacity(0.12) :
+                        Color.barkcliCardSubtle :
                         Color.clear
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(isSelected ? Color.barkcliBorderFocus : Color.clear, lineWidth: 1)
+                    )
                 }
                 .buttonStyle(.plain)
             }
@@ -305,7 +309,7 @@ public struct MainView: View {
                         }
                     }
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(.barkcliAccentPurple)
+                    .foregroundColor(.barkcliTextPrimary)
                     .disabled(newBoardTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
@@ -321,7 +325,7 @@ public struct MainView: View {
         case .disconnected:
             return .barkcliDangerRose
         case .demoMode:
-            return .barkcliAccentPurple
+            return .barkcliStatusInfo
         }
     }
 

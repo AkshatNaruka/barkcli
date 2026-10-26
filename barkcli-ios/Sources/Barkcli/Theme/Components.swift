@@ -56,7 +56,7 @@ public enum StatusBadgeVariant: Sendable, Hashable {
         case .accent:
             return .barkcliTextPrimary
         case .electric:
-            return BarkcliColors.electricViolet
+            return BarkcliColors.textPrimary
         case .success, .emerald:
             return BarkcliColors.emeraldGate
         case .warning, .amber:
@@ -73,7 +73,7 @@ public enum StatusBadgeVariant: Sendable, Hashable {
     public var backgroundColor: Color {
         switch self {
         case .neutral:
-            return Color.barkcliCardSubtle
+            return Color.barkcliTagBackground
         default:
             return foregroundColor.opacity(0.12)
         }
@@ -292,7 +292,7 @@ public struct ActionButton: View {
     private var foregroundColor: Color {
         switch variant {
         case .primary:
-            return Color(hex: 0x09090B)
+            return BarkcliColors.canvas
         case .secondary:
             return .barkcliTextPrimary
         case .destructive:

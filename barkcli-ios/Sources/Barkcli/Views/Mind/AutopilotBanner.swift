@@ -74,7 +74,6 @@ public struct AutopilotBanner: View {
                     Circle()
                         .fill(phaseColor)
                         .frame(width: 8, height: 8)
-                        .shadow(color: phaseColor.opacity(0.8), radius: 4)
 
                     Image(systemName: phaseIcon)
                         .font(.system(size: 11, weight: .bold))
@@ -177,7 +176,7 @@ public struct AutopilotBanner: View {
                                     Text("Review Proposal")
                                         .font(.system(size: 12, weight: .bold))
                                 }
-                                .foregroundColor(Color(hex: 0x09090B))
+                                .foregroundColor(Color.barkcliCanvas)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 7)
                                 .background(

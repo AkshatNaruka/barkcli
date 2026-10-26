@@ -94,10 +94,10 @@ public struct BoardView: View {
                         Text("New Card")
                             .font(.system(size: 13, weight: .bold))
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(Color.barkcliCanvas)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 9)
-                    .background(Color.barkcliAccentPurple)
+                    .background(Color.barkcliTextPrimary)
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
                 .buttonStyle(.plain)
@@ -144,14 +144,14 @@ public struct BoardView: View {
             .padding(.vertical, 5)
             .background(
                 isSelected ?
-                Color.barkcliAccentPurple.opacity(0.2) :
+                Color.barkcliCardSubtle :
                 Color.barkcliSurface.opacity(0.8)
             )
             .clipShape(Capsule())
             .overlay(
                 Capsule()
                     .strokeBorder(
-                        isSelected ? Color.barkcliAccentPurple : Color.barkcliBorderSubtle,
+                        isSelected ? Color.barkcliTextPrimary : Color.barkcliBorderSubtle,
                         lineWidth: 1
                     )
             )
@@ -187,20 +187,20 @@ public struct BoardView: View {
                     .padding(.vertical, 2)
                     .background(
                         Capsule()
-                            .fill(isSelected ? Color.white.opacity(0.2) : Color.barkcliBorderSubtle)
+                            .fill(isSelected ? Color.barkcliCanvas.opacity(0.2) : Color.barkcliBorderSubtle)
                     )
             }
-            .foregroundColor(isSelected ? .white : .barkcliTextMuted)
+            .foregroundColor(isSelected ? Color.barkcliCanvas : .barkcliTextMuted)
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
             .background(
-                isSelected ? Color.barkcliAccentPurple : Color.barkcliSurface
+                isSelected ? Color.barkcliTextPrimary : Color.barkcliSurface
             )
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .strokeBorder(
-                        isSelected ? Color.barkcliAccentPurple : Color.barkcliBorderSubtle,
+                        isSelected ? Color.barkcliTextPrimary : Color.barkcliBorderSubtle,
                         lineWidth: 1
                     )
             )
@@ -231,7 +231,7 @@ public struct BoardView: View {
                 HStack(alignment: .center, spacing: 8) {
                     Text(card.id)
                         .font(.system(size: 12, weight: .bold, design: .monospaced))
-                        .foregroundColor(.barkcliAccentPurple)
+                        .foregroundColor(.barkcliTextPrimary)
 
                     StatusBadge(card.column.capitalized, variant: columnBadgeVariant(card.column))
 
@@ -246,10 +246,10 @@ public struct BoardView: View {
                             Text("\(effort.points) pts")
                                 .font(.system(size: 11, weight: .bold, design: .rounded))
                         }
-                        .foregroundColor(.barkcliAccentPurple)
+                        .foregroundColor(.barkcliTextSecondary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
-                        .background(Color.barkcliAccentPurple.opacity(0.12))
+                        .background(Color.barkcliCardSubtle)
                         .clipShape(Capsule())
                     }
                 }
@@ -287,7 +287,7 @@ public struct BoardView: View {
                     HStack(spacing: 5) {
                         Image(systemName: "person.crop.circle.fill")
                             .font(.system(size: 13))
-                            .foregroundColor(.barkcliAccentPurple)
+                            .foregroundColor(.barkcliTextSecondary)
                         Text(card.assignee ?? "unassigned")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(.barkcliTextMuted)
@@ -368,11 +368,15 @@ public struct BoardView: View {
             } label: {
                 Text("Reset Filters")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.barkcliAccentPurple)
+                    .foregroundColor(.barkcliTextPrimary)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .background(Color.barkcliAccentPurple.opacity(0.12))
+                    .background(Color.barkcliCardSubtle)
                     .clipShape(Capsule())
+                    .overlay(
+                        Capsule()
+                            .strokeBorder(Color.barkcliBorder, lineWidth: 1)
+                    )
             }
             .buttonStyle(.plain)
 
@@ -388,7 +392,7 @@ public struct BoardView: View {
         case .high:
             return .barkcliWarningAmber
         case .medium:
-            return .barkcliAccentPurple
+            return .barkcliTextPrimary
         case .low:
             return .barkcliTextMuted
         }
@@ -497,8 +501,8 @@ public struct NewCardSheet: View {
                                             .font(.system(size: 12, weight: column == col ? .bold : .medium))
                                             .frame(maxWidth: .infinity)
                                             .padding(.vertical, 8)
-                                            .foregroundColor(column == col ? .white : .barkcliTextMuted)
-                                            .background(column == col ? Color.barkcliAccentPurple : Color.barkcliSurface)
+                                            .foregroundColor(column == col ? Color.barkcliCanvas : .barkcliTextMuted)
+                                            .background(column == col ? Color.barkcliTextPrimary : Color.barkcliSurface)
                                             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                                     }
                                     .buttonStyle(.plain)
@@ -519,8 +523,8 @@ public struct NewCardSheet: View {
                                             .font(.system(size: 12, weight: priority == prio ? .bold : .medium))
                                             .frame(maxWidth: .infinity)
                                             .padding(.vertical, 8)
-                                            .foregroundColor(priority == prio ? .white : .barkcliTextMuted)
-                                            .background(priority == prio ? Color.barkcliAccentPurple : Color.barkcliSurface)
+                                            .foregroundColor(priority == prio ? Color.barkcliCanvas : .barkcliTextMuted)
+                                            .background(priority == prio ? Color.barkcliTextPrimary : Color.barkcliSurface)
                                             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                                     }
                                     .buttonStyle(.plain)
@@ -558,7 +562,7 @@ public struct NewCardSheet: View {
                                     } label: {
                                         Image(systemName: "plus.circle.fill")
                                             .font(.system(size: 20))
-                                            .foregroundColor(.barkcliAccentPurple)
+                                            .foregroundColor(.barkcliTextPrimary)
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -614,7 +618,7 @@ public struct NewCardSheet: View {
                         }
                     }
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(.barkcliAccentPurple)
+                    .foregroundColor(.barkcliTextPrimary)
                     .disabled(isCreating || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }

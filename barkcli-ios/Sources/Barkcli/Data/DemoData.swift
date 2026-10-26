@@ -1035,7 +1035,7 @@ public enum DemoData: Sendable {
             ),
             MemoryEntry(
                 id: "mem-6",
-                content: "External: design color system is obsidian dark canvas with violet and cyan accents.",
+                content: "External: design color system is pitch black canvas with white and ice sky accents.",
                 tier: .external,
                 tags: ["design"],
                 source: "URL",

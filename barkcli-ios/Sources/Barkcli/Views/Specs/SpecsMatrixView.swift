@@ -87,13 +87,7 @@ public struct SpecsMatrixView: View {
                             .frame(height: 8)
 
                         Capsule()
-                            .fill(
-                                LinearGradient(
-                                    colors: [.barkcliStatusActive, .barkcliEmeraldGate],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
+                            .fill(Color.barkcliStatusActive)
                             .frame(width: max(0, min(geo.size.width, geo.size.width * CGFloat(store.coveragePercent / 100.0))), height: 8)
                     }
                 }

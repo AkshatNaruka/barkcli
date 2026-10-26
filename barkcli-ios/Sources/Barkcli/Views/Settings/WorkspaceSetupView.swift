@@ -21,7 +21,7 @@ public struct WorkspaceSetupView: View {
         case .disconnected:
             return .barkcliDangerRose
         case .demoMode:
-            return .barkcliAccentPurple
+            return .barkcliStatusInfo
         }
     }
 
@@ -253,7 +253,7 @@ public struct WorkspaceSetupView: View {
                 if let message = initMessage {
                     Text(message)
                         .font(.system(size: 12))
-                        .foregroundColor(.barkcliAccentPurple)
+                        .foregroundColor(.barkcliStatusInfo)
                 }
 
                 ActionButton(

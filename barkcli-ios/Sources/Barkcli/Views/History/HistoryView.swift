@@ -57,7 +57,7 @@ public struct HistoryView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.triangle.branch")
                             .font(.system(size: 12))
-                            .foregroundColor(.barkcliAccentPurple)
+                            .foregroundColor(.barkcliTextSecondary)
 
                         Text(appState.activeBranch)
                             .font(.system(size: 13, weight: .semibold, design: .monospaced))
@@ -134,11 +134,15 @@ public struct HistoryView: View {
                 HStack(alignment: .center, spacing: 8) {
                     Text(commit.shortSha)
                         .font(.system(size: 12, weight: .bold, design: .monospaced))
-                        .foregroundColor(.barkcliAccentPurple)
+                        .foregroundColor(.barkcliTextPrimary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
-                        .background(Color.barkcliAccentPurple.opacity(0.12))
+                        .background(Color.barkcliCardSubtle)
                         .clipShape(Capsule())
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(Color.barkcliBorder, lineWidth: 1)
+                        )
 
                     Text(commit.author)
                         .font(.system(size: 12, weight: .medium))
@@ -212,10 +216,10 @@ public struct HistoryView: View {
                                 Text("Assign to Agent")
                                     .font(.system(size: 12, weight: .bold))
                             }
-                            .foregroundColor(.white)
+                            .foregroundColor(Color.barkcliCanvas)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
-                            .background(Color.barkcliAccentPurple)
+                            .background(Color.barkcliTextPrimary)
                             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                         }
                         .buttonStyle(.plain)
@@ -275,7 +279,7 @@ public struct AssignCommitSheet: View {
                             HStack(spacing: 8) {
                                 Text(commit.shortSha)
                                     .font(.system(size: 12, weight: .bold, design: .monospaced))
-                                    .foregroundColor(.barkcliAccentPurple)
+                                    .foregroundColor(.barkcliTextPrimary)
 
                                 Text(commit.author)
                                     .font(.system(size: 12))
@@ -383,7 +387,7 @@ public struct AssignCommitSheet: View {
                         }
                     }
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(.barkcliAccentPurple)
+                    .foregroundColor(.barkcliTextPrimary)
                     .disabled(isAssigning || taskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
