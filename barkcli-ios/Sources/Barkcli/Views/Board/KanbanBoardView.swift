@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Fluid, interactive multi-column Kanban Board view for barkcli.
+/// Fluid, interactive multi column Kanban Board view for barkcli.
 /// Features text search, priority filtering, column segment tabs,
 /// WIP limit tracking, and instant card detail inspection.
 public struct KanbanBoardView: View {
@@ -73,7 +73,7 @@ public struct KanbanBoardView: View {
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.system(size: 16))
-                            .foregroundColor(.barkcliElectricViolet)
+                            .foregroundColor(.barkcliTextPrimary)
                     }
                 }
             }
@@ -90,7 +90,7 @@ public struct KanbanBoardView: View {
             }
     }
 
-    // MARK: - Filter Header
+    // MARK: Filter Header
     private var filterHeaderView: some View {
         VStack(spacing: 8) {
             // Search Input Field
@@ -144,22 +144,22 @@ public struct KanbanBoardView: View {
         } label: {
             Text(title)
                 .font(BarkcliTypography.badge)
-                .foregroundColor(isSelected ? .white : .barkcliTextMuted)
+                .foregroundColor(isSelected ? .barkcliTextPrimary : .barkcliTextMuted)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
                 .background(
-                    Capsule()
-                        .fill(isSelected ? Color.barkcliElectricViolet : Color.barkcliSpaceBlack)
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(isSelected ? Color.barkcliCardSubtle : Color.clear)
                 )
                 .overlay(
-                    Capsule()
-                        .strokeBorder(isSelected ? Color.barkcliElectricViolet : Color.barkcliBorderHairline.opacity(0.5), lineWidth: 0.5)
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .strokeBorder(isSelected ? Color.barkcliBorderFocus : Color.barkcliBorder, lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)
     }
 
-    // MARK: - Column Tab Bar
+    // MARK: Column Tab Bar
     private var columnTabBarView: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
@@ -173,7 +173,7 @@ public struct KanbanBoardView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 6)
         }
-        .background(Color.barkcliSpaceBlack.opacity(0.4))
+        .background(Color.barkcliCardBackground)
     }
 
     private func columnTabPill(id: String, name: String, count: Int) -> some View {
@@ -188,24 +188,24 @@ public struct KanbanBoardView: View {
                     .font(BarkcliTypography.codeHash)
                     .padding(.horizontal, 5)
                     .padding(.vertical, 1)
-                    .background(Capsule().fill(isSelected ? Color.white.opacity(0.2) : Color.barkcliBorderHairline.opacity(0.4)))
+                    .background(RoundedRectangle(cornerRadius: 3, style: .continuous).fill(Color.barkcliCardSubtle))
             }
-            .foregroundColor(isSelected ? .white : .barkcliTextMuted)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            .foregroundColor(isSelected ? .barkcliTextPrimary : .barkcliTextMuted)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
             .background(
-                Capsule()
-                    .fill(isSelected ? Color.barkcliElectricViolet : Color.clear)
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(isSelected ? Color.barkcliCardSubtle : Color.clear)
             )
             .overlay(
-                Capsule()
-                    .strokeBorder(isSelected ? Color.barkcliElectricViolet : Color.barkcliBorderHairline.opacity(0.4), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .strokeBorder(isSelected ? Color.barkcliBorderFocus : Color.clear, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
     }
 
-    // MARK: - Columns Content
+    // MARK: Columns Content
     private var boardColumnsContentView: some View {
         ScrollView {
             VStack(spacing: 16) {
@@ -277,7 +277,7 @@ public struct KanbanBoardView: View {
         .padding(32)
     }
 
-    // MARK: - New Card Modal
+    // MARK: New Card Modal
     private var newCardModal: some View {
         NavigationStack {
             Form {

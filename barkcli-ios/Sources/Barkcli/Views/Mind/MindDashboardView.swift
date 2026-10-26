@@ -3,9 +3,9 @@ import SwiftUI
 import UIKit
 #endif
 
-/// Central command deck for barkcli — the management layer for AI agents.
+/// Central command deck for barkcli: the management layer for AI agents.
 /// Surfaces project health indicators, live autopilot phase states, velocity metrics,
-/// real-time agent worktree sessions, and critical blocker feeds.
+/// real time agent worktree sessions, and critical blocker feeds.
 public struct MindDashboardView: View {
     @Environment(MindStore.self) private var mindStore
     @Environment(WorkspaceStore.self) private var workspaceStore
@@ -41,7 +41,7 @@ public struct MindDashboardView: View {
                         }
                     )
 
-                    // 4-Tile High-Impact Velocity & Health Grid
+                    // Velocity and Health Grid
                     metricsGridSection
 
                     // Live Agent Fleet Worktree Sessions Rail
@@ -78,7 +78,7 @@ public struct MindDashboardView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "cpu.fill")
                             .font(.system(size: 13))
-                            .foregroundColor(.barkcliElectricViolet)
+                            .foregroundColor(.barkcliTextSecondary)
                         Text(workspaceStore.currentWorkspace.name)
                             .font(BarkcliTypography.codeHash)
                             .foregroundColor(.barkcliTextPrimary)
@@ -102,7 +102,7 @@ public struct MindDashboardView: View {
                         } label: {
                             Image(systemName: "arrow.triangle.2.circlepath")
                                 .font(.system(size: 14))
-                                .foregroundColor(.barkcliElectricViolet)
+                                .foregroundColor(.barkcliTextSecondary)
                         }
                     }
                 }
@@ -111,10 +111,17 @@ public struct MindDashboardView: View {
                 if showCopiedAlert {
                     Text("Digest copied to clipboard")
                         .font(BarkcliTypography.badge)
-                        .foregroundColor(.white)
+                        .foregroundColor(.barkcliTextPrimary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 7)
-                        .background(Capsule().fill(Color.barkcliElectricViolet))
+                        .background(
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(Color.barkcliCardSubtle)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .strokeBorder(Color.barkcliBorder, lineWidth: 1)
+                        )
                         .padding(.bottom, 20)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
@@ -129,7 +136,7 @@ public struct MindDashboardView: View {
             }
     }
 
-    // MARK: - Header Deck
+    // MARK: Header Deck
     private var headerDeckView: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
@@ -146,8 +153,8 @@ public struct MindDashboardView: View {
             // Live Connection Status Beacon
             HStack(spacing: 5) {
                 Circle()
-                    .fill(workspaceStore.connectionMode == .connected ? Color.barkcliEmeraldGate : (workspaceStore.connectionMode == .demoMode ? Color.barkcliElectricViolet : Color.barkcliAmberPulse))
-                    .frame(width: 7, height: 7)
+                    .fill(workspaceStore.connectionMode == .connected ? Color.barkcliStatusActive : (workspaceStore.connectionMode == .demoMode ? Color.barkcliStatusInfo : Color.barkcliStatusWarning))
+                    .frame(width: 6, height: 6)
 
                 Text(workspaceStore.connectionMode == .demoMode ? "OFFLINE DEMO" : (workspaceStore.connectionMode == .connected ? "LIVE DAEMON" : "CONNECTING"))
                     .font(BarkcliTypography.codeHash)
@@ -155,12 +162,12 @@ public struct MindDashboardView: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(Capsule().fill(Color.barkcliSpaceBlack))
-            .overlay(Capsule().strokeBorder(Color.barkcliBorderHairline, lineWidth: 0.5))
+            .background(Color.barkcliCardSubtle)
+            .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Color.barkcliBorder, lineWidth: 1))
         }
     }
 
-    // MARK: - Metrics Grid
+    // MARK: Metrics Grid
     private var metricsGridSection: some View {
         LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
             MetricTile(
@@ -168,7 +175,7 @@ public struct MindDashboardView: View {
                 value: "\(Int(mindStore.healthScore))%",
                 subtitle: mindStore.healthScore >= 80 ? "Optimal gates" : "Attention needed",
                 systemImage: "heart.fill",
-                accentColor: mindStore.healthScore >= 80 ? .barkcliEmeraldGate : .barkcliAmberPulse
+                accentColor: mindStore.healthScore >= 80 ? .barkcliStatusActive : .barkcliStatusWarning
             )
 
             MetricTile(
@@ -176,7 +183,7 @@ public struct MindDashboardView: View {
                 value: "\(mindStore.velocity.totalDone)",
                 subtitle: "\(mindStore.velocity.totalPoints) effort pts done",
                 systemImage: "bolt.fill",
-                accentColor: .barkcliElectricViolet
+                accentColor: .barkcliTextPrimary
             )
 
             MetricTile(
@@ -197,7 +204,7 @@ public struct MindDashboardView: View {
         }
     }
 
-    // MARK: - Live Agent Fleet Rail
+    // MARK: Live Agent Fleet Rail
     private var liveAgentRailSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             SectionHeader(
@@ -240,7 +247,7 @@ public struct MindDashboardView: View {
 
                 Text(session.backend)
                     .font(BarkcliTypography.codeHash)
-                    .foregroundColor(.barkcliElectricViolet)
+                    .foregroundColor(.barkcliTextPrimary)
 
                 Spacer()
 
@@ -252,10 +259,10 @@ public struct MindDashboardView: View {
             HStack(spacing: 4) {
                 Image(systemName: "arrow.triangle.branch")
                     .font(.system(size: 10))
-                    .foregroundColor(.barkcliCyberCyan)
+                    .foregroundColor(.barkcliTextSecondary)
                 Text(session.branch ?? "main")
                     .font(BarkcliTypography.branchName)
-                    .foregroundColor(.barkcliCyberCyan)
+                    .foregroundColor(.barkcliTextSecondary)
                     .lineLimit(1)
             }
 
@@ -287,7 +294,7 @@ public struct MindDashboardView: View {
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.barkcliBorderHairline, lineWidth: 0.5))
     }
 
-    // MARK: - Blockers Section
+    // MARK: Blockers Section
     private var blockersSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             SectionHeader(
@@ -339,7 +346,7 @@ public struct MindDashboardView: View {
         }
     }
 
-    // MARK: - Stale Cards Section
+    // MARK: Stale Cards Section
     private var staleCardsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             SectionHeader(
@@ -384,7 +391,7 @@ public struct MindDashboardView: View {
         }
     }
 
-    // MARK: - Recommended Actions Section
+    // MARK: Recommended Actions Section
     private var nextActionsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             SectionHeader(
@@ -399,7 +406,7 @@ public struct MindDashboardView: View {
                     HStack(spacing: 10) {
                         Image(systemName: "arrow.right.circle.fill")
                             .font(.system(size: 13))
-                            .foregroundColor(.barkcliElectricViolet)
+                            .foregroundColor(.barkcliStatusActive)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(action.action)
@@ -412,7 +419,7 @@ public struct MindDashboardView: View {
 
                         Spacer()
 
-                        StatusBadge("ACTION", variant: .electric)
+                        StatusBadge("ACTION", variant: .accent)
                     }
                     .padding(12)
                     .background(RoundedRectangle(cornerRadius: 10).fill(Color.barkcliSpaceBlack))
@@ -422,7 +429,7 @@ public struct MindDashboardView: View {
         }
     }
 
-    // MARK: - Helpers
+    // MARK: Helpers
     private func copyDigestToClipboard() {
         let digest = mindStore.exportMarkdownDigest()
         #if os(iOS)

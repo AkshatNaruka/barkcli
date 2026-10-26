@@ -18,8 +18,6 @@ public enum IntentKind: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// Floating liquid glass prompt capsule anchored above bottom navigation.
-/// Allows humans to dispatch natural language intent directly to the barkcli management layer.
 public struct IntentBar: View {
     @Environment(MindStore.self) private var envMindStore: MindStore?
     @State private var fallbackMindStore = MindStore.shared
@@ -42,7 +40,6 @@ public struct IntentBar: View {
     public var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
-                // Kind Picker Menu
                 Menu {
                     ForEach(IntentKind.allCases) { kind in
                         Button {
@@ -59,22 +56,24 @@ public struct IntentBar: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text(selectedKind.rawValue)
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.barkcliElectricViolet)
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .foregroundColor(.barkcliTextPrimary)
 
                         Image(systemName: "chevron.up.chevron.down")
                             .font(.system(size: 9))
                             .foregroundColor(.barkcliTextMuted)
                     }
                     .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .background(Color.barkcliElectricViolet.opacity(0.12))
-                    .clipShape(Capsule())
+                    .padding(.vertical, 5)
+                    .background(Color.barkcliCardSubtle)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .strokeBorder(Color.barkcliBorder, lineWidth: 1)
+                    )
                 }
 
-                // Prompt Textfield
                 TextField("What should get done? (e.g. Add JWT auth)", text: $promptText)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 13, design: .monospaced))
                     .foregroundColor(.barkcliTextPrimary)
                     .textFieldStyle(.plain)
                     .focused($isFocused)
@@ -83,7 +82,6 @@ public struct IntentBar: View {
                         submitIntent()
                     }
 
-                // Clear button if text present
                 if !promptText.isEmpty {
                     Button {
                         promptText = ""
@@ -95,43 +93,35 @@ public struct IntentBar: View {
                     .buttonStyle(.plain)
                 }
 
-                // Send Dispatch Button
                 Button {
                     submitIntent()
                 } label: {
                     if isSubmitting {
                         ProgressView()
                             .progressViewStyle(.circular)
-                            .tint(.white)
-                            .frame(width: 32, height: 32)
+                            .tint(.barkcliTextPrimary)
+                            .scaleEffect(0.7)
+                            .frame(width: 24, height: 24)
                     } else {
                         Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 28))
-                            .foregroundColor(canSubmit ? .barkcliElectricViolet : .barkcliTextMuted)
+                            .font(.system(size: 22))
+                            .foregroundColor(canSubmit ? .barkcliTextPrimary : .barkcliTextMuted)
                     }
                 }
                 .buttonStyle(.plain)
                 .disabled(!canSubmit || isSubmitting)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(Color.barkcliSpaceBlack.opacity(0.85))
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color.barkcliCardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .strokeBorder(
-                        isFocused ? Color.barkcliElectricViolet : Color.barkcliBorderHairline,
-                        lineWidth: isFocused ? 1.0 : 0.5
+                        isFocused ? Color.barkcliBorderFocus : Color.barkcliBorder,
+                        lineWidth: 1
                     )
             )
-            .liquidGlass(
-                cornerRadius: 22,
-                interactive: true,
-                borderColor: isFocused ? Color.barkcliElectricViolet.opacity(0.4) : Color.white.opacity(0.1),
-                glowColor: isFocused ? Color.barkcliElectricViolet : nil,
-                glowRadius: isFocused ? 6 : 0
-            )
-            .shadow(color: Color.black.opacity(0.35), radius: 10, y: 5)
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 8)

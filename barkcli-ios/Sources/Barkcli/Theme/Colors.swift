@@ -1,35 +1,43 @@
 import SwiftUI
 
 public struct BarkcliColors: Sendable {
-    // Canvas & Surfaces (Codex / t3codes Dark-Mode-First)
+    // Pitch zinc canvas and surface tokens
+    public static let canvas = Color(hex: 0x09090B)
+    public static let cardBackground = Color(hex: 0x121215)
+    public static let cardSubtle = Color(hex: 0x18181B)
+    public static let border = Color(hex: 0x27272A)
+    public static let borderFocus = Color(hex: 0x3F3F46)
+
+    // Discrete status indicators
+    public static let statusActive = Color(hex: 0x22C55E)
+    public static let statusWarning = Color(hex: 0xF59E0B)
+    public static let statusError = Color(hex: 0xEF4444)
+    public static let statusInfo = Color(hex: 0x0284C7)
+
+    // High contrast typography tokens
+    public static let textPrimary = Color(hex: 0xFAFAFA)
+    public static let textSecondary = Color(hex: 0xA1A1AA)
+    public static let textMuted = Color(hex: 0x71717A)
+
+    // Backward compatibility tokens
     public static let obsidianDark = Color(hex: 0x0A0A0E)
     public static let spaceBlack = Color(hex: 0x12131A)
     public static let slateGlass = Color(hex: 0x181924)
     public static let borderHairline = Color(hex: 0x2E3142)
-
-    // Backward-compatible surface aliases
-    public static let darkBackground = obsidianDark
-    public static let surface = spaceBlack
-    public static let cardBackground = Color(hex: 0x1C1D28)
-    public static let borderSubtle = borderHairline
-
-    // Accents & Neon Highlights
     public static let electricViolet = Color(hex: 0x8B5CF6)
     public static let cyberCyan = Color(hex: 0x06B6D4)
     public static let amberPulse = Color(hex: 0xF59E0B)
     public static let emeraldGate = Color(hex: 0x10B981)
     public static let crimsonBlocker = Color(hex: 0xEF4444)
 
-    // Backward-compatible accent aliases
-    public static let accentPurple = electricViolet
-    public static let successEmerald = emeraldGate
-    public static let dangerRose = crimsonBlocker
-    public static let warningAmber = amberPulse
-
-    // Typography & Muted Grays
-    public static let textPrimary = Color(hex: 0xF9FAFB)
-    public static let textMuted = Color(hex: 0x9CA3AF)
-    public static let textSecondary = Color(hex: 0x6B7280)
+    // Semantic aliases
+    public static let darkBackground = canvas
+    public static let surface = cardBackground
+    public static let borderSubtle = border
+    public static let accentPurple = statusInfo
+    public static let successEmerald = statusActive
+    public static let dangerRose = statusError
+    public static let warningAmber = statusWarning
 }
 
 public extension Color {
@@ -62,7 +70,33 @@ public extension Color {
         )
     }
 
-    // Codex Design Tokens
+    // Zinc developer tokens
+    static let barkcliCanvas = BarkcliColors.canvas
+    static let barkcliCardBackground = BarkcliColors.cardBackground
+    static let barkcliCardSubtle = BarkcliColors.cardSubtle
+    static let barkcliBorder = BarkcliColors.border
+    static let barkcliBorderFocus = BarkcliColors.borderFocus
+    static let barkcliStatusActive = BarkcliColors.statusActive
+    static let barkcliStatusWarning = BarkcliColors.statusWarning
+    static let barkcliStatusError = BarkcliColors.statusError
+    static let barkcliStatusInfo = BarkcliColors.statusInfo
+
+    // Surface and semantic redirects
+    static let barkcliDarkBackground = BarkcliColors.canvas
+    static let barkcliBackground = BarkcliColors.canvas
+    static let barkcliSurface = BarkcliColors.cardBackground
+    static let barkcliCard = BarkcliColors.cardBackground
+    static let barkcliBorderHairline = BarkcliColors.border
+    static let barkcliBorderSubtle = BarkcliColors.border
+    static let barkcliAccent = BarkcliColors.textPrimary
+    static let barkcliSuccess = BarkcliColors.statusActive
+    static let barkcliDanger = BarkcliColors.statusError
+    static let barkcliWarning = BarkcliColors.statusWarning
+    static let barkcliTextPrimary = BarkcliColors.textPrimary
+    static let barkcliTextSecondary = BarkcliColors.textSecondary
+    static let barkcliTextMuted = BarkcliColors.textMuted
+
+    // Preserved tokens for compatibility
     static let barkcliObsidian = BarkcliColors.obsidianDark
     static let barkcliSpaceBlack = BarkcliColors.spaceBlack
     static let barkcliSlateGlass = BarkcliColors.slateGlass
@@ -71,25 +105,8 @@ public extension Color {
     static let barkcliAmberPulse = BarkcliColors.amberPulse
     static let barkcliEmeraldGate = BarkcliColors.emeraldGate
     static let barkcliCrimsonBlocker = BarkcliColors.crimsonBlocker
-    static let barkcliBorderHairline = BarkcliColors.borderHairline
-
-    // Existing & Backward Compatible Names
-    static let barkcliDarkBackground = BarkcliColors.darkBackground
-    static let barkcliSurface = BarkcliColors.surface
-    static let barkcliCard = BarkcliColors.cardBackground
-    static let barkcliBorderSubtle = BarkcliColors.borderSubtle
     static let barkcliAccentPurple = BarkcliColors.accentPurple
     static let barkcliSuccessEmerald = BarkcliColors.successEmerald
     static let barkcliDangerRose = BarkcliColors.dangerRose
     static let barkcliWarningAmber = BarkcliColors.warningAmber
-    static let barkcliTextPrimary = BarkcliColors.textPrimary
-    static let barkcliTextMuted = BarkcliColors.textMuted
-    static let barkcliTextSecondary = BarkcliColors.textSecondary
-
-    static let barkcliBackground = barkcliDarkBackground
-    static let barkcliAccent = barkcliAccentPurple
-    static let barkcliSuccess = barkcliSuccessEmerald
-    static let barkcliDanger = barkcliDangerRose
-    static let barkcliWarning = barkcliWarningAmber
-    static let barkcliBorder = barkcliBorderSubtle
 }

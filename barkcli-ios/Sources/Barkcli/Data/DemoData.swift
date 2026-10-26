@@ -1196,4 +1196,349 @@ public enum DemoData: Sendable {
             HistoryEntry(op: "add", board: "dev", card: "demo-hosting", newValue: "doing", at: "9 days ago")
         ]
     }
+
+    // MARK: Subsystems Sample Datasets
+
+    public static func makeInitialSprintDetails() -> [SprintDetail] {
+        [
+            SprintDetail(
+                name: "Sprint 42: Agent Autonomy",
+                goal: "Deliver isolated worktrees and automated acceptance gate verification",
+                start: "2026 10 15",
+                end: "2026 10 29",
+                status: "active",
+                cardIds: ["autopilot gates", "agent leases", "merge train"],
+                totalEffort: 24,
+                completedEffort: 16
+            ),
+            SprintDetail(
+                name: "Sprint 41: Native Client Overhaul",
+                goal: "Transition native interface to developer zinc aesthetic and full subsystem stores",
+                start: "2026 10 01",
+                end: "2026 10 14",
+                status: "completed",
+                cardIds: ["design tokens", "liquid glass", "symbol search"],
+                totalEffort: 30,
+                completedEffort: 30
+            ),
+            SprintDetail(
+                name: "Sprint 43: Fleet Coordination",
+                goal: "Scale agent pool to eight concurrent workers with conflict resolution",
+                start: "2026 10 30",
+                end: "2026 11 13",
+                status: "planned",
+                cardIds: ["pool scaling", "lease timeouts"],
+                totalEffort: 28,
+                completedEffort: 0
+            )
+        ]
+    }
+
+    public static func makeInitialCodeSymbols() -> [CodeSymbol] {
+        [
+            CodeSymbol(
+                id: "sym 1",
+                name: "run acceptance gate",
+                kind: "function",
+                filePath: "barkcli core/src/gate.rs",
+                line: 42,
+                language: "rust",
+                documentation: "Executes project test suite inside isolated worktree",
+                linkedCardId: "gate timeout"
+            ),
+            CodeSymbol(
+                id: "sym 2",
+                name: "WorktreePool",
+                kind: "struct",
+                filePath: "barkcli core/src/worktree.rs",
+                line: 18,
+                language: "rust",
+                documentation: "Manages pool of temporary git worktrees for agent attempts",
+                linkedCardId: "worktree pool"
+            ),
+            CodeSymbol(
+                id: "sym 3",
+                name: "SprintStore",
+                kind: "class",
+                filePath: "barkcli ios/Sources/Barkcli/Stores/SprintStore.swift",
+                line: 8,
+                language: "swift",
+                documentation: "Observable state store for active sprint progress and effort rollups"
+            ),
+            CodeSymbol(
+                id: "sym 4",
+                name: "submitIntent",
+                kind: "function",
+                filePath: "barkcli ios/Sources/Barkcli/Stores/MindStore.swift",
+                line: 64,
+                language: "swift",
+                documentation: "Dispatches human intent to autopilot plan engine"
+            ),
+            CodeSymbol(
+                id: "sym 5",
+                name: "MergeTrainCoordinator",
+                kind: "struct",
+                filePath: "barkcli server/src/merge train.rs",
+                line: 95,
+                language: "rust",
+                documentation: "Queues passing branches and executes sequential merges",
+                linkedCardId: "merge train"
+            ),
+            CodeSymbol(
+                id: "sym 6",
+                name: "useOrchestration",
+                kind: "function",
+                filePath: "web/src/hooks/useOrchestration.ts",
+                line: 12,
+                language: "typescript",
+                documentation: "React hook subscribing to live runner telemetry"
+            )
+        ]
+    }
+
+    public static func makeInitialLivingContext() -> LivingContext {
+        let sections = [
+            ContextSection(
+                id: "sec 1",
+                title: "Brief",
+                content: "barkcli is the management layer for AI agents where humans write intent and agents execute in isolated worktrees.",
+                isManual: true,
+                staleness: "verified"
+            ),
+            ContextSection(
+                id: "sec 2",
+                title: "Architecture Rules",
+                content: "Acceptance gate test suite serves as the single source of truth for branch completion. Passing branches queue on merge train.",
+                isManual: true,
+                staleness: "fresh"
+            ),
+            ContextSection(
+                id: "sec 3",
+                title: "Active Workspaces",
+                content: "Current primary workspace barkcli with Rust backend and native Apple client.",
+                isManual: false,
+                staleness: "reconciled"
+            )
+        ]
+        return LivingContext(
+            rawMarkdown: "# Project Context\nbarkcli is the management layer for AI agents.",
+            tokenBudget: 8000,
+            tokensUsed: 2150,
+            stalenessSeconds: 45,
+            sections: sections
+        )
+    }
+
+    public static func makeInitialBrainGraph() -> BrainGraph {
+        let nodes = [
+            BrainNode(id: "node 1", label: "Intent Engine", category: "Autonomy", degree: 4, importance: 0.95),
+            BrainNode(id: "node 2", label: "Worktree Sandbox", category: "Isolation", degree: 5, importance: 0.92),
+            BrainNode(id: "node 3", label: "Test Gate", category: "Verification", degree: 6, importance: 0.98),
+            BrainNode(id: "node 4", label: "Merge Train", category: "Git", degree: 3, importance: 0.88),
+            BrainNode(id: "node 5", label: "Living Context", category: "Memory", degree: 4, importance: 0.85),
+            BrainNode(id: "node 6", label: "Agent Fleet", category: "Fleet", degree: 5, importance: 0.90)
+        ]
+        let edges = [
+            BrainEdge(id: "e 1", sourceId: "node 1", targetId: "node 2", relation: "spawns", weight: 1.0),
+            BrainEdge(id: "e 2", sourceId: "node 2", targetId: "node 3", relation: "verifies via", weight: 1.0),
+            BrainEdge(id: "e 3", sourceId: "node 3", targetId: "node 4", relation: "promotes to", weight: 0.9),
+            BrainEdge(id: "e 4", sourceId: "node 5", targetId: "node 1", relation: "informs", weight: 0.8),
+            BrainEdge(id: "e 5", sourceId: "node 6", targetId: "node 2", relation: "leases", weight: 0.9)
+        ]
+        return BrainGraph(nodes: nodes, edges: edges)
+    }
+
+    public static func makeInitialSkills() -> [Skill] {
+        [
+            Skill(
+                id: "rust pro",
+                name: "Rust Systems Engineer",
+                description: "Deep expertise in Rust memory safety async runtimes and cargo workspaces",
+                author: "barkcli",
+                installed: true,
+                tags: ["systems", "rust", "backend"],
+                entrypoint: "skills/rust pro/SKILL.md"
+            ),
+            Skill(
+                id: "swiftui pro",
+                name: "Apple Native Engineer",
+                description: "Expert SwiftUI development strict Swift 6 concurrency and high density layouts",
+                author: "barkcli",
+                installed: true,
+                tags: ["apple", "swift", "frontend"],
+                entrypoint: "skills/swiftui pro/SKILL.md"
+            ),
+            Skill(
+                id: "tdd workflow",
+                name: "Test Driven Acceptance Gate",
+                description: "Enforces red green refactor cycles and acceptance gate verification",
+                author: "barkcli",
+                installed: true,
+                tags: ["testing", "gates", "qa"],
+                entrypoint: "skills/tdd workflow/SKILL.md"
+            ),
+            Skill(
+                id: "git master",
+                name: "Git Worktree Orchestrator",
+                description: "Manages worktree branching rebase conflict isolation and clean merges",
+                author: "barkcli",
+                installed: false,
+                tags: ["git", "worktree", "vcs"],
+                entrypoint: "skills/git master/SKILL.md"
+            )
+        ]
+    }
+
+    public static func makeInitialDocs() -> [DocItem] {
+        [
+            DocItem(
+                id: "architecture",
+                title: "System Architecture",
+                category: "Manual",
+                path: "docs/ARCHITECTURE.md",
+                summary: "Core design of the management layer for AI agents",
+                content: "# System Architecture\n\nbarkcli coordinates autonomous agents through structured intent proposals isolated git worktrees and test acceptance gates."
+            ),
+            DocItem(
+                id: "agent prompt",
+                title: "AI Agent Guidelines",
+                category: "Reference",
+                path: "docs/AI_AGENT_PROMPT.md",
+                summary: "Instructions for coding agents executing worktree tasks",
+                content: "# AI Agent Guidelines\n\nAlways verify changes using cargo test or swift test before marking tasks complete."
+            ),
+            DocItem(
+                id: "context guide",
+                title: "Living Context Digest",
+                category: "Guide",
+                path: "docs/CONTEXT.md",
+                summary: "How project context is maintained across agent sessions",
+                content: "# Living Context Digest\n\nLiving context keeps memory facts and project constraints synchronized without context drift."
+            )
+        ]
+    }
+
+    public static func makeInitialAgenda() -> [AgendaItem] {
+        [
+            AgendaItem(
+                id: "ag 1",
+                cardId: "add oauth",
+                title: "Complete OAuth redirect roundtrip",
+                dueDate: daysAgo(1),
+                column: "todo",
+                priority: .critical,
+                isOverdue: true,
+                isToday: false
+            ),
+            AgendaItem(
+                id: "ag 2",
+                cardId: "oauth flow",
+                title: "Verify session cookie storage",
+                dueDate: Date(),
+                column: "doing",
+                priority: .high,
+                isOverdue: false,
+                isToday: true
+            ),
+            AgendaItem(
+                id: "ag 3",
+                cardId: "autopilot gates",
+                title: "Review gate integration test",
+                dueDate: daysInFuture(2),
+                column: "todo",
+                priority: .high,
+                isOverdue: false,
+                isToday: false
+            ),
+            AgendaItem(
+                id: "ag 4",
+                cardId: "worktree pool",
+                title: "Sandbox cleanup verification",
+                dueDate: daysInFuture(5),
+                column: "todo",
+                priority: .medium,
+                isOverdue: false,
+                isToday: false
+            )
+        ]
+    }
+
+    public static func makeInitialReportMetrics() -> ReportMetrics {
+        ReportMetrics(
+            effortByColumn: [
+                "todo": 16,
+                "doing": 12,
+                "review": 8,
+                "done": 46
+            ],
+            cardsByPriority: [
+                "critical": 4,
+                "high": 9,
+                "medium": 14,
+                "low": 6
+            ],
+            completionVelocity: 14.5,
+            cycleTimeDays: 2.3,
+            throughputPerWeek: 18.2
+        )
+    }
+
+    public static func makeInitialCheckpoints() -> [Checkpoint] {
+        [
+            Checkpoint(
+                id: "cp 4",
+                timestamp: hoursAgo(1),
+                description: "Completed t3 codes design system token overhaul",
+                author: "developer",
+                fileCount: 4
+            ),
+            Checkpoint(
+                id: "cp 3",
+                timestamp: hoursAgo(5),
+                description: "Added sprint store and code symbol search models",
+                author: "agent",
+                fileCount: 6
+            ),
+            Checkpoint(
+                id: "cp 2",
+                timestamp: daysAgo(1),
+                description: "Merged passing gate for worktree isolation pool",
+                author: "merge train",
+                fileCount: 12
+            ),
+            Checkpoint(
+                id: "cp 1",
+                timestamp: daysAgo(3),
+                description: "Initial workspace bootstrap with auto init",
+                author: "system",
+                fileCount: 22
+            )
+        ]
+    }
+
+    public static func makeInitialDoctorIssues() -> [DoctorIssue] {
+        [
+            DoctorIssue(
+                id: "doc 1",
+                severity: "warning",
+                description: "Card checkout references missing spec requirement checkout 04",
+                fixable: true,
+                fixed: false
+            ),
+            DoctorIssue(
+                id: "doc 2",
+                severity: "info",
+                description: "Stale living context digest has uncommitted updates in dev board",
+                fixable: true,
+                fixed: false
+            ),
+            DoctorIssue(
+                id: "doc 3",
+                severity: "resolved",
+                description: "Worktree lease expired on agent codex 1 and was auto reclaimed",
+                fixable: false,
+                fixed: true
+            )
+        ]
+    }
 }

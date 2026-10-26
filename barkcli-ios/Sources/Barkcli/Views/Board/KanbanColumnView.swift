@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// View representing a single Kanban column with WIP limit enforcement,
-/// interactive card list, swipe-to-advance actions, and visual status chips.
+/// interactive card list, swipe to advance actions, and visual status chips.
 public struct KanbanColumnView: View {
     public let column: Column
     public let cards: [Card]
@@ -66,7 +66,7 @@ public struct KanbanColumnView: View {
         )
     }
 
-    // MARK: - Card Component
+    // MARK: Card Component
     private func kanbanCardView(_ card: Card) -> some View {
         Button {
             onSelectCard(card)
@@ -130,10 +130,10 @@ public struct KanbanColumnView: View {
                         ForEach(card.labels.prefix(3), id: \.self) { label in
                             Text("#\(label)")
                                 .font(BarkcliTypography.codeHash)
-                                .foregroundColor(.barkcliCyberCyan)
+                                .foregroundColor(.barkcliTextSecondary)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Capsule().fill(Color.barkcliCyberCyan.opacity(0.1)))
+                                .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Color.barkcliCardSubtle))
                         }
 
                         Spacer()

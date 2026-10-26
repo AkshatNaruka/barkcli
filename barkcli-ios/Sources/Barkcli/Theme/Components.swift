@@ -8,10 +8,10 @@ public struct GlassCard<Content: View>: View {
     private let content: Content
 
     public init(
-        cornerRadius: CGFloat = 14,
-        padding: CGFloat = 16,
-        borderColor: Color = .barkcliBorderSubtle,
-        backgroundColor: Color = .barkcliCard.opacity(0.85),
+        cornerRadius: CGFloat = 8,
+        padding: CGFloat = 12,
+        borderColor: Color = .barkcliBorder,
+        backgroundColor: Color = .barkcliCardBackground,
         @ViewBuilder content: () -> Content
     ) {
         self.cornerRadius = cornerRadius
@@ -53,27 +53,39 @@ public enum StatusBadgeVariant: Sendable, Hashable {
         switch self {
         case .neutral:
             return .barkcliTextMuted
-        case .accent, .electric:
-            return .barkcliElectricViolet
+        case .accent:
+            return .barkcliTextPrimary
+        case .electric:
+            return BarkcliColors.electricViolet
         case .success, .emerald:
-            return .barkcliEmeraldGate
+            return BarkcliColors.emeraldGate
         case .warning, .amber:
-            return .barkcliAmberPulse
+            return BarkcliColors.amberPulse
         case .danger, .crimson:
-            return .barkcliCrimsonBlocker
+            return BarkcliColors.crimsonBlocker
         case .cyber:
-            return .barkcliCyberCyan
+            return BarkcliColors.cyberCyan
         case .custom(let color):
             return color
         }
     }
 
     public var backgroundColor: Color {
-        foregroundColor.opacity(0.14)
+        switch self {
+        case .neutral:
+            return Color.barkcliCardSubtle
+        default:
+            return foregroundColor.opacity(0.12)
+        }
     }
 
     public var borderColor: Color {
-        foregroundColor.opacity(0.28)
+        switch self {
+        case .neutral:
+            return Color.barkcliBorder
+        default:
+            return foregroundColor.opacity(0.3)
+        }
     }
 }
 
@@ -96,24 +108,24 @@ public struct StatusBadge: View {
         HStack(spacing: 5) {
             if let systemImage {
                 Image(systemName: systemImage)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 10, weight: .semibold))
             } else {
                 Circle()
                     .fill(variant.foregroundColor)
-                    .frame(width: 6, height: 6)
+                    .frame(width: 5, height: 5)
             }
             Text(text)
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
         }
         .foregroundColor(variant.foregroundColor)
-        .padding(.horizontal, 9)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
         .background(
-            Capsule()
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .fill(variant.backgroundColor)
         )
         .overlay(
-            Capsule()
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .strokeBorder(variant.borderColor, lineWidth: 1)
         )
     }
@@ -149,9 +161,9 @@ public enum MetricTrend: Sendable, Hashable {
     public var color: Color {
         switch self {
         case .up:
-            return .barkcliSuccessEmerald
+            return .barkcliStatusActive
         case .down:
-            return .barkcliDangerRose
+            return .barkcliStatusError
         case .neutral:
             return .barkcliTextMuted
         }
@@ -172,7 +184,7 @@ public struct MetricTile: View {
         subtitle: String? = nil,
         systemImage: String? = nil,
         trend: MetricTrend? = nil,
-        accentColor: Color = .barkcliAccentPurple
+        accentColor: Color = .barkcliTextPrimary
     ) {
         self.title = title
         self.value = value
@@ -183,36 +195,36 @@ public struct MetricTile: View {
     }
 
     public var body: some View {
-        GlassCard(padding: 14) {
-            VStack(alignment: .leading, spacing: 8) {
+        GlassCard(cornerRadius: 6, padding: 10) {
+            VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text(title.uppercased())
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
                         .foregroundColor(.barkcliTextMuted)
-                        .tracking(0.5)
+                        .tracking(0.4)
                     Spacer()
                     if let systemImage {
                         Image(systemName: systemImage)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.system(size: 12, weight: .medium))
                             .foregroundColor(accentColor)
                     }
                 }
 
                 Text(value)
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .font(.system(size: 20, weight: .bold, design: .monospaced))
                     .foregroundColor(.barkcliTextPrimary)
 
                 if let trend {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 3) {
                         Image(systemName: trend.iconName)
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.system(size: 9, weight: .bold))
                         Text(trend.text)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
                     }
                     .foregroundColor(trend.color)
                 } else if let subtitle {
                     Text(subtitle)
-                        .font(.system(size: 12))
+                        .font(.system(size: 11))
                         .foregroundColor(.barkcliTextMuted)
                 }
             }
@@ -253,38 +265,38 @@ public struct ActionButton: View {
 
     public var body: some View {
         Button(action: action) {
-            HStack(spacing: 7) {
+            HStack(spacing: 6) {
                 if isLoading {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: foregroundColor))
-                        .scaleEffect(0.85)
+                        .scaleEffect(0.8)
                 } else if let systemImage {
                     Image(systemName: systemImage)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 12, weight: .semibold))
                 }
                 Text(title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
             }
             .frame(maxWidth: .infinity)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
             .foregroundColor(foregroundColor)
             .background(backgroundView)
             .overlay(borderOverlay)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
         }
         .disabled(isDisabled || isLoading)
-        .opacity(isDisabled ? 0.45 : 1.0)
+        .opacity(isDisabled ? 0.4 : 1.0)
     }
 
     private var foregroundColor: Color {
         switch variant {
         case .primary:
-            return .white
+            return Color(hex: 0x09090B)
         case .secondary:
             return .barkcliTextPrimary
         case .destructive:
-            return .white
+            return .barkcliStatusError
         case .ghost:
             return .barkcliTextMuted
         }
@@ -294,11 +306,11 @@ public struct ActionButton: View {
     private var backgroundView: some View {
         switch variant {
         case .primary:
-            Color.barkcliAccentPurple
+            Color.barkcliTextPrimary
         case .secondary:
-            Color.barkcliCard
+            Color.barkcliCardSubtle
         case .destructive:
-            Color.barkcliDangerRose
+            Color.barkcliStatusError.opacity(0.12)
         case .ghost:
             Color.clear
         }
@@ -308,11 +320,14 @@ public struct ActionButton: View {
     private var borderOverlay: some View {
         switch variant {
         case .secondary:
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(Color.barkcliBorderSubtle, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .strokeBorder(Color.barkcliBorder, lineWidth: 1)
+        case .destructive:
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .strokeBorder(Color.barkcliStatusError.opacity(0.3), lineWidth: 1)
         case .ghost:
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(Color.barkcliBorderSubtle.opacity(0.4), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .strokeBorder(Color.barkcliBorder.opacity(0.4), lineWidth: 1)
         default:
             EmptyView()
         }
@@ -348,23 +363,27 @@ public struct SectionHeader: View {
             HStack(spacing: 8) {
                 if let systemImage {
                     Image(systemName: systemImage)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.barkcliAccentPurple)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.barkcliTextSecondary)
                 }
 
                 Text(title)
-                    .font(.system(size: 17, weight: .bold))
+                    .font(.system(size: 14, weight: .bold))
                     .foregroundColor(.barkcliTextPrimary)
 
                 if let count {
                     Text("\(count)")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
                         .foregroundColor(.barkcliTextMuted)
-                        .padding(.horizontal, 7)
+                        .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(
-                            Capsule()
-                                .fill(Color.barkcliBorderSubtle.opacity(0.6))
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(Color.barkcliCardSubtle)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .strokeBorder(Color.barkcliBorder, lineWidth: 1)
                         )
                 }
 
@@ -373,22 +392,22 @@ public struct SectionHeader: View {
                 if let actionTitle, let action {
                     Button(action: action) {
                         Text(actionTitle)
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(.barkcliAccentPurple)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.barkcliTextSecondary)
                     }
                 }
             }
 
             if let subtitle {
                 Text(subtitle)
-                    .font(.system(size: 13))
+                    .font(.system(size: 12))
                     .foregroundColor(.barkcliTextMuted)
             }
         }
     }
 }
 
-// MARK: - Kanban & Board Visual Components
+// MARK: Board Visual Components
 
 public struct WIPLimitBadge: View {
     public let count: Int
@@ -411,9 +430,9 @@ public struct WIPLimitBadge: View {
 
     private var badgeColor: Color {
         if isOverLimit {
-            return .barkcliCrimsonBlocker
+            return .barkcliStatusError
         } else if isAtLimit {
-            return .barkcliAmberPulse
+            return .barkcliStatusWarning
         } else {
             return .barkcliTextMuted
         }
@@ -424,21 +443,21 @@ public struct WIPLimitBadge: View {
             if isOverLimit {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 9))
-                    .foregroundColor(.barkcliCrimsonBlocker)
+                    .foregroundColor(.barkcliStatusError)
             }
             Text(limit != nil ? "\(count)/\(limit!)" : "\(count)")
-                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
                 .foregroundColor(badgeColor)
         }
-        .padding(.horizontal, 7)
-        .padding(.vertical, 2.5)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
         .background(
-            Capsule()
-                .fill(isOverLimit ? Color.barkcliCrimsonBlocker.opacity(0.16) : Color.barkcliBorderHairline.opacity(0.4))
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(isOverLimit ? Color.barkcliStatusError.opacity(0.12) : Color.barkcliCardSubtle)
         )
         .overlay(
-            Capsule()
-                .strokeBorder(isOverLimit ? Color.barkcliCrimsonBlocker : Color.barkcliBorderHairline.opacity(0.6), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .strokeBorder(isOverLimit ? Color.barkcliStatusError : Color.barkcliBorder, lineWidth: 1)
         )
     }
 }
@@ -453,20 +472,20 @@ public struct SpecLinkChip: View {
     public var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "doc.text.magnifyingglass")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 9, weight: .semibold))
             Text("spec: \(specId)")
-                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
         }
-        .foregroundColor(.barkcliCyberCyan)
-        .padding(.horizontal, 7)
-        .padding(.vertical, 3)
+        .foregroundColor(.barkcliTextSecondary)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2.5)
         .background(
-            Capsule()
-                .fill(Color.barkcliCyberCyan.opacity(0.12))
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(Color.barkcliCardSubtle)
         )
         .overlay(
-            Capsule()
-                .strokeBorder(Color.barkcliCyberCyan.opacity(0.3), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .strokeBorder(Color.barkcliBorder, lineWidth: 1)
         )
     }
 }
@@ -480,21 +499,21 @@ public struct CodeLinkChip: View {
 
     public var body: some View {
         HStack(spacing: 4) {
-            Image(systemName: "doc.text")
-                .font(.system(size: 10, weight: .semibold))
+            Image(systemName: "curlybraces")
+                .font(.system(size: 9, weight: .semibold))
             Text(path)
-                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
         }
-        .foregroundColor(.barkcliCyberCyan)
-        .padding(.horizontal, 7)
-        .padding(.vertical, 3)
+        .foregroundColor(.barkcliTextSecondary)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2.5)
         .background(
-            Capsule()
-                .fill(Color.barkcliCyberCyan.opacity(0.12))
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(Color.barkcliCardSubtle)
         )
         .overlay(
-            Capsule()
-                .strokeBorder(Color.barkcliCyberCyan.opacity(0.3), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .strokeBorder(Color.barkcliBorder, lineWidth: 1)
         )
     }
 }
@@ -518,8 +537,8 @@ public struct ChecklistProgressBar: View {
             HStack {
                 HStack(spacing: 3) {
                     Image(systemName: completed == total && total > 0 ? "checkmark.circle.fill" : "checklist")
-                        .font(.system(size: 10))
-                        .foregroundColor(completed == total && total > 0 ? .barkcliEmeraldGate : .barkcliTextMuted)
+                        .font(.system(size: 9))
+                        .foregroundColor(completed == total && total > 0 ? .barkcliStatusActive : .barkcliTextMuted)
                     Text("\(completed)/\(total)")
                         .font(.system(size: 10, weight: .semibold, design: .monospaced))
                         .foregroundColor(.barkcliTextMuted)
@@ -529,21 +548,21 @@ public struct ChecklistProgressBar: View {
 
                 Text("\(Int(fraction * 100))%")
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundColor(fraction == 1.0 ? .barkcliEmeraldGate : .barkcliTextMuted)
+                    .foregroundColor(fraction == 1.0 ? .barkcliStatusActive : .barkcliTextMuted)
             }
 
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.barkcliBorderHairline.opacity(0.5))
-                        .frame(height: 4)
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .fill(Color.barkcliBorder)
+                        .frame(height: 3)
 
-                    Capsule()
-                        .fill(fraction == 1.0 ? Color.barkcliEmeraldGate : Color.barkcliElectricViolet)
-                        .frame(width: max(0, geo.size.width * fraction), height: 4)
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .fill(fraction == 1.0 ? Color.barkcliStatusActive : Color.barkcliTextPrimary)
+                        .frame(width: max(0, geo.size.width * fraction), height: 3)
                 }
             }
-            .frame(height: 4)
+            .frame(height: 3)
         }
     }
 }
@@ -562,26 +581,25 @@ public struct BlockedIndicatorBanner: View {
     public var body: some View {
         HStack(spacing: 6) {
             Image(systemName: "exclamationmark.octagon.fill")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundColor(.barkcliCrimsonBlocker)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.barkcliStatusError)
 
             Text("Blocked by \(blockerIds.joined(separator: ", "))")
-                .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                .foregroundColor(.barkcliCrimsonBlocker)
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .foregroundColor(.barkcliStatusError)
                 .lineLimit(1)
 
             Spacer()
         }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3.5)
         .background(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color.barkcliCrimsonBlocker.opacity(0.12))
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(Color.barkcliStatusError.opacity(0.1))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .strokeBorder(Color.barkcliCrimsonBlocker.opacity(0.4), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .strokeBorder(Color.barkcliStatusError.opacity(0.3), lineWidth: 1)
         )
     }
 }
-

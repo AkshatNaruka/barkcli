@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Banner displaying real-time autopilot state, attention indicators,
-/// and actionable plan proposal alerts for human-in-the-loop review.
+/// Banner displaying real time autopilot state, attention indicators,
+/// and actionable plan proposal alerts for human in the loop review.
 public struct AutopilotBanner: View {
     public let phase: AutopilotPhase
     public let phaseLabel: String
@@ -32,13 +32,13 @@ public struct AutopilotBanner: View {
     private var phaseColor: Color {
         switch phase {
         case .needsPlan:
-            return .barkcliAmberPulse
+            return .barkcliStatusWarning
         case .awaitingPlanApproval:
-            return .barkcliElectricViolet
+            return .barkcliStatusWarning
         case .inProgress, .running:
-            return .barkcliCyberCyan
+            return .barkcliStatusInfo
         case .awaitingMerge:
-            return .barkcliEmeraldGate
+            return .barkcliStatusActive
         case .idle, .other:
             return .barkcliTextMuted
         }
@@ -117,21 +117,21 @@ public struct AutopilotBanner: View {
                     count: counts.pendingProposals,
                     label: "Proposals",
                     icon: "doc.badge.gearshape",
-                    highlight: counts.pendingProposals > 0 ? .barkcliElectricViolet : .barkcliTextMuted
+                    highlight: counts.pendingProposals > 0 ? .barkcliStatusWarning : .barkcliTextMuted
                 )
 
                 attentionPill(
                     count: counts.queueActive,
                     label: "Active Work",
                     icon: "cpu",
-                    highlight: counts.queueActive > 0 ? .barkcliCyberCyan : .barkcliTextMuted
+                    highlight: counts.queueActive > 0 ? .barkcliStatusInfo : .barkcliTextMuted
                 )
 
                 attentionPill(
                     count: counts.inReview,
                     label: "In Review",
                     icon: "checkmark.seal",
-                    highlight: counts.inReview > 0 ? .barkcliEmeraldGate : .barkcliTextMuted
+                    highlight: counts.inReview > 0 ? .barkcliStatusActive : .barkcliTextMuted
                 )
             }
 
@@ -139,21 +139,21 @@ public struct AutopilotBanner: View {
             if let proposal {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 6) {
-                        Image(systemName: "sparkles")
+                        Image(systemName: "lightbulb.fill")
                             .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.barkcliElectricViolet)
+                            .foregroundColor(.barkcliStatusWarning)
                         Text("Plan Proposal Ready for Review")
                             .font(.system(size: 13, weight: .bold))
                             .foregroundColor(.barkcliTextPrimary)
                         Spacer()
                         Text("\(proposal.estimatedTotalEffort) pts")
                             .font(BarkcliTypography.codeHash)
-                            .foregroundColor(.barkcliElectricViolet)
+                            .foregroundColor(.barkcliTextPrimary)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                             .background(
-                                Capsule()
-                                    .fill(Color.barkcliElectricViolet.opacity(0.15))
+                                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                    .fill(Color.barkcliCardSubtle)
                             )
                     }
 
@@ -177,12 +177,12 @@ public struct AutopilotBanner: View {
                                     Text("Review Proposal")
                                         .font(.system(size: 12, weight: .bold))
                                 }
-                                .foregroundColor(.white)
+                                .foregroundColor(Color(hex: 0x09090B))
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 7)
                                 .background(
-                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                        .fill(Color.barkcliElectricViolet)
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .fill(Color.barkcliTextPrimary)
                                 )
                             }
                         }
@@ -195,16 +195,16 @@ public struct AutopilotBanner: View {
                                     Text("Approve")
                                         .font(.system(size: 12, weight: .bold))
                                 }
-                                .foregroundColor(.barkcliEmeraldGate)
+                                .foregroundColor(.barkcliStatusActive)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 7)
                                 .background(
-                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                        .fill(Color.barkcliEmeraldGate.opacity(0.12))
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .fill(Color.barkcliStatusActive.opacity(0.12))
                                 )
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                        .strokeBorder(Color.barkcliEmeraldGate.opacity(0.3), lineWidth: 0.5)
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .strokeBorder(Color.barkcliStatusActive.opacity(0.3), lineWidth: 1)
                                 )
                             }
                         }
@@ -222,12 +222,12 @@ public struct AutopilotBanner: View {
                 }
                 .padding(12)
                 .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color.barkcliSlateGlass.opacity(0.9))
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color.barkcliCardBackground)
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .strokeBorder(Color.barkcliElectricViolet.opacity(0.4), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(Color.barkcliBorderFocus, lineWidth: 1)
                 )
             }
         }

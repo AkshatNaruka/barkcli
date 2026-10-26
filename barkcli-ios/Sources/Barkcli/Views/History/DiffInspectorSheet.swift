@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Modal sheet displaying a color-coded diff inspector with syntax styling,
-/// changed files list, additions/deletions, and commit-to-agent dispatch CTA.
+/// Modal sheet displaying a color coded diff inspector with syntax styling,
+/// changed files list, additions/deletions, and commit to agent dispatch CTA.
 public struct DiffInspectorSheet: View {
     @Environment(\.dismiss) private var dismiss
     public let commit: GitCommit
@@ -34,7 +34,7 @@ public struct DiffInspectorSheet: View {
                         changedFilesSection(files)
                     }
 
-                    // Unified Color-Coded Diff Content
+                    // Unified Color Coded Diff Content
                     diffContentView
 
                     // Action Button: Assign to Agent
@@ -67,7 +67,7 @@ public struct DiffInspectorSheet: View {
         }
     }
 
-    // MARK: - Header Card
+    // MARK: Header Card
 
     private var commitHeaderCard: some View {
         GlassCard(padding: 16) {
@@ -75,10 +75,10 @@ public struct DiffInspectorSheet: View {
                 HStack(spacing: 8) {
                     Text(commit.shortSha)
                         .font(BarkcliTypography.codeHash)
-                        .foregroundColor(.barkcliCyberCyan)
+                        .foregroundColor(.barkcliTextPrimary)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 3)
-                        .background(Color.barkcliCyberCyan.opacity(0.12))
+                        .background(Color.barkcliCardSubtle)
                         .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
 
                     if commit.isMerge {
@@ -128,7 +128,7 @@ public struct DiffInspectorSheet: View {
         }
     }
 
-    // MARK: - Changed Files Section
+    // MARK: Changed Files Section
 
     private func changedFilesSection(_ files: [String]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -146,7 +146,7 @@ public struct DiffInspectorSheet: View {
                             Text(file)
                                 .font(BarkcliTypography.codePath)
                         }
-                        .foregroundColor(.barkcliCyberCyan)
+                        .foregroundColor(.barkcliTextSecondary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(Color.barkcliSpaceBlack)
@@ -161,7 +161,7 @@ public struct DiffInspectorSheet: View {
         }
     }
 
-    // MARK: - Diff Content View
+    // MARK: Diff Content View
 
     private var diffContentView: some View {
         GlassCard(padding: 12) {
@@ -204,9 +204,9 @@ public struct DiffInspectorSheet: View {
         } else if line.hasPrefix("-") && !line.hasPrefix("---") {
             return .barkcliCrimsonBlocker
         } else if line.hasPrefix("@@") {
-            return .barkcliCyberCyan
+            return .barkcliStatusInfo
         } else if line.hasPrefix("diff --git") {
-            return .barkcliElectricViolet
+            return .barkcliTextPrimary
         }
         return .barkcliTextMuted
     }
@@ -217,7 +217,7 @@ public struct DiffInspectorSheet: View {
         } else if line.hasPrefix("-") && !line.hasPrefix("---") {
             return Color.barkcliCrimsonBlocker.opacity(0.1)
         } else if line.hasPrefix("@@") {
-            return Color.barkcliCyberCyan.opacity(0.08)
+            return Color.barkcliStatusInfo.opacity(0.08)
         }
         return Color.clear
     }
@@ -229,7 +229,7 @@ public struct DiffInspectorSheet: View {
         return .regular
     }
 
-    // MARK: - Assign Modal
+    // MARK: Assign Modal
 
     private var assignModal: some View {
         NavigationStack {

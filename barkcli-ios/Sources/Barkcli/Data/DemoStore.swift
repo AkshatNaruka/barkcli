@@ -18,6 +18,16 @@ public final class DemoStore: @unchecked Sendable {
     public var facts: [ProjectFact] = []
     public var history: [HistoryEntry] = []
     public var sessions: [SessionEntry] = []
+    public var sprintDetails: [SprintDetail] = []
+    public var codeSymbols: [CodeSymbol] = []
+    public var livingContext: LivingContext = LivingContext()
+    public var brainGraph: BrainGraph = BrainGraph()
+    public var skills: [Skill] = []
+    public var docs: [DocItem] = []
+    public var agendaItems: [AgendaItem] = []
+    public var reportMetrics: ReportMetrics = ReportMetrics()
+    public var checkpoints: [Checkpoint] = []
+    public var doctorIssues: [DoctorIssue] = []
 
     public var pendingProposal: PlanProposal?
     public var lastGateVerdict: TestGateVerdict?
@@ -110,6 +120,16 @@ public final class DemoStore: @unchecked Sendable {
         self.facts = DemoData.makeInitialFacts()
         self.history = DemoData.makeInitialHistory()
         self.sessions = DemoData.makeInitialSessions()
+        self.sprintDetails = DemoData.makeInitialSprintDetails()
+        self.codeSymbols = DemoData.makeInitialCodeSymbols()
+        self.livingContext = DemoData.makeInitialLivingContext()
+        self.brainGraph = DemoData.makeInitialBrainGraph()
+        self.skills = DemoData.makeInitialSkills()
+        self.docs = DemoData.makeInitialDocs()
+        self.agendaItems = DemoData.makeInitialAgenda()
+        self.reportMetrics = DemoData.makeInitialReportMetrics()
+        self.checkpoints = DemoData.makeInitialCheckpoints()
+        self.doctorIssues = DemoData.makeInitialDoctorIssues()
 
         self.pendingProposal = nil
         self.lastGateVerdict = TestGateVerdict(
@@ -1078,5 +1098,138 @@ public final class DemoStore: @unchecked Sendable {
             stale: stale,
             coveragePercent: percent
         )
+    }
+
+    // MARK: Subsystem Accessors and Mutations
+
+    public func listSprintDetails() -> [SprintDetail] {
+        lock.lock()
+        defer { lock.unlock() }
+        return sprintDetails
+    }
+
+    public func createSprintDetail(name: String, goal: String, start: String?, end: String?) -> SprintDetail {
+        lock.lock()
+        defer { lock.unlock() }
+        let sprint = SprintDetail(name: name, goal: goal, start: start, end: end)
+        sprintDetails.insert(sprint, at: 0)
+        return sprint
+    }
+
+    public func searchCode(query: String) -> [CodeSymbol] {
+        lock.lock()
+        defer { lock.unlock() }
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return codeSymbols }
+        return codeSymbols.filter {
+            $0.name.lowercased().contains(q) ||
+            $0.filePath.lowercased().contains(q) ||
+            $0.language.lowercased().contains(q)
+        }
+    }
+
+    public func linkCodeToCard(symbolId: String, cardId: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        if let idx = codeSymbols.firstIndex(where: { $0.id == symbolId }) {
+            codeSymbols[idx].linkedCardId = cardId
+        }
+    }
+
+    public func getLivingContext() -> LivingContext {
+        lock.lock()
+        defer { lock.unlock() }
+        return livingContext
+    }
+
+    public func refreshLivingContext() -> LivingContext {
+        lock.lock()
+        defer { lock.unlock() }
+        livingContext.stalenessSeconds = 0
+        return livingContext
+    }
+
+    public func getBrainGraph() -> BrainGraph {
+        lock.lock()
+        defer { lock.unlock() }
+        return brainGraph
+    }
+
+    public func listSkills() -> [Skill] {
+        lock.lock()
+        defer { lock.unlock() }
+        return skills
+    }
+
+    public func toggleSkillInstall(id: String) -> Skill {
+        lock.lock()
+        defer { lock.unlock() }
+        if let idx = skills.firstIndex(where: { $0.id == id }) {
+            skills[idx].installed.toggle()
+            return skills[idx]
+        }
+        let fallback = Skill(id: id, name: id, description: "", installed: true)
+        skills.append(fallback)
+        return fallback
+    }
+
+    public func listDocs() -> [DocItem] {
+        lock.lock()
+        defer { lock.unlock() }
+        return docs
+    }
+
+    public func getDoc(id: String) -> DocItem {
+        lock.lock()
+        defer { lock.unlock() }
+        return docs.first(where: { $0.id == id }) ?? DocItem(id: id, title: id, category: "Manual", path: "", summary: "", content: "")
+    }
+
+    public func getAgenda() -> [AgendaItem] {
+        lock.lock()
+        defer { lock.unlock() }
+        return agendaItems
+    }
+
+    public func getReportMetrics() -> ReportMetrics {
+        lock.lock()
+        defer { lock.unlock() }
+        return reportMetrics
+    }
+
+    public func listCheckpoints() -> [Checkpoint] {
+        lock.lock()
+        defer { lock.unlock() }
+        return checkpoints
+    }
+
+    public func createCheckpoint(description: String) -> Checkpoint {
+        lock.lock()
+        defer { lock.unlock() }
+        let cp = Checkpoint(id: "cp \(checkpoints.count + 1)", timestamp: Date(), description: description)
+        checkpoints.insert(cp, at: 0)
+        return cp
+    }
+
+    public func restoreCheckpoint(id: String) {
+        lock.lock()
+        lock.unlock()
+    }
+
+    public func runDoctor() -> [DoctorIssue] {
+        lock.lock()
+        defer { lock.unlock() }
+        return doctorIssues
+    }
+
+    public func fixDoctorIssues() -> [DoctorIssue] {
+        lock.lock()
+        defer { lock.unlock() }
+        for idx in doctorIssues.indices {
+            if doctorIssues[idx].fixable {
+                doctorIssues[idx].fixed = true
+            }
+        }
+        return doctorIssues
     }
 }

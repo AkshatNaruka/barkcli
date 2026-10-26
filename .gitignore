@@ -26,3 +26,4 @@ node_modules/
 !.env.example
 pages-test/
 /target-linux*/
+build/

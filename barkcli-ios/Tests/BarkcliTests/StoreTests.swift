@@ -198,28 +198,43 @@ final class StoreTests: XCTestCase {
         XCTAssertFalse(store.allCards.contains(where: { $0.id == newCard.id }))
     }
 
-    // MARK: - Theme & Design System Tokens Tests
+    // MARK: Theme and Design System Tokens Tests
 
     func testThemeTokensAndTypography() {
-        // Colors verification
+        // Pitch zinc developer tokens
+        XCTAssertEqual(BarkcliColors.canvas, Color(hex: 0x09090B))
+        XCTAssertEqual(BarkcliColors.cardBackground, Color(hex: 0x121215))
+        XCTAssertEqual(BarkcliColors.cardSubtle, Color(hex: 0x18181B))
+        XCTAssertEqual(BarkcliColors.border, Color(hex: 0x27272A))
+        XCTAssertEqual(BarkcliColors.borderFocus, Color(hex: 0x3F3F46))
+
+        // High contrast typography tokens
+        XCTAssertEqual(BarkcliColors.textPrimary, Color(hex: 0xFAFAFA))
+        XCTAssertEqual(BarkcliColors.textSecondary, Color(hex: 0xA1A1AA))
+        XCTAssertEqual(BarkcliColors.textMuted, Color(hex: 0x71717A))
+
+        // Discrete status indicators
+        XCTAssertEqual(BarkcliColors.statusActive, Color(hex: 0x22C55E))
+        XCTAssertEqual(BarkcliColors.statusWarning, Color(hex: 0xF59E0B))
+        XCTAssertEqual(BarkcliColors.statusError, Color(hex: 0xEF4444))
+        XCTAssertEqual(BarkcliColors.statusInfo, Color(hex: 0x0284C7))
+
+        // Semantic aliases ensure purple elimination
+        XCTAssertEqual(BarkcliColors.accentPurple, BarkcliColors.statusInfo)
+
+        // Legacy compatibility tokens
         XCTAssertEqual(BarkcliColors.obsidianDark, Color(hex: 0x0A0A0E))
         XCTAssertEqual(BarkcliColors.spaceBlack, Color(hex: 0x12131A))
         XCTAssertEqual(BarkcliColors.slateGlass, Color(hex: 0x181924))
         XCTAssertEqual(BarkcliColors.borderHairline, Color(hex: 0x2E3142))
-        XCTAssertEqual(BarkcliColors.electricViolet, Color(hex: 0x8B5CF6))
-        XCTAssertEqual(BarkcliColors.cyberCyan, Color(hex: 0x06B6D4))
-        XCTAssertEqual(BarkcliColors.amberPulse, Color(hex: 0xF59E0B))
-        XCTAssertEqual(BarkcliColors.emeraldGate, Color(hex: 0x10B981))
-        XCTAssertEqual(BarkcliColors.crimsonBlocker, Color(hex: 0xEF4444))
 
         // Color extensions
-        XCTAssertEqual(Color.barkcliObsidian, BarkcliColors.obsidianDark)
-        XCTAssertEqual(Color.barkcliElectricViolet, BarkcliColors.electricViolet)
-        XCTAssertEqual(Color.barkcliCyberCyan, BarkcliColors.cyberCyan)
+        XCTAssertEqual(Color.barkcliCanvas, BarkcliColors.canvas)
+        XCTAssertEqual(Color.barkcliBorder, BarkcliColors.border)
+        XCTAssertEqual(Color.barkcliTextPrimary, BarkcliColors.textPrimary)
+        XCTAssertEqual(Color.barkcliStatusInfo, BarkcliColors.statusInfo)
 
         // StatusBadgeVariant tokens
-        XCTAssertEqual(StatusBadgeVariant.electric.foregroundColor, BarkcliColors.electricViolet)
-        XCTAssertEqual(StatusBadgeVariant.cyber.foregroundColor, BarkcliColors.cyberCyan)
         XCTAssertEqual(StatusBadgeVariant.emerald.foregroundColor, BarkcliColors.emeraldGate)
         XCTAssertEqual(StatusBadgeVariant.amber.foregroundColor, BarkcliColors.amberPulse)
         XCTAssertEqual(StatusBadgeVariant.crimson.foregroundColor, BarkcliColors.crimsonBlocker)

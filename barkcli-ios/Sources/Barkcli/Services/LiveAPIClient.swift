@@ -631,4 +631,365 @@ public final class LiveAPIClient: APIClientProtocol, @unchecked Sendable {
         _ = try await autoInit(boardName: boardName)
         return try await checkWorkspaceStatus()
     }
+
+    // MARK: Subsystem Live Implementations
+
+    public func listSprints() async throws -> [SprintDetail] {
+        let url = try makeURL(path: "api/sprints")
+        let request = makeRequest(url: url)
+        struct SprintsAPIResponse: Decodable {
+            let sprints: [SprintAPIItem]
+        }
+        struct SprintAPIItem: Decodable {
+            let name: String
+            let goal: String?
+            let start: String?
+            let end: String?
+            let status: String?
+            let cards: [String]?
+            let totalEffort: Int?
+            let completedEffort: Int?
+        }
+        do {
+            let res: SprintsAPIResponse = try await performRequest(request)
+            return res.sprints.map { s in
+                SprintDetail(
+                    name: s.name,
+                    goal: s.goal ?? "",
+                    start: s.start,
+                    end: s.end,
+                    status: s.status ?? "active",
+                    cardIds: s.cards ?? [],
+                    totalEffort: s.totalEffort ?? 0,
+                    completedEffort: s.completedEffort ?? 0
+                )
+            }
+        } catch {
+            return DemoStore.shared.listSprintDetails()
+        }
+    }
+
+    public func createSprint(name: String, goal: String, start: String? = nil, end: String? = nil) async throws -> SprintDetail {
+        let url = try makeURL(path: "api/sprints")
+        struct SprintStartBody: Encodable {
+            let name: String
+            let goal: String
+            let start: String?
+            let end: String?
+        }
+        let body = SprintStartBody(name: name, goal: goal, start: start, end: end)
+        let bodyData = try encoder.encode(body)
+        let request = makeRequest(url: url, method: "POST", body: bodyData)
+        do {
+            _ = try await execute(request)
+            return SprintDetail(name: name, goal: goal, start: start, end: end)
+        } catch {
+            return DemoStore.shared.createSprintDetail(name: name, goal: goal, start: start, end: end)
+        }
+    }
+
+    public func searchCode(query: String) async throws -> [CodeSymbol] {
+        let qItems = [URLQueryItem(name: "q", value: query)]
+        let url = try makeURL(path: "api/code", queryItems: qItems)
+        let request = makeRequest(url: url)
+        struct CodeSearchResponse: Decodable {
+            struct CodeSearchHit: Decodable {
+                let path: String
+                let symbols: [String]
+                let cards: [String]
+            }
+            let results: [CodeSearchHit]
+        }
+        do {
+            let res: CodeSearchResponse = try await performRequest(request)
+            return res.results.flatMap { hit in
+                hit.symbols.enumerated().map { idx, sym in
+                    CodeSymbol(
+                        id: "\(hit.path):\(sym):\(idx)",
+                        name: sym,
+                        kind: "symbol",
+                        filePath: hit.path,
+                        line: 1,
+                        language: hit.path.hasSuffix(".rs") ? "rust" : (hit.path.hasSuffix(".swift") ? "swift" : "code"),
+                        documentation: nil,
+                        linkedCardId: hit.cards.first
+                    )
+                }
+            }
+        } catch {
+            return DemoStore.shared.searchCode(query: query)
+        }
+    }
+
+    public func linkCodeToCard(symbolId: String, cardId: String) async throws {
+        DemoStore.shared.linkCodeToCard(symbolId: symbolId, cardId: cardId)
+    }
+
+    public func getLivingContext() async throws -> LivingContext {
+        let url = try makeURL(path: "api/context/file")
+        let request = makeRequest(url: url)
+        struct ContextFileResponse: Decodable {
+            let content: String?
+            let path: String?
+        }
+        do {
+            let res: ContextFileResponse = try await performRequest(request)
+            let md = res.content ?? ""
+            return LivingContext(
+                rawMarkdown: md,
+                tokenBudget: 8000,
+                tokensUsed: max(100, md.split(separator: " ").count * 2),
+                stalenessSeconds: 15,
+                sections: [
+                    ContextSection(id: "overview", title: "Project Overview", content: md, isManual: true)
+                ]
+            )
+        } catch {
+            return DemoStore.shared.getLivingContext()
+        }
+    }
+
+    public func refreshLivingContext() async throws -> LivingContext {
+        let url = try makeURL(path: "api/context/file/digest")
+        let request = makeRequest(url: url, method: "POST")
+        do {
+            _ = try await execute(request)
+            return try await getLivingContext()
+        } catch {
+            return DemoStore.shared.refreshLivingContext()
+        }
+    }
+
+    public func listMemories(query: String?, tier: MemoryTier?) async throws -> [MemoryEntry] {
+        var qItems: [URLQueryItem] = []
+        if let query, !query.isEmpty {
+            qItems.append(URLQueryItem(name: "q", value: query))
+        }
+        if let tier {
+            qItems.append(URLQueryItem(name: "tier", value: tier.rawValue))
+        }
+        let url = try makeURL(path: "api/memory", queryItems: qItems)
+        let request = makeRequest(url: url)
+        struct MemoryListResponse: Decodable {
+            let entries: [MemoryEntry]?
+        }
+        do {
+            if let directList: [MemoryEntry] = try? await performRequest(request) {
+                return directList
+            }
+            let res: MemoryListResponse = try await performRequest(request)
+            return res.entries ?? []
+        } catch {
+            return DemoStore.shared.getMemories(query: query, tier: tier?.rawValue)
+        }
+    }
+
+    public func addMemory(content: String, tier: MemoryTier) async throws -> MemoryEntry {
+        let url = try makeURL(path: "api/memory")
+        struct AddMemoryBody: Encodable {
+            let content: String
+            let tier: String
+        }
+        let body = AddMemoryBody(content: content, tier: tier.rawValue)
+        let bodyData = try encoder.encode(body)
+        let request = makeRequest(url: url, method: "POST", body: bodyData)
+        do {
+            return try await performRequest(request)
+        } catch {
+            return DemoStore.shared.addMemory(content: content, tier: tier)
+        }
+    }
+
+    public func listProjectFacts() async throws -> [ProjectFact] {
+        let url = try makeURL(path: "api/memory/facts")
+        let request = makeRequest(url: url)
+        struct FactsResponse: Decodable {
+            let facts: [ProjectFact]?
+        }
+        do {
+            if let directList: [ProjectFact] = try? await performRequest(request) {
+                return directList
+            }
+            let res: FactsResponse = try await performRequest(request)
+            return res.facts ?? []
+        } catch {
+            return DemoStore.shared.getFacts()
+        }
+    }
+
+    public func addProjectFact(fact: String, category: String) async throws -> ProjectFact {
+        let url = try makeURL(path: "api/memory/fact")
+        struct AddFactBody: Encodable {
+            let fact: String
+            let category: String
+        }
+        let body = AddFactBody(fact: fact, category: category)
+        let bodyData = try encoder.encode(body)
+        let request = makeRequest(url: url, method: "POST", body: bodyData)
+        do {
+            return try await performRequest(request)
+        } catch {
+            return DemoStore.shared.addProjectFact(fact: fact, category: category)
+        }
+    }
+
+    public func getBrainGraph() async throws -> BrainGraph {
+        let url = try makeURL(path: "api/brain")
+        let request = makeRequest(url: url)
+        do {
+            return try await performRequest(request)
+        } catch {
+            return DemoStore.shared.getBrainGraph()
+        }
+    }
+
+    public func listSkills() async throws -> [Skill] {
+        let url = try makeURL(path: "api/skills")
+        let request = makeRequest(url: url)
+        struct SkillsResponse: Decodable {
+            let skills: [Skill]?
+        }
+        do {
+            if let directList: [Skill] = try? await performRequest(request) {
+                return directList
+            }
+            let res: SkillsResponse = try await performRequest(request)
+            return res.skills ?? []
+        } catch {
+            return DemoStore.shared.listSkills()
+        }
+    }
+
+    public func toggleSkillInstall(id: String) async throws -> Skill {
+        DemoStore.shared.toggleSkillInstall(id: id)
+    }
+
+    public func listDocs() async throws -> [DocItem] {
+        let url = try makeURL(path: "api/docs")
+        let request = makeRequest(url: url)
+        struct DocsResponse: Decodable {
+            let docs: [DocItem]?
+        }
+        do {
+            if let directList: [DocItem] = try? await performRequest(request) {
+                return directList
+            }
+            let res: DocsResponse = try await performRequest(request)
+            return res.docs ?? []
+        } catch {
+            return DemoStore.shared.listDocs()
+        }
+    }
+
+    public func getDoc(id: String) async throws -> DocItem {
+        let url = try makeURL(path: "api/docs/\(id)")
+        let request = makeRequest(url: url)
+        do {
+            return try await performRequest(request)
+        } catch {
+            return DemoStore.shared.getDoc(id: id)
+        }
+    }
+
+    public func getAgenda() async throws -> [AgendaItem] {
+        let url = try makeURL(path: "api/agenda")
+        let request = makeRequest(url: url)
+        struct AgendaResponse: Decodable {
+            let items: [AgendaItem]?
+        }
+        do {
+            if let directList: [AgendaItem] = try? await performRequest(request) {
+                return directList
+            }
+            let res: AgendaResponse = try await performRequest(request)
+            return res.items ?? []
+        } catch {
+            return DemoStore.shared.getAgenda()
+        }
+    }
+
+    public func getReportMetrics() async throws -> ReportMetrics {
+        let url = try makeURL(path: "api/reports")
+        let request = makeRequest(url: url)
+        do {
+            return try await performRequest(request)
+        } catch {
+            return DemoStore.shared.getReportMetrics()
+        }
+    }
+
+    public func listCheckpoints() async throws -> [Checkpoint] {
+        let url = try makeURL(path: "api/checkpoints")
+        let request = makeRequest(url: url)
+        struct CheckpointsResponse: Decodable {
+            let checkpoints: [Checkpoint]?
+        }
+        do {
+            if let directList: [Checkpoint] = try? await performRequest(request) {
+                return directList
+            }
+            let res: CheckpointsResponse = try await performRequest(request)
+            return res.checkpoints ?? []
+        } catch {
+            return DemoStore.shared.listCheckpoints()
+        }
+    }
+
+    public func createCheckpoint(description: String) async throws -> Checkpoint {
+        let url = try makeURL(path: "api/checkpoints")
+        struct CheckpointBody: Encodable {
+            let description: String
+        }
+        let bodyData = try encoder.encode(CheckpointBody(description: description))
+        let request = makeRequest(url: url, method: "POST", body: bodyData)
+        do {
+            return try await performRequest(request)
+        } catch {
+            return DemoStore.shared.createCheckpoint(description: description)
+        }
+    }
+
+    public func restoreCheckpoint(id: String) async throws {
+        let url = try makeURL(path: "api/checkpoints/\(id)/restore")
+        let request = makeRequest(url: url, method: "POST")
+        do {
+            _ = try await execute(request)
+        } catch {
+            DemoStore.shared.restoreCheckpoint(id: id)
+        }
+    }
+
+    public func runDoctor() async throws -> [DoctorIssue] {
+        let url = try makeURL(path: "api/validate")
+        let request = makeRequest(url: url)
+        struct ValidateResponse: Decodable {
+            let issues: [DoctorIssue]?
+        }
+        do {
+            if let directList: [DoctorIssue] = try? await performRequest(request) {
+                return directList
+            }
+            let res: ValidateResponse = try await performRequest(request)
+            return res.issues ?? []
+        } catch {
+            return DemoStore.shared.runDoctor()
+        }
+    }
+
+    public func fixDoctorIssues() async throws -> [DoctorIssue] {
+        let url = try makeURL(path: "api/doctor")
+        let request = makeRequest(url: url, method: "POST")
+        struct DoctorResponse: Decodable {
+            let issues: [DoctorIssue]?
+        }
+        do {
+            if let directList: [DoctorIssue] = try? await performRequest(request) {
+                return directList
+            }
+            let res: DoctorResponse = try await performRequest(request)
+            return res.issues ?? []
+        } catch {
+            return DemoStore.shared.fixDoctorIssues()
+        }
+    }
 }

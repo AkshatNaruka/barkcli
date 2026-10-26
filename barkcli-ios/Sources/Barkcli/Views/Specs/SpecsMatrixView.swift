@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Central view for the human-to-agent Specifications Traceability Matrix.
+/// Central view for the human to agent Specifications Traceability Matrix.
 /// Displays total requirement coverage progress, verification status dots,
 /// linked code/test files, and staleness detection across specs.
 public struct SpecsMatrixView: View {
@@ -46,7 +46,7 @@ public struct SpecsMatrixView: View {
         }
     }
 
-    // MARK: - Coverage Progress Header Card
+    // MARK: Coverage Progress Header Card
 
     private var coverageProgressCard: some View {
         GlassCard(padding: 18) {
@@ -79,7 +79,7 @@ public struct SpecsMatrixView: View {
                         )
                 }
 
-                // High-precision Progress Bar
+                // High precision Progress Bar
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         Capsule()
@@ -89,7 +89,7 @@ public struct SpecsMatrixView: View {
                         Capsule()
                             .fill(
                                 LinearGradient(
-                                    colors: [.barkcliCyberCyan, .barkcliEmeraldGate],
+                                    colors: [.barkcliStatusActive, .barkcliEmeraldGate],
                                     startPoint: .leading,
                                     endPoint: .trailing
                                 )
@@ -99,7 +99,7 @@ public struct SpecsMatrixView: View {
                 }
                 .frame(height: 8)
 
-                // 4-Tile Metric Breakdown
+                // 4 Tile Metric Breakdown
                 HStack(spacing: 8) {
                     MetricTile(
                         title: "TOTAL REQS",
@@ -133,7 +133,7 @@ public struct SpecsMatrixView: View {
         }
     }
 
-    // MARK: - Filters & Search
+    // MARK: Filters and Search
 
     private var filterHeaderView: some View {
         @Bindable var bindableStore = store
@@ -201,11 +201,11 @@ public struct SpecsMatrixView: View {
                         .font(.system(size: 11, weight: store.showStaleOnly ? .bold : .medium))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
-                        .foregroundColor(store.showStaleOnly ? .black : .barkcliAmberPulse)
-                        .background(store.showStaleOnly ? Color.barkcliAmberPulse : Color.barkcliSpaceBlack)
-                        .clipShape(Capsule())
+                        .foregroundColor(store.showStaleOnly ? Color.barkcliCanvas : Color.barkcliAmberPulse)
+                        .background(store.showStaleOnly ? Color.barkcliAmberPulse : Color.barkcliCardBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                         .overlay(
-                            Capsule()
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
                                 .strokeBorder(Color.barkcliAmberPulse, lineWidth: 0.5)
                         )
                     }
@@ -222,18 +222,18 @@ public struct SpecsMatrixView: View {
                 .font(.system(size: 11, weight: isSelected ? .bold : .medium))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .foregroundColor(isSelected ? .white : .barkcliTextMuted)
-                .background(isSelected ? Color.barkcliCyberCyan : Color.barkcliSpaceBlack)
-                .clipShape(Capsule())
+                .foregroundColor(isSelected ? Color.barkcliCanvas : Color.barkcliTextMuted)
+                .background(isSelected ? Color.barkcliTextPrimary : Color.barkcliCardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 .overlay(
-                    Capsule()
-                        .strokeBorder(isSelected ? Color.barkcliCyberCyan : Color.barkcliBorderHairline, lineWidth: 0.5)
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(isSelected ? Color.barkcliTextPrimary : Color.barkcliBorderHairline, lineWidth: 0.5)
                 )
         }
         .buttonStyle(.plain)
     }
 
-    // MARK: - Specs List
+    // MARK: Specs List
 
     private var specsList: some View {
         VStack(spacing: 12) {

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// View facilitating zero-configuration workspace bootstrapping.
+/// View facilitating zero configuration workspace bootstrapping.
 /// Triggered when an instance lacks `.board/` management layer metadata.
 /// Initializes the board layout, sample starter card, and git worktree gates.
 public struct AutoInitView: View {
@@ -49,7 +49,7 @@ public struct AutoInitView: View {
                 .padding(18)
             }
             .background(Color.barkcliObsidian.ignoresSafeArea())
-            .navigationTitle("Auto-Initialize")
+            .navigationTitle("Auto Initialize")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -69,7 +69,7 @@ public struct AutoInitView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
                     Image(systemName: "cpu.fill")
-                        .foregroundColor(.barkcliElectricViolet)
+                        .foregroundColor(.barkcliStatusActive)
                     Text("barkcli Management Layer")
                         .font(BarkcliTypography.sectionHeader)
                         .foregroundColor(.barkcliTextPrimary)
@@ -103,7 +103,7 @@ public struct AutoInitView: View {
                     Spacer()
                     TextField("Board name", text: $boardName)
                         .font(BarkcliTypography.codeHash)
-                        .foregroundColor(.barkcliElectricViolet)
+                        .foregroundColor(.barkcliTextPrimary)
                         .multilineTextAlignment(.trailing)
                         .frame(width: 120)
                 }
@@ -135,7 +135,7 @@ public struct AutoInitView: View {
                             .foregroundColor(.barkcliTextMuted)
                     }
                 }
-                .tint(.barkcliElectricViolet)
+                .tint(.barkcliTextPrimary)
             }
             .padding(14)
             .background(RoundedRectangle(cornerRadius: 12).fill(Color.barkcliSpaceBlack))

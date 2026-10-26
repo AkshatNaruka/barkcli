@@ -1,12 +1,29 @@
 import SwiftUI
 
-/// Top-level navigation tab enum for the barkcli mobile client.
 public enum AppNavigationTab: String, CaseIterable, Identifiable {
+    // Control
     case mind = "Mind"
     case board = "Board"
+    case sprints = "Sprints"
+
+    // Autonomy
     case orchestrate = "Orchestrate"
     case specs = "Specs"
     case history = "History"
+    case run = "Run"
+
+    // Knowledge
+    case context = "Context"
+    case memory = "Memory"
+    case brain = "Brain"
+    case skills = "Skills"
+    case docs = "Docs"
+
+    // Operations
+    case code = "Code"
+    case calendar = "Calendar"
+    case reports = "Reports"
+    case timeline = "Timeline"
     case workspaces = "Workspaces"
 
     public var id: String { rawValue }
@@ -17,20 +34,62 @@ public enum AppNavigationTab: String, CaseIterable, Identifiable {
             return "brain.head.profile"
         case .board:
             return "rectangle.split.3x1.fill"
+        case .sprints:
+            return "flame.fill"
         case .orchestrate:
             return "cpu.fill"
         case .specs:
             return "list.bullet.clipboard.fill"
         case .history:
             return "clock.arrow.circlepath"
-        case .workspaces:
+        case .run:
+            return "play.circle.fill"
+        case .context:
+            return "doc.text.fill"
+        case .memory:
+            return "memorychip.fill"
+        case .brain:
             return "network"
+        case .skills:
+            return "wrench.and.screwdriver.fill"
+        case .docs:
+            return "book.pages.fill"
+        case .code:
+            return "chevron.left.forwardslash.chevron.right"
+        case .calendar:
+            return "calendar"
+        case .reports:
+            return "chart.bar.xaxis"
+        case .timeline:
+            return "timeline.selection"
+        case .workspaces:
+            return "macwindow"
         }
     }
 }
 
-/// Unified navigation container providing adaptive NavigationSplitView on iPadOS/macOS
-/// and floating liquid glass TabView on iPhone, with the persistent IntentBar.
+public enum TabGroup: String, CaseIterable, Identifiable {
+    case control = "Control"
+    case autonomy = "Autonomy"
+    case knowledge = "Knowledge"
+    case operations = "Operations"
+
+    public var id: String { rawValue }
+
+    public var tabs: [AppNavigationTab] {
+        switch self {
+        case .control:
+            return [.mind, .board, .sprints]
+        case .autonomy:
+            return [.orchestrate, .specs, .history, .run]
+        case .knowledge:
+            return [.context, .memory, .brain, .skills, .docs]
+        case .operations:
+            return [.code, .calendar, .reports, .timeline, .workspaces]
+        }
+    }
+}
+
 public struct RootView: View {
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -43,6 +102,16 @@ public struct RootView: View {
     @State private var orchestrationStore = OrchestrationStore.shared
     @State private var specsStore = SpecsStore.shared
     @State private var gitStore = GitStore.shared
+
+    @State private var sprintStore = SprintStore.shared
+    @State private var codeStore = CodeStore.shared
+    @State private var contextMemoryStore = ContextMemoryStore.shared
+    @State private var brainStore = BrainStore.shared
+    @State private var skillsStore = SkillsStore.shared
+    @State private var docsStore = DocsStore.shared
+    @State private var calendarStore = CalendarStore.shared
+    @State private var reportsStore = ReportsStore.shared
+    @State private var timelineStore = TimelineStore.shared
 
     @State private var activeProposalToReview: PlanProposal? = nil
 
@@ -69,7 +138,16 @@ public struct RootView: View {
                     board: boardStore,
                     orchestrate: orchestrationStore,
                     specs: specsStore,
-                    git: gitStore
+                    git: gitStore,
+                    sprint: sprintStore,
+                    code: codeStore,
+                    contextMemory: contextMemoryStore,
+                    brain: brainStore,
+                    skills: skillsStore,
+                    docs: docsStore,
+                    calendar: calendarStore,
+                    reports: reportsStore,
+                    timeline: timelineStore
                 )
         } else {
             compactPhoneLayout
@@ -80,7 +158,16 @@ public struct RootView: View {
                     board: boardStore,
                     orchestrate: orchestrationStore,
                     specs: specsStore,
-                    git: gitStore
+                    git: gitStore,
+                    sprint: sprintStore,
+                    code: codeStore,
+                    contextMemory: contextMemoryStore,
+                    brain: brainStore,
+                    skills: skillsStore,
+                    docs: docsStore,
+                    calendar: calendarStore,
+                    reports: reportsStore,
+                    timeline: timelineStore
                 )
         }
         #else
@@ -92,29 +179,25 @@ public struct RootView: View {
                 board: boardStore,
                 orchestrate: orchestrationStore,
                 specs: specsStore,
-                git: gitStore
+                git: gitStore,
+                sprint: sprintStore,
+                code: codeStore,
+                contextMemory: contextMemoryStore,
+                brain: brainStore,
+                skills: skillsStore,
+                docs: docsStore,
+                calendar: calendarStore,
+                reports: reportsStore,
+                timeline: timelineStore
             )
         #endif
     }
 
-    // MARK: - Regular Split View Layout (iPadOS & macOS)
+    // MARK: Split View Layout for iPadOS and macOS
 
     private var regularSplitLayout: some View {
         NavigationSplitView {
-            List(selection: Binding(
-                get: { selectedTab },
-                set: { if let tab = $0 { selectedTab = tab } }
-            )) {
-                ForEach(AppNavigationTab.allCases) { tab in
-                    NavigationLink(value: tab) {
-                        Label(tab.rawValue, systemImage: tab.iconName)
-                            .foregroundColor(selectedTab == tab ? .barkcliElectricViolet : .barkcliTextPrimary)
-                    }
-                }
-            }
-            .listStyle(.sidebar)
-            .navigationTitle("barkcli")
-            .background(Color.barkcliSpaceBlack)
+            sidebarView
         } detail: {
             VStack(spacing: 0) {
                 tabContentView(for: selectedTab)
@@ -122,37 +205,185 @@ public struct RootView: View {
 
                 // Persistent Intent Input Bar
                 IntentBar(onSubmit: handleIntentSubmit)
+
+                // Minimalist bottom telemetry status bar
+                bottomTelemetryBar
             }
-            .background(Color.barkcliDarkBackground.ignoresSafeArea())
+            .background(Color.barkcliCanvas.ignoresSafeArea())
         }
         .sheet(item: proposalReviewBinding) { proposal in
             PlanProposalSheet(proposal: proposal)
         }
     }
 
-    // MARK: - Compact Phone Layout (iPhone)
+    // MARK: Sidebar View
+
+    private var sidebarView: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .fill(Color.barkcliTextPrimary)
+                    .frame(width: 8, height: 8)
+
+                Text("barkcli")
+                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                    .foregroundColor(.barkcliTextPrimary)
+
+                Spacer()
+
+                StatusBadge("v0.8.0", variant: .neutral)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Color.barkcliCardBackground)
+
+            Divider().overlay(Color.barkcliBorder)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    ForEach(TabGroup.allCases) { group in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(group.rawValue.uppercased())
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .foregroundColor(.barkcliTextMuted)
+                                .padding(.horizontal, 12)
+                                .padding(.bottom, 2)
+
+                            ForEach(group.tabs) { tab in
+                                let isSelected = selectedTab == tab
+                                Button {
+                                    selectedTab = tab
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: tab.iconName)
+                                            .font(.system(size: 11, weight: isSelected ? .bold : .medium))
+                                            .foregroundColor(isSelected ? .barkcliTextPrimary : .barkcliTextMuted)
+                                            .frame(width: 16)
+
+                                        Text(tab.rawValue)
+                                            .font(.system(size: 12, weight: isSelected ? .bold : .medium))
+                                            .foregroundColor(isSelected ? .barkcliTextPrimary : .barkcliTextSecondary)
+
+                                        Spacer()
+
+                                        if isSelected {
+                                            Circle()
+                                                .fill(Color.barkcliTextPrimary)
+                                                .frame(width: 4, height: 4)
+                                        }
+                                    }
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(isSelected ? Color.barkcliCardSubtle : Color.clear)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                            .strokeBorder(isSelected ? Color.barkcliBorder : Color.clear, lineWidth: 1)
+                                    )
+                                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+                .padding(10)
+            }
+
+            Divider().overlay(Color.barkcliBorder)
+
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(Color.barkcliStatusActive)
+                    .frame(width: 5, height: 5)
+                Text("Autonomous Fleet Nominal")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(.barkcliTextMuted)
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(Color.barkcliCardBackground)
+        }
+        .frame(minWidth: 200, idealWidth: 220, maxWidth: 260)
+        .background(Color.barkcliCanvas)
+    }
+
+    // MARK: Minimalist Bottom Telemetry Status Bar
+
+    private var bottomTelemetryBar: some View {
+        HStack(spacing: 16) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(Color.barkcliStatusActive)
+                    .frame(width: 5, height: 5)
+                Text("daemon: 4321 (12ms)")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(.barkcliTextSecondary)
+            }
+
+            Divider().frame(height: 12).overlay(Color.barkcliBorder)
+
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.triangle.branch")
+                    .font(.system(size: 9))
+                    .foregroundColor(.barkcliTextMuted)
+                Text("branch: main (clean)")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(.barkcliTextSecondary)
+            }
+
+            Divider().frame(height: 12).overlay(Color.barkcliBorder)
+
+            HStack(spacing: 6) {
+                Image(systemName: "square.split.diagonal.2x2")
+                    .font(.system(size: 9))
+                    .foregroundColor(.barkcliTextMuted)
+                Text("worktrees: 3 active")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(.barkcliTextSecondary)
+            }
+
+            Spacer()
+
+            HStack(spacing: 6) {
+                Image(systemName: "checkmark.shield")
+                    .font(.system(size: 9))
+                    .foregroundColor(.barkcliStatusActive)
+                Text("acceptance gate: passing (cargo test)")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(.barkcliStatusActive)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+        .background(Color.barkcliCardBackground)
+        .overlay(
+            Rectangle()
+                .fill(Color.barkcliBorder)
+                .frame(height: 1),
+            alignment: .top
+        )
+    }
+
+    // MARK: Compact Phone Layout for iPhone
 
     private var compactPhoneLayout: some View {
         ZStack(alignment: .bottom) {
-            // Main Tab Content Area
             tabContentView(for: selectedTab)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(.bottom, 120) // Clearance for floating IntentBar and TabBar
+                .padding(.bottom, 120)
 
-            // Pinned Floating Controls Deck: IntentBar + Custom Liquid Glass TabBar
             VStack(spacing: 6) {
                 if let proposal = mindStore.activeProposal, selectedTab != .mind {
                     proposalBannerPill(proposal)
                 }
 
-                // Persistent Floating Intent Capsule
                 IntentBar(onSubmit: handleIntentSubmit)
 
-                // Custom Liquid Glass Bottom Tab Bar
-                liquidGlassTabBar
+                phoneTabBar
             }
         }
-        .background(Color.barkcliDarkBackground.ignoresSafeArea())
+        .background(Color.barkcliCanvas.ignoresSafeArea())
         .sheet(item: proposalReviewBinding) { proposal in
             PlanProposalSheet(proposal: proposal)
         }
@@ -174,9 +405,10 @@ public struct RootView: View {
             activeProposalToReview = proposal
         } label: {
             HStack(spacing: 8) {
-                Image(systemName: "sparkles")
-                    .foregroundColor(.barkcliAmberPulse)
-                Text("Review Plan Proposal: \(proposal.cardTitle)")
+                Circle()
+                    .fill(Color.barkcliStatusWarning)
+                    .frame(width: 5, height: 5)
+                Text("Review Plan: \(proposal.cardTitle)")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.barkcliTextPrimary)
                     .lineLimit(1)
@@ -187,18 +419,18 @@ public struct RootView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .background(Color.barkcliSpaceBlack.opacity(0.9))
-            .clipShape(Capsule())
+            .background(Color.barkcliCardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             .overlay(
-                Capsule()
-                    .strokeBorder(Color.barkcliAmberPulse.opacity(0.4), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(Color.barkcliStatusWarning.opacity(0.4), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 16)
     }
 
-    // MARK: - Tab Content View Router
+    // MARK: Tab Content Router
 
     @ViewBuilder
     private func tabContentView(for tab: AppNavigationTab) -> some View {
@@ -208,69 +440,80 @@ public struct RootView: View {
                 MindDashboardView()
             case .board:
                 KanbanBoardView()
+            case .sprints:
+                SprintsView()
             case .orchestrate:
                 AgentsOrchestrationView()
             case .specs:
                 SpecsMatrixView()
             case .history:
                 GitHistoryView()
+            case .run:
+                CodeSearchView()
+            case .context, .memory:
+                ContextMemoryView()
+            case .brain:
+                BrainGraphView()
+            case .skills:
+                SkillsRegistryView()
+            case .docs:
+                DocsBrowserView()
+            case .code:
+                CodeSearchView()
+            case .calendar:
+                CalendarAgendaView()
+            case .reports:
+                ReportsView()
+            case .timeline:
+                TimelineCheckpointsView()
             case .workspaces:
                 WorkspaceSwitcherView()
             }
         }
     }
 
-    // MARK: - Custom Liquid Glass Bottom Tab Bar
+    // MARK: Phone Tab Bar
 
-    private var liquidGlassTabBar: some View {
-        HStack(spacing: 4) {
-            ForEach(AppNavigationTab.allCases) { tab in
-                let isSelected = selectedTab == tab
-                Button {
-                    selectedTab = tab
-                    #if os(iOS)
-                    let generator = UISelectionFeedbackGenerator()
-                    generator.selectionChanged()
-                    #endif
-                } label: {
-                    VStack(spacing: 3) {
-                        Image(systemName: tab.iconName)
-                            .font(.system(size: 16, weight: isSelected ? .bold : .medium))
-                            .foregroundColor(isSelected ? .barkcliElectricViolet : .barkcliTextMuted)
-                            .frame(height: 20)
-
-                        Text(tab.rawValue)
-                            .font(.system(size: 10, weight: isSelected ? .bold : .medium))
-                            .foregroundColor(isSelected ? .barkcliTextPrimary : .barkcliTextMuted)
+    private var phoneTabBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 4) {
+                ForEach(AppNavigationTab.allCases) { tab in
+                    let isSelected = selectedTab == tab
+                    Button {
+                        selectedTab = tab
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: tab.iconName)
+                                .font(.system(size: 11, weight: isSelected ? .bold : .medium))
+                            Text(tab.rawValue)
+                                .font(.system(size: 11, weight: isSelected ? .bold : .medium))
+                        }
+                        .foregroundColor(isSelected ? .barkcliTextPrimary : .barkcliTextMuted)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(isSelected ? Color.barkcliCardSubtle : Color.clear)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .strokeBorder(isSelected ? Color.barkcliBorder : Color.clear, lineWidth: 1)
+                        )
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                    .background(
-                        isSelected ?
-                        Color.barkcliElectricViolet.opacity(0.12) :
-                        Color.clear
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
+            .padding(.horizontal, 8)
         }
-        .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        .background(Color.barkcliSpaceBlack.opacity(0.85))
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background(Color.barkcliCardBackground)
         .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .strokeBorder(Color.barkcliBorderHairline, lineWidth: 0.5)
+            Rectangle()
+                .fill(Color.barkcliBorder)
+                .frame(height: 1),
+            alignment: .top
         )
-        .liquidGlass(cornerRadius: 24, interactive: true, borderColor: Color.white.opacity(0.1))
-        .padding(.horizontal, 12)
-        .padding(.bottom, 6)
-        .shadow(color: Color.black.opacity(0.4), radius: 12, y: 6)
     }
 }
 
-// MARK: - Store Injection Helper Extension
+// MARK: Store Injection Extension
 
 private extension View {
     func injectStores(
@@ -279,7 +522,16 @@ private extension View {
         board: BoardStore,
         orchestrate: OrchestrationStore,
         specs: SpecsStore,
-        git: GitStore
+        git: GitStore,
+        sprint: SprintStore,
+        code: CodeStore,
+        contextMemory: ContextMemoryStore,
+        brain: BrainStore,
+        skills: SkillsStore,
+        docs: DocsStore,
+        calendar: CalendarStore,
+        reports: ReportsStore,
+        timeline: TimelineStore
     ) -> some View {
         self
             .environment(workspace)
@@ -288,6 +540,15 @@ private extension View {
             .environment(orchestrate)
             .environment(specs)
             .environment(git)
+            .environment(sprint)
+            .environment(code)
+            .environment(contextMemory)
+            .environment(brain)
+            .environment(skills)
+            .environment(docs)
+            .environment(calendar)
+            .environment(reports)
+            .environment(timeline)
             .environment(AppState.shared)
     }
 }

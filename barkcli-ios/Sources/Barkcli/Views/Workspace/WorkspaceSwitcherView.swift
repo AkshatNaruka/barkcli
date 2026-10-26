@@ -57,7 +57,7 @@ public struct WorkspaceSwitcherView: View {
                     } label: {
                         Image(systemName: "plus")
                             .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(.barkcliElectricViolet)
+                            .foregroundColor(.barkcliTextPrimary)
                     }
                 }
             }
@@ -72,7 +72,7 @@ public struct WorkspaceSwitcherView: View {
             }
     }
 
-    // MARK: - Active Workspace Hero Card
+    // MARK: Active Workspace Hero Card
     private var activeWorkspaceHeroCard: some View {
         GlassCard(padding: 16) {
             VStack(alignment: .leading, spacing: 12) {
@@ -90,7 +90,7 @@ public struct WorkspaceSwitcherView: View {
                 HStack(spacing: 10) {
                     Image(systemName: workspaceStore.connectionMode == .demoMode ? "cube.transparent.fill" : "server.rack")
                         .font(.system(size: 22))
-                        .foregroundColor(.barkcliElectricViolet)
+                        .foregroundColor(.barkcliStatusActive)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(workspaceStore.currentWorkspace.name)
@@ -117,7 +117,7 @@ public struct WorkspaceSwitcherView: View {
                         }
                     } else if workspaceStore.connectionMode == .demoMode {
                         HStack(spacing: 5) {
-                            Circle().fill(Color.barkcliElectricViolet).frame(width: 7, height: 7)
+                            Circle().fill(Color.barkcliStatusActive).frame(width: 7, height: 7)
                             Text("Zero latency offline sandbox")
                                 .font(BarkcliTypography.codeHash)
                                 .foregroundColor(.barkcliTextMuted)
@@ -137,7 +137,7 @@ public struct WorkspaceSwitcherView: View {
                             Text("Check Health")
                                 .font(.system(size: 12, weight: .semibold))
                         }
-                        .foregroundColor(.barkcliElectricViolet)
+                        .foregroundColor(.barkcliTextPrimary)
                     }
                 }
             }
@@ -167,11 +167,11 @@ public struct WorkspaceSwitcherView: View {
         case .disconnected:
             return (.barkcliCrimsonBlocker, "DISCONNECTED")
         case .demoMode:
-            return (.barkcliElectricViolet, "DEMO MODE")
+            return (.barkcliStatusActive, "DEMO MODE")
         }
     }
 
-    // MARK: - Auto-Init Alert Banner
+    // MARK: Active Workspace Banner
     private var autoInitAlertBanner: some View {
         HStack(spacing: 12) {
             Image(systemName: "sparkles.rectangle.stack.fill")
@@ -203,7 +203,7 @@ public struct WorkspaceSwitcherView: View {
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.barkcliAmberPulse.opacity(0.4), lineWidth: 0.5))
     }
 
-    // MARK: - Discovered Local Daemons Section
+    // MARK: Discovered Local Daemons Section
     private var discoveredDaemonsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -227,7 +227,7 @@ public struct WorkspaceSwitcherView: View {
                     } else {
                         Image(systemName: "arrow.clockwise")
                             .font(.system(size: 13))
-                            .foregroundColor(.barkcliElectricViolet)
+                            .foregroundColor(.barkcliTextPrimary)
                     }
                 }
             }
@@ -285,17 +285,17 @@ public struct WorkspaceSwitcherView: View {
                 }
             }
             .font(.system(size: 12, weight: .bold))
-            .foregroundColor(.barkcliElectricViolet)
+            .foregroundColor(.barkcliTextPrimary)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
-            .background(Capsule().fill(Color.barkcliElectricViolet.opacity(0.15)))
+            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.barkcliCardSubtle))
         }
         .padding(12)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color.barkcliSpaceBlack))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.barkcliBorderHairline, lineWidth: 0.5))
     }
 
-    // MARK: - Saved Workspaces Section
+    // MARK: Saved Workspaces Section
     private var savedWorkspacesSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             SectionHeader(
@@ -343,18 +343,18 @@ public struct WorkspaceSwitcherView: View {
         }
     }
 
-    // MARK: - Offline Demo Section
+    // MARK: Offline Demo Section
     private var offlineDemoSection: some View {
         GlassCard(padding: 16) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Image(systemName: "sparkles")
-                        .foregroundColor(.barkcliElectricViolet)
+                        .foregroundColor(.barkcliStatusActive)
                     Text("Offline Demo Workspace")
                         .font(BarkcliTypography.cardTitle)
                         .foregroundColor(.barkcliTextPrimary)
                     Spacer()
-                    StatusBadge("OFFLINE", variant: .electric)
+                    StatusBadge("OFFLINE", variant: .neutral)
                 }
 
                 Text("Explore 15+ rich cards, 5 registered agents, real time simulated autopilot intent flows, specs matrix, and git commit history without requiring an active remote server.")
@@ -371,10 +371,10 @@ public struct WorkspaceSwitcherView: View {
                         Text("Switch to Demo Mode")
                             .font(.system(size: 13, weight: .bold))
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(Color.barkcliCanvas)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 9)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.barkcliElectricViolet))
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.barkcliTextPrimary))
                 }
             }
         }

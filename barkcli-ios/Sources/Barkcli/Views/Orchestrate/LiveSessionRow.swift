@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Component displaying an active agent runner session in an isolated worktree.
-/// Reflects real-time data from `/api/run/live`.
+/// Reflects real time data from `/api/run/live`.
 public struct LiveSessionRow: View {
     public let session: LiveSession
 
@@ -28,7 +28,7 @@ public struct LiveSessionRow: View {
                         HStack(spacing: 4) {
                             Image(systemName: "arrow.triangle.branch")
                                 .font(.system(size: 10))
-                                .foregroundColor(.barkcliCyberCyan)
+                                .foregroundColor(.barkcliTextSecondary)
 
                             Text(branch)
                                 .font(BarkcliTypography.branchName)
@@ -112,9 +112,9 @@ public struct LiveSessionRow: View {
         .liquidGlass(
             cornerRadius: 12,
             interactive: false,
-            borderColor: session.status.lowercased() == "running" ? Color.barkcliCyberCyan.opacity(0.3) : Color.barkcliBorderHairline,
-            glowColor: session.status.lowercased() == "running" ? Color.barkcliCyberCyan : nil,
-            glowRadius: session.status.lowercased() == "running" ? 3 : 0
+            borderColor: session.status.lowercased() == "running" ? Color.barkcliBorderFocus : Color.barkcliBorderHairline,
+            glowColor: nil,
+            glowRadius: 0
         )
     }
 
@@ -125,16 +125,16 @@ public struct LiveSessionRow: View {
         case "codex":
             return .barkcliEmeraldGate
         case "opencode":
-            return .barkcliElectricViolet
+            return .barkcliStatusActive
         default:
-            return .barkcliCyberCyan
+            return .barkcliTextSecondary
         }
     }
 
     private func statusColor(_ status: String) -> Color {
         switch status.lowercased() {
         case "running":
-            return .barkcliCyberCyan
+            return .barkcliStatusActive
         case "completed":
             return .barkcliEmeraldGate
         case "failed":

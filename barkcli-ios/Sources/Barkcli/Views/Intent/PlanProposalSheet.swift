@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Plan Proposal Review & Approval modal sheet.
 /// Surfaces the agent's proposed architectural slices, acceptance criteria,
-/// effort estimation, rationale, and one-tap human approval or review gate execution.
+/// effort estimation, rationale, and one tap human approval or review gate execution.
 public struct PlanProposalSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(MindStore.self) private var envMindStore: MindStore?
@@ -84,7 +84,7 @@ public struct PlanProposalSheet: View {
         }
     }
 
-    // MARK: - Hero Card
+    // MARK: Hero Card
 
     private var heroCard: some View {
         GlassCard(padding: 16) {
@@ -101,12 +101,15 @@ public struct PlanProposalSheet: View {
                     Spacer()
 
                     Text("\(proposal.estimatedTotalEffort) pts")
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundColor(.barkcliElectricViolet)
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundColor(.barkcliTextPrimary)
                         .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.barkcliElectricViolet.opacity(0.12))
-                        .clipShape(Capsule())
+                        .padding(.vertical, 3)
+                        .background(Color.barkcliCardSubtle)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .strokeBorder(Color.barkcliBorder, lineWidth: 1)
+                        )
                 }
 
                 Text(proposal.cardTitle)
@@ -132,7 +135,7 @@ public struct PlanProposalSheet: View {
         }
     }
 
-    // MARK: - Rationale Card
+    // MARK: Rationale Card
 
     private var rationaleCard: some View {
         GlassCard(padding: 16) {
@@ -140,7 +143,7 @@ public struct PlanProposalSheet: View {
                 HStack(spacing: 6) {
                     Image(systemName: "brain.head.profile")
                         .font(.system(size: 12))
-                        .foregroundColor(.barkcliElectricViolet)
+                        .foregroundColor(.barkcliTextSecondary)
 
                     Text("AGENT RATIONALE")
                         .font(.system(size: 11, weight: .bold))
@@ -156,7 +159,7 @@ public struct PlanProposalSheet: View {
         }
     }
 
-    // MARK: - Requirements Section
+    // MARK: Requirements Section
 
     private var requirementsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -186,7 +189,7 @@ public struct PlanProposalSheet: View {
                                 ForEach(req.acceptanceCriteria, id: \.self) { criterion in
                                     HStack(alignment: .top, spacing: 5) {
                                         Text("•")
-                                            .foregroundColor(.barkcliElectricViolet)
+                                            .foregroundColor(.barkcliTextMuted)
                                         Text(criterion)
                                             .font(.system(size: 11))
                                             .foregroundColor(.barkcliTextMuted)
@@ -201,7 +204,7 @@ public struct PlanProposalSheet: View {
         }
     }
 
-    // MARK: - Decomposed Slices Section
+    // MARK: Decomposed Slices Section
 
     private var decomposedSlicesSection: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -223,7 +226,7 @@ public struct PlanProposalSheet: View {
                 HStack(spacing: 8) {
                     Text("Slice #\(index)")
                         .font(BarkcliTypography.codeHash)
-                        .foregroundColor(.barkcliCyberCyan)
+                        .foregroundColor(.barkcliTextSecondary)
 
                     StatusBadge(slice.priority.displayName, variant: slice.priority == .critical ? .danger : .neutral)
 
@@ -231,7 +234,7 @@ public struct PlanProposalSheet: View {
 
                     Text("\(slice.effort) pts")
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundColor(.barkcliElectricViolet)
+                        .foregroundColor(.barkcliTextPrimary)
                 }
 
                 Text(slice.title)
@@ -284,7 +287,7 @@ public struct PlanProposalSheet: View {
         }
     }
 
-    // MARK: - Action Controls
+    // MARK: Action Controls
 
     private var actionsSection: some View {
         VStack(spacing: 12) {

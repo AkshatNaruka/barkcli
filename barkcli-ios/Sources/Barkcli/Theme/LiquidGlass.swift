@@ -1,8 +1,7 @@
 import SwiftUI
 
-/// Liquid Glass visual modifier inspired by Apple Liquid Glass and Codex dark-mode surfaces.
-/// Uses `.ultraThinMaterial` on iOS 17+, with graceful support for iOS 26+ native glassEffect,
-/// bounded by precision hairline borders (`#2E3142`) and optional neon glow highlights.
+/// Utilitarian surface modifier inspired by t3 codes developer aesthetic.
+/// Applies crisp hairline borders, dark zinc translucent backings, and compact geometries.
 public struct LiquidGlassModifier: ViewModifier {
     public let cornerRadius: CGFloat
     public let interactive: Bool
@@ -12,9 +11,9 @@ public struct LiquidGlassModifier: ViewModifier {
     public let glowRadius: CGFloat
 
     public init(
-        cornerRadius: CGFloat = 16,
+        cornerRadius: CGFloat = 8,
         interactive: Bool = false,
-        borderColor: Color = Color.barkcliBorderHairline,
+        borderColor: Color = Color.barkcliBorder,
         tint: Color? = nil,
         glowColor: Color? = nil,
         glowRadius: CGFloat = 0
@@ -34,54 +33,42 @@ public struct LiquidGlassModifier: ViewModifier {
                 .glassEffect(interactive ? .regular.interactive() : .regular, in: .rect(cornerRadius: cornerRadius))
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .strokeBorder(borderColor, lineWidth: 0.5)
-                )
-                .shadow(
-                    color: glowColor?.opacity(0.35) ?? .clear,
-                    radius: glowRadius,
-                    x: 0,
-                    y: 0
+                        .strokeBorder(borderColor, lineWidth: 1)
                 )
         } else {
-            fallbackGlass(content: content)
+            fallbackSurface(content: content)
         }
         #else
-        fallbackGlass(content: content)
+        fallbackSurface(content: content)
         #endif
     }
 
     @ViewBuilder
-    private func fallbackGlass(content: Content) -> some View {
+    private func fallbackSurface(content: Content) -> some View {
         content
             .background {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(.ultraThinMaterial)
+                    .fill(Color.barkcliCardBackground)
                     .overlay {
                         if let tint {
                             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                                .fill(tint.opacity(0.12))
+                                .fill(tint.opacity(0.06))
                         }
                     }
             }
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(borderColor, lineWidth: 0.5)
-            )
-            .shadow(
-                color: glowColor?.opacity(0.35) ?? .clear,
-                radius: glowRadius,
-                x: 0,
-                y: 0
+                    .strokeBorder(borderColor, lineWidth: 1)
             )
     }
 }
 
 public extension View {
-    /// Applies the Codex Liquid Glass appearance with translucent material, hairline border, and optional neon glow.
+    /// Applies the t3 codes developer surface appearance with hairline border and crisp corner geometry.
     func liquidGlass(
-        cornerRadius: CGFloat = 16,
+        cornerRadius: CGFloat = 8,
         interactive: Bool = false,
-        borderColor: Color = Color.barkcliBorderHairline,
+        borderColor: Color = Color.barkcliBorder,
         tint: Color? = nil,
         glowColor: Color? = nil,
         glowRadius: CGFloat = 0
@@ -98,10 +85,10 @@ public extension View {
         )
     }
 
-    /// Convenience modifier for frosted liquid card surfaces.
+    /// Convenience modifier for crisp zinc card surfaces.
     func frostedCard(
-        cornerRadius: CGFloat = 14,
-        borderColor: Color = Color.barkcliBorderHairline,
+        cornerRadius: CGFloat = 8,
+        borderColor: Color = Color.barkcliBorder,
         accent: Color? = nil
     ) -> some View {
         modifier(
@@ -110,23 +97,22 @@ public extension View {
                 interactive: false,
                 borderColor: borderColor,
                 tint: accent,
-                glowColor: accent,
-                glowRadius: accent != nil ? 4 : 0
+                glowColor: nil,
+                glowRadius: 0
             )
         )
     }
 
-    /// Adds a subtle glowing neon border to any view.
+    /// Crisp focus border without fuzzy neon halos.
     func glowingBorder(
         color: Color,
-        cornerRadius: CGFloat = 12,
+        cornerRadius: CGFloat = 8,
         lineWidth: CGFloat = 1,
-        glowRadius: CGFloat = 6
+        glowRadius: CGFloat = 0
     ) -> some View {
         overlay(
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .strokeBorder(color.opacity(0.8), lineWidth: lineWidth)
-                .shadow(color: color.opacity(0.4), radius: glowRadius)
+                .strokeBorder(color, lineWidth: lineWidth)
         )
     }
 }

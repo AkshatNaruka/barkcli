@@ -206,4 +206,94 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
         )
         _ = store.assignCommitToAgent(request: request)
     }
+
+    // MARK: Subsystems Mock Handlers
+
+    public func listSprints() async throws -> [SprintDetail] {
+        store.listSprintDetails()
+    }
+
+    public func createSprint(name: String, goal: String, start: String? = nil, end: String? = nil) async throws -> SprintDetail {
+        store.createSprintDetail(name: name, goal: goal, start: start, end: end)
+    }
+
+    public func searchCode(query: String) async throws -> [CodeSymbol] {
+        store.searchCode(query: query)
+    }
+
+    public func linkCodeToCard(symbolId: String, cardId: String) async throws {
+        store.linkCodeToCard(symbolId: symbolId, cardId: cardId)
+    }
+
+    public func getLivingContext() async throws -> LivingContext {
+        store.getLivingContext()
+    }
+
+    public func refreshLivingContext() async throws -> LivingContext {
+        store.refreshLivingContext()
+    }
+
+    public func listMemories(query: String?, tier: MemoryTier?) async throws -> [MemoryEntry] {
+        store.getMemories(query: query, tier: tier?.rawValue)
+    }
+
+    public func addMemory(content: String, tier: MemoryTier) async throws -> MemoryEntry {
+        store.addMemory(content: content, tier: tier)
+    }
+
+    public func listProjectFacts() async throws -> [ProjectFact] {
+        store.getFacts()
+    }
+
+    public func addProjectFact(fact: String, category: String) async throws -> ProjectFact {
+        store.addProjectFact(fact: fact, category: category)
+    }
+
+    public func getBrainGraph() async throws -> BrainGraph {
+        store.getBrainGraph()
+    }
+
+    public func listSkills() async throws -> [Skill] {
+        store.listSkills()
+    }
+
+    public func toggleSkillInstall(id: String) async throws -> Skill {
+        store.toggleSkillInstall(id: id)
+    }
+
+    public func listDocs() async throws -> [DocItem] {
+        store.listDocs()
+    }
+
+    public func getDoc(id: String) async throws -> DocItem {
+        store.getDoc(id: id)
+    }
+
+    public func getAgenda() async throws -> [AgendaItem] {
+        store.getAgenda()
+    }
+
+    public func getReportMetrics() async throws -> ReportMetrics {
+        store.getReportMetrics()
+    }
+
+    public func listCheckpoints() async throws -> [Checkpoint] {
+        store.listCheckpoints()
+    }
+
+    public func createCheckpoint(description: String) async throws -> Checkpoint {
+        store.createCheckpoint(description: description)
+    }
+
+    public func restoreCheckpoint(id: String) async throws {
+        store.restoreCheckpoint(id: id)
+    }
+
+    public func runDoctor() async throws -> [DoctorIssue] {
+        store.runDoctor()
+    }
+
+    public func fixDoctorIssues() async throws -> [DoctorIssue] {
+        store.fixDoctorIssues()
+    }
 }

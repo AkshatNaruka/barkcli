@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Git commit DAG topology browser and diff inspector view.
 /// Surfaces branch switching, commit additions/deletions stats,
-/// visual commit timeline, and commit-to-agent task assignment actions.
+/// visual commit timeline, and commit to agent task assignment actions.
 public struct GitHistoryView: View {
     @Environment(GitStore.self) private var envStore: GitStore?
     @State private var fallbackStore = GitStore.shared
@@ -71,7 +71,7 @@ public struct GitHistoryView: View {
         }
     }
 
-    // MARK: - Header Stats Card
+    // MARK: Header Stats Card
 
     private var headerStatsCard: some View {
         GlassCard(padding: 16) {
@@ -80,7 +80,7 @@ public struct GitHistoryView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.triangle.branch")
                             .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(.barkcliCyberCyan)
+                            .foregroundColor(.barkcliTextSecondary)
 
                         Text(store.selectedBranch)
                             .font(BarkcliTypography.branchName)
@@ -112,7 +112,7 @@ public struct GitHistoryView: View {
         }
     }
 
-    // MARK: - Branch Selector Menu
+    // MARK: Branch Selector Menu
 
     private var branchSelectorMenu: some View {
         Menu {
@@ -141,7 +141,7 @@ public struct GitHistoryView: View {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 10))
             }
-            .foregroundColor(.barkcliCyberCyan)
+            .foregroundColor(.barkcliTextPrimary)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(Color.barkcliSpaceBlack)
@@ -153,7 +153,7 @@ public struct GitHistoryView: View {
         }
     }
 
-    // MARK: - Search Bar
+    // MARK: Search Bar
 
     private var searchBar: some View {
         @Bindable var bindableStore = store
@@ -187,7 +187,7 @@ public struct GitHistoryView: View {
         )
     }
 
-    // MARK: - Commit Stream List
+    // MARK: Commit Stream List
 
     private var commitStreamList: some View {
         VStack(spacing: 0) {
@@ -196,7 +196,7 @@ public struct GitHistoryView: View {
                     // Vertical Timeline Node
                     VStack(spacing: 0) {
                         Circle()
-                            .fill(commit.isMerge ? Color.barkcliElectricViolet : Color.barkcliCyberCyan)
+                            .fill(commit.isMerge ? Color.barkcliStatusActive : Color.barkcliTextSecondary)
                             .frame(width: 10, height: 10)
                             .padding(.top, 16)
 
@@ -250,10 +250,10 @@ public struct GitHistoryView: View {
                 HStack(spacing: 8) {
                     Text(commit.shortSha)
                         .font(BarkcliTypography.codeHash)
-                        .foregroundColor(.barkcliCyberCyan)
+                        .foregroundColor(.barkcliTextPrimary)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color.barkcliCyberCyan.opacity(0.12))
+                        .background(Color.barkcliCardSubtle)
                         .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
 
                     if commit.isMerge {

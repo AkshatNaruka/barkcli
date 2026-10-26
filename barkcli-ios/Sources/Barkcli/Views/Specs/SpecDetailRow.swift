@@ -142,7 +142,7 @@ public struct SpecDetailRow: View {
                 VStack(alignment: .leading, spacing: 3) {
                     ForEach(req.acceptanceCriteria, id: \.self) { criterion in
                         HStack(alignment: .top, spacing: 5) {
-                            Text("–")
+                            Text("•")
                                 .foregroundColor(.barkcliTextMuted)
                             Text(criterion)
                                 .font(.system(size: 11))
@@ -171,7 +171,7 @@ public struct SpecDetailRow: View {
                 .frame(width: 10, height: 10)
         case .implemented:
             Circle()
-                .fill(Color.barkcliElectricViolet)
+                .fill(Color.barkcliStatusActive)
                 .frame(width: 10, height: 10)
         case .verified:
             Image(systemName: "checkmark.circle.fill")

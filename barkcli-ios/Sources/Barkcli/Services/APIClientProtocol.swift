@@ -1,9 +1,9 @@
 import Foundation
 
 /// Unified async interface for all backend and mock operations across barkcli.
-/// Conforms to `Sendable` to guarantee thread-safe operation in modern Swift concurrency.
+/// Conforms to Sendable to guarantee thread safe operation in modern Swift concurrency.
 public protocol APIClientProtocol: Sendable {
-    // MARK: - Workspace & Health
+    // MARK: Workspace and Health
     func checkHealth() async throws -> HealthStatus
     func autoInit() async throws -> AutoInitResult
     func listBoards() async throws -> [String]
@@ -11,7 +11,7 @@ public protocol APIClientProtocol: Sendable {
     func saveCard(boardName: String, card: Card) async throws
     func moveCard(boardName: String, cardId: String, toColumn: String) async throws
 
-    // MARK: - Mind & Autopilot
+    // MARK: Mind and Autopilot
     func getMindSnapshot() async throws -> MindSnapshot
     func getAutopilotStatus() async throws -> AutopilotStatus
     func submitIntent(prompt: String, kind: String?) async throws -> IntentResponse
@@ -19,20 +19,20 @@ public protocol APIClientProtocol: Sendable {
     func rejectPlan(cardId: String, reason: String?) async throws
     func runReviewGate(cardId: String) async throws -> ReviewGateResult
 
-    // MARK: - Orchestration & Fleet
+    // MARK: Orchestration and Fleet
     func listAgents() async throws -> [AgentItem]
     func listTasks() async throws -> [TaskRequest]
     func getLiveSessions() async throws -> [LiveSession]
     func triggerOrchestrationCycle() async throws -> CycleResult
 
-    // MARK: - Specs & Git
+    // MARK: Specs and Git
     func listSpecs() async throws -> [SpecItem]
     func getSpecsCoverage() async throws -> CoverageReport
     func getGitCommits() async throws -> [GitCommit]
     func getGitDiff(sha: String) async throws -> GitDiff
     func assignCommitToAgent(sha: String, prompt: String) async throws
 
-    // MARK: - Extended Operations (Optional / Convenience)
+    // MARK: Extended Operations
     func getMindSnapshot(board: String?) async throws -> MindSnapshot
     func getAutopilotStatus(board: String?) async throws -> AutopilotStatus
     func proposePlan(cardId: String, board: String?) async throws -> PlanProposal
@@ -49,9 +49,33 @@ public protocol APIClientProtocol: Sendable {
     func claimTask(id: String, agentId: String) async throws
     func completeTask(id: String, agentId: String?, durationMs: UInt64) async throws
     func failTask(id: String, agentId: String?, error: String?) async throws
+
+    // MARK: Subsystems
+    func listSprints() async throws -> [SprintDetail]
+    func createSprint(name: String, goal: String, start: String?, end: String?) async throws -> SprintDetail
+    func searchCode(query: String) async throws -> [CodeSymbol]
+    func linkCodeToCard(symbolId: String, cardId: String) async throws
+    func getLivingContext() async throws -> LivingContext
+    func refreshLivingContext() async throws -> LivingContext
+    func listMemories(query: String?, tier: MemoryTier?) async throws -> [MemoryEntry]
+    func addMemory(content: String, tier: MemoryTier) async throws -> MemoryEntry
+    func listProjectFacts() async throws -> [ProjectFact]
+    func addProjectFact(fact: String, category: String) async throws -> ProjectFact
+    func getBrainGraph() async throws -> BrainGraph
+    func listSkills() async throws -> [Skill]
+    func toggleSkillInstall(id: String) async throws -> Skill
+    func listDocs() async throws -> [DocItem]
+    func getDoc(id: String) async throws -> DocItem
+    func getAgenda() async throws -> [AgendaItem]
+    func getReportMetrics() async throws -> ReportMetrics
+    func listCheckpoints() async throws -> [Checkpoint]
+    func createCheckpoint(description: String) async throws -> Checkpoint
+    func restoreCheckpoint(id: String) async throws
+    func runDoctor() async throws -> [DoctorIssue]
+    func fixDoctorIssues() async throws -> [DoctorIssue]
 }
 
-// MARK: - Default Implementations & Convenience Overloads
+// MARK: Default Implementations and Convenience Overloads
 public extension APIClientProtocol {
     func getBoard() async throws -> Board {
         try await getBoard(name: "dev")
@@ -101,5 +125,89 @@ public extension APIClientProtocol {
         let res = try await submitIntent(prompt: text, kind: kind)
         return "Created card \(res.cardId): \(res.title)"
     }
-}
 
+    // Default implementations for subsystems
+    func listSprints() async throws -> [SprintDetail] {
+        []
+    }
+
+    func createSprint(name: String, goal: String, start: String?, end: String?) async throws -> SprintDetail {
+        SprintDetail(name: name, goal: goal, start: start, end: end)
+    }
+
+    func searchCode(query: String) async throws -> [CodeSymbol] {
+        []
+    }
+
+    func linkCodeToCard(symbolId: String, cardId: String) async throws {}
+
+    func getLivingContext() async throws -> LivingContext {
+        LivingContext()
+    }
+
+    func refreshLivingContext() async throws -> LivingContext {
+        LivingContext()
+    }
+
+    func listMemories(query: String?, tier: MemoryTier?) async throws -> [MemoryEntry] {
+        []
+    }
+
+    func addMemory(content: String, tier: MemoryTier) async throws -> MemoryEntry {
+        MemoryEntry(id: UUID().uuidString, content: content, tier: tier)
+    }
+
+    func listProjectFacts() async throws -> [ProjectFact] {
+        []
+    }
+
+    func addProjectFact(fact: String, category: String) async throws -> ProjectFact {
+        ProjectFact(fact: fact, category: category)
+    }
+
+    func getBrainGraph() async throws -> BrainGraph {
+        BrainGraph()
+    }
+
+    func listSkills() async throws -> [Skill] {
+        []
+    }
+
+    func toggleSkillInstall(id: String) async throws -> Skill {
+        Skill(id: id, name: id, description: "")
+    }
+
+    func listDocs() async throws -> [DocItem] {
+        []
+    }
+
+    func getDoc(id: String) async throws -> DocItem {
+        DocItem(id: id, title: id, category: "Manual", path: "", summary: "", content: "")
+    }
+
+    func getAgenda() async throws -> [AgendaItem] {
+        []
+    }
+
+    func getReportMetrics() async throws -> ReportMetrics {
+        ReportMetrics()
+    }
+
+    func listCheckpoints() async throws -> [Checkpoint] {
+        []
+    }
+
+    func createCheckpoint(description: String) async throws -> Checkpoint {
+        Checkpoint(id: UUID().uuidString, description: description)
+    }
+
+    func restoreCheckpoint(id: String) async throws {}
+
+    func runDoctor() async throws -> [DoctorIssue] {
+        []
+    }
+
+    func fixDoctorIssues() async throws -> [DoctorIssue] {
+        []
+    }
+}

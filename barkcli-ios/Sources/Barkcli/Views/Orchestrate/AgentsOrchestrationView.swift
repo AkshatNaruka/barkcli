@@ -52,7 +52,7 @@ public struct AgentsOrchestrationView: View {
                 } label: {
                     Image(systemName: "person.crop.circle.badge.plus")
                         .font(.system(size: 16))
-                        .foregroundColor(.barkcliElectricViolet)
+                        .foregroundColor(.barkcliTextPrimary)
                 }
             }
         }
@@ -69,7 +69,7 @@ public struct AgentsOrchestrationView: View {
         }
     }
 
-    // MARK: - Cycle Dispatch & Fleet Overview Header
+    // MARK: Cycle Dispatch and Fleet Overview Header
 
     private var cycleDispatchHeaderCard: some View {
         GlassCard(padding: 18) {
@@ -155,7 +155,7 @@ public struct AgentsOrchestrationView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Image(systemName: "sparkles")
-                        .foregroundColor(.barkcliElectricViolet)
+                        .foregroundColor(.barkcliStatusActive)
 
                     Text("Cycle #\(result.cycleNumber) Complete")
                         .font(.system(size: 14, weight: .bold))
@@ -173,7 +173,7 @@ public struct AgentsOrchestrationView: View {
                         ForEach(result.insights, id: \.self) { insight in
                             HStack(alignment: .top, spacing: 6) {
                                 Text("•")
-                                    .foregroundColor(.barkcliElectricViolet)
+                                    .foregroundColor(.barkcliTextMuted)
                                 Text(insight)
                                     .font(.system(size: 12))
                                     .foregroundColor(.barkcliTextMuted)
@@ -183,10 +183,10 @@ public struct AgentsOrchestrationView: View {
                 }
             }
         }
-        .liquidGlass(cornerRadius: 14, interactive: false, borderColor: Color.barkcliElectricViolet.opacity(0.3))
+        .liquidGlass(cornerRadius: 8, interactive: false, borderColor: Color.barkcliBorderHairline)
     }
 
-    // MARK: - Live Runner Sessions Rail (/api/run/live)
+    // MARK: Live Runner Sessions Rail (/api/run/live)
 
     private var liveRunnerSessionsRail: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -228,7 +228,7 @@ public struct AgentsOrchestrationView: View {
         }
     }
 
-    // MARK: - Fleet Section
+    // MARK: Fleet Section
 
     private var fleetSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -274,7 +274,7 @@ public struct AgentsOrchestrationView: View {
         }
     }
 
-    // MARK: - Task Queue Section
+    // MARK: Task Queue Section
 
     private var taskQueueSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -376,12 +376,12 @@ public struct AgentsOrchestrationView: View {
                 .font(.system(size: 11, weight: isSelected ? .bold : .medium))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .foregroundColor(isSelected ? .white : .barkcliTextMuted)
-                .background(isSelected ? Color.barkcliElectricViolet : Color.barkcliSpaceBlack)
-                .clipShape(Capsule())
+                .foregroundColor(isSelected ? Color.barkcliCanvas : Color.barkcliTextMuted)
+                .background(isSelected ? Color.barkcliTextPrimary : Color.barkcliCardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 .overlay(
-                    Capsule()
-                        .strokeBorder(isSelected ? Color.barkcliElectricViolet : Color.barkcliBorderHairline, lineWidth: 0.5)
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(isSelected ? Color.barkcliTextPrimary : Color.barkcliBorderHairline, lineWidth: 0.5)
                 )
         }
         .buttonStyle(.plain)
@@ -421,11 +421,11 @@ public struct AgentsOrchestrationView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "person.crop.circle")
                                 .font(.system(size: 11))
-                                .foregroundColor(.barkcliCyberCyan)
+                                .foregroundColor(.barkcliTextSecondary)
 
                             Text(agent)
                                 .font(.system(size: 11, weight: .medium, design: .monospaced))
-                                .foregroundColor(.barkcliCyberCyan)
+                                .foregroundColor(.barkcliTextSecondary)
                         }
                     } else {
                         Text("Unassigned")
@@ -442,7 +442,7 @@ public struct AgentsOrchestrationView: View {
                             }
                         }
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.barkcliElectricViolet)
+                        .foregroundColor(.barkcliStatusActive)
                     } else if task.status == .inProgress || task.status == .assigned {
                         Button("Complete") {
                             Task {
@@ -465,7 +465,7 @@ public struct AgentsOrchestrationView: View {
         }
     }
 
-    // MARK: - Register Agent Modal
+    // MARK: Register Agent Modal
 
     private var registerAgentModal: some View {
         NavigationStack {

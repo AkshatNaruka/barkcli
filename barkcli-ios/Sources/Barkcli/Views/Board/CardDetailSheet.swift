@@ -85,8 +85,8 @@ public struct CardDetailSheet: View {
                             await saveChanges()
                         }
                     }
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(.barkcliAccentPurple)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.barkcliTextPrimary)
                     .disabled(isSaving || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
@@ -182,26 +182,27 @@ public struct CardDetailSheet: View {
 
                     HStack(spacing: 8) {
                         ForEach(["todo", "doing", "review", "done"], id: \.self) { colId in
+                            let isSelected = selectedColumn == colId
                             Button {
                                 selectedColumn = colId
                             } label: {
                                 Text(colId.capitalized)
-                                    .font(.system(size: 13, weight: selectedColumn == colId ? .bold : .medium))
+                                    .font(.system(size: 12, weight: isSelected ? .bold : .medium, design: .monospaced))
                                     .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 8)
-                                    .foregroundColor(selectedColumn == colId ? .white : .barkcliTextMuted)
+                                    .padding(.vertical, 7)
+                                    .foregroundColor(isSelected ? .barkcliCanvas : .barkcliTextMuted)
                                     .background(
-                                        selectedColumn == colId ?
-                                        Color.barkcliAccentPurple :
-                                        Color.barkcliSurface
+                                        isSelected ?
+                                        Color.barkcliTextPrimary :
+                                        Color.barkcliCardSubtle
                                     )
-                                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                                     .overlay(
-                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        RoundedRectangle(cornerRadius: 4, style: .continuous)
                                             .strokeBorder(
-                                                selectedColumn == colId ?
-                                                Color.barkcliAccentPurple :
-                                                Color.barkcliBorderSubtle,
+                                                isSelected ?
+                                                Color.barkcliTextPrimary :
+                                                Color.barkcliBorder,
                                                 lineWidth: 1
                                             )
                                     )
@@ -281,7 +282,7 @@ public struct CardDetailSheet: View {
                             } label: {
                                 Image(systemName: "plus.circle.fill")
                                     .font(.system(size: 22))
-                                    .foregroundColor(.barkcliAccentPurple)
+                                    .foregroundColor(.barkcliTextPrimary)
                             }
                             .buttonStyle(.plain)
                         }
@@ -376,11 +377,15 @@ public struct CardDetailSheet: View {
                         newChecklistText = ""
                     } label: {
                         Image(systemName: "plus")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(.white)
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.barkcliTextPrimary)
                             .frame(width: 32, height: 32)
-                            .background(Color.barkcliAccentPurple)
-                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            .background(Color.barkcliCardSubtle)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                    .strokeBorder(Color.barkcliBorder, lineWidth: 1)
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                     }
                     .buttonStyle(.plain)
                     .disabled(newChecklistText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -403,21 +408,25 @@ public struct CardDetailSheet: View {
                         ForEach(labels, id: \.self) { label in
                             HStack(spacing: 6) {
                                 Text(label)
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(.system(size: 11, weight: .medium, design: .monospaced))
 
                                 Button {
                                     labels.removeAll { $0 == label }
                                 } label: {
                                     Image(systemName: "xmark")
-                                        .font(.system(size: 9, weight: .bold))
+                                        .font(.system(size: 8, weight: .bold))
                                 }
                                 .buttonStyle(.plain)
                             }
-                            .foregroundColor(.barkcliAccentPurple)
-                            .padding(.horizontal, 9)
-                            .padding(.vertical, 4)
-                            .background(Color.barkcliAccentPurple.opacity(0.12))
-                            .clipShape(Capsule())
+                            .foregroundColor(.barkcliTextSecondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Color.barkcliCardSubtle)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                    .strokeBorder(Color.barkcliBorder, lineWidth: 1)
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                         }
                     }
                 }
@@ -438,12 +447,12 @@ public struct CardDetailSheet: View {
                         newLabelText = ""
                     } label: {
                         Text("Add")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(.white)
+                            .font(.system(size: 12, weight: .bold, design: .monospaced))
+                            .foregroundColor(.barkcliCanvas)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(Color.barkcliAccentPurple)
-                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            .background(Color.barkcliTextPrimary)
+                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                     }
                     .buttonStyle(.plain)
                     .disabled(newLabelText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -508,12 +517,12 @@ public struct CardDetailSheet: View {
                         newLinkTarget = ""
                     } label: {
                         Text("Link")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(.white)
+                            .font(.system(size: 12, weight: .bold, design: .monospaced))
+                            .foregroundColor(.barkcliCanvas)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(Color.barkcliAccentPurple)
-                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            .background(Color.barkcliTextPrimary)
+                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                     }
                     .buttonStyle(.plain)
                     .disabled(newLinkTarget.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -540,13 +549,13 @@ public struct CardDetailSheet: View {
                         VStack(alignment: .leading, spacing: 5) {
                             HStack {
                                 Text(comment.author)
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(.barkcliAccentPurple)
+                                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.barkcliTextPrimary)
 
                                 Spacer()
 
                                 Text(comment.at.formatted(date: .abbreviated, time: .shortened))
-                                    .font(.system(size: 10))
+                                    .font(.system(size: 10, design: .monospaced))
                                     .foregroundColor(.barkcliTextMuted)
                             }
 
@@ -556,8 +565,12 @@ public struct CardDetailSheet: View {
                         }
                         .padding(10)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.barkcliSurface)
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .background(Color.barkcliCardSubtle)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .strokeBorder(Color.barkcliBorder, lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                     }
                 }
 
@@ -586,12 +599,12 @@ public struct CardDetailSheet: View {
                         }
                     } label: {
                         Text("Post")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(.white)
+                            .font(.system(size: 12, weight: .bold, design: .monospaced))
+                            .foregroundColor(.barkcliCanvas)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(Color.barkcliAccentPurple)
-                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            .background(Color.barkcliTextPrimary)
+                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                     }
                     .buttonStyle(.plain)
                     .disabled(newCommentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -696,7 +709,7 @@ public struct CardDetailSheet: View {
         case .high:
             return .barkcliWarningAmber
         case .medium:
-            return .barkcliAccentPurple
+            return .barkcliStatusInfo
         case .low:
             return .barkcliBorderSubtle
         }

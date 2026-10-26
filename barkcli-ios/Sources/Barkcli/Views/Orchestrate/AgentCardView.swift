@@ -84,7 +84,7 @@ public struct AgentCardView: View {
                     metricColumn(
                         title: "TOKENS",
                         value: formatTokens(agent.metrics.totalTokensUsed),
-                        color: .barkcliElectricViolet
+                        color: .barkcliTextPrimary
                     )
 
                     Divider()
@@ -94,7 +94,7 @@ public struct AgentCardView: View {
                     metricColumn(
                         title: "SUCCESS",
                         value: String(format: "%.0f%%", agent.metrics.successRate * 100),
-                        color: .barkcliCyberCyan
+                        color: .barkcliStatusActive
                     )
                 }
 
@@ -144,9 +144,9 @@ public struct AgentCardView: View {
         case .scrumMaster:
             return .barkcliAmberPulse
         case .productOwner:
-            return .barkcliElectricViolet
+            return .barkcliTextPrimary
         case .techLead:
-            return .barkcliCyberCyan
+            return .barkcliStatusActive
         case .projectManager:
             return .barkcliEmeraldGate
         }
