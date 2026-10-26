@@ -204,6 +204,7 @@ public struct RootView: View {
     private var regularSplitLayout: some View {
         NavigationSplitView {
             sidebarView
+                .navigationSplitViewColumnWidth(min: 200, ideal: 230, max: 280)
         } detail: {
             VStack(spacing: 0) {
                 tabContentView(for: selectedTab)
@@ -216,102 +217,150 @@ public struct RootView: View {
                 bottomTelemetryBar
             }
             .background(Color.barkcliCanvas.ignoresSafeArea())
+            #if os(macOS)
+            .navigationTitle(selectedTab.rawValue)
+            .navigationSubtitle(tabSubtitle(for: selectedTab))
+            .toolbar {
+                ToolbarItemGroup(placement: .primaryAction) {
+                    workspaceToolbarItems
+                }
+            }
+            #endif
         }
         .sheet(item: proposalReviewBinding) { proposal in
             PlanProposalSheet(proposal: proposal)
         }
     }
 
-    // MARK: Sidebar View
+    private func tabSubtitle(for tab: AppNavigationTab) -> String {
+        switch tab {
+        case .mind:
+            return "Central command deck and health overview"
+        case .board:
+            return "Active work items and unblocked ready queue"
+        case .sprints:
+            return "Delivery milestones and sprint velocity"
+        case .orchestrate:
+            return "Autonomous agent fleet and runner sessions"
+        case .specs:
+            return "Requirements traceability and verification matrix"
+        case .history:
+            return "Git commit topology and diff inspection"
+        case .run:
+            return "Live worktree execution monitoring"
+        case .context:
+            return "Living codebase digest and token efficiency"
+        case .memory:
+            return "Long term facts and persistent memory tiers"
+        case .brain:
+            return "Knowledge graph and degree centrality hubs"
+        case .skills:
+            return "Agent skills registry and prompt injection"
+        case .docs:
+            return "Architecture and manual reference reader"
+        case .code:
+            return "Multi language symbol search and card linking"
+        case .calendar:
+            return "Schedule agenda across overdue and upcoming tasks"
+        case .reports:
+            return "Delivery velocity and effort distribution"
+        case .timeline:
+            return "Atomic checkpoints and self healing diagnosis"
+        case .workspaces:
+            return "Daemon connection and project root discovery"
+        }
+    }
+
+    @ViewBuilder
+    private var workspaceToolbarItems: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(workspaceStore.isConnected ? Color.barkcliStatusActive : Color.barkcliStatusWarning)
+                .frame(width: 6, height: 6)
+
+            Text(workspaceStore.isDemoMode ? "DEMO MODE" : "DAEMON CONNECTED")
+                .font(.barkcliCodeHash)
+                .foregroundColor(.barkcliTextSecondary)
+
+            Divider().frame(height: 14)
+
+            Button {
+                Task {
+                    await mindStore.refresh()
+                }
+            } label: {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .help("Refresh state")
+        }
+    }
+
+    // MARK: Sidebar View (Native Apple HIG List)
 
     private var sidebarView: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                RoundedRectangle(cornerRadius: 3, style: .continuous)
-                    .fill(Color.barkcliTextPrimary)
-                    .frame(width: 8, height: 8)
-
-                Text("barkcli")
-                    .font(.system(size: 13, weight: .bold, design: .monospaced))
-                    .foregroundColor(.barkcliTextPrimary)
-
-                Spacer()
-
-                StatusBadge("v0.8.0", variant: .neutral)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(Color.barkcliCardBackground)
-
-            Divider().overlay(Color.barkcliBorder)
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    ForEach(TabGroup.allCases) { group in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(group.rawValue.uppercased())
-                                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                .foregroundColor(.barkcliTextMuted)
-                                .padding(.horizontal, 12)
-                                .padding(.bottom, 2)
-
-                            ForEach(group.tabs) { tab in
-                                let isSelected = selectedTab == tab
-                                Button {
-                                    selectedTab = tab
-                                } label: {
-                                    HStack(spacing: 8) {
-                                        Image(systemName: tab.iconName)
-                                            .font(.system(size: 11, weight: isSelected ? .bold : .medium))
-                                            .foregroundColor(isSelected ? .barkcliTextPrimary : .barkcliTextMuted)
-                                            .frame(width: 16)
-
-                                        Text(tab.rawValue)
-                                            .font(.system(size: 12, weight: isSelected ? .bold : .medium))
-                                            .foregroundColor(isSelected ? .barkcliTextPrimary : .barkcliTextSecondary)
-
-                                        Spacer()
-
-                                        if isSelected {
-                                            Circle()
-                                                .fill(Color.barkcliTextPrimary)
-                                                .frame(width: 4, height: 4)
-                                        }
-                                    }
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 6)
-                                    .background(isSelected ? Color.barkcliCardSubtle : Color.clear)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                            .strokeBorder(isSelected ? Color.barkcliBorder : Color.clear, lineWidth: 1)
-                                    )
-                                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                                }
-                                .buttonStyle(.plain)
+        List(selection: $selectedTab) {
+            ForEach(TabGroup.allCases) { group in
+                Section(header: Text(group.rawValue.uppercased())
+                    .font(.barkcliLabelSmall)
+                    .foregroundColor(.barkcliTextMuted)
+                ) {
+                    ForEach(group.tabs) { tab in
+                        NavigationLink(value: tab) {
+                            Label {
+                                Text(tab.rawValue)
+                                    .font(.barkcliSubheadline)
+                            } icon: {
+                                Image(systemName: tab.iconName)
+                                    .font(.system(size: 13, weight: .medium))
                             }
                         }
+                        .tag(tab)
                     }
                 }
-                .padding(10)
             }
-
-            Divider().overlay(Color.barkcliBorder)
-
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(Color.barkcliStatusActive)
-                    .frame(width: 5, height: 5)
-                Text("Autonomous Fleet Nominal")
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundColor(.barkcliTextMuted)
-                Spacer()
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(Color.barkcliCardBackground)
         }
-        .frame(minWidth: 200, idealWidth: 220, maxWidth: 260)
-        .background(Color.barkcliCanvas)
+        .listStyle(.sidebar)
+        .safeAreaInset(edge: .top) {
+            sidebarHeader
+        }
+        .safeAreaInset(edge: .bottom) {
+            sidebarFooter
+        }
+    }
+
+    private var sidebarHeader: some View {
+        HStack(spacing: 8) {
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(Color.barkcliTextPrimary)
+                .frame(width: 8, height: 8)
+
+            Text("barkcli")
+                .font(.barkcliCardTitle)
+                .foregroundColor(.barkcliTextPrimary)
+
+            Spacer()
+
+            StatusBadge("v0.8.0", variant: .neutral)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial)
+    }
+
+    private var sidebarFooter: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(Color.barkcliStatusActive)
+                .frame(width: 6, height: 6)
+            Text("Autonomous Fleet Nominal")
+                .font(.barkcliCodeHash)
+                .foregroundColor(.barkcliTextMuted)
+            Spacer()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial)
     }
 
     // MARK: Minimalist Bottom Telemetry Status Bar
@@ -323,7 +372,7 @@ public struct RootView: View {
                     .fill(Color.barkcliStatusActive)
                     .frame(width: 5, height: 5)
                 Text("daemon: 4321 (12ms)")
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.barkcliCodeHash)
                     .foregroundColor(.barkcliTextSecondary)
             }
 
@@ -334,7 +383,7 @@ public struct RootView: View {
                     .font(.system(size: 9))
                     .foregroundColor(.barkcliTextMuted)
                 Text("branch: main (clean)")
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.barkcliCodeHash)
                     .foregroundColor(.barkcliTextSecondary)
             }
 
@@ -345,7 +394,7 @@ public struct RootView: View {
                     .font(.system(size: 9))
                     .foregroundColor(.barkcliTextMuted)
                 Text("worktrees: 3 active")
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.barkcliCodeHash)
                     .foregroundColor(.barkcliTextSecondary)
             }
 
@@ -356,13 +405,13 @@ public struct RootView: View {
                     .font(.system(size: 9))
                     .foregroundColor(.barkcliStatusActive)
                 Text("acceptance gate: passing (cargo test)")
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.barkcliCodeHash)
                     .foregroundColor(.barkcliStatusActive)
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 6)
-        .background(Color.barkcliCardBackground)
+        .background(.ultraThinMaterial)
         .overlay(
             Rectangle()
                 .fill(Color.barkcliBorder)
@@ -478,7 +527,7 @@ public struct RootView: View {
         }
     }
 
-    // MARK: Phone Tab Bar
+    // MARK: Phone Tab Bar (Apple Continuous Curved Capsule Bar)
 
     private var phoneTabBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -492,14 +541,15 @@ public struct RootView: View {
                             Image(systemName: tab.iconName)
                                 .font(.system(size: 11, weight: isSelected ? .bold : .medium))
                             Text(tab.rawValue)
-                                .font(.system(size: 11, weight: isSelected ? .bold : .medium))
+                                .font(.barkcliSubheadline)
                         }
                         .foregroundColor(isSelected ? .barkcliTextPrimary : .barkcliTextMuted)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
                         .background(isSelected ? Color.barkcliCardSubtle : Color.clear)
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
                                 .strokeBorder(isSelected ? Color.barkcliBorder : Color.clear, lineWidth: 1)
                         )
                     }
@@ -509,7 +559,7 @@ public struct RootView: View {
             .padding(.horizontal, 8)
         }
         .padding(.vertical, 6)
-        .background(Color.barkcliCardBackground)
+        .background(.ultraThinMaterial)
         .overlay(
             Rectangle()
                 .fill(Color.barkcliBorder)

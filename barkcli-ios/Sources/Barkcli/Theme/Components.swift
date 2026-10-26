@@ -115,18 +115,18 @@ public struct StatusBadge: View {
                     .frame(width: 5, height: 5)
             }
             Text(text)
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .font(.barkcliCodeHash)
         }
         .foregroundColor(variant.foregroundColor)
         .padding(.horizontal, 7)
         .padding(.vertical, 3)
         .background(
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .fill(variant.backgroundColor)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .strokeBorder(variant.borderColor, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .strokeBorder(variant.borderColor, lineWidth: 0.5)
         )
     }
 }
@@ -195,36 +195,36 @@ public struct MetricTile: View {
     }
 
     public var body: some View {
-        GlassCard(cornerRadius: 6, padding: 10) {
+        GlassCard(cornerRadius: 8, padding: 12) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text(title.uppercased())
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .font(.barkcliLabelSmall)
                         .foregroundColor(.barkcliTextMuted)
-                        .tracking(0.4)
+                        .tracking(0.5)
                     Spacer()
                     if let systemImage {
                         Image(systemName: systemImage)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.system(size: 13, weight: .medium))
                             .foregroundColor(accentColor)
                     }
                 }
 
                 Text(value)
-                    .font(.system(size: 20, weight: .bold, design: .monospaced))
+                    .font(.barkcliMetricNumber)
                     .foregroundColor(.barkcliTextPrimary)
 
                 if let trend {
                     HStack(spacing: 3) {
                         Image(systemName: trend.iconName)
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.system(size: 10, weight: .bold))
                         Text(trend.text)
-                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .font(.barkcliCodeHash)
                     }
                     .foregroundColor(trend.color)
                 } else if let subtitle {
                     Text(subtitle)
-                        .font(.system(size: 11))
+                        .font(.barkcliCaptionMuted)
                         .foregroundColor(.barkcliTextMuted)
                 }
             }
@@ -275,7 +275,7 @@ public struct ActionButton: View {
                         .font(.system(size: 12, weight: .semibold))
                 }
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.barkcliSubheadline.weight(.semibold))
             }
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 12)

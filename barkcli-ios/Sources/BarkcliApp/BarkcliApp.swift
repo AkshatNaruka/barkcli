@@ -13,6 +13,14 @@ public struct BarkcliApp: App {
                 .preferredColorScheme(.dark)
                 .tint(Color.barkcliTextPrimary)
                 .accentColor(Color.barkcliTextPrimary)
+                #if os(macOS)
+                .frame(minWidth: 960, minHeight: 640)
+                #endif
         }
+        #if os(macOS)
+        .windowStyle(.titleBar)
+        .windowToolbarStyle(.unified(showsTitle: true))
+        .defaultSize(width: 1240, height: 800)
+        #endif
     }
 }

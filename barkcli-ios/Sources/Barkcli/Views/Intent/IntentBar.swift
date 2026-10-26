@@ -73,7 +73,7 @@ public struct IntentBar: View {
                 }
 
                 TextField("What should get done? (e.g. Add JWT auth)", text: $promptText)
-                    .font(.system(size: 13, design: .monospaced))
+                    .font(.barkcliBodyText)
                     .foregroundColor(.barkcliTextPrimary)
                     .textFieldStyle(.plain)
                     .focused($isFocused)
@@ -87,7 +87,7 @@ public struct IntentBar: View {
                         promptText = ""
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 13))
+                            .font(.system(size: 14))
                             .foregroundColor(.barkcliTextMuted)
                     }
                     .buttonStyle(.plain)
@@ -104,22 +104,22 @@ public struct IntentBar: View {
                             .frame(width: 24, height: 24)
                     } else {
                         Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 22))
+                            .font(.system(size: 24))
                             .foregroundColor(canSubmit ? .barkcliTextPrimary : .barkcliTextMuted)
                     }
                 }
                 .buttonStyle(.plain)
                 .disabled(!canSubmit || isSubmitting)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Color.barkcliCardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .strokeBorder(
-                        isFocused ? Color.barkcliBorderFocus : Color.barkcliBorder,
-                        lineWidth: 1
+                        isFocused ? Color.barkcliTextPrimary.opacity(0.4) : Color.barkcliBorder,
+                        lineWidth: 0.5
                     )
             )
         }

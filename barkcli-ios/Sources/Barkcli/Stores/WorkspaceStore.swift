@@ -47,6 +47,14 @@ public final class WorkspaceStore: @unchecked Sendable {
         self.discoveryService = NetworkDiscoveryService()
     }
 
+    public var isConnected: Bool {
+        connectionMode == .connected
+    }
+
+    public var isDemoMode: Bool {
+        connectionMode == .demoMode
+    }
+
     // MARK: - Mode & Connection Switching
     public func switchToDemo() {
         self.connectionMode = .demoMode
