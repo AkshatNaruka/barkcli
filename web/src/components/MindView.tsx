@@ -223,7 +223,7 @@ export function MindView({ boardName, board }: { boardName: string | null; board
     : topAction?.reason;
   const nextCommands = snap?.next_actions?.map((a) => a.action) || [];
   const onNext = () => {
-    if (pending > 0) navigate("orchestrate");
+    if (pending > 0) navigate("agents");
     else if (topAction) navigator.clipboard.writeText(topAction.action).catch(() => {});
   };
 

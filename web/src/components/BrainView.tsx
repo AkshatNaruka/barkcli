@@ -25,6 +25,10 @@ export function BrainView({ boardName }: { boardName: string | null }) {
   const [kindFilter, setKindFilter] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [neighbors, setNeighbors] = useState<BrainNode[]>([]);
+  // 900 card-sized nodes can never be readable in 1000px. Default to the most
+  // important constellation; "show all" is one click away.
+  const [showAll, setShowAll] = useState(false);
+  const FOCUS_LIMIT = 60;
 
   useEffect(() => {
     fetchBrain(boardName || undefined).then((g) => {
@@ -54,16 +58,43 @@ export function BrainView({ boardName }: { boardName: string | null }) {
     return n.label.toLowerCase().includes(q) || n.id.toLowerCase().includes(q) || n.tags.some((t) => t.toLowerCase().includes(q));
   };
 
+  const focusIds = useMemo(() => {
+    // A kind filter is an explicit request; never hide part of that kind.
+    if (showAll || kindFilter) return null;
+    const rank: Record<string, number> = { memory: 0, fact: 1, card: 2, agent: 3, session: 4 };
+    const degree = new Map<string, number>();
+    for (const e of edges) {
+      degree.set(e.from, (degree.get(e.from) ?? 0) + 1);
+      degree.set(e.to, (degree.get(e.to) ?? 0) + 1);
+    }
+    // Default view = the connected knowledge graph. Sessions and isolated
+    // entries are noise until someone asks for "All".
+    const knowledge = nodes.filter((n) => n.kind !== "session");
+    const linked = knowledge.filter((n) => (degree.get(n.id) ?? 0) > 0);
+    const pool = linked.length >= 8 ? linked : knowledge;
+    return new Set(
+      [...pool]
+        .sort(
+          (a, b) =>
+            (rank[a.kind] ?? 9) - (rank[b.kind] ?? 9) ||
+            (b.importance ?? 0) - (a.importance ?? 0)
+        )
+        .slice(0, FOCUS_LIMIT)
+        .map((n) => n.id)
+    );
+  }, [nodes, edges, showAll, kindFilter]);
+
   // Tier/kind filters REMOVE nodes (graph relayouts); search only highlights.
   const filteredNodeMap = useMemo(() => {
     const m = new Map<string, BrainNode>();
     for (const n of nodes) {
+      if (focusIds && !focusIds.has(n.id)) continue;
       if (tierFilter && n.tier !== tierFilter) continue;
       if (kindFilter && n.kind !== kindFilter) continue;
       m.set(n.id, n);
     }
     return m;
-  }, [nodes, tierFilter, kindFilter]);
+  }, [nodes, focusIds, tierFilter, kindFilter]);
 
   // Stable layout — recomputes only when the membership or edges change,
   // NOT on selection/search (so the graph never jumps under the cursor).
@@ -123,6 +154,9 @@ export function BrainView({ boardName }: { boardName: string | null }) {
         n.label.toLowerCase().includes(q) || n.id.toLowerCase().includes(q) || n.tags.some((t) => t.toLowerCase().includes(q))
       ).length
     : 0;
+  const hiddenHits = q
+    ? nodes.filter((n) => !filteredNodeMap.has(n.id) && searchHit(n)).length
+    : 0;
 
   const onNodeClick = (_: React.MouseEvent, node: Node) => {
     const id = node.id;
@@ -137,7 +171,7 @@ export function BrainView({ boardName }: { boardName: string | null }) {
         <div className="flex items-center gap-2 text-xs text-muted">
           <span className="font-medium text-text text-sm">Brain</span>
           <span>
-            {filteredNodeMap.size} nodes · {layouted.edges.length} links
+            {filteredNodeMap.size} of {nodes.length} nodes · {layouted.edges.length} links
           </span>
         </div>
         {/* Field style shared with Mind composer — bordered only on focus */}
@@ -170,6 +204,17 @@ export function BrainView({ boardName }: { boardName: string | null }) {
               <option key={k} value={k}>{k}</option>
             ))}
           </QuietSelect>
+          <button
+            onClick={() => setShowAll((v) => !v)}
+            title={showAll ? "Show only the most important nodes" : "Show every node in the graph"}
+            className={`px-2.5 py-1.5 rounded-md text-xs border transition-colors ${
+              showAll
+                ? "border-accent/40 text-accent-text bg-accent-soft"
+                : "border-border text-muted hover:text-text"
+            }`}
+          >
+            {showAll ? "Focus" : `All ${nodes.length}`}
+          </button>
         </div>
       </div>
 
@@ -182,7 +227,18 @@ export function BrainView({ boardName }: { boardName: string | null }) {
           </button>
         ))}
         {q !== "" && (
-          <span className="ml-auto">{visibleHits} match{visibleHits === 1 ? "" : "es"}</span>
+          <span className="ml-auto">
+            {visibleHits} match{visibleHits === 1 ? "" : "es"}
+            {visibleHits === 0 && hiddenHits > 0 && (
+              <>
+                {" · "}
+                {hiddenHits} hidden —{" "}
+                <button onClick={() => setShowAll(true)} className="text-accent-text hover:underline">
+                  show all
+                </button>
+              </>
+            )}
+          </span>
         )}
       </div>
 
@@ -198,6 +254,7 @@ export function BrainView({ boardName }: { boardName: string | null }) {
             </div>
           ) : (
             <ReactFlow
+              key={`${showAll}-${tierFilter}-${kindFilter}`}
               nodes={rfNodes}
               edges={rfEdges}
               nodeTypes={{ brainNode: GraphNodeCard }}
@@ -206,7 +263,7 @@ export function BrainView({ boardName }: { boardName: string | null }) {
               nodesDraggable={true}
               nodesConnectable={false}
               zoomOnDoubleClick={false}
-              minZoom={0.2}
+              minZoom={0.08}
               maxZoom={2.2}
               proOptions={{ hideAttribution: false }}
               fitView

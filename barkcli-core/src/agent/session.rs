@@ -263,7 +263,16 @@ pub fn live_sessions() -> Result<Vec<LiveSession>> {
     let fresh_cutoff = chrono::Duration::minutes(2);
     Ok(raw
         .iter()
-        .filter(|s| Utc::now().signed_duration_since(s.started_at) < cutoff)
+        .filter(|s| {
+            // Long-running agents (>1h) still belong here while their
+            // heartbeat is fresh; otherwise the live view loses them.
+            let recently_started = Utc::now().signed_duration_since(s.started_at) < cutoff;
+            let recently_alive = s
+                .last_heartbeat
+                .map(|h| Utc::now().signed_duration_since(h) < fresh_cutoff)
+                .unwrap_or(false);
+            recently_started || (!s.status.is_terminal() && recently_alive)
+        })
         .map(|s| {
             let fresh = !s.status.is_terminal()
                 && s.last_heartbeat

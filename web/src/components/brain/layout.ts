@@ -10,14 +10,83 @@ import type { Node as RFNode, Edge as RFEdge } from "@xyflow/react";
 export const NODE_W = 208;
 export const NODE_H = 84;
 
-const ROW_W = 1120; // virtual shelf width for packing knowledge clusters
+const ROW_W = 2200; // virtual shelf width for packing knowledge clusters
 const COMP_GAP = 56; // gutter between clusters
+// Dagre is great for small hierarchies and catastrophic for a hub with 900
+// leaves (one rank → a 100k-pixel column). Large clusters fall back to a
+// tier-sorted grid: less semantic, always visible.
+const GRID_MAX = 80;
 
 interface PlacedBox {
   ids: string[];
   placed: { id: string; x: number; y: number }[];
   w: number;
   h: number;
+}
+
+// A hub with dozens of leaves has no good dagre orientation (one rank becomes
+// a 10k-pixel column). Concentric rings keep the hub central and stay compact.
+function layoutRadial(ids: string[], edges: RFEdge[], members: Set<string>): {
+  placed: { id: string; x: number; y: number }[];
+  w: number;
+  h: number;
+} {
+  const degree = new Map<string, number>();
+  for (const e of edges) {
+    if (!members.has(e.source) || !members.has(e.target)) continue;
+    degree.set(e.source, (degree.get(e.source) ?? 0) + 1);
+    degree.set(e.target, (degree.get(e.target) ?? 0) + 1);
+  }
+  const hub = [...ids].sort((a, b) => (degree.get(b) ?? 0) - (degree.get(a) ?? 0))[0];
+  const rest = ids.filter((id) => id !== hub);
+  const step = NODE_W * 1.02;
+  const centers: { id: string; x: number; y: number }[] = [{ id: hub, x: 0, y: 0 }];
+  let idx = 0;
+  let ring = 0;
+  while (idx < rest.length) {
+    ring += 1;
+    const radius = ring * step;
+    // Chord between adjacent cards must clear NODE_W, or rings overlap.
+    const capacity = Math.max(3, Math.floor((2 * Math.PI * radius) / (NODE_W + 30)));
+    for (let slot = 0; slot < capacity && idx < rest.length; slot += 1, idx += 1) {
+      const angle = (2 * Math.PI * slot) / capacity + ring * 0.45;
+      centers.push({
+        id: rest[idx],
+        x: Math.cos(angle) * radius,
+        y: Math.sin(angle) * radius,
+      });
+    }
+  }
+  const raw = centers.map((p) => ({ id: p.id, x: p.x - NODE_W / 2, y: p.y - NODE_H / 2 }));
+  const minX = Math.min(...raw.map((p) => p.x));
+  const minY = Math.min(...raw.map((p) => p.y));
+  const placed = raw.map((p) => ({ id: p.id, x: p.x - minX, y: p.y - minY }));
+  return {
+    placed,
+    w: Math.max(...placed.map((p) => p.x)) + NODE_W,
+    h: Math.max(...placed.map((p) => p.y)) + NODE_H,
+  };
+}
+
+function layoutGrid(ids: string[]): {
+  placed: { id: string; x: number; y: number }[];
+  w: number;
+  h: number;
+} {
+  const cols = Math.max(1, Math.ceil(Math.sqrt(ids.length * 1.4)));
+  const gapX = 28;
+  const gapY = 18;
+  const placed = ids.map((id, i) => ({
+    id,
+    x: (i % cols) * (NODE_W + gapX),
+    y: Math.floor(i / cols) * (NODE_H + gapY),
+  }));
+  const rows = Math.ceil(ids.length / cols);
+  return {
+    placed,
+    w: cols * NODE_W + (cols - 1) * gapX,
+    h: rows * NODE_H + (rows - 1) * gapY,
+  };
 }
 
 function layoutComponent(ids: string[], edges: RFEdge[], members: Set<string>): {
@@ -81,9 +150,24 @@ export function layoutGraph(
     compIds[idx].push(n.id);
   }
 
+  // Keep similar nodes together in grid mode.
+  const meta = new Map(nodes.map((n) => [n.id, n.data as any]));
   const boxes: PlacedBox[] = compIds.map((ids) => {
-    const { placed, w, h } = layoutComponent(ids, edges, new Set(ids));
-    return { ids, placed, w, h };
+    const sorted = [...ids].sort((a, b) => {
+      const da = meta.get(a) ?? {};
+      const db = meta.get(b) ?? {};
+      const tier = String(da.tier ?? "").localeCompare(String(db.tier ?? ""));
+      if (tier !== 0) return tier;
+      return String(da.kind ?? "").localeCompare(String(db.kind ?? ""));
+    });
+    const members = new Set(sorted);
+    const { placed, w, h } =
+      sorted.length > GRID_MAX
+        ? layoutGrid(sorted)
+        : sorted.length > 8
+          ? layoutRadial(sorted, edges, members)
+          : layoutComponent(sorted, edges, members);
+    return { ids: sorted, placed, w, h };
   });
 
   // Shelf-pack: biggest clusters first, rows wrap at ROW_W

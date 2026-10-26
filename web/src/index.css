@@ -7,27 +7,28 @@
 
 :root,
 [data-theme="black"] {
-  --bg: #000000;
-  --surface: #0d0d11;
-  --card: #141418;
-  --card-hover: #1c1c22;
-  --border: #222226;
-  --border-strong: #3a3a40;
-  --text: #ffffff;
-  --muted: #8e8e93;
-  --muted-strong: #c4c4c9;
+  /* Warm charcoal, not pure black: the copper reads as bark, not neon. */
+  --bg: #0a0908;
+  --surface: #100e0c;
+  --card: #16130f;
+  --card-hover: #1c1814;
+  --border: #272119;
+  --border-strong: #3b3227;
+  --text: #efe9e1;
+  --muted: #988d7f;
+  --muted-strong: #c9beb0;
 
-  --accent: #ffffff;
-  --accent-hover: #e4e4e7;
-  --accent-soft: rgba(255, 255, 255, 0.12);
-  --accent-text: #ffffff;
+  --accent: #c2703d;
+  --accent-hover: #d4824c;
+  --accent-soft: rgba(194, 112, 61, 0.14);
+  --accent-text: #e7a173;
 
-  --success: #10b981;
-  --success-soft: rgba(16, 185, 129, 0.14);
-  --warning: #f59e0b;
-  --warning-soft: rgba(245, 158, 11, 0.14);
-  --danger: #ef4444;
-  --danger-soft: rgba(239, 68, 68, 0.14);
+  --success: #46b585;
+  --success-soft: rgba(70, 181, 133, 0.14);
+  --warning: #d99a2b;
+  --warning-soft: rgba(217, 154, 43, 0.14);
+  --danger: #e0563f;
+  --danger-soft: rgba(224, 86, 63, 0.14);
 
   --priority-high: #ef4444;
   --priority-med: #f59e0b;
@@ -45,9 +46,9 @@
   --label-8: #94a3b8;
   --label-9: #52525b;
 
-  --scrim: rgba(0, 0, 0, 0.7);
-  --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-  --scrollbar: #3f3f46;
+  --scrim: rgba(0, 0, 0, 0.72);
+  --shadow: 0 12px 34px rgba(0, 0, 0, 0.55);
+  --scrollbar: #3b3227;
 
   color-scheme: dark;
 }
@@ -63,10 +64,10 @@
   --muted: #6b7280;
   --muted-strong: #374151;
 
-  --accent: #8B5E3C;
-  --accent-hover: #6F482D;
-  --accent-soft: rgba(139, 94, 60, 0.12);
-  --accent-text: #8B5E3C;
+  --accent: #b06434;
+  --accent-hover: #97542a;
+  --accent-soft: rgba(176, 100, 52, 0.12);
+  --accent-text: #8f4e26;
 
   --success: #059669;
   --success-soft: rgba(5, 150, 105, 0.1);
@@ -99,10 +100,10 @@
     --muted: #6b7280;
     --muted-strong: #374151;
 
-    --accent: #8B5E3C;
-    --accent-hover: #6F482D;
-    --accent-soft: rgba(139, 94, 60, 0.12);
-    --accent-text: #8B5E3C;
+    --accent: #b06434;
+    --accent-hover: #97542a;
+    --accent-soft: rgba(176, 100, 52, 0.12);
+    --accent-text: #8f4e26;
 
     --success: #059669;
     --success-soft: rgba(5, 150, 105, 0.1);

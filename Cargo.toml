@@ -6,3 +6,5 @@ members = [
     "barkcli-tui",
     "barkcli-server",
 ]
+# The desktop shell builds separately (Tauri pulls its own dependency tree).
+exclude = ["desktop"]

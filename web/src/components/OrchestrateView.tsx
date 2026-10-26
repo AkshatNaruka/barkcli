@@ -4,6 +4,7 @@ import { QuietSelect } from "./QuietSelect";
 import { Icon } from "./Icon";
 import { agentColor } from "../lib/agents";
 import { isReplayMode, restartReplay } from "../lib/replay";
+import { cardPlanAndRun } from "../lib/api";
 
 interface Agent {
   id: string;
@@ -24,6 +25,9 @@ interface Task {
   assigned_agent?: string;
   priority: string;
   created_at: string;
+  /** Derived: still active on paper, but no agent heartbeat. */
+  stalled?: boolean;
+  last_seen?: string;
 }
 
 interface LiveSession {
@@ -58,6 +62,15 @@ const STATUS_TONE: Record<string, "gray" | "blue" | "amber" | "green" | "red"> =
 
 function StatusPill({ status }: { status: string }) {
   return <Lozenge tone={STATUS_TONE[status] || "gray"}>{status.replace(/([A-Z])/g, " $1").trim()}</Lozenge>;
+}
+
+function ago(iso?: string): string {
+  if (!iso) return "";
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (!Number.isFinite(mins) || mins < 1) return "now";
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  return hours < 24 ? `${hours}h` : `${Math.floor(hours / 24)}d`;
 }
 
 export function OrchestrateView({ boardName }: { boardName: string | null }) {
@@ -143,6 +156,19 @@ export function OrchestrateView({ boardName }: { boardName: string | null }) {
 
   const handleDeleteTask = async (id: string) => {
     await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+    load();
+  };
+
+  // Stalled = still marked active, but the agent is gone. Retry dispatches a
+  // fresh agent for the card; abandon closes the stale task honestly.
+  const handleRetryTask = async (task: Task) => {
+    if (!task.card_id) return;
+    await cardPlanAndRun(task.card_id, undefined, boardName || undefined);
+    load();
+  };
+
+  const handleAbandonTask = async (task: Task) => {
+    await fetch(`/api/tasks/${encodeURIComponent(task.id)}/fail`, { method: "POST" });
     load();
   };
 
@@ -367,21 +393,56 @@ export function OrchestrateView({ boardName }: { boardName: string | null }) {
           ) : (
             <div className="divide-y divide-border">
               {tasks.map(t => (
-                <div key={t.id} className="p-3 hover:bg-surface/50 group">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <StatusPill status={t.status} />
-                      <span className="text-xs font-medium text-text">{t.title}</span>
+                <div
+                  key={t.id}
+                  className={`p-3 group ${t.stalled ? "bg-warning/[0.035]" : "hover:bg-surface/50"}`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {t.stalled ? (
+                        <span title="No agent heartbeat. The lease is stale.">
+                          <Lozenge tone="amber">Stalled</Lozenge>
+                        </span>
+                      ) : (
+                        <StatusPill status={t.status} />
+                      )}
+                      <span className="text-xs font-medium text-text truncate">{t.title}</span>
                     </div>
-                    <button
-                      onClick={() => handleDeleteTask(t.id)}
-                      className="text-muted hover:text-danger opacity-0 group-hover:opacity-100"
-                    >
-                      <Icon name="x" size={12} />
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100">
+                      {t.stalled && (
+                        <>
+                          <button
+                            onClick={() => handleRetryTask(t)}
+                            className="text-[10px] px-1.5 py-0.5 rounded border border-accent/40 text-accent-text hover:bg-accent-soft"
+                            title="Dispatch a fresh agent for this card"
+                          >
+                            retry
+                          </button>
+                          <button
+                            onClick={() => handleAbandonTask(t)}
+                            className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted hover:text-warning"
+                            title="Mark the task failed and release the stale lease"
+                          >
+                            abandon
+                          </button>
+                        </>
+                      )}
+                      <button
+                        onClick={() => handleDeleteTask(t.id)}
+                        className="text-muted hover:text-danger p-1"
+                        title="Delete task"
+                      >
+                        <Icon name="x" size={12} />
+                      </button>
+                    </div>
                   </div>
+                  {t.stalled && (
+                    <div className="mt-1 text-[10px] text-warning/90">
+                      agent gone · last activity {ago(t.last_seen || t.created_at)} ago
+                    </div>
+                  )}
                   <div className="flex items-center gap-3 mt-1 text-[10px] text-muted">
-                    <span className="font-mono">{t.card_id}</span>
+                    {!t.stalled && <span className="font-mono">{t.card_id}</span>}
                     <span>Priority: {t.priority}</span>
                     {t.assigned_agent && (() => {
                       const brand = agentColor(t.assigned_agent);

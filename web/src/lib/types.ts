@@ -294,12 +294,14 @@ export interface ThreadEvent {
 export interface ThreadSummary {
   id: string;
   title: string;
-  status_group: "needs_you" | "running" | "features" | "settled" | string;
+  status_group: "needs_you" | "stalled" | "running" | "features" | "settled" | string;
   event_count: number;
   last_event?: ThreadEvent;
   updated_at: string;
   column: string;
   backend?: string;
+  /** Newest agent heartbeat / lease / note for this card. */
+  last_seen?: string;
 }
 
 export interface ThreadDetail {

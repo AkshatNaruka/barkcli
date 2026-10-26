@@ -182,6 +182,19 @@ function withToken(url: string): string {
   return `${url}${sep}token=${encodeURIComponent(TOKEN)}`;
 }
 
+// Components are allowed to call `fetch("/api/...")` directly. In token mode
+// (the desktop shell always sets one) those calls must be authenticated too,
+// so wrap fetch once instead of chasing every call site.
+const nativeFetch = window.fetch.bind(window);
+window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+  const url =
+    typeof input === "string" ? input : input instanceof URL ? input.toString() : null;
+  if (url && url.startsWith("/api/") && !/[?&]token=/.test(url)) {
+    return nativeFetch(withToken(url), init);
+  }
+  return nativeFetch(input as RequestInfo, init);
+}) as typeof window.fetch;
+
 let ws: WebSocket | null = null;
 
 // Detect VS Code environment

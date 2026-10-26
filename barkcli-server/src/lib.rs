@@ -68,6 +68,30 @@ pub async fn run(
     host: &str,
     token: Option<String>,
 ) -> Result<()> {
+    run_with_shutdown(
+        port,
+        board_name,
+        open_browser,
+        host,
+        token,
+        std::future::pending::<()>(),
+    )
+    .await
+}
+
+/// Same as [`run`], but stops accepting connections when `shutdown` resolves.
+/// The desktop app uses this to guarantee the server dies with the window.
+pub async fn run_with_shutdown<F>(
+    port: u16,
+    board_name: Option<&str>,
+    open_browser: bool,
+    host: &str,
+    token: Option<String>,
+    shutdown: F,
+) -> Result<()>
+where
+    F: std::future::Future<Output = ()> + Send + 'static,
+{
     // Auto-init: create .board/ if it doesn't exist
     auto_init().await;
 
@@ -219,8 +243,9 @@ pub async fn run(
         .route("/api/docs", get(list_docs_handler))
         .route("/api/docs/{file}", get(get_doc_handler))
         .route("/ws", get(ws_handler))
-        .fallback_service(ServeDir::new("web/dist").fallback(
-            ServeDir::new("vscode-extension/dist") // fallback to old VS Code extension assets
+        .fallback_service(ServeDir::new(static_dir("web/dist")).fallback(
+            // Fallback to old VS Code extension assets.
+            ServeDir::new(static_dir("vscode-extension/dist")),
         ))
         .layer(middleware::from_fn_with_state(state.clone(), auth_layer))
         .with_state(state.clone());
@@ -254,6 +279,12 @@ pub async fn run(
     }
 
     let addr = format!("{}:{}", host, port);
+    // Bind first so port 0 (desktop / tests) reports the real port, and a
+    // failed bind never announces a URL that is not listening.
+    let listener = tokio::net::TcpListener::bind(&addr)
+        .await
+        .context(format!("failed to bind to {}", addr))?;
+    let port = listener.local_addr().map(|a| a.port()).unwrap_or(port);
     println!("Board server listening on http://localhost:{}", port);
 
     if open_browser {
@@ -266,15 +297,53 @@ pub async fn run(
         }
     }
 
-    let listener = tokio::net::TcpListener::bind(&addr)
-        .await
-        .context(format!("failed to bind to {}", addr))?;
-
     axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown)
         .await
         .context("server error")?;
 
     Ok(())
+}
+
+/// Locate a static asset directory from the executable, not just the cwd.
+///
+/// A double-clicked `.app` runs with cwd `/`, so the old `ServeDir::new("web/dist")`
+/// silently served nothing. Walk up from the binary (and check the macOS
+/// `Resources` folder) so web and desktop share the same bundle.
+fn static_dir(rel: &str) -> std::path::PathBuf {
+    if rel == "web/dist" {
+        if let Some(dir) = std::env::var_os("BARKCLI_WEB_DIST") {
+            let path = std::path::PathBuf::from(dir);
+            if path.is_dir() {
+                return path;
+            }
+        }
+    }
+
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let from_cwd = cwd.join(rel);
+    if from_cwd.is_dir() {
+        return from_cwd;
+    }
+
+    if let Ok(exe) = std::env::current_exe() {
+        let mut dir = exe.parent().map(|p| p.to_path_buf());
+        for _ in 0..5 {
+            let Some(current) = dir else { break };
+            let candidate = current.join(rel);
+            if candidate.is_dir() {
+                return candidate;
+            }
+            // macOS bundle: Contents/MacOS/barkcli → Contents/Resources/...
+            let resources = current.join("..").join("Resources").join(rel);
+            if resources.is_dir() {
+                return resources;
+            }
+            dir = current.parent().map(|p| p.to_path_buf());
+        }
+    }
+
+    from_cwd
 }
 
 /// Auto-initialize `.board/` directory and create a default board if needed.
@@ -1396,8 +1465,17 @@ struct TaskQuery {
 }
 
 #[derive(serde::Serialize)]
+struct TaskView {
+    #[serde(flatten)]
+    task: TaskRequest,
+    /// True when the task still claims to be active but no agent is alive.
+    stalled: bool,
+    last_seen: Option<String>,
+}
+
+#[derive(serde::Serialize)]
 struct TaskListResponse {
-    tasks: Vec<TaskRequest>,
+    tasks: Vec<TaskView>,
 }
 
 async fn list_tasks_handler(
@@ -1434,6 +1512,22 @@ async fn list_tasks_handler(
     if let Some(agent_id) = &query.agent_id {
         tasks.retain(|t| t.assigned_agent.as_deref() == Some(agent_id));
     }
+
+    // Liveness is derived, never persisted: a crashed agent must not keep a
+    // task looking "running" forever.
+    let live = barkcli_core::agent::BoardLiveness::load(&board_name);
+    let tasks = tasks
+        .into_iter()
+        .map(|task| {
+            let stalled = live.task_stalled(&task);
+            let last_seen = live.last_seen(&task.id).map(|t| t.to_rfc3339());
+            TaskView {
+                task,
+                stalled,
+                last_seen,
+            }
+        })
+        .collect();
 
     Ok(Json(TaskListResponse { tasks }))
 }

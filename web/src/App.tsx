@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { QuietSelect } from "./components/QuietSelect";
 import type {
   Board as BoardType,
@@ -28,35 +28,20 @@ import { useRoute, type Route } from "./lib/hashnav";
 import { Icon } from "./components/Icon";
 import { BoardView } from "./components/BoardView";
 import { TableView } from "./components/TableView";
-import { CalendarView } from "./components/CalendarView";
 import { ListView } from "./components/ListView";
 import { CardForm } from "./components/CardForm";
 import { CommandPalette } from "./components/CommandPalette";
 import { ThemeDropdown } from "./components/ThemeDropdown";
 import { ServerStatus } from "./components/ServerStatus";
-import { Sidebar } from "./components/Sidebar";
-import { ReportsView } from "./components/ReportsView";
-import { CodeView } from "./components/CodeView";
-import { ActivityView } from "./components/ActivityView";
-import { SprintView } from "./components/SprintView";
-import { SettingsView } from "./components/SettingsView";
-import { AgentPromptView } from "./components/AgentPromptView";
-import { MemoryView } from "./components/MemoryView";
-import { ContextView } from "./components/ContextView";
-// Brain carries React Flow (~heavy) — lazy chunk keeps first paint fast.
-const BrainView = lazy(() =>
-  import("./components/BrainView").then((m) => ({ default: m.BrainView }))
-);
-import { SpecsView } from "./components/SpecsView";
-import { OrchestrateView } from "./components/OrchestrateView";
-import { TimelineView } from "./components/TimelineView";
 import { HistoryView } from "./components/HistoryView";
-import { DocsView } from "./components/DocsView";
-import { MindView } from "./components/MindView";
 import { SkillsView } from "./components/SkillsView";
 import { ThreadsShell } from "./shell/ThreadsShell";
-import { ProjectView } from "./shell/ProjectView";
-import { InsightsView } from "./shell/InsightsView";
+import { AppRail } from "./shell/AppRail";
+import { InspectorRail } from "./shell/InspectorRail";
+import { OperationsView } from "./shell/OperationsView";
+import { BrainSurface } from "./shell/BrainSurface";
+import { AgentsSurface } from "./shell/AgentsSurface";
+import { SURFACES } from "./lib/surfaces";
 
 function isBlockedCard(c: Card): boolean {
   return Boolean(c.blocked_by) || c.links.some((l) => l.ty === "blocked-by");
@@ -217,14 +202,23 @@ export function App() {
   const [form, setForm] = useState<{ card?: Card; columnId?: string; dueDate?: string } | null>(null);
   const [toast, setToast] = useState<{ message: string; action?: { label: string; onClick: () => void } } | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(
+    () => window.localStorage.getItem("barkcli:inspector") !== "0"
+  );
+  const toggleInspector = useCallback(() => {
+    setInspectorOpen((open) => {
+      window.localStorage.setItem("barkcli:inspector", open ? "0" : "1");
+      return !open;
+    });
+  }, []);
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const boardRef = useRef(board);
   boardRef.current = board;
 
-  // Window title follows the active view — the "barkcli mind" framing.
+  // Window title follows the active surface.
   useEffect(() => {
-    const label = route === "dashboard" ? "mind" : route;
-    document.title = `barkcli ${label}`;
+    const label = SURFACES.find((s) => s.id === route)?.label.toLowerCase() ?? route;
+    document.title = `barkcli · ${label}`;
   }, [route]);
 
   const [gitInfo, setGitInfo] = useState<GitInfo | null>(null);
@@ -344,6 +338,13 @@ export function App() {
       if (e.key === "?") {
         e.preventDefault();
         setHelpOpen((p) => !p);
+        return;
+      }
+      // 1–7 jump between surfaces, in rail order.
+      const digit = Number(e.key);
+      if (!e.metaKey && !e.ctrlKey && Number.isInteger(digit) && digit >= 1 && digit <= 7) {
+        e.preventDefault();
+        setRoute(SURFACES[digit - 1].id);
         return;
       }
       if (route === "board") {
@@ -516,28 +517,25 @@ export function App() {
   }
 
   const boardOpen = board ? board.cards.filter((c) => c.column !== "done").length : 0;
-  const blockerCount = board ? board.cards.filter(isBlockedCard).length : 0;
 
   return (
     <div className="h-screen flex bg-bg">
-      {/* Sidebar: grouped management-layer nav (DESIGN.md §5) */}
-      <Sidebar
-        route={route}
+      <AppRail
+        surface={route}
         onNavigate={setRoute}
-        counts={{ boardOpen, blockers: blockerCount, agentsActive }}
-        boardName={boardName || boardList[0] || null}
+        counts={{ chat: 0, board: boardOpen, agents: agentsActive }}
       />
 
       <div className="flex-1 flex flex-col min-w-0">
-      {/* Slim top bar: board switcher + search + meta (DESIGN.md §6) */}
-      <header className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0 gap-3">
-        <div className="flex items-center gap-3 min-w-0">
+      {/* Slim top bar: board context + command palette + meta */}
+      <header className="flex items-center justify-between px-3 h-11 border-b border-border/80 shrink-0 gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
           {boardList.length > 0 && (
             <QuietSelect
               value={boardName || boardList[0] || ""}
               onChange={(e) => switchBoard(e.target.value)}
               title="Switch board"
-              className="bg-surface border border-border rounded px-2 py-1.5 max-w-[180px] hover:border-border-strong focus:border-accent"
+              className="bg-surface border border-border rounded-md px-2 py-1 max-w-[160px] text-[12px] hover:border-border-strong focus:border-accent"
             >
               {boardList.map((n) => (
                 <option key={n} value={n}>{n}.board</option>
@@ -545,24 +543,24 @@ export function App() {
             </QuietSelect>
           )}
           <div className="flex items-center gap-2 min-w-0">
-            <h1 className="text-sm font-semibold text-text truncate">{board?.title || "Board"}</h1>
-            <span className="text-[10px] text-muted bg-surface border border-border px-1.5 py-0.5 rounded-full shrink-0">
-              {board?.cards.length || 0} cards
+            <h1 className="text-[13px] font-medium text-text truncate">{board?.title || "Board"}</h1>
+            <span className="text-[10px] text-muted/80 font-mono shrink-0">
+              {board?.cards.length || 0}
             </span>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => setPaletteOpen(true)}
-            className="hidden sm:flex items-center gap-2 text-xs text-muted hover:text-text px-3 py-1.5 rounded-lg border border-border hover:border-border-strong transition-colors min-w-[180px]"
+            className="hidden sm:flex items-center gap-2 text-[11px] text-muted hover:text-text px-2.5 py-1 rounded-md border border-border hover:border-border-strong transition-colors min-w-[170px]"
             title="Command palette (⌘K)"
           >
-            <Icon name="search" size={13} />
+            <Icon name="search" size={12} />
             <span className="flex-1 text-left">Search or command…</span>
-            <kbd className="text-[10px] font-mono bg-surface border border-border rounded px-1">⌘K</kbd>
+            <kbd className="text-[9px] font-mono bg-surface border border-border rounded px-1">⌘K</kbd>
           </button>
           {gitInfo && (
-            <span className="hidden lg:inline text-[10px] text-muted font-mono border border-border rounded px-1.5 py-0.5 truncate max-w-[220px]">
+            <span className="hidden lg:inline text-[9.5px] text-muted font-mono truncate max-w-[200px]">
               {gitInfo.branch} · {gitInfo.lastCommit}
             </span>
           )}
@@ -572,109 +570,77 @@ export function App() {
         </div>
       </header>
 
-      {/* Main content */}
-      <main className="flex-1 overflow-hidden">
-        {route === "threads" && (
-          <ThreadsShell
+      <div className="flex-1 flex min-h-0">
+        <main className="flex-1 overflow-hidden min-w-0">
+          {route === "chat" && (
+            <ThreadsShell
+              boardName={boardName}
+              onOpenCardForm={(card) => handleOpenForm({ card })}
+            />
+          )}
+
+          {route === "board" && board && (
+            <BoardPage
+              board={board}
+              onMoveCard={handleMoveCard}
+              onTogglePin={handleTogglePin}
+              onAddCard={() => handleOpenForm({ columnId: board.columns[0]?.id || "todo" })}
+              onAddToColumn={(colId) => handleOpenForm({ columnId: colId })}
+              onEditCard={(card) => handleOpenForm({ card })}
+              onDeleteCard={handleDeleteCard}
+              onShowHistory={handleShowHistory}
+              onShowActivity={handleShowActivity}
+              onCopyCommitMsg={handleCopyCommitMsg}
+            />
+          )}
+          {route === "board" && !board && <SurfaceEmpty label="Loading board…" />}
+
+          {route === "agents" && (
+            <AgentsSurface
+              boardName={boardName}
+              board={board}
+              sprints={sprints}
+              onSprintChanged={() => fetchSprints(boardName || undefined).then(setSprints)}
+              onEditCard={(card) => handleOpenForm({ card })}
+            />
+          )}
+
+          {route === "brain" && <BrainSurface boardName={boardName} />}
+
+          {route === "skills" && (
+            <div className="h-full overflow-y-auto">
+              <SkillsView />
+            </div>
+          )}
+
+          {route === "operations" && (
+            <OperationsView
+              board={board}
+              boardName={boardName}
+              sprints={sprints}
+              onOpenFile={(path, line) => openFileInEditor(path, line)}
+              onEditCard={(card) => handleOpenForm({ card })}
+              onAddCard={(date) =>
+                board && handleOpenForm({ columnId: board.columns[0]?.id || "todo", dueDate: date })
+              }
+              onSaveBoard={doSave}
+            />
+          )}
+
+          {route === "history" && <HistoryView boardName={boardName} />}
+        </main>
+
+        {/* The thread view owns its own card inspector; elsewhere the app
+            keeps one persistent "what is alive" rail. */}
+        {route !== "chat" && (
+          <InspectorRail
             boardName={boardName}
-            onOpenCardForm={(card) => handleOpenForm({ card })}
+            collapsed={!inspectorOpen}
+            onToggle={toggleInspector}
+            onNavigate={setRoute}
           />
         )}
-        {route === "project" && (
-          <ProjectView
-            boardName={boardName}
-            board={board}
-            onOpenFile={openFileInEditor}
-            onEditCard={(card) => handleOpenForm({ card })}
-          />
-        )}
-        {route === "insights" && (
-          <InsightsView
-            boardName={boardName}
-            board={board}
-            sprints={sprints}
-          />
-        )}
-        {board && (route === "dashboard" || route === "mind") && (
-          <MindView boardName={boardName} board={board} />
-        )}
-        {board && route === "board" && (
-          <BoardPage
-            board={board}
-            onMoveCard={handleMoveCard}
-            onTogglePin={handleTogglePin}
-            onAddCard={() => handleOpenForm({ columnId: board.columns[0]?.id || "todo" })}
-            onAddToColumn={(colId) => handleOpenForm({ columnId: colId })}
-            onEditCard={(card) => handleOpenForm({ card })}
-            onDeleteCard={handleDeleteCard}
-            onShowHistory={handleShowHistory}
-            onShowActivity={handleShowActivity}
-            onCopyCommitMsg={handleCopyCommitMsg}
-          />
-        )}
-        {board && route === "calendar" && (
-          <CalendarView
-            board={board}
-            sprints={sprints}
-            onEditCard={(card) => handleOpenForm({ card })}
-            onAddCard={(date) => handleOpenForm({ columnId: board.columns[0]?.id || "todo", dueDate: date })}
-          />
-        )}
-        {board && route === "reports" && (
-          <ReportsView board={board} sprints={sprints} />
-        )}
-        {board && route === "code" && (
-          <CodeView board={board} onOpenFile={(path, line) => openFileInEditor(path, line)} onEditCard={(card) => handleOpenForm({ card })} />
-        )}
-        {route === "activity" && (
-          <ActivityView boardName={board?.title || null} />
-        )}
-        {route === "sprints" && (
-          <SprintView
-            board={board}
-            sprints={sprints}
-            onSprintChanged={() => fetchSprints(boardName || undefined).then(setSprints)}
-            onEditCard={(card) => handleOpenForm({ card })}
-          />
-        )}
-        {route === "mind" && (
-          <MindView boardName={boardName} board={board} />
-        )}
-        {route === "skills" && <SkillsView />}
-        {route === "memory" && (
-          <MemoryView boardName={boardName} />
-        )}
-        {route === "context" && <ContextView boardName={boardName} />}
-        {route === "brain" && (
-          <Suspense fallback={<div className="h-full flex items-center justify-center text-sm text-muted">Loading graph…</div>}>
-            <BrainView boardName={boardName} />
-          </Suspense>
-        )}
-        {route === "specs" && (
-          <SpecsView boardName={boardName} />
-        )}
-        {(route === "orchestrate" || route === "agents") && (
-          <OrchestrateView boardName={boardName} />
-        )}
-        {route === "timeline" && (
-          <TimelineView boardName={boardName} />
-        )}
-        {route === "history" && (
-          <HistoryView boardName={boardName} />
-        )}
-        {board && route === "settings" && (
-          <SettingsView
-            board={board}
-            onSaveBoard={doSave}
-          />
-        )}
-        {route === "agent-prompt" && (
-          <AgentPromptView />
-        )}
-        {route === "docs" && (
-          <DocsView />
-        )}
-      </main>
+      </div>
 
       {/* Modals */}
       {form && board && (
@@ -888,12 +854,19 @@ function slugify(text: string, existing: string[]): string {
   return id;
 }
 
+function SurfaceEmpty({ label }: { label: string }) {
+  return (
+    <div className="h-full flex items-center justify-center text-[12px] text-muted">{label}</div>
+  );
+}
+
 function HelpModal({ onClose }: { onClose: () => void }) {
   const shortcuts = [
     { keys: "Cmd/Ctrl + K", desc: "Command palette" },
     { keys: "Cmd/Ctrl + Z", desc: "Undo last change" },
+    { keys: "1 – 7", desc: "Jump between surfaces" },
     { keys: "?", desc: "Toggle this help" },
-    { keys: "N", desc: "New card (on Board view)" },
+    { keys: "N", desc: "New card (on Board)" },
   ];
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>

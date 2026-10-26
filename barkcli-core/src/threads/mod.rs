@@ -3,9 +3,10 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use chrono::Utc;
+use chrono::{Duration, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::agent::liveness::BoardLiveness;
 use crate::models::Card;
 use crate::storage::board_dir::ensure_board_dir;
 use crate::storage::board_file::read_board;
@@ -88,6 +89,9 @@ pub struct ThreadSummary {
     pub updated_at: String,
     pub column: String,
     pub backend: Option<String>,
+    /// Newest evidence of agent life for this card (heartbeat, lease, note).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_seen: Option<String>,
 }
 
 pub fn threads_dir() -> Result<PathBuf> {
@@ -190,7 +194,13 @@ pub fn load_or_init_thread(board_name: &str, card: &Card) -> Result<Vec<ThreadEv
     Ok(events)
 }
 
-pub fn classify_status_group(card: &Card, board_name: &str) -> String {
+/// Thread classification with a pre-built liveness snapshot (preferred: one
+/// snapshot per board read instead of one per card).
+pub fn classify_status_group_with(
+    card: &Card,
+    board_name: &str,
+    live: &BoardLiveness,
+) -> String {
     let col = card.column.to_lowercase();
     if col == "done" {
         return "settled".to_string();
@@ -200,19 +210,39 @@ pub fn classify_status_group(card: &Card, board_name: &str) -> String {
         return "needs_you".to_string();
     }
     if col == "doing" {
-        return "running".to_string();
+        // A `doing` card is only "running" while an agent is demonstrably
+        // alive. Crashed agents used to leave cards looking busy forever.
+        return match live.card_running(&card.id) {
+            Some(true) => "running".to_string(),
+            Some(false) => "stalled".to_string(),
+            None => {
+                let age = Utc::now().signed_duration_since(card.updated_at);
+                if age < Duration::minutes(crate::agent::liveness::STALL_AFTER_MINUTES) {
+                    "running".to_string()
+                } else {
+                    "stalled".to_string()
+                }
+            }
+        };
     }
     "features".to_string()
 }
 
+/// Classify a single card (loads its own liveness snapshot).
+pub fn classify_status_group(card: &Card, board_name: &str) -> String {
+    let live = BoardLiveness::load(board_name);
+    classify_status_group_with(card, board_name, &live)
+}
+
 pub fn list_threads(board_name: &str) -> Result<Vec<ThreadSummary>> {
     let board = read_board(board_name)?;
+    let live = BoardLiveness::load(board_name);
     let mut summaries = Vec::new();
     for card in &board.cards {
         let events = read_events(&card.id).unwrap_or_default();
         let last_event = events.last().cloned();
         let count = events.len();
-        let status_group = classify_status_group(card, board_name);
+        let status_group = classify_status_group_with(card, board_name, &live);
         let backend = card.assignee.clone().or_else(|| {
             card.labels
                 .iter()
@@ -228,16 +258,21 @@ pub fn list_threads(board_name: &str) -> Result<Vec<ThreadSummary>> {
             updated_at: card.updated_at.to_rfc3339(),
             column: card.column.clone(),
             backend,
+            last_seen: live
+                .card_last_seen(&card.id)
+                .map(|t| t.to_rfc3339())
+                .or_else(|| Some(card.updated_at.to_rfc3339())),
         });
     }
 
     summaries.sort_by(|a, b| {
         let prio = |sg: &str| match sg {
             "needs_you" => 0,
-            "running" => 1,
-            "features" => 2,
-            "settled" => 3,
-            _ => 4,
+            "stalled" => 1,
+            "running" => 2,
+            "features" => 3,
+            "settled" => 4,
+            _ => 5,
         };
         prio(&a.status_group)
             .cmp(&prio(&b.status_group))
@@ -250,6 +285,39 @@ pub fn list_threads(board_name: &str) -> Result<Vec<ThreadSummary>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn doing_card_without_a_live_agent_is_stalled() {
+        let mut card = Card::new("stalled-card", "Long gone", "doing");
+        card.updated_at = Utc::now() - Duration::hours(3);
+        let live = BoardLiveness::default();
+        assert_eq!(
+            classify_status_group_with(&card, "test-board", &live),
+            "stalled"
+        );
+    }
+
+    #[test]
+    fn freshly_moved_doing_card_gets_a_grace_window() {
+        let card = Card::new("fresh-card", "Just started", "doing");
+        let live = BoardLiveness::default();
+        assert_eq!(
+            classify_status_group_with(&card, "test-board", &live),
+            "running"
+        );
+    }
+
+    #[test]
+    fn done_cards_are_settled_regardless_of_liveness() {
+        let mut card = Card::new("done-card", "Shipped", "doing");
+        card.column = "done".into();
+        card.updated_at = Utc::now() - Duration::days(2);
+        let live = BoardLiveness::default();
+        assert_eq!(
+            classify_status_group_with(&card, "test-board", &live),
+            "settled"
+        );
+    }
 
     #[test]
     fn thread_event_serialization_roundtrip() {

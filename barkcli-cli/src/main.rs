@@ -33,6 +33,7 @@ fn run_serve(args: &[String]) {
     let mut host = "127.0.0.1".to_string();
     let mut token: Option<String> = None;
     let mut daemon = false;
+    let mut app = false;
     let mut want_stop = false;
     let mut want_kill = false;
     let mut want_status = false;
@@ -54,6 +55,8 @@ fn run_serve(args: &[String]) {
             "--token" => { i += 1; token = args.get(i).map(|s| s.to_string()); }
             "--open" | "-o" => open_browser = true,
             "--daemon" | "-d" => daemon = true,
+            // Desktop shell: foreground server that dies with its parent.
+            "--app" => app = true,
             "--stop" => want_stop = true,
             "--kill" => want_kill = true,
             "--force" => force = true,
@@ -76,6 +79,11 @@ fn run_serve(args: &[String]) {
     }
     if want_status {
         check_daemon_status();
+        return;
+    }
+
+    if app {
+        run_app(port, board_name.as_deref(), &host, token);
         return;
     }
 
@@ -108,6 +116,7 @@ fn print_serve_help() {
     println!("      --token <TOKEN> Require auth token");
     println!("  -o, --open          Open browser after starting");
     println!("  -d, --daemon        Run in background");
+    println!("      --app           Desktop mode: foreground, no orphan, exits with parent");
     println!("      --stop [--port <PORT>] [--force]");
     println!("                      Stop daemon gracefully (SIGTERM, then SIGKILL after 5s).");
     println!("                      With --port, also kills whatever is listening on that port");
@@ -402,6 +411,139 @@ fn run_daemon(port: u16, board_name: Option<&str>, open_browser: bool, host: &st
         eprintln!("Run 'barkcli serve' directly instead");
         std::process::exit(1);
     }
+}
+
+/// Desktop mode.
+///
+/// Runs the server in the foreground, records its PID, prints one JSON ready
+/// line, and shuts down when the parent process disappears or a signal
+/// arrives. No `fork`, no orphan: quitting the app cannot leave a daemon.
+#[cfg(feature = "serve")]
+fn run_app(mut port: u16, board_name: Option<&str>, host: &str, token: Option<String>) {
+    use std::fs;
+
+    // Two servers on one board would each hold their own websocket and file
+    // watcher — the desktop must attach to the existing one instead.
+    if let Some(pid) = read_pid_file() {
+        if process_alive(pid) {
+            let known_port = read_info_port().unwrap_or(DEFAULT_SERVE_PORT);
+            println!(
+                "{}",
+                serde_json::json!({
+                    "status": "already_running",
+                    "pid": pid,
+                    "port": known_port,
+                    "url": format!("http://localhost:{}", known_port),
+                })
+            );
+            std::process::exit(3);
+        }
+        remove_serve_files();
+    }
+
+    if port == 0 {
+        port = free_loopback_port().unwrap_or(DEFAULT_SERVE_PORT);
+    }
+
+    let pid = std::process::id();
+    let parent_pid = unsafe { libc::getppid() };
+    let pid_path = serve_pid_path();
+    let info_path = serve_info_path();
+    if let Some(parent) = pid_path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    let _ = fs::write(&pid_path, pid.to_string());
+    let info = serde_json::json!({
+        "pid": pid,
+        "port": port,
+        "host": host,
+        "app": true,
+        "parent_pid": parent_pid,
+        "started_at": chrono::Utc::now().to_rfc3339(),
+    });
+    let _ = fs::write(&info_path, serde_json::to_string_pretty(&info).unwrap_or_default());
+
+    // One machine-readable line so the shell can attach without parsing prose.
+    println!(
+        "{}",
+        serde_json::json!({
+            "status": "ready",
+            "pid": pid,
+            "port": port,
+            "url": format!("http://localhost:{}", port),
+        })
+    );
+    {
+        use std::io::Write as _;
+        let _ = std::io::stdout().flush();
+    }
+
+    let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
+    let shutdown = std::sync::Arc::new(tokio::sync::Notify::new());
+
+    // Parent-death watchdog: covers force-quit and crashes where no signal is
+    // delivered. Delay is 1s so the server is gone before the app fully exits.
+    #[cfg(unix)]
+    {
+        let shutdown = shutdown.clone();
+        std::thread::spawn(move || loop {
+            std::thread::sleep(std::time::Duration::from_millis(1000));
+            let now = unsafe { libc::getppid() };
+            if parent_pid != 1 && (now != parent_pid || now == 1) {
+                shutdown.notify_one();
+                break;
+            }
+        });
+    }
+
+    let result = rt.block_on(async move {
+        #[cfg(unix)]
+        let shutdown_future = {
+            use tokio::signal::unix::{signal, SignalKind};
+            let term = signal(SignalKind::terminate()).ok();
+            let int = signal(SignalKind::interrupt()).ok();
+            async move {
+                match (term, int) {
+                    (Some(mut term), Some(mut int)) => {
+                        tokio::select! {
+                            _ = term.recv() => {},
+                            _ = int.recv() => {},
+                            _ = shutdown.notified() => {},
+                        }
+                    }
+                    _ => shutdown.notified().await,
+                }
+            }
+        };
+        #[cfg(not(unix))]
+        let shutdown_future = async move { shutdown.notified().await };
+
+        barkcli_server::run_with_shutdown(
+            port,
+            board_name,
+            false,
+            host,
+            token,
+            shutdown_future,
+        )
+        .await
+    });
+
+    remove_serve_files();
+    if let Err(e) = result {
+        eprintln!("app server error: {}", e);
+        std::process::exit(1);
+    }
+    // The axum listener is closed; exit now instead of waiting for the
+    // runtime to drain background watchers. This process exists to serve the
+    // window and must never outlive it.
+    std::process::exit(0);
+}
+
+#[cfg(feature = "serve")]
+fn free_loopback_port() -> Option<u16> {
+    let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).ok()?;
+    listener.local_addr().ok().map(|addr| addr.port())
 }
 
 #[cfg(feature = "serve")]

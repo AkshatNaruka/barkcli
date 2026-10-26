@@ -13,24 +13,13 @@ interface Props {
 }
 
 const VIEWS: { route: Route; label: string; icon: IconName }[] = [
-  { route: "threads", label: "Go to Inbox & Threads", icon: "inbox" },
+  { route: "chat", label: "Go to Chat", icon: "comment" },
   { route: "board", label: "Go to Board", icon: "board" },
-  { route: "project", label: "Go to Project", icon: "layers" },
-  { route: "insights", label: "Go to Insights", icon: "chart" },
-  { route: "mind", label: "Go to Mind", icon: "spark" },
   { route: "agents", label: "Go to Agents", icon: "users" },
-  { route: "specs", label: "Go to Specs", icon: "layers" },
-  { route: "context", label: "Go to Context", icon: "doc" },
-  { route: "memory", label: "Go to Memory", icon: "db" },
   { route: "brain", label: "Go to Brain", icon: "spark" },
   { route: "skills", label: "Go to Skills", icon: "star" },
-  { route: "code", label: "Go to Code", icon: "code" },
-  { route: "docs", label: "Go to Docs", icon: "doc" },
-  { route: "sprints", label: "Go to Sprints", icon: "cycle" },
-  { route: "reports", label: "Go to Reports", icon: "chart" },
-  { route: "timeline", label: "Go to Timeline", icon: "clock" },
-  { route: "history", label: "Go to History", icon: "layers" },
-  { route: "settings", label: "Go to Settings", icon: "gear" },
+  { route: "operations", label: "Go to Operations", icon: "code" },
+  { route: "history", label: "Go to History", icon: "history" },
 ];
 
 export function CommandPalette({ board, onClose, onAddCard, onEditCard }: Props) {
@@ -48,13 +37,13 @@ export function CommandPalette({ board, onClose, onAddCard, onEditCard }: Props)
         items.push({ label: v.label, icon: v.icon, action: () => { navigate(v.route); onClose(); } });
       }
     }
-    if ("sync mind".includes(q)) {
+    if ("sync brain".includes(q)) {
       items.push({
-        label: "Sync mind",
+        label: "Sync brain",
         icon: "refresh",
         action: () => {
           fetch("/api/mind").then(() => {}).catch(() => {});
-          navigate("mind");
+          navigate("brain");
           onClose();
         },
       });
