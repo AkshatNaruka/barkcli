@@ -13,6 +13,18 @@ interface LiveTask {
   assigned_agent?: string;
 }
 
+interface LiveAttempt {
+  id: string;
+  task_id?: string;
+  title?: string;
+  agent_id: string;
+  backend: string;
+  status: string;
+  started_at: string;
+  last_heartbeat?: string;
+  fresh: boolean;
+}
+
 interface AttentionItem {
   key: string;
   title: string;
@@ -52,6 +64,7 @@ export function InspectorRail({
 }) {
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [tasks, setTasks] = useState<LiveTask[]>([]);
+  const [attempts, setAttempts] = useState<LiveAttempt[]>([]);
   const [online, setOnline] = useState(true);
 
   useEffect(() => {
@@ -64,11 +77,16 @@ export function InspectorRail({
           .then((r) => (r.ok ? r.json() : { tasks: [] }))
           .then((d) => (d.tasks || []) as LiveTask[])
           .catch(() => [] as LiveTask[]),
+        fetch("/api/run/live")
+          .then((r) => (r.ok ? r.json() : { sessions: [] }))
+          .then((d) => (d.sessions || []) as LiveAttempt[])
+          .catch(() => [] as LiveAttempt[]),
       ])
-        .then(([list, taskList]) => {
+        .then(([list, taskList, liveList]) => {
           if (!cancelled) {
             setThreads(list);
             setTasks(taskList);
+            setAttempts(liveList);
             setOnline(true);
           }
         })
@@ -84,14 +102,33 @@ export function InspectorRail({
     };
   }, [boardName]);
 
-  const { running, stalled, needs, stalledTasks } = useMemo(() => {
+  const { running, stalled, needs, stalledTasks, liveAttempts, liveCount } = useMemo(() => {
+    const liveAttempts = attempts
+      .filter((attempt) => attempt.fresh && attempt.agent_id !== "merge-train")
+      .map((attempt) => ({
+        ...attempt,
+        title:
+          tasks.find((task) => task.id === attempt.task_id)?.title ||
+          attempt.title ||
+          attempt.task_id ||
+          "Agent attempt",
+      }));
+    const liveTitles = new Set(
+      liveAttempts.map((attempt) => attempt.title || "").filter(Boolean)
+    );
+    const runningThreads = threads.filter(
+      (thread) =>
+        thread.status_group === "running" && !liveTitles.has(thread.title)
+    );
     return {
-      running: threads.filter((t) => t.status_group === "running"),
+      running: runningThreads,
       stalled: threads.filter((t) => t.status_group === "stalled"),
       needs: threads.filter((t) => t.status_group === "needs_you"),
       stalledTasks: tasks.filter((t) => t.stalled),
+      liveAttempts,
+      liveCount: runningThreads.length + liveAttempts.length,
     };
-  }, [threads, tasks]);
+  }, [threads, tasks, attempts]);
 
   const attention: AttentionItem[] = useMemo(() => {
     const items: AttentionItem[] = stalledTasks.map((t) => ({
@@ -128,6 +165,20 @@ export function InspectorRail({
         target: "chat",
       });
     }
+    for (const attempt of liveAttempts) {
+      const title = attempt.title || attempt.task_id || "Agent attempt";
+      if (!items.some((item) => item.title === title)) {
+        items.push({
+          key: `live-${attempt.id}`,
+          title,
+          tone: "success",
+          label: "running",
+          at: attempt.last_heartbeat || attempt.started_at,
+          meta: attempt.backend,
+          target: "agents",
+        });
+      }
+    }
     for (const t of running) {
       items.push({
         key: `run-${t.id}`,
@@ -140,7 +191,7 @@ export function InspectorRail({
       });
     }
     return items.slice(0, 6);
-  }, [stalledTasks, stalled, needs, running]);
+  }, [stalledTasks, stalled, needs, running, liveAttempts]);
 
   if (collapsed) {
     return (
@@ -151,7 +202,7 @@ export function InspectorRail({
       >
         <Icon name="chevL" size={14} />
         <span className="text-[9px] uppercase tracking-[0.2em] [writing-mode:vertical-rl]">Now</span>
-        {running.length > 0 && <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />}
+        {liveCount > 0 && <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />}
       </button>
     );
   }
@@ -164,7 +215,7 @@ export function InspectorRail({
         <div className="flex items-center gap-2">
           <span
             className={`w-1.5 h-1.5 rounded-full ${
-              online ? (running.length > 0 ? "bg-success animate-pulse" : "bg-success/60") : "bg-danger"
+              online ? (liveCount > 0 ? "bg-success animate-pulse" : "bg-success/60") : "bg-danger"
             }`}
           />
           <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-strong">Now</span>
@@ -179,7 +230,7 @@ export function InspectorRail({
       </header>
 
       <div className="px-3 grid grid-cols-3 gap-1.5 shrink-0">
-        <Stat label="Live" value={running.length} tone="success" />
+        <Stat label="Live" value={liveCount} tone="success" />
         <Stat label="Stalled" value={stalledCount} tone="warning" />
         <Stat label="Action" value={needs.length} tone="accent" />
       </div>

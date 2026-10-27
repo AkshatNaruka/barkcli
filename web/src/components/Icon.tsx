@@ -88,6 +88,10 @@ const PATHS: Record<string, React.ReactNode> = {
   eyeDot: <circle cx="12" cy="12" r="2.6" />,
   eyeOff: <path d="M3.5 3.5l17 17M10.3 6.2A10.6 10.6 0 0112 6c6 0 9.5 6 9.5 6a18 18 0 01-3.2 3.8M6.6 6.7C4 8.6 2.5 12 2.5 12s3.5 6 9.5 6c1.5 0 2.9-.3 4-.9" />,
   plus: <path d="M12 5v14M5 12h14" />,
+  stop: <rect x="6" y="6" width="12" height="12" rx="2" />,
+  branch: <path d="M6 3v12a3 3 0 003 3h9" />,
+  branchDotA: <circle cx="6" cy="5" r="2" />,
+  branchDotB: <circle cx="18" cy="18" r="2" />,
 };
 
 // Icons composed of multiple sub-paths.
@@ -118,6 +122,7 @@ const GROUPS: Record<string, string[]> = {
   link: ["link", "linkUnder"],
   download: ["download", "downloadTray"],
   palette: ["palette", "paletteDots"],
+  branch: ["branch", "branchDotA", "branchDotB"],
   eye: ["eye", "eyeDot"],
   eyeOff: ["eyeOff"],
 };
@@ -129,7 +134,7 @@ export type IconName =
   | "board" | "spark" | "layers" | "cycle" | "code" | "db" | "star"
   | "chevL" | "chevR" | "flag" | "link" | "moon" | "sun" | "monitor"
   | "x" | "users" | "inbox" | "arrowUp" | "arrowFlat" | "arrowDown"
-  | "download" | "palette" | "eye" | "eyeOff" | "plus";
+  | "download" | "palette" | "eye" | "eyeOff" | "plus" | "stop" | "branch";
 
 function partsFor(name: IconName): React.ReactNode[] {
   if (name === "blocked") return [PATHS["blocked"], PATHS["blockedBar"]];
