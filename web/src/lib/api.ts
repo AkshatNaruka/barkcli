@@ -368,7 +368,11 @@ export async function fetchContext(): Promise<{ cards: Record<string, CardContex
   }
 }
 
-export async function fetchHistory(cardId?: string, limit?: number): Promise<HistoryEntry[]> {
+export async function fetchHistory(
+  cardId?: string,
+  limit?: number,
+  boardName?: string
+): Promise<HistoryEntry[]> {
   if (isVscode && vscodeApi) {
     return fetchHistoryVsCode(cardId);
   }
@@ -376,6 +380,7 @@ export async function fetchHistory(cardId?: string, limit?: number): Promise<His
     const params = new URLSearchParams();
     if (cardId) params.set("card", cardId);
     if (limit) params.set("limit", String(limit));
+    if (boardName) params.set("name", boardName);
     const qs = params.toString();
     const res = await fetch(withToken(`/api/history${qs ? `?${qs}` : ""}`));
     if (!res.ok) return [];
@@ -386,7 +391,13 @@ export async function fetchHistory(cardId?: string, limit?: number): Promise<His
   }
 }
 
-export async function fetchSessions(limit?: number, q?: string, agent?: string, cardId?: string): Promise<SessionEntry[]> {
+export async function fetchSessions(
+  limit?: number,
+  q?: string,
+  agent?: string,
+  cardId?: string,
+  boardName?: string
+): Promise<SessionEntry[]> {
   if (isVscode && vscodeApi) {
     return fetchSessionsVsCode();
   }
@@ -396,6 +407,7 @@ export async function fetchSessions(limit?: number, q?: string, agent?: string, 
     if (q) params.set("q", q);
     if (agent) params.set("agent", agent);
     if (cardId) params.set("card_id", cardId);
+    if (boardName) params.set("name", boardName);
     const qs = params.toString() ? `?${params.toString()}` : "";
     const res = await fetch(withToken(`/api/sessions${qs}`));
     if (!res.ok) return [];

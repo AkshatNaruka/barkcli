@@ -690,7 +690,13 @@ export function App() {
             />
           )}
 
-          {route === "history" && <HistoryView boardName={boardName} />}
+          {route === "history" && (
+            <HistoryView
+              boardName={boardName || boardList[0] || null}
+              board={board}
+              onEditCard={(card) => handleOpenForm({ card })}
+            />
+          )}
         </main>
 
         {/* The thread view owns its own card inspector; elsewhere the app
