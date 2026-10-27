@@ -24,7 +24,7 @@
       "icons/icon.icns"
     ],
     "resources": {
-      "../web/dist/**/*": "web/dist/"
+      "../web/dist/": "web/dist/"
     },
     "externalBin": ["binaries/barkcli"]
   }
