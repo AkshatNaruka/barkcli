@@ -7,6 +7,9 @@ import { isDemoMode, installDemoApi } from "./lib/demo";
 // index.css always wins the cascade (lazy-chunk CSS would otherwise be
 // injected after index.css and restore RF's white defaults).
 import "@xyflow/react/dist/style.css";
+import "@fontsource-variable/inter/wght.css";
+import "@fontsource/jetbrains-mono/400.css";
+import "@fontsource/jetbrains-mono/500.css";
 import "./index.css";
 
 // GitHub Pages / static hosting: no backend behind this page, so the demo

@@ -27,7 +27,11 @@ import type {
   SessionEntry,
   Sprint,
   GitCommit,
+  ThreadDetail,
+  ThreadSummary,
+  ThreadEvent,
 } from "./types";
+import { demoDiffForTask, seedDemoThreads, type DemoThread } from "./demoThreads";
 
 // Real repo docs, served by the Docs tab exactly like `barkcli serve` would.
 // Content is lazy-imported so docs only load when the Docs tab is opened.
@@ -108,6 +112,7 @@ interface DemoStore {
   skills: SkillRec[];
   bundles: BundleRec[];
   specs: SpecRec[];
+  threads: DemoThread[];
   orch: { cycle_count: number; tasks_dispatched: number; tasks_completed: number; tasks_failed: number };
   pendingProposal: PlanProposal | null;
   undoStack: Record<string, string[]>;
@@ -307,6 +312,7 @@ function seed(): DemoStore {
   return {
     boardNames: ["dev", "roadmap"],
     boards,
+    threads: seedDemoThreads(boards),
     sprints: [
       { name: "sprint-14", start: d(6).slice(0, 10), end: inDays(8).slice(0, 10), created_at: d(6) },
       { name: "sprint-13", start: d(20).slice(0, 10), end: d(7).slice(0, 10), created_at: d(20) },
@@ -557,6 +563,10 @@ function getStore(): DemoStore {
       store = seed();
       persist();
     }
+    if (!Array.isArray(store.threads)) {
+      store.threads = seedDemoThreads(store.boards);
+      persist();
+    }
   }
   return store!;
 }
@@ -772,7 +782,141 @@ const json = (data: any, status = 200) =>
     headers: { "content-type": "application/json", "cache-control": "no-store" },
   });
 
+// ── Demo threads ──
+// Threads are the product-shaped view of a card. Keep the card reference fresh
+// so moving a card updates the navigator without a reload.
+
+function demoThreadCard(record: DemoThread): Card | undefined {
+  const board = getStore().boards[record.board];
+  return board?.cards.find((c) => c.id === record.detail.id) || record.detail.card;
+}
+
+function demoThreadSummary(record: DemoThread): ThreadSummary {
+  const card = demoThreadCard(record);
+  const events = record.detail.events;
+  const last = events[events.length - 1];
+  const column = card?.column || "todo";
+  const status_group =
+    column === "review"
+      ? "needs_you"
+      : column === "doing"
+        ? "running"
+        : column === "done"
+          ? "settled"
+          : "features";
+  const taskEvent = [...events].reverse().find((e) => e.kind === "task_spawned");
+  return {
+    id: record.detail.id,
+    title: card?.title || record.detail.id,
+    status_group,
+    event_count: events.length,
+    last_event: last,
+    updated_at: last?.created_at || card?.updated_at || new Date().toISOString(),
+    column,
+    backend: taskEvent?.author || "opencode",
+    last_seen: last?.created_at,
+  };
+}
+
+function listDemoThreads(name?: string | null): ThreadSummary[] {
+  const { key } = boardFor(name);
+  return getStore()
+    .threads.filter((record) => record.board === key)
+    .map(demoThreadSummary)
+    .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
+}
+
+function getDemoThread(id: string, name?: string | null): ThreadDetail | null {
+  const { key } = boardFor(name);
+  const record = getStore().threads.find(
+    (thread) => thread.detail.id === id && thread.board === key
+  );
+  if (!record) return null;
+  return {
+    ...record.detail,
+    card: demoThreadCard(record),
+  };
+}
+
+function createDemoThread(text: string, name?: string | null): { thread_id: string } {
+  const s = getStore();
+  const { b, key } = boardFor(name);
+  const body = (text || "").trim();
+  const title = body.split("\n")[0].slice(0, 96) || "Untitled intent";
+  const id = slugify(title, b.cards.map((c) => c.id));
+  const now = new Date().toISOString();
+  const firstColumn = b.columns[0]?.id || "todo";
+  const newCard = card({
+    id,
+    title,
+    column: firstColumn,
+    description: body,
+    created_at: now,
+    updated_at: now,
+  });
+  b.cards = [...b.cards, newCard];
+  const userEvent: ThreadEvent = {
+    id: `ev-${id}-user`,
+    card_id: id,
+    kind: "user",
+    author: "you",
+    text: body,
+    created_at: now,
+  };
+  s.threads.unshift({
+    board: key,
+    detail: { id, card: newCard, events: [userEvent] },
+  });
+  logHistory("add", key, { card: id, new_value: firstColumn });
+  persist();
+  emitChange();
+  return { thread_id: id };
+}
+
+function postDemoThreadMessage(id: string, text: string): ThreadEvent | null {
+  const s = getStore();
+  const record = s.threads.find((thread) => thread.detail.id === id);
+  const body = (text || "").trim();
+  if (!record || !body) return null;
+  const now = new Date().toISOString();
+  const event: ThreadEvent = {
+    id: `ev-${id}-${Date.now().toString(36)}`,
+    card_id: id,
+    kind: "user",
+    author: "you",
+    text: body,
+    created_at: now,
+  };
+  record.detail.events.push(event);
+  const card = demoThreadCard(record);
+  if (card) card.updated_at = now;
+  persist();
+  emitChange();
+  return event;
+}
+
 const ROUTES: Route[] = [
+  // Threads (the Chat surface; also used by the workbench)
+  { method: "GET", re: /^\/api\/threads$/, handle: (_m, { q }) => listDemoThreads(q.get("name")) },
+  { method: "GET", re: /^\/api\/threads\/([^/]+)$/, handle: (m, { q }) => getDemoThread(m[1], q.get("name")) },
+  { method: "POST", re: /^\/api\/threads$/, handle: (_m, { body, q }) => createDemoThread(body.text, q.get("name")) },
+  { method: "POST", re: /^\/api\/threads\/([^/]+)\/messages$/, handle: (m, { body }) => postDemoThreadMessage(m[1], body.text) },
+  { method: "GET", re: /^\/api\/tasks\/([^/]+)\/diff$/, handle: (m) => demoDiffForTask(m[1]) || { task_id: m[1], branch: "", diff: "", files: [] } },
+  { method: "POST", re: /^\/api\/tasks\/([^/]+)\/race$/, handle: () => ({ ok: true }) },
+  {
+    method: "GET", re: /^\/api\/sessions\/([^/]+)\/transcript$/, handle: (m) => ({
+      id: m[1], status: "done", total_lines: 4,
+      lines: ["$ opencode --prompt thread.md", "read 14 files", "patched 3 files", "verification queued"],
+    }),
+  },
+  {
+    method: "POST", re: /^\/api\/sessions\/([^/]+)\/eval$/, handle: () => ({
+      quality_score: 0.92, test_gate_passed: true, backend: "opencode",
+      duration_ms: 720000, files_changed_count: 3,
+    }),
+  },
+  { method: "POST", re: /^\/api\/sessions\/([^/]+)\/(stop|steer|fork)$/, handle: () => ({ ok: true }) },
+
   // Boards: list / create / delete
   { method: "GET", re: /^\/api\/boards$/, handle: () => ({ boards: getStore().boardNames }) },
   {

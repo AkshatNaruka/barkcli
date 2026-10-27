@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { Card, ThreadEvent, ThreadDetail } from "../lib/types";
 import {
   fetchThread,
@@ -13,19 +13,160 @@ import {
   raceTask,
 } from "../lib/api";
 import { Icon } from "../components/Icon";
+import { QuietSelect } from "../components/QuietSelect";
+import { relativeTime } from "../lib/threads";
+import { isDemoMode } from "../lib/demo";
 
 interface ThreadPaneProps {
   threadId: string | null;
   boardName?: string;
+  inspectorOpen?: boolean;
   onSelectCard?: (card: Card) => void;
   onOpenInspector?: () => void;
   onRefreshInbox?: () => void;
   onNewIntent?: (suggestion?: string) => void;
 }
 
+function columnTone(column?: string): string {
+  if (column === "review") return "text-warning";
+  if (column === "doing") return "text-success";
+  if (column === "done") return "text-muted";
+  return "text-muted";
+}
+
+function columnLabel(column?: string): string {
+  if (!column) return "draft";
+  return column === "review" ? "needs you" : column === "doing" ? "running" : column;
+}
+
+/** Small prose renderer: paragraphs, bullets, and headings without a full markdown dependency. */
+function Prose({ text }: { text: string }) {
+  const blocks: React.ReactNode[] = [];
+  let paragraph: string[] = [];
+  let list: string[] = [];
+
+  const flushParagraph = () => {
+    if (!paragraph.length) return;
+    blocks.push(
+      <p key={`p-${blocks.length}`} className="whitespace-pre-wrap">
+        {paragraph.join("\n")}
+      </p>
+    );
+    paragraph = [];
+  };
+  const flushList = () => {
+    if (!list.length) return;
+    blocks.push(
+      <ul key={`ul-${blocks.length}`} className="my-2 space-y-1 pl-0">
+        {list.map((item, index) => (
+          <li key={index} className="flex gap-2.5">
+            <span className="mt-[0.1em] shrink-0 text-[11px] text-muted/70" aria-hidden="true">•</span>
+            <span className="whitespace-pre-wrap">{item}</span>
+          </li>
+        ))}
+      </ul>
+    );
+    list = [];
+  };
+
+  for (const line of text.split("\n")) {
+    if (line.startsWith("- ") || line.startsWith("* ")) {
+      flushParagraph();
+      list.push(line.slice(2));
+    } else if (line.startsWith("# ")) {
+      flushParagraph();
+      flushList();
+      blocks.push(
+        <h3 key={`h-${blocks.length}`} className="pt-1 text-[13px] font-semibold text-text">
+          {line.slice(2)}
+        </h3>
+      );
+    } else if (!line.trim()) {
+      flushParagraph();
+      flushList();
+    } else {
+      flushList();
+      paragraph.push(line);
+    }
+  }
+  flushParagraph();
+  flushList();
+
+  return <div className="space-y-3 text-[13px] leading-[1.7] text-text/90">{blocks}</div>;
+}
+
+function EventTime({ iso }: { iso: string }) {
+  return (
+    <time
+      dateTime={iso}
+      className="font-mono text-[9.5px] text-muted/65"
+      title={new Date(iso).toLocaleString()}
+    >
+      {relativeTime(iso)}
+    </time>
+  );
+}
+
+function EmptyThread({ onNewIntent }: { onNewIntent?: (suggestion?: string) => void }) {
+  const starters = [
+    "Add a health check endpoint",
+    "Fix the flaky retry test",
+    "Review the open worktrees",
+    "Draft the release notes",
+  ];
+  return (
+    <div className="flex h-full flex-1 items-center justify-center overflow-y-auto bg-bg px-8 py-12">
+      <div className="w-full max-w-[540px]">
+        <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted/70">
+          Chat
+        </div>
+        <h1 className="mt-2 text-[22px] font-semibold tracking-[-0.02em] text-text">
+          What should we ship?
+        </h1>
+        <p className="mt-2 max-w-[440px] text-[13px] leading-relaxed text-muted">
+          Describe an outcome. Bark will turn it into a plan, give each slice an isolated worktree,
+          and only merge what passes its gate.
+        </p>
+
+        <div className="mt-7 border-y border-border/80">
+          {starters.map((starter) => (
+            <button
+              key={starter}
+              type="button"
+              onClick={() => onNewIntent?.(starter)}
+              className="group flex w-full items-center gap-3 border-b border-border/60 py-3 text-left text-[12.5px] text-muted-strong transition-colors last:border-b-0 hover:text-text"
+            >
+              <Icon
+                name="plus"
+                size={12}
+                className="text-muted/50 transition-colors group-hover:text-accent-text"
+              />
+              <span className="flex-1">{starter}</span>
+              <span className="font-mono text-[9px] text-muted/0 transition-colors group-hover:text-muted/70">
+                start
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => onNewIntent?.()}
+          className="mt-5 inline-flex h-8 items-center gap-2 rounded-md bg-accent px-3 text-[12px] font-medium text-bg transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+        >
+          <Icon name="plus" size={13} />
+          New intent
+          <kbd className="rounded border border-bg/20 px-1 font-mono text-[9px] text-bg/70">⌘N</kbd>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function ThreadPane({
   threadId,
   boardName,
+  inspectorOpen,
   onSelectCard,
   onOpenInspector,
   onRefreshInbox,
@@ -33,6 +174,8 @@ export function ThreadPane({
 }: ThreadPaneProps) {
   const [thread, setThread] = useState<ThreadDetail | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [input, setInput] = useState("");
   const [backend, setBackend] = useState("opencode");
   const [submitting, setSubmitting] = useState(false);
@@ -42,34 +185,49 @@ export function ThreadPane({
   const [steerSessionId, setSteerSessionId] = useState<string | null>(null);
   const [steerPrompt, setSteerPrompt] = useState("");
   const [actionStatus, setActionStatus] = useState<string | null>(null);
-
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const selectCardRef = useRef(onSelectCard);
+  const refreshInboxRef = useRef(onRefreshInbox);
 
-  // Scroll to bottom when events update
+  useEffect(() => {
+    selectCardRef.current = onSelectCard;
+    refreshInboxRef.current = onRefreshInbox;
+  }, [onSelectCard, onRefreshInbox]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [thread?.events]);
 
-  // Load thread detail
   useEffect(() => {
     if (!threadId) {
       setThread(null);
+      setLoadError(false);
       return;
     }
+    let cancelled = false;
+    setThread(null);
+    setLoadError(false);
     setLoading(true);
     fetchThread(threadId, boardName)
       .then((data) => {
+        if (cancelled) return;
         setThread(data);
-        if (data?.card && onSelectCard) {
-          onSelectCard(data.card);
-        }
+        if (data?.card) selectCardRef.current?.(data.card);
+        if (!data) setLoadError(true);
       })
-      .finally(() => setLoading(false));
-  }, [threadId, boardName]);
+      .catch(() => {
+        if (!cancelled) setLoadError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [threadId, boardName, reloadKey]);
 
-  // Connect SSE stream for live updates
   useEffect(() => {
-    if (!threadId) return;
+    if (!threadId || isDemoMode()) return;
     const url = streamThreadUrl(threadId);
     let eventSource: EventSource | null = null;
     try {
@@ -77,520 +235,576 @@ export function ThreadPane({
       eventSource.onmessage = (event) => {
         try {
           const parsed: ThreadEvent = JSON.parse(event.data);
-          if (parsed && parsed.id) {
-            setThread((prev) => {
-              if (!prev) return prev;
-              const exists = prev.events.some((e) => e.id === parsed.id);
-              if (exists) return prev;
-              return {
-                ...prev,
-                events: [...prev.events, parsed],
-              };
-            });
-            if (onRefreshInbox) {
-              onRefreshInbox();
-            }
-          }
+          if (!parsed?.id) return;
+          setThread((prev) => {
+            if (!prev) return prev;
+            if (prev.events.some((e) => e.id === parsed.id)) return prev;
+            return { ...prev, events: [...prev.events, parsed] };
+          });
+          refreshInboxRef.current?.();
         } catch {
-          // ignore heartbeats or non json frames
+          // Heartbeats and non-JSON frames are not events.
         }
       };
     } catch {
-      // EventSource fallback
+      // EventSource is an enhancement; the REST snapshot still works.
     }
-
-    return () => {
-      if (eventSource) {
-        eventSource.close();
-      }
-    };
+    return () => eventSource?.close();
   }, [threadId]);
+
+  useEffect(() => {
+    if (!transcriptSessionId && !steerSessionId) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setTranscriptSessionId(null);
+      setSteerSessionId(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [transcriptSessionId, steerSessionId]);
 
   const handleSendMessage = async () => {
     const text = input.trim();
     if (!text || !threadId || submitting) return;
-
     setSubmitting(true);
     setInput("");
     try {
-      const ev = await postThreadMessage(threadId, text, {
+      const event = await postThreadMessage(threadId, text, {
         author: "you",
         backend,
         board: boardName,
       });
-      if (ev) {
+      if (event) {
         setThread((prev) => {
           if (!prev) return prev;
-          const exists = prev.events.some((e) => e.id === ev.id);
-          if (exists) return prev;
-          return {
-            ...prev,
-            events: [...prev.events, ev],
-          };
+          if (prev.events.some((e) => e.id === event.id)) return prev;
+          return { ...prev, events: [...prev.events, event] };
         });
       }
-      if (onRefreshInbox) {
-        onRefreshInbox();
-      }
+      refreshInboxRef.current?.();
+    } catch {
+      setInput(text);
+      setActionStatus("Message did not send. Check the server, then try again.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
       handleSendMessage();
     }
   };
 
   const handleApprovePlan = async () => {
     if (!threadId) return;
+    setActionStatus("Approving plan and dispatching workers…");
     await approvePlan(threadId, boardName);
     const updated = await fetchThread(threadId, boardName);
     if (updated) setThread(updated);
-    if (onRefreshInbox) onRefreshInbox();
+    onRefreshInbox?.();
+    setActionStatus(null);
   };
 
   const handleRejectPlan = async () => {
     if (!threadId) return;
+    setActionStatus("Sending the plan back for revision…");
     await rejectPlan(threadId, "User requested revision", boardName);
     const updated = await fetchThread(threadId, boardName);
     if (updated) setThread(updated);
-    if (onRefreshInbox) onRefreshInbox();
+    onRefreshInbox?.();
+    setActionStatus(null);
   };
 
   const handleViewTranscript = async (sessionId: string) => {
     setTranscriptSessionId(sessionId);
     setTranscriptLoading(true);
     const res = await fetchSessionTranscript(sessionId, 60);
-    if (res?.lines) {
-      setTranscriptLines(res.lines);
-    } else {
-      setTranscriptLines(["No transcript records available yet for this worker session."]);
-    }
+    setTranscriptLines(
+      res?.lines?.length
+        ? res.lines
+        : ["No transcript records available yet for this worker session."]
+    );
     setTranscriptLoading(false);
   };
 
   const handleStopSession = async (sessionId: string) => {
-    setActionStatus("Stopping worker session...");
+    setActionStatus("Stopping worker session…");
     await stopSession(sessionId);
     setActionStatus("Worker session stopped.");
-    setTimeout(() => setActionStatus(null), 3000);
+    window.setTimeout(() => setActionStatus(null), 3000);
   };
 
   const handleSteerSession = async (sessionId: string) => {
     if (!steerPrompt.trim()) return;
-    setActionStatus("Steering worker session...");
+    setActionStatus("Steering worker session…");
     await steerSession(sessionId, steerPrompt.trim());
     setSteerPrompt("");
     setSteerSessionId(null);
     setActionStatus("Steering direction sent to worker.");
-    setTimeout(() => setActionStatus(null), 3000);
+    window.setTimeout(() => setActionStatus(null), 3000);
   };
 
   const handleForkSession = async (sessionId: string) => {
-    setActionStatus("Forking worker session...");
+    setActionStatus("Forking worker session…");
     await forkSession(sessionId);
     setActionStatus("New branch worker session forked.");
-    setTimeout(() => setActionStatus(null), 3000);
+    window.setTimeout(() => setActionStatus(null), 3000);
   };
 
   const handleRaceTask = async (taskId: string) => {
-    setActionStatus("Starting agent race tournament...");
+    setActionStatus("Starting agent race…");
     await raceTask(taskId, "opencode", "claude");
     setActionStatus("Race dispatched between opencode and claude.");
-    setTimeout(() => setActionStatus(null), 3000);
+    window.setTimeout(() => setActionStatus(null), 3000);
   };
 
-  if (!threadId) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-bg overflow-y-auto">
-        <div className="max-w-xl w-full text-left space-y-6">
-          <div className="space-y-2 text-center">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-white/[0.06] border border-border text-text mb-2">
-              <Icon name="spark" size={22} />
-            </div>
-            <h2 className="text-xl font-bold text-text tracking-tight">
-              The management layer for AI agents
-            </h2>
-            <p className="text-xs text-muted max-w-md mx-auto leading-relaxed">
-              barkcli coordinates coding agents with intent in, plans out, isolated worktrees, tests as the gate, and a merge train for whatever passes.
-            </p>
-          </div>
+  if (!threadId) return <EmptyThread onNewIntent={onNewIntent} />;
 
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            <div className="p-3.5 rounded-xl bg-surface border border-border space-y-1">
-              <div className="font-semibold text-text flex items-center gap-1.5">
-                <span className="text-accent">1.</span> Intent In
-              </div>
-              <p className="text-[11px] text-muted leading-relaxed">
-                Describe a feature or paste a specification to kick off planning.
-              </p>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-surface border border-border space-y-1">
-              <div className="font-semibold text-text flex items-center gap-1.5">
-                <span className="text-accent">2.</span> Plans Out
-              </div>
-              <p className="text-[11px] text-muted leading-relaxed">
-                AI breaks down the requirement into atomic, parallel child tasks.
-              </p>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-surface border border-border space-y-1">
-              <div className="font-semibold text-text flex items-center gap-1.5">
-                <span className="text-accent">3.</span> Isolated Worktrees
-              </div>
-              <p className="text-[11px] text-muted leading-relaxed">
-                Agents execute in isolated git worktrees so your working tree is undisturbed.
-              </p>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-surface border border-border space-y-1">
-              <div className="font-semibold text-text flex items-center gap-1.5">
-                <span className="text-accent">4.</span> Tests as the Gate
-              </div>
-              <p className="text-[11px] text-muted leading-relaxed">
-                Your actual test suite gates every change before landing via merge train.
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="text-[11px] uppercase font-bold text-muted tracking-wider">
-              Quick start examples
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                "Add health check endpoint",
-                "Add structured logging middleware",
-                "Fix flaky test retry policy",
-                "Implement user API token auth",
-              ].map((starter) => (
-                <button
-                  key={starter}
-                  onClick={() => onNewIntent && onNewIntent(starter)}
-                  className="p-2.5 text-left rounded-lg bg-white/[0.02] border border-border hover:bg-white/[0.06] hover:border-accent/40 text-text transition-all text-xs font-medium"
-                >
-                  {starter} &rarr;
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="pt-2 text-center">
-            <button
-              onClick={() => onNewIntent && onNewIntent()}
-              className="px-5 py-2 rounded-lg bg-accent text-bg font-semibold text-xs hover:opacity-90 transition-opacity"
-            >
-              Start New Intent (Cmd+N)
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const card = thread?.card;
+  const approvedPlans = new Set(
+    (thread?.events || [])
+      .filter((event) => event.kind === "plan_approved")
+      .map((event) => Date.parse(event.created_at))
+  );
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-bg overflow-hidden">
+    <section className="flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-bg">
       {actionStatus && (
-        <div className="bg-surface border-b border-border px-4 py-2 text-[11px] text-accent flex items-center justify-between shrink-0">
+        <div className="flex shrink-0 items-center justify-between border-b border-border/70 bg-accent-soft px-4 py-1.5 text-[10.5px] text-accent-text">
           <span>{actionStatus}</span>
           <button
+            type="button"
             onClick={() => setActionStatus(null)}
-            className="text-muted hover:text-text p-0.5"
+            className="flex h-5 w-5 items-center justify-center rounded text-muted hover:text-text"
+            aria-label="Dismiss status"
           >
-            <Icon name="x" size={12} />
+            <Icon name="x" size={11} />
           </button>
         </div>
       )}
 
-      {/* Header */}
-      <div className="p-3 border-b border-border flex items-center justify-between gap-3 shrink-0">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <span className="font-mono text-xs text-muted">
-            {thread?.card?.id || threadId}
-          </span>
-          <span className="text-sm font-semibold text-text truncate">
-            {thread?.card?.title || "Thread"}
-          </span>
-          {thread?.card?.column && (
-            <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-surface border border-border text-muted">
-              {thread.card.column}
-            </span>
+      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border/80 px-4">
+        <div className="flex min-w-0 items-center gap-2">
+          {boardName && (
+            <>
+              <span className="hidden shrink-0 font-mono text-[10px] text-muted/70 sm:inline">
+                {boardName}.board
+              </span>
+              <span className="hidden text-muted/30 sm:inline">/</span>
+            </>
           )}
+          <span className="min-w-0 truncate text-[12.5px] font-medium text-text">
+            {card?.title || threadId}
+          </span>
+          <span
+            className={`hidden shrink-0 items-center gap-1 text-[10px] font-medium sm:flex ${columnTone(card?.column)}`}
+          >
+            <span
+              className={`h-1 w-1 rounded-full ${
+                card?.column === "doing"
+                  ? "bg-success"
+                  : card?.column === "review"
+                    ? "bg-warning"
+                    : "bg-muted/50"
+              }`}
+            />
+            {columnLabel(card?.column)}
+          </span>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="ml-auto flex shrink-0 items-center gap-1">
+          <span className="mr-1 hidden font-mono text-[9.5px] text-muted/60 xl:inline">
+            {threadId}
+          </span>
           {onOpenInspector && (
             <button
+              type="button"
               onClick={onOpenInspector}
-              className="px-2.5 py-1 text-xs rounded-md bg-surface border border-border text-text hover:bg-white/[0.05] transition-colors flex items-center gap-1.5"
+              aria-label={inspectorOpen ? "Hide workbench" : "Show workbench"}
+              aria-pressed={inspectorOpen}
+              title={inspectorOpen ? "Hide workbench (⌘J)" : "Show workbench (⌘J)"}
+              className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
+                inspectorOpen
+                  ? "bg-surface text-text"
+                  : "text-muted hover:bg-white/[0.05] hover:text-text"
+              }`}
             >
-              <Icon name="layers" size={13} />
-              <span>Inspector</span>
+              <Icon name="layers" size={14} />
             </button>
           )}
         </div>
-      </div>
+      </header>
 
-      {/* Timeline message stream */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {loading && (
-          <div className="p-4 text-center text-xs text-muted">
-            Loading timeline events...
-          </div>
-        )}
-
-        {!loading && thread?.events && thread.events.length === 0 && (
-          <div className="p-8 text-center text-xs text-muted">
-            No messages in this thread yet. Send a prompt below to begin.
-          </div>
-        )}
-
-        {!loading &&
-          thread?.events.map((ev) => {
-            if (ev.kind === "user") {
-              return (
-                <div key={ev.id} className="flex gap-3 max-w-2xl">
-                  <div className="w-6 h-6 rounded-full bg-surface border border-border flex items-center justify-center text-[10px] font-bold text-text shrink-0">
-                    U
-                  </div>
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-2 text-[10px] text-muted">
-                      <span className="font-semibold text-text">{ev.author}</span>
-                      <span>{new Date(ev.created_at).toLocaleTimeString()}</span>
-                    </div>
-                    <div className="p-3 rounded-lg bg-surface border border-border text-xs text-text leading-relaxed whitespace-pre-wrap">
-                      {ev.text}
-                    </div>
-                  </div>
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-[780px] px-5 py-6 sm:px-7">
+          {loading && (
+            <div className="space-y-6" aria-label="Loading thread">
+              {[0, 1, 2].map((row) => (
+                <div key={row} className="space-y-2">
+                  <div className="h-2.5 w-20 animate-pulse rounded bg-surface" />
+                  <div className="h-3 w-4/5 animate-pulse rounded bg-surface/80" />
+                  <div className="h-3 w-3/5 animate-pulse rounded bg-surface/60" />
                 </div>
-              );
-            }
+              ))}
+            </div>
+          )}
 
-            if (ev.kind === "assistant") {
-              return (
-                <div key={ev.id} className="flex gap-3 max-w-2xl ml-auto flex-row-reverse">
-                  <div className="w-6 h-6 rounded-full bg-accent text-bg flex items-center justify-center text-[10px] font-bold shrink-0">
-                    B
-                  </div>
-                  <div className="flex-1 space-y-1 text-right">
-                    <div className="flex items-center justify-end gap-2 text-[10px] text-muted">
-                      <span className="font-semibold text-text">{ev.author}</span>
-                      <span>{new Date(ev.created_at).toLocaleTimeString()}</span>
-                    </div>
-                    <div className="p-3 rounded-lg bg-white/[0.05] border border-border text-xs text-text text-left leading-relaxed whitespace-pre-wrap">
-                      {ev.text}
-                    </div>
-                  </div>
-                </div>
-              );
-            }
-
-            if (ev.kind === "plan_proposed") {
-              const proposal = ev.data;
-              return (
-                <div key={ev.id} className="p-4 rounded-xl bg-surface border border-border space-y-3 max-w-2xl mx-auto my-2 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-amber-400 font-bold">●</span>
-                      <span className="font-semibold text-xs text-text">
-                        Plan Proposal: {proposal?.children?.length || 0} tasks
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-muted font-mono">
-                      Risk: {proposal?.risk_level || "low"}
-                    </span>
-                  </div>
-
-                  {proposal?.rationale && (
-                    <div className="text-xs text-muted leading-relaxed">
-                      {proposal.rationale}
-                    </div>
-                  )}
-
-                  {proposal?.children && Array.isArray(proposal.children) && (
-                    <div className="space-y-1.5 pt-2 border-t border-border">
-                      {proposal.children.map((child: any, cIdx: number) => (
-                        <div
-                          key={cIdx}
-                          className="p-2 rounded bg-bg border border-border text-xs flex items-center justify-between"
-                        >
-                          <div className="flex items-center gap-2 truncate">
-                            <span className="text-muted">○</span>
-                            <span className="font-medium text-text truncate">
-                              {child.title}
-                            </span>
-                          </div>
-                          {child.complexity && (
-                            <span className="text-[10px] text-muted shrink-0 ml-2">
-                              {child.complexity}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-end gap-2 pt-2">
-                    <button
-                      onClick={handleRejectPlan}
-                      className="px-3 py-1.5 text-xs rounded-md bg-surface border border-border text-muted hover:text-text hover:bg-white/[0.03] transition-colors"
-                    >
-                      Discard
-                    </button>
-                    <button
-                      onClick={handleApprovePlan}
-                      className="px-3 py-1.5 text-xs rounded-md bg-accent text-bg font-medium hover:opacity-90 transition-opacity"
-                    >
-                      Approve & Run
-                    </button>
-                  </div>
-                </div>
-              );
-            }
-
-            if (ev.kind === "plan_approved") {
-              return (
-                <div key={ev.id} className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-300 flex items-center gap-2 max-w-2xl mx-auto">
-                  <span className="font-bold">✓</span>
-                  <span>{ev.text}</span>
-                </div>
-              );
-            }
-
-            if (ev.kind === "task_spawned") {
-              const taskId = ev.data?.task_id || "task";
-              const sessionId = ev.data?.session_id;
-              return (
-                <div key={ev.id} className="p-3 rounded-lg bg-surface border border-border text-xs max-w-2xl mx-auto space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-accent animate-pulse font-bold">◐</span>
-                      <span className="font-medium text-text">
-                        Worker spawned: {taskId}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {sessionId && (
-                        <>
-                          <button
-                            onClick={() => handleViewTranscript(sessionId)}
-                            className="text-[10px] px-2 py-0.5 rounded bg-bg border border-border text-muted hover:text-text"
-                          >
-                            Live Transcript
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSteerSessionId(sessionId);
-                              setSteerPrompt("");
-                            }}
-                            className="text-[10px] px-2 py-0.5 rounded bg-bg border border-border text-muted hover:text-text"
-                          >
-                            Steer
-                          </button>
-                          <button
-                            onClick={() => handleForkSession(sessionId)}
-                            className="text-[10px] px-2 py-0.5 rounded bg-bg border border-border text-muted hover:text-text"
-                          >
-                            Fork
-                          </button>
-                          <button
-                            onClick={() => handleStopSession(sessionId)}
-                            className="text-[10px] px-2 py-0.5 rounded bg-bg border border-border text-rose-400 hover:text-rose-300"
-                          >
-                            Stop
-                          </button>
-                        </>
-                      )}
-                      <button
-                        onClick={() => handleRaceTask(taskId)}
-                        className="text-[10px] px-2 py-0.5 rounded bg-bg border border-border text-amber-400 hover:text-amber-300"
-                      >
-                        Race
-                      </button>
-                    </div>
-                  </div>
-                  <div className="text-[11px] text-muted">{ev.text}</div>
-                </div>
-              );
-            }
-
-            if (ev.kind === "agent_output") {
-              return (
-                <div key={ev.id} className="max-w-2xl mx-auto">
-                  <pre className="p-2.5 rounded bg-surface border border-border font-mono text-[10px] text-muted overflow-x-auto max-h-36">
-                    {ev.text}
-                  </pre>
-                </div>
-              );
-            }
-
-            if (ev.kind === "gate") {
-              const passed = ev.data?.passed;
-              return (
-                <div
-                  key={ev.id}
-                  className={`p-3 rounded-lg border text-xs max-w-2xl mx-auto flex items-center justify-between ${
-                    passed
-                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
-                      : "bg-rose-500/10 border-rose-500/30 text-rose-300"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold">{passed ? "✓" : "✕"}</span>
-                    <span>{ev.text}</span>
-                  </div>
-                  <span className="text-[10px] font-mono uppercase font-bold">
-                    {passed ? "Gate Passed" : "Gate Failed"}
-                  </span>
-                </div>
-              );
-            }
-
-            if (ev.kind === "merge") {
-              return (
-                <div key={ev.id} className="p-3 rounded-lg bg-accent/10 border border-accent/30 text-xs text-text flex items-center gap-2 max-w-2xl mx-auto">
-                  <span className="text-accent font-bold">✓</span>
-                  <span>{ev.text}</span>
-                </div>
-              );
-            }
-
-            // Fallback event card
-            return (
-              <div key={ev.id} className="p-2.5 rounded bg-surface border border-border text-xs max-w-2xl mx-auto text-muted">
-                <span className="font-semibold text-text mr-2">{ev.author}:</span>
-                {ev.text}
-              </div>
-            );
-          })}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Live transcript viewer modal if open */}
-      {transcriptSessionId && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-bg border border-border rounded-xl w-full max-w-2xl flex flex-col max-h-[80vh] shadow-2xl">
-            <div className="p-3 border-b border-border flex items-center justify-between">
-              <span className="text-xs font-semibold text-text">
-                Session Transcript: {transcriptSessionId}
-              </span>
+          {!loading && loadError && (
+            <div className="mx-auto max-w-[420px] py-16 text-center" role="alert">
+              <div className="text-[12.5px] font-medium text-text">Could not load this thread</div>
+              <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted">
+                The server may still be starting, or the thread was moved. Your board is untouched.
+              </p>
               <button
-                onClick={() => setTranscriptSessionId(null)}
-                className="p-1 text-muted hover:text-text rounded"
+                type="button"
+                onClick={() => setReloadKey((key) => key + 1)}
+                className="mt-4 h-7 rounded-md border border-border px-2.5 text-[11px] text-muted-strong transition-colors hover:border-border-strong hover:text-text"
               >
-                <Icon name="x" size={14} />
+                Try again
               </button>
             </div>
-            <div className="p-4 flex-1 overflow-y-auto font-mono text-[11px] text-text bg-surface space-y-1">
+          )}
+
+          {!loading && !loadError && thread?.events.length === 0 && (
+            <div className="py-12 text-center text-[12px] text-muted">
+              No messages in this thread yet. Send a prompt below to begin.
+            </div>
+          )}
+
+          {!loading && thread && thread.events.length > 0 && (
+            <div className="space-y-7">
+              {thread.events.map((event) => {
+                const at = new Date(event.created_at);
+                const localTime = at.toLocaleString([], {
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
+
+                if (event.kind === "user") {
+                  return (
+                    <article key={event.id} className="group">
+                      <div className="mb-2 flex items-center gap-2 text-[10px] text-muted">
+                        <span className="font-medium text-muted-strong">You</span>
+                        <span className="text-muted/40">·</span>
+                        <EventTime iso={event.created_at} />
+                      </div>
+                      <div className="border-l border-border-strong pl-3.5 text-[13px] leading-[1.7] text-muted-strong whitespace-pre-wrap">
+                        {event.text}
+                      </div>
+                    </article>
+                  );
+                }
+
+                if (event.kind === "assistant") {
+                  return (
+                    <article key={event.id}>
+                      <div className="mb-2 flex items-center gap-2">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-[5px] bg-accent-soft font-mono text-[10px] font-semibold text-accent-text">
+                          b
+                        </span>
+                        <span className="text-[11.5px] font-medium text-text">
+                          {event.author || "Bark"}
+                        </span>
+                        <span className="text-[10px] text-muted/40">·</span>
+                        <EventTime iso={event.created_at} />
+                        <span className="ml-auto hidden font-mono text-[9px] text-muted/45 sm:inline">
+                          {localTime}
+                        </span>
+                      </div>
+                      <Prose text={event.text} />
+                    </article>
+                  );
+                }
+
+                if (event.kind === "plan_proposed") {
+                  const proposal = event.data || {};
+                  const children: any[] = Array.isArray(proposal.children) ? proposal.children : [];
+                  const isApproved = [...approvedPlans].some(
+                    (approvedAt) => approvedAt >= Date.parse(event.created_at)
+                  );
+                  return (
+                    <section
+                      key={event.id}
+                      className="border-y border-border/80 py-4"
+                      aria-label="Plan proposal"
+                    >
+                      <div className="flex items-start gap-2">
+                        <span className="mt-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-warning/50 text-[9px] text-warning">
+                          ●
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <h3 className="text-[12.5px] font-medium text-text">
+                              Plan · {children.length || 0} {children.length === 1 ? "task" : "tasks"}
+                            </h3>
+                            <span className="font-mono text-[9.5px] text-muted/65">
+                              risk {proposal.risk_level || "low"}
+                            </span>
+                            <span className="ml-auto font-mono text-[9.5px] text-muted/55">
+                              {isApproved ? "approved" : "waiting"}
+                            </span>
+                          </div>
+                          {proposal.rationale && (
+                            <p className="mt-1.5 text-[12px] leading-relaxed text-muted">
+                              {proposal.rationale}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {children.length > 0 && (
+                        <ol className="mt-4 divide-y divide-border/60 border-y border-border/60">
+                          {children.map((child, index) => (
+                            <li key={`${child.title}-${index}`} className="flex gap-3 py-2.5">
+                              <span className="w-4 shrink-0 pt-0.5 font-mono text-[9.5px] text-muted/55">
+                                {String(index + 1).padStart(2, "0")}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="truncate text-[12px] font-medium text-text">
+                                    {child.title}
+                                  </span>
+                                  {child.effort != null && (
+                                    <span className="font-mono text-[9px] text-muted/60">
+                                      {child.effort}h
+                                    </span>
+                                  )}
+                                </div>
+                                {child.description && (
+                                  <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
+                                    {child.description}
+                                  </p>
+                                )}
+                                {Array.isArray(child.acceptance_criteria) &&
+                                  child.acceptance_criteria.length > 0 && (
+                                    <p className="mt-1 font-mono text-[9.5px] text-muted/65">
+                                      ✓ {child.acceptance_criteria.join(" · ")}
+                                    </p>
+                                  )}
+                              </div>
+                              {child.priority && (
+                                <span className="self-center font-mono text-[9px] uppercase text-muted/55">
+                                  {child.priority}
+                                </span>
+                              )}
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+
+                      {!isApproved && (
+                        <div className="mt-3 flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={handleRejectPlan}
+                            className="h-7 rounded-md px-2.5 text-[11px] text-muted transition-colors hover:bg-white/[0.04] hover:text-text"
+                          >
+                            Discard
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleApprovePlan}
+                            className="h-7 rounded-md bg-accent px-3 text-[11px] font-medium text-bg transition-opacity hover:opacity-90"
+                          >
+                            Approve & run
+                          </button>
+                        </div>
+                      )}
+                    </section>
+                  );
+                }
+
+                if (event.kind === "plan_approved") {
+                  return (
+                    <div key={event.id} className="flex items-center gap-2 text-[11.5px] text-success">
+                      <Icon name="check" size={13} className="shrink-0" />
+                      <span>{event.text}</span>
+                      <EventTime iso={event.created_at} />
+                    </div>
+                  );
+                }
+
+                if (event.kind === "task_spawned") {
+                  const taskId = event.data?.task_id || "task";
+                  const sessionId = event.data?.session_id;
+                  const branch = event.data?.branch;
+                  return (
+                    <div
+                      key={event.id}
+                      className="rounded-lg border border-border/80 bg-surface/30 px-3 py-2.5"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="flex gap-[2px]" aria-hidden="true">
+                          {[0, 1, 2, 3].map((bar) => (
+                            <span
+                              key={bar}
+                              className="h-3 w-[2px] animate-pulse rounded-full bg-success/80"
+                              style={{ animationDelay: `${bar * 120}ms` }}
+                            />
+                          ))}
+                        </span>
+                        <span className="text-[11.5px] font-medium text-text">
+                          Worker running
+                        </span>
+                        <span className="font-mono text-[9.5px] text-muted/70">{taskId}</span>
+                        {branch && (
+                          <span className="hidden items-center gap-1 font-mono text-[9.5px] text-muted/60 md:flex">
+                            <Icon name="branch" size={10} />
+                            {branch}
+                          </span>
+                        )}
+                        <div className="ml-auto flex items-center gap-0.5">
+                          {sessionId && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleViewTranscript(sessionId)}
+                                title="Live transcript"
+                                aria-label="View live transcript"
+                                className="flex h-6 w-6 items-center justify-center rounded text-muted transition-colors hover:bg-white/[0.06] hover:text-text"
+                              >
+                                <Icon name="doc" size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSteerSessionId(sessionId);
+                                  setSteerPrompt("");
+                                }}
+                                title="Steer worker"
+                                aria-label="Steer worker"
+                                className="flex h-6 w-6 items-center justify-center rounded text-muted transition-colors hover:bg-white/[0.06] hover:text-text"
+                              >
+                                <Icon name="comment" size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleForkSession(sessionId)}
+                                title="Fork worker"
+                                aria-label="Fork worker"
+                                className="flex h-6 w-6 items-center justify-center rounded text-muted transition-colors hover:bg-white/[0.06] hover:text-text"
+                              >
+                                <Icon name="branch" size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleStopSession(sessionId)}
+                                title="Stop worker"
+                                aria-label="Stop worker"
+                                className="flex h-6 w-6 items-center justify-center rounded text-muted transition-colors hover:bg-danger/10 hover:text-danger"
+                              >
+                                <Icon name="stop" size={11} />
+                              </button>
+                            </>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRaceTask(taskId)}
+                            title="Race workers"
+                            aria-label="Race workers"
+                            className="flex h-6 w-6 items-center justify-center rounded text-muted transition-colors hover:bg-white/[0.06] hover:text-text"
+                          >
+                            <Icon name="pulse" size={12} />
+                          </button>
+                        </div>
+                      </div>
+                      <p className="mt-1 pl-4 text-[11px] leading-relaxed text-muted">{event.text}</p>
+                    </div>
+                  );
+                }
+
+                if (event.kind === "agent_output") {
+                  return (
+                    <div key={event.id} className="overflow-hidden rounded-lg border border-border/80">
+                      <div className="flex items-center gap-2 border-b border-border/60 bg-surface/60 px-3 py-1.5 font-mono text-[9px] text-muted">
+                        <Icon name="code" size={11} />
+                        worker output
+                        <EventTime iso={event.created_at} />
+                      </div>
+                      <pre className="max-h-44 overflow-auto whitespace-pre-wrap px-3 py-2.5 font-mono text-[10.5px] leading-relaxed text-muted-strong">
+                        {event.text}
+                      </pre>
+                    </div>
+                  );
+                }
+
+                if (event.kind === "gate") {
+                  const passed = Boolean(event.data?.passed);
+                  return (
+                    <div
+                      key={event.id}
+                      className={`flex flex-wrap items-center gap-2 border-l-2 py-1 pl-3 text-[11.5px] ${
+                        passed ? "border-success/70" : "border-danger/70"
+                      }`}
+                    >
+                      <span className={`font-medium ${passed ? "text-success" : "text-danger"}`}>
+                        {passed ? "Gate passed" : "Gate failed"}
+                      </span>
+                      <span className="text-muted">{event.text}</span>
+                      {event.data?.command && (
+                        <code className="w-full truncate font-mono text-[9.5px] text-muted/65">
+                          $ {event.data.command}
+                        </code>
+                      )}
+                      <EventTime iso={event.created_at} />
+                    </div>
+                  );
+                }
+
+                if (event.kind === "merge") {
+                  return (
+                    <div key={event.id} className="flex items-center gap-2 text-[11.5px] text-accent-text">
+                      <Icon name="branch" size={12} className="shrink-0" />
+                      <span>{event.text}</span>
+                      <EventTime iso={event.created_at} />
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={event.id} className="text-[11.5px] leading-relaxed text-muted">
+                    <span className="font-medium text-muted-strong">{event.author}</span>
+                    <span className="mx-2 text-muted/40">·</span>
+                    {event.text}
+                    <span className="ml-2 font-mono text-[9px] text-muted/50">
+                      {relativeTime(event.created_at)}
+                    </span>
+                  </div>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {transcriptSessionId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-label="Session transcript">
+          <div className="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-[10px] border border-border bg-bg shadow-2xl">
+            <div className="flex h-11 items-center justify-between border-b border-border/80 px-4">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="text-[11.5px] font-medium text-text">Transcript</span>
+                <span className="truncate font-mono text-[9.5px] text-muted">{transcriptSessionId}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTranscriptSessionId(null)}
+                className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-white/[0.05] hover:text-text"
+                aria-label="Close transcript"
+              >
+                <Icon name="x" size={13} />
+              </button>
+            </div>
+            <div className="flex-1 space-y-1 overflow-y-auto bg-surface/40 p-4 font-mono text-[10.5px] leading-relaxed text-muted-strong">
               {transcriptLoading ? (
-                <div className="text-muted text-center py-4">Reading transcript file...</div>
+                <div className="py-8 text-center text-muted">Reading transcript file…</div>
               ) : (
-                transcriptLines.map((line, idx) => (
-                  <div key={idx} className="whitespace-pre-wrap">{line}</div>
+                transcriptLines.map((line, index) => (
+                  <div key={index} className="whitespace-pre-wrap">{line}</div>
                 ))
               )}
             </div>
@@ -598,49 +812,54 @@ export function ThreadPane({
         </div>
       )}
 
-      {/* Steer Session Modal */}
       {steerSessionId && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="bg-bg border border-border rounded-xl w-full max-w-md flex flex-col shadow-2xl overflow-hidden">
-            <div className="p-3.5 border-b border-border flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Icon name="spark" size={16} />
-                <span className="text-xs font-semibold text-text uppercase tracking-wider">
-                  Steer Worker Session
-                </span>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-label="Steer worker session">
+          <div className="w-full max-w-md overflow-hidden rounded-[10px] border border-border bg-bg shadow-2xl">
+            <div className="flex h-11 items-center justify-between border-b border-border/80 px-4">
+              <span className="text-[11.5px] font-medium text-text">Steer worker</span>
               <button
+                type="button"
                 onClick={() => setSteerSessionId(null)}
-                className="p-1 text-muted hover:text-text rounded"
+                className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-white/[0.05] hover:text-text"
+                aria-label="Close steering dialog"
               >
-                <Icon name="x" size={14} />
+                <Icon name="x" size={13} />
               </button>
             </div>
-            <div className="p-4 space-y-3">
-              <p className="text-xs text-muted leading-relaxed">
-                Direct worker execution with clarifying context or corrective steering instructions.
+            <div className="space-y-3 p-4">
+              <p className="text-[11.5px] leading-relaxed text-muted">
+                Send a correction or clarifying context to the running worker. It will see this on its
+                next turn.
               </p>
               <textarea
                 autoFocus
                 value={steerPrompt}
-                onChange={(e) => setSteerPrompt(e.target.value)}
-                placeholder="Enter steering direction for the running agent..."
+                onChange={(event) => setSteerPrompt(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                    event.preventDefault();
+                    handleSteerSession(steerSessionId);
+                  }
+                }}
+                placeholder="What should the worker change course on?"
                 rows={4}
-                className="w-full bg-surface border border-border rounded-lg p-3 text-xs text-text placeholder-muted focus:outline-none focus:border-accent resize-none"
+                className="w-full resize-none rounded-md border border-border bg-surface/50 p-2.5 text-[12px] leading-relaxed text-text placeholder:text-muted/60 focus:border-accent focus:outline-none"
               />
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2">
                 <button
+                  type="button"
                   onClick={() => setSteerSessionId(null)}
-                  className="px-3 py-1.5 rounded-lg border border-border text-xs text-muted hover:text-text"
+                  className="h-7 rounded-md px-2.5 text-[11px] text-muted hover:bg-white/[0.04] hover:text-text"
                 >
                   Cancel
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleSteerSession(steerSessionId)}
                   disabled={!steerPrompt.trim()}
-                  className="px-4 py-1.5 rounded-lg bg-accent text-bg text-xs font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity"
+                  className="h-7 rounded-md bg-accent px-3 text-[11px] font-medium text-bg transition-opacity hover:opacity-90 disabled:opacity-40"
                 >
-                  Send Guidance
+                  Send guidance
                 </button>
               </div>
             </div>
@@ -648,41 +867,52 @@ export function ThreadPane({
         </div>
       )}
 
-      {/* Bottom inline composer */}
-      <div className="p-3 border-t border-border bg-surface shrink-0">
-        <div className="flex items-center gap-2 mb-2">
-          <select
-            value={backend}
-            onChange={(e) => setBackend(e.target.value)}
-            className="bg-bg border border-border rounded px-2 py-1 text-xs text-text"
-          >
-            <option value="opencode">opencode (deepseek free)</option>
-            <option value="claude">claude</option>
-            <option value="codex">codex</option>
-            <option value="gemini">gemini</option>
-          </select>
-          <span className="text-[11px] text-muted">
-            Press Enter to submit, Shift plus Enter for new line.
-          </span>
-        </div>
-        <div className="flex gap-2">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type an intent, instruction, or steering direction..."
-            rows={2}
-            className="flex-1 bg-bg border border-border rounded-lg p-2.5 text-xs text-text placeholder-muted focus:outline-none focus:border-accent resize-none"
-          />
-          <button
-            onClick={handleSendMessage}
-            disabled={!input.trim() || submitting}
-            className="px-4 py-2 bg-accent text-bg font-medium rounded-lg text-xs hover:opacity-90 disabled:opacity-40 transition-opacity self-end"
-          >
-            {submitting ? "Sending..." : "Send"}
-          </button>
+      <div className="shrink-0 border-t border-border/70 bg-bg px-4 pb-3 pt-3">
+        <div className="mx-auto w-full max-w-[780px]">
+          <div className="rounded-[9px] border border-border bg-card/70 shadow-[0_1px_0_rgba(255,255,255,0.025)_inset,0_8px_24px_rgba(0,0,0,0.08)] transition-colors focus-within:border-border-strong">
+            <textarea
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Send an instruction, ask about this thread, or steer the agent…"
+              aria-label="Thread message"
+              data-testid="thread-composer"
+              rows={2}
+              className="block max-h-48 min-h-[52px] w-full resize-none bg-transparent px-3.5 pb-1 pt-3 text-[12.5px] leading-relaxed text-text placeholder:text-muted/65 focus:outline-none"
+            />
+            <div className="flex items-center gap-2 px-2.5 pb-2">
+              <QuietSelect
+                value={backend}
+                onChange={(event) => setBackend(event.target.value)}
+                aria-label="Agent backend"
+                className="text-[10px] text-muted hover:text-text"
+              >
+                <option value="opencode">opencode</option>
+                <option value="claude">claude</option>
+                <option value="codex">codex</option>
+                <option value="gemini">gemini</option>
+              </QuietSelect>
+              <span className="hidden font-mono text-[9px] text-muted/55 sm:inline">
+                {submitting ? "sending…" : "enter to send"}
+              </span>
+              <button
+                type="button"
+                onClick={handleSendMessage}
+                disabled={!input.trim() || submitting}
+                aria-label="Send message"
+                title="Send (Enter)"
+                className="ml-auto flex h-7 w-7 items-center justify-center rounded-md bg-accent text-bg transition-opacity hover:opacity-90 disabled:opacity-35"
+              >
+                <Icon name="arrowUp" size={14} />
+              </button>
+            </div>
+          </div>
+          <div className="mt-1.5 flex items-center justify-between px-0.5 font-mono text-[9px] text-muted/45">
+            <span>{threadId}</span>
+            <span className="hidden sm:inline">shift + enter for a new line</span>
+          </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

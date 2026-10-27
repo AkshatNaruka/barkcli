@@ -302,6 +302,11 @@ function hexToRgb(hex: string): [number, number, number] {
   return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
 }
 
+function rgbTriplet(hex: string): string {
+  const [r, g, b] = hexToRgb(hex);
+  return `${r} ${g} ${b}`;
+}
+
 function mix(hex: string, target: "white" | "black", amount: number): string {
   const [r, g, b] = hexToRgb(hex);
   const to = target === "white" ? 255 : 0;
@@ -330,14 +335,23 @@ function applyAppearance(app: Appearance) {
 
   const vars: Record<string, string> = {
     "--bg": palette.bg,
+    "--bg-rgb": rgbTriplet(palette.bg),
     "--surface": palette.surface,
+    "--surface-rgb": rgbTriplet(palette.surface),
     "--card": palette.card,
+    "--card-rgb": rgbTriplet(palette.card),
     "--card-hover": palette.cardHover,
+    "--card-hover-rgb": rgbTriplet(palette.cardHover),
     "--border": palette.border,
+    "--border-rgb": rgbTriplet(palette.border),
     "--border-strong": palette.borderStrong,
+    "--border-strong-rgb": rgbTriplet(palette.borderStrong),
     "--text": palette.text,
+    "--text-rgb": rgbTriplet(palette.text),
     "--muted": palette.muted,
+    "--muted-rgb": rgbTriplet(palette.muted),
     "--muted-strong": palette.mutedStrong,
+    "--muted-strong-rgb": rgbTriplet(palette.mutedStrong),
     "--scrollbar": palette.scrollbar,
     "--scrim": palette.scrim,
     "--shadow": palette.shadow,
@@ -345,10 +359,15 @@ function applyAppearance(app: Appearance) {
 
   const base = ACCENTS[app.accent][mode];
   const [r, g, b] = hexToRgb(base);
+  const accentHover = mix(base, mode === "light" ? "black" : "white", 0.1);
+  const accentText = mix(base, mode === "light" ? "black" : "white", mode === "light" ? 0.18 : 0.3);
   vars["--accent"] = base;
-  vars["--accent-hover"] = mix(base, mode === "light" ? "black" : "white", 0.1);
+  vars["--accent-rgb"] = `${r} ${g} ${b}`;
+  vars["--accent-hover"] = accentHover;
+  vars["--accent-hover-rgb"] = rgbTriplet(accentHover);
   vars["--accent-soft"] = `rgba(${r}, ${g}, ${b}, ${mode === "light" ? 0.12 : 0.14})`;
-  vars["--accent-text"] = mix(base, mode === "light" ? "black" : "white", mode === "light" ? 0.18 : 0.3);
+  vars["--accent-text"] = accentText;
+  vars["--accent-text-rgb"] = rgbTriplet(accentText);
 
   for (const [key, value] of Object.entries(vars)) {
     root.style.setProperty(key, value);

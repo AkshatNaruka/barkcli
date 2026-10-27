@@ -238,7 +238,13 @@ pub fn list_threads(board_name: &str) -> Result<Vec<ThreadSummary>> {
     let board = read_board(board_name)?;
     let live = BoardLiveness::load(board_name);
     let mut summaries = Vec::new();
+    // `doctor` flags duplicate ids, but a malformed board must not leak two
+    // rows with the same React key into the navigator.
+    let mut seen = std::collections::HashSet::new();
     for card in &board.cards {
+        if !seen.insert(card.id.as_str()) {
+            continue;
+        }
         let events = read_events(&card.id).unwrap_or_default();
         let last_event = events.last().cloned();
         let count = events.len();

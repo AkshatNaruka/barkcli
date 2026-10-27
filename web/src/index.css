@@ -9,25 +9,40 @@
 [data-theme="black"] {
   /* Warm charcoal, not pure black: the copper reads as bark, not neon. */
   --bg: #0a0908;
+  --bg-rgb: 10 9 8;
   --surface: #100e0c;
+  --surface-rgb: 16 14 12;
   --card: #16130f;
+  --card-rgb: 22 19 15;
   --card-hover: #1c1814;
+  --card-hover-rgb: 28 24 20;
   --border: #272119;
+  --border-rgb: 39 33 25;
   --border-strong: #3b3227;
+  --border-strong-rgb: 59 50 39;
   --text: #efe9e1;
+  --text-rgb: 239 233 225;
   --muted: #988d7f;
+  --muted-rgb: 152 141 127;
   --muted-strong: #c9beb0;
+  --muted-strong-rgb: 201 190 176;
 
   --accent: #c2703d;
+  --accent-rgb: 194 112 61;
   --accent-hover: #d4824c;
+  --accent-hover-rgb: 212 130 76;
   --accent-soft: rgba(194, 112, 61, 0.14);
   --accent-text: #e7a173;
+  --accent-text-rgb: 231 161 115;
 
   --success: #46b585;
+  --success-rgb: 70 181 133;
   --success-soft: rgba(70, 181, 133, 0.14);
   --warning: #d99a2b;
+  --warning-rgb: 217 154 43;
   --warning-soft: rgba(217, 154, 43, 0.14);
   --danger: #e0563f;
+  --danger-rgb: 224 86 63;
   --danger-soft: rgba(224, 86, 63, 0.14);
 
   --priority-high: #ef4444;
@@ -55,25 +70,40 @@
 
 [data-theme="light"] {
   --bg: #ffffff;
+  --bg-rgb: 255 255 255;
   --surface: #f8f9fb;
+  --surface-rgb: 248 249 251;
   --card: #ffffff;
+  --card-rgb: 255 255 255;
   --card-hover: #f4f5f7;
+  --card-hover-rgb: 244 245 247;
   --border: #e8e9ed;
+  --border-rgb: 232 233 237;
   --border-strong: #d8dbe0;
+  --border-strong-rgb: 216 219 224;
   --text: #111111;
+  --text-rgb: 17 17 17;
   --muted: #6b7280;
+  --muted-rgb: 107 114 128;
   --muted-strong: #374151;
+  --muted-strong-rgb: 55 65 81;
 
   --accent: #b06434;
+  --accent-rgb: 176 100 52;
   --accent-hover: #97542a;
+  --accent-hover-rgb: 151 84 42;
   --accent-soft: rgba(176, 100, 52, 0.12);
   --accent-text: #8f4e26;
+  --accent-text-rgb: 143 78 38;
 
   --success: #059669;
+  --success-rgb: 5 150 105;
   --success-soft: rgba(5, 150, 105, 0.1);
   --warning: #d97706;
+  --warning-rgb: 217 119 6;
   --warning-soft: rgba(217, 119, 6, 0.1);
   --danger: #dc2626;
+  --danger-rgb: 220 38 38;
   --danger-soft: rgba(220, 38, 38, 0.1);
 
   --priority-high: #dc2626;
@@ -91,25 +121,40 @@
 @media (prefers-color-scheme: light) {
   [data-theme="system"] {
     --bg: #ffffff;
+    --bg-rgb: 255 255 255;
     --surface: #f8f9fb;
+    --surface-rgb: 248 249 251;
     --card: #ffffff;
+    --card-rgb: 255 255 255;
     --card-hover: #f4f5f7;
+    --card-hover-rgb: 244 245 247;
     --border: #e8e9ed;
+    --border-rgb: 232 233 237;
     --border-strong: #d8dbe0;
+    --border-strong-rgb: 216 219 224;
     --text: #111111;
+    --text-rgb: 17 17 17;
     --muted: #6b7280;
+    --muted-rgb: 107 114 128;
     --muted-strong: #374151;
+    --muted-strong-rgb: 55 65 81;
 
     --accent: #b06434;
+    --accent-rgb: 176 100 52;
     --accent-hover: #97542a;
+    --accent-hover-rgb: 151 84 42;
     --accent-soft: rgba(176, 100, 52, 0.12);
     --accent-text: #8f4e26;
+    --accent-text-rgb: 143 78 38;
 
     --success: #059669;
+    --success-rgb: 5 150 105;
     --success-soft: rgba(5, 150, 105, 0.1);
     --warning: #d97706;
+    --warning-rgb: 217 119 6;
     --warning-soft: rgba(217, 119, 6, 0.1);
     --danger: #dc2626;
+    --danger-rgb: 220 38 38;
     --danger-soft: rgba(220, 38, 38, 0.1);
 
     --priority-high: #dc2626;
@@ -124,9 +169,13 @@
   }
 }
 
+.chat-sidebar {
+  background: color-mix(in srgb, var(--surface) 58%, var(--bg));
+}
+
 body {
   margin: 0;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: "Inter Variable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   /* Linear recipe: Inter alternate glyphs + tight headings */
   font-feature-settings: "cv01", "ss03";
   background: var(--bg);

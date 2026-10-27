@@ -153,6 +153,8 @@ function partsFor(name: IconName): React.ReactNode[] {
   if (name === "arrowUp") return [PATHS["arrowUp"]];
   if (name === "arrowFlat") return [PATHS["arrowFlat"]];
   if (name === "arrowDown") return [PATHS["arrowDown"]];
+  if (name === "plus") return [PATHS["plus"]];
+  if (name === "stop") return [PATHS["stop"]];
   return (GROUPS[name] || []).map((k) => PATHS[k]);
 }
 

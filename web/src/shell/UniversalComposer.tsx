@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { createThread } from "../lib/api";
 import { Icon } from "../components/Icon";
+import { QuietSelect } from "../components/QuietSelect";
 
 interface UniversalComposerProps {
   isOpen: boolean;
@@ -25,165 +26,158 @@ export function UniversalComposer({
   const [error, setError] = useState<string | null>(null);
 
   React.useEffect(() => {
-    if (initialText) {
-      setText(initialText);
-    }
+    if (initialText) setText(initialText);
   }, [initialText, isOpen]);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const handleSubmit = async (event?: React.FormEvent) => {
+    event?.preventDefault();
     const trimmed = text.trim();
     if (!trimmed || submitting) return;
 
     setSubmitting(true);
     setError(null);
     try {
-      const res = await createThread({
+      const result = await createThread({
         text: trimmed,
         kind,
         backend,
         mode,
         board: boardName,
       });
-      if (res && res.thread_id) {
+      if (result?.thread_id) {
         setText("");
         onClose();
-        onCreated(res.thread_id);
+        onCreated(result.thread_id);
       } else {
-        setError("Failed to create thread. Check server status.");
+        setError("Could not start the intent. Check that the server is running.");
       }
     } catch (err: any) {
-      setError(err?.message || "Error creating thread");
+      setError(err?.message || "Error starting the intent");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
       handleSubmit();
-    } else if (e.key === "Escape") {
-      onClose();
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-      <div className="bg-bg border border-border rounded-xl w-full max-w-xl flex flex-col shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="p-3.5 border-b border-border flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Icon name="spark" size={16} />
-            <span className="text-xs font-semibold text-text uppercase tracking-wider">
-              Universal Composer
-            </span>
-          </div>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-[2px]"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="New intent"
+        className="w-full max-w-[560px] overflow-hidden rounded-[12px] border border-border bg-[color-mix(in_srgb,var(--card)_72%,var(--bg))] shadow-2xl"
+      >
+        <div className="flex h-11 items-center gap-2 border-b border-border/70 px-4">
+          <span className="flex h-5 w-5 items-center justify-center rounded-[5px] bg-accent-soft font-mono text-[10px] font-semibold text-accent-text">
+            b
+          </span>
+          <span className="text-[12px] font-medium text-text">New intent</span>
+          {boardName && (
+            <>
+              <span className="text-muted/35">/</span>
+              <span className="font-mono text-[10px] text-muted">{boardName}.board</span>
+            </>
+          )}
           <button
+            type="button"
             onClick={onClose}
-            className="p-1 text-muted hover:text-text rounded"
+            aria-label="Close new intent"
+            className="ml-auto flex h-6 w-6 items-center justify-center rounded text-muted transition-colors hover:bg-white/[0.05] hover:text-text"
           >
-            <Icon name="x" size={14} />
+            <Icon name="x" size={13} />
           </button>
         </div>
 
-        {/* Form Body */}
-        <div className="p-4 space-y-4">
-          <div>
-            <textarea
-              autoFocus
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Describe what you want to build or paste a complete specification..."
-              rows={5}
-              className="w-full bg-surface border border-border rounded-lg p-3 text-xs text-text placeholder-muted focus:outline-none focus:border-accent resize-none leading-relaxed"
-            />
-            <div className="flex justify-between items-center mt-1 text-[11px] text-muted">
-              <span>Press Cmd+Enter to dispatch, Escape to cancel.</span>
-              <span>{text.length} chars</span>
-            </div>
-          </div>
+        <div className="p-4">
+          <textarea
+            autoFocus
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="What outcome should the agents own?"
+            aria-label="Intent"
+            rows={5}
+            className="block min-h-[116px] w-full resize-none bg-transparent text-[13px] leading-[1.7] text-text placeholder:text-muted/60 focus:outline-none"
+          />
 
-          {/* Options grid */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="block text-[10px] uppercase font-bold text-muted mb-1">
-                Type
-              </label>
-              <select
-                value={kind}
-                onChange={(e) => setKind(e.target.value)}
-                className="w-full bg-surface border border-border rounded-md px-2 py-1.5 text-xs text-text"
-              >
-                <option value="feature">Feature</option>
-                <option value="bug">Bugfix</option>
-                <option value="refactor">Refactor</option>
-                <option value="task">Task</option>
-              </select>
-            </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
+            <QuietSelect
+              value={kind}
+              onChange={(event) => setKind(event.target.value)}
+              aria-label="Intent type"
+              className="rounded border border-border/60 px-1.5 py-1 text-[10px] text-muted"
+            >
+              <option value="feature">feature</option>
+              <option value="bug">bugfix</option>
+              <option value="refactor">refactor</option>
+              <option value="task">task</option>
+            </QuietSelect>
+            <QuietSelect
+              value={backend}
+              onChange={(event) => setBackend(event.target.value)}
+              aria-label="Agent backend"
+              className="rounded border border-border/60 px-1.5 py-1 text-[10px] text-muted"
+            >
+              <option value="opencode">opencode</option>
+              <option value="claude">claude</option>
+              <option value="codex">codex</option>
+              <option value="gemini">gemini</option>
+            </QuietSelect>
+            <QuietSelect
+              value={mode}
+              onChange={(event) => setMode(event.target.value as "plan_first" | "plan_and_run")}
+              aria-label="Execution mode"
+              className="rounded border border-border/60 px-1.5 py-1 text-[10px] text-muted"
+            >
+              <option value="plan_first">plan first</option>
+              <option value="plan_and_run">plan & run</option>
+            </QuietSelect>
 
-            <div>
-              <label className="block text-[10px] uppercase font-bold text-muted mb-1">
-                Backend
-              </label>
-              <select
-                value={backend}
-                onChange={(e) => setBackend(e.target.value)}
-                className="w-full bg-surface border border-border rounded-md px-2 py-1.5 text-xs text-text"
-              >
-                <option value="opencode">opencode (deepseek free)</option>
-                <option value="claude">claude</option>
-                <option value="codex">codex</option>
-                <option value="gemini">gemini</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[10px] uppercase font-bold text-muted mb-1">
-                Execution Mode
-              </label>
-              <select
-                value={mode}
-                onChange={(e) => setMode(e.target.value as any)}
-                className="w-full bg-surface border border-border rounded-md px-2 py-1.5 text-xs text-text"
-              >
-                <option value="plan_first">Plan first</option>
-                <option value="plan_and_run">Just do it</option>
-              </select>
-            </div>
+            <span className="ml-auto hidden font-mono text-[9px] text-muted/50 sm:inline">
+              {mode === "plan_first" ? "review before dispatch" : "dispatch immediately"}
+            </span>
+            <button
+              type="button"
+              onClick={() => handleSubmit()}
+              disabled={!text.trim() || submitting}
+              className="flex h-7 items-center gap-1.5 rounded-md bg-accent px-2.5 text-[11px] font-medium text-bg transition-opacity hover:opacity-90 disabled:opacity-35"
+            >
+              {submitting ? "Starting…" : "Start"}
+              <Icon name="arrowUp" size={12} />
+            </button>
           </div>
 
           {error && (
-            <div className="p-2.5 rounded bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
+            <div className="mt-3 rounded border border-danger/30 bg-danger/10 px-2.5 py-2 text-[11px] text-danger">
               {error}
             </div>
           )}
-        </div>
 
-        {/* Footer actions */}
-        <div className="p-3 border-t border-border bg-surface flex items-center justify-between">
-          <span className="text-[11px] text-muted">
-            {mode === "plan_first"
-              ? "Plan first: Review proposed tasks before execution."
-              : "Just do it: Plan and immediately run in parallel worktrees."}
-          </span>
-          <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="px-3 py-1.5 text-xs rounded-md border border-border text-muted hover:text-text hover:bg-white/[0.03] transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => handleSubmit()}
-              disabled={!text.trim() || submitting}
-              className="px-4 py-1.5 text-xs rounded-md bg-accent text-bg font-medium hover:opacity-90 disabled:opacity-40 transition-opacity"
-            >
-              {submitting ? "Dispatching..." : "Start Intent"}
-            </button>
+          <div className="mt-3 flex items-center justify-between font-mono text-[9px] text-muted/45">
+            <span>intent → plan → worktree → gate</span>
+            <span>⌘↵ to start · esc to close</span>
           </div>
         </div>
       </div>

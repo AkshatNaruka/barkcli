@@ -580,7 +580,9 @@ export function App() {
       />
 
       <div className="flex-1 flex flex-col min-w-0">
-      {/* Slim top bar: board context + command palette + meta */}
+      {/* Chat owns the full three-pane workspace; other surfaces keep a slim
+          context bar for the board switcher and global actions. */}
+      {route !== "chat" && (
       <header className="flex items-center justify-between px-3 h-11 border-b border-border/80 shrink-0 gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
           {boardList.length > 0 && (
@@ -629,12 +631,17 @@ export function App() {
           </button>
         </div>
       </header>
+      )}
 
       <div className="flex-1 flex min-h-0">
         <main className="flex-1 overflow-hidden min-w-0">
           {route === "chat" && (
             <ThreadsShell
               boardName={boardName}
+              boards={boardList}
+              onSwitchBoard={switchBoard}
+              onOpenPalette={() => setPaletteOpen(true)}
+              onCustomize={() => setCustomizeOpen(true)}
               seed={composeSeed}
               onOpenCardForm={(card) => handleOpenForm({ card })}
             />

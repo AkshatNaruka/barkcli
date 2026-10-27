@@ -224,7 +224,7 @@ export function CalendarView({ board, sprints, onEditCard, onAddCard }: Props) {
                   isToday
                     ? "bg-accent-soft border-accent"
                     : hasOverdue
-                      ? "bg-danger-soft/40 border-danger/30 hover:border-danger"
+                      ? "bg-danger-soft border-danger/30 hover:border-danger"
                       : "bg-surface border-border hover:border-border-strong"
                 }`}
                 title="Click to add a card on this date"

@@ -49,7 +49,7 @@ export function AppRail({
   return (
     <aside
       className={`shrink-0 flex flex-col bg-bg border-r border-border/80 py-3 gap-1 select-none transition-[width] duration-150 ${
-        labels ? "w-[188px] px-2 items-stretch" : "w-[64px] items-center"
+        labels ? "w-[188px] px-2 items-stretch" : "w-[56px] items-center"
       }`}
     >
       <button
@@ -76,6 +76,8 @@ export function AppRail({
             key={s.id}
             onClick={() => onNavigate(s.id)}
             title={`${s.label} — ${s.hint} (${index + 1})`}
+            aria-current={active ? "page" : undefined}
+            aria-label={s.label}
             className={`group relative rounded-[10px] flex items-center transition-colors ${
               labels
                 ? `h-9 px-2.5 gap-2.5 justify-start ${active ? "bg-accent-soft text-accent-text" : "text-muted hover:text-text hover:bg-white/[0.04]"}`
@@ -85,7 +87,7 @@ export function AppRail({
             {active && (
               <span
                 className={`absolute top-1/2 -translate-y-1/2 h-5 w-[2px] rounded-full bg-accent ${
-                  labels ? "left-0" : "-left-3"
+                  labels ? "left-0" : "-left-2"
                 }`}
               />
             )}
@@ -104,7 +106,7 @@ export function AppRail({
                 </span>
               ))}
             {!labels && (
-              <span className="pointer-events-none absolute left-[52px] z-50 hidden group-hover:flex items-center gap-2 whitespace-nowrap rounded-md border border-border bg-card px-2.5 py-1.5 text-[11px] text-text shadow-xl">
+              <span className="pointer-events-none absolute left-[48px] z-50 hidden group-hover:flex items-center gap-2 whitespace-nowrap rounded-md border border-border bg-card px-2.5 py-1.5 text-[11px] text-text shadow-xl">
                 {s.label}
                 <kbd className="text-[9px] font-mono text-muted border border-border rounded px-1">
                   {index + 1}
