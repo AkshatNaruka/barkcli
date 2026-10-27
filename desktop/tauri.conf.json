@@ -5,7 +5,7 @@
   "identifier": "dev.barkcli.app",
   "build": {
     "frontendDist": "../web/dist",
-    "beforeBuildCommand": "npm --prefix ../web run build"
+    "beforeBuildCommand": "npm --prefix web run build"
   },
   "app": {
     "windows": [],
