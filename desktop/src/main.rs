@@ -11,10 +11,18 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
 
 struct ServerState {
     child: Mutex<Option<Child>>,
+}
+
+#[derive(Clone, Copy)]
+struct WindowGeometry {
+    width: f64,
+    height: f64,
+    x: f64,
+    y: f64,
 }
 
 fn main() {
@@ -37,7 +45,10 @@ fn main() {
 
     let port = free_port();
     let token = random_token();
-    let url = format!("http://127.0.0.1:{}/?token={}", port, token);
+    // Chat is the landing surface. Without an explicit fragment the webview
+    // can restore an older hash from its session history, which would make a
+    // fresh launch feel arbitrary.
+    let url = format!("http://127.0.0.1:{}/?token={}#/chat", port, token);
 
     let mut child = spawn_server(&bin, &project, port, &token).unwrap_or_else(|e| {
         eprintln!("Failed to start barkcli: {}", e);
@@ -58,6 +69,7 @@ fn main() {
             .and_then(|s| s.to_str())
             .unwrap_or("project")
     );
+    let geometry = load_window_geometry();
 
     tauri::Builder::default()
         .manage(ServerState {
@@ -65,17 +77,43 @@ fn main() {
         })
         .setup(move |app| {
             let parsed = url.parse().expect("valid local url");
-            WebviewWindowBuilder::new(app, "main", WebviewUrl::External(parsed))
+            let mut window = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(parsed))
                 .title(title)
                 .inner_size(1440.0, 900.0)
                 .min_inner_size(1040.0, 680.0)
-                .build()?;
+                .background_color(tauri::window::Color(10, 9, 8, 255));
+
+            if let Some(saved) = geometry {
+                // Sizes and positions are logical points, matching the builder API.
+                window = window
+                    .inner_size(saved.width.max(1040.0), saved.height.max(680.0))
+                    .position(saved.x, saved.y);
+            } else {
+                window = window.center();
+            }
+            window.build()?;
+
+            // Keep the native menu (About, Edit, Window, Quit) so the app
+            // behaves like a macOS citizen instead of a bare webview.
+            if let Ok(menu) = tauri::menu::Menu::default(app.handle()) {
+                let _ = app.set_menu(menu);
+            }
+
+            if let Some(win) = app.get_webview_window("main") {
+                let handle = app.handle().clone();
+                win.on_window_event(move |event| {
+                    if matches!(event, tauri::WindowEvent::CloseRequested { .. }) {
+                        remember_window_state(&handle);
+                    }
+                });
+            }
             Ok(())
         })
         .build(tauri::generate_context!())
         .expect("error while building Bark")
         .run(|app, event| {
             if let RunEvent::Exit = event {
+                remember_window_state(app);
                 if let Some(state) = app.try_state::<ServerState>() {
                     if let Some(mut child) = state.child.lock().unwrap().take() {
                         // SIGTERM first so --app can remove its pid files.
@@ -252,7 +290,7 @@ fn resolve_project() -> Option<PathBuf> {
         }
     }
 
-    if let Some(saved) = load_state() {
+    if let Some(saved) = load_project() {
         let path = PathBuf::from(saved);
         if path.is_dir() {
             return Some(path);
@@ -302,17 +340,76 @@ fn state_path() -> Option<PathBuf> {
     )
 }
 
-fn load_state() -> Option<String> {
+fn load_state() -> Option<serde_json::Value> {
     let text = fs::read_to_string(state_path()?).ok()?;
-    let value: serde_json::Value = serde_json::from_str(&text).ok()?;
-    value.get("project")?.as_str().map(|s| s.to_string())
+    serde_json::from_str(&text).ok()
 }
 
-fn remember_project(project: &Path) {
+fn load_project() -> Option<String> {
+    load_state()?
+        .get("project")?
+        .as_str()
+        .map(|s| s.to_string())
+}
+
+fn load_window_geometry() -> Option<WindowGeometry> {
+    let state = load_state()?;
+    let window = state.get("window")?;
+    let width = window.get("width")?.as_f64()?;
+    let height = window.get("height")?.as_f64()?;
+    let x = window.get("x")?.as_f64()?;
+    let y = window.get("y")?.as_f64()?;
+    if !width.is_finite() || !height.is_finite() || !x.is_finite() || !y.is_finite() {
+        return None;
+    }
+    Some(WindowGeometry {
+        width,
+        height,
+        x,
+        y,
+    })
+}
+
+fn update_state(update: impl FnOnce(&mut serde_json::Map<String, serde_json::Value>)) {
     let Some(path) = state_path() else { return };
+    let mut value = fs::read_to_string(&path)
+        .ok()
+        .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+        .unwrap_or_else(|| serde_json::json!({}));
+    let Some(map) = value.as_object_mut() else { return };
+    update(map);
     if let Some(parent) = path.parent() {
         let _ = fs::create_dir_all(parent);
     }
-    let payload = serde_json::json!({ "project": project.display().to_string() });
-    let _ = fs::write(path, serde_json::to_string_pretty(&payload).unwrap_or_default());
+    let _ = fs::write(path, serde_json::to_string_pretty(&value).unwrap_or_default());
+}
+
+fn remember_project(project: &Path) {
+    let project = project.display().to_string();
+    update_state(|state| {
+        state.insert("project".into(), serde_json::Value::String(project));
+    });
+}
+
+fn remember_window_state(app: &AppHandle) {
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+    let Ok(size) = window.inner_size() else { return };
+    let Ok(position) = window.outer_position() else { return };
+    let scale = window.scale_factor().unwrap_or(1.0);
+    if scale <= 0.0 {
+        return;
+    }
+    update_state(|state| {
+        state.insert(
+            "window".into(),
+            serde_json::json!({
+                "width": size.width as f64 / scale,
+                "height": size.height as f64 / scale,
+                "x": position.x as f64 / scale,
+                "y": position.y as f64 / scale,
+            }),
+        );
+    });
 }
