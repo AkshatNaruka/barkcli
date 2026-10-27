@@ -237,8 +237,14 @@ where
         .route("/api/git/diff/{sha}", get(git_diff_handler))
         .route("/api/git/assign", post(git_assign_handler))
         // Skills endpoints (SPEC-004 R2)
-        .route("/api/skills", get(list_skills_handler))
-        .route("/api/skills/{id}", get(get_skill_handler))
+        .route("/api/skills", get(list_skills_handler).post(create_skill_handler))
+        .route("/api/skills/install", post(install_skills_handler))
+        .route(
+            "/api/skills/{id}",
+            get(get_skill_handler)
+                .patch(update_skill_handler)
+                .delete(delete_skill_handler),
+        )
         // Documentation endpoints
         .route("/api/docs", get(list_docs_handler))
         .route("/api/docs/{file}", get(get_doc_handler))
@@ -4054,22 +4060,25 @@ async fn git_assign_handler(
     }))
 }
 
+fn skill_json(skill: &barkcli_core::skills::Skill, include_content: bool) -> serde_json::Value {
+    let mut value = serde_json::json!({
+        "id": skill.id,
+        "name": skill.name,
+        "description": skill.description,
+        "triggers": skill.triggers,
+        "source": skill.source.to_string(),
+        "enabled": skill.enabled,
+    });
+    if include_content {
+        value["content"] = serde_json::Value::String(skill.content.clone());
+    }
+    value
+}
+
 async fn list_skills_handler() -> Result<Json<serde_json::Value>, ServerError> {
     let reg = barkcli_core::skills::SkillRegistry::load_all(None)
         .map_err(|e| ServerError::internal(e.to_string()))?;
-    let skills: Vec<serde_json::Value> = reg
-        .skills
-        .iter()
-        .map(|s| {
-            serde_json::json!({
-                "id": s.id,
-                "name": s.name,
-                "description": s.description,
-                "triggers": s.triggers,
-                "source": s.source.to_string(),
-            })
-        })
-        .collect();
+    let skills: Vec<serde_json::Value> = reg.skills.iter().map(|s| skill_json(s, false)).collect();
     Ok(Json(serde_json::json!({ "skills": skills })))
 }
 
@@ -4081,13 +4090,92 @@ async fn get_skill_handler(
     let skill = reg
         .get(&id)
         .ok_or_else(|| ServerError::bad(format!("skill '{}' not found", id)))?;
+    Ok(Json(skill_json(skill, true)))
+}
+
+#[derive(Deserialize)]
+struct CreateSkillBody {
+    id: Option<String>,
+    name: String,
+    description: Option<String>,
+    triggers: Option<Vec<String>>,
+    content: String,
+}
+
+async fn create_skill_handler(
+    Json(body): Json<CreateSkillBody>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let skill = barkcli_core::skills::manage::create_project_skill(
+        body.id.as_deref(),
+        &body.name,
+        body.description.as_deref().unwrap_or(""),
+        &body.triggers.unwrap_or_default(),
+        &body.content,
+    )
+    .map_err(|e| ServerError::bad(e.to_string()))?;
+
+    Ok(Json(serde_json::json!({ "skill": skill_json(&skill, true) })))
+}
+
+#[derive(Deserialize)]
+struct UpdateSkillBody {
+    enabled: bool,
+}
+
+async fn update_skill_handler(
+    Path(id): Path<String>,
+    Json(body): Json<UpdateSkillBody>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let reg = barkcli_core::skills::SkillRegistry::load_all(None)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    if reg.get(&id).is_none() {
+        return Err(ServerError::bad(format!("skill '{}' not found", id)));
+    }
+
+    barkcli_core::skills::manage::set_enabled(&id, body.enabled)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+
+    Ok(Json(serde_json::json!({ "id": id, "enabled": body.enabled })))
+}
+
+async fn delete_skill_handler(
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    barkcli_core::skills::manage::delete_project_skill(&id)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    Ok(Json(serde_json::json!({ "deleted": id })))
+}
+
+#[derive(Deserialize)]
+struct InstallSkillsBody {
+    source: String,
+    dir: Option<String>,
+}
+
+async fn install_skills_handler(
+    Json(body): Json<InstallSkillsBody>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let source = body.source.trim().to_string();
+    if source.is_empty() {
+        return Err(ServerError::bad("a git URL, owner/repo, or local path is required"));
+    }
+    let dir = body
+        .dir
+        .map(|d| d.trim().to_string())
+        .filter(|d| !d.is_empty());
+
+    let result = tokio::task::spawn_blocking(move || {
+        barkcli_core::skills::install::install_from_source(&source, dir.as_deref())
+    })
+    .await
+    .map_err(|e| ServerError::internal(e.to_string()))?
+    .map_err(|e| ServerError::bad(e.to_string()))?;
+
     Ok(Json(serde_json::json!({
-        "id": skill.id,
-        "name": skill.name,
-        "description": skill.description,
-        "triggers": skill.triggers,
-        "source": skill.source.to_string(),
-        "content": skill.content,
+        "source": result.source,
+        "rev": result.rev,
+        "installed": result.installed,
+        "updated": result.updated,
     })))
 }
 

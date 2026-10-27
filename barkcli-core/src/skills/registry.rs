@@ -31,6 +31,13 @@ pub struct Skill {
     pub triggers: Vec<String>,
     pub source: SkillSource,
     pub path: Option<PathBuf>,
+    /// Disabled skills stay installed but never reach an agent prompt.
+    #[serde(default = "skill_enabled_default")]
+    pub enabled: bool,
+}
+
+fn skill_enabled_default() -> bool {
+    true
 }
 
 pub struct MatchContext {
@@ -101,6 +108,17 @@ impl SkillRegistry {
         // Also board-scoped .board/skills/<board>/*.md if board_name provided (future)
         let _ = board_name;
 
+        // User preference: installed but disabled skills are invisible to
+        // matching/prompt injection. State lives in .board/skills-state.json.
+        let disabled = super::manage::disabled_ids();
+        if !disabled.is_empty() {
+            for s in &mut skills {
+                if disabled.iter().any(|id| id == &s.id) {
+                    s.enabled = false;
+                }
+            }
+        }
+
         Ok(Self { skills })
     }
 
@@ -128,6 +146,7 @@ impl SkillRegistry {
         let mut scored: Vec<(&Skill, usize)> = self
             .skills
             .iter()
+            .filter(|s| s.enabled)
             .map(|s| {
                 let score = s
                     .triggers
@@ -149,7 +168,7 @@ impl SkillRegistry {
                 _ => vec![],
             };
             for fid in fallback {
-                if let Some(s) = self.skills.iter().find(|sk| sk.id == fid) {
+                if let Some(s) = self.skills.iter().find(|sk| sk.id == fid && sk.enabled) {
                     scored.push((s, 1));
                 }
             }
@@ -203,7 +222,9 @@ mod tests {
 
     #[test]
     fn matching_by_label() {
-        let reg = SkillRegistry::load_all(None).unwrap();
+        let reg = SkillRegistry {
+            skills: crate::skills::builtin::builtin_skills(),
+        };
         let ctx = MatchContext {
             labels: vec!["feature".into()],
             area: None,
@@ -216,7 +237,9 @@ mod tests {
 
     #[test]
     fn render_not_empty() {
-        let reg = SkillRegistry::load_all(None).unwrap();
+        let reg = SkillRegistry {
+            skills: crate::skills::builtin::builtin_skills(),
+        };
         let ctx = MatchContext {
             labels: vec![],
             area: None,
@@ -226,5 +249,32 @@ mod tests {
         let r = reg.render_for_prompt(&ctx);
         assert!(r.is_some());
         assert!(r.unwrap().contains("Project Skills"));
+    }
+
+    #[test]
+    fn disabled_skills_never_reach_a_prompt() {
+        let mut skills = crate::skills::builtin::builtin_skills();
+        for skill in &mut skills {
+            skill.enabled = false;
+        }
+        let reg = SkillRegistry { skills };
+        let ctx = MatchContext {
+            labels: vec!["feature".into()],
+            area: None,
+            title: "Ship release".into(),
+            pipeline_phase: "dispatch".into(),
+        };
+        assert!(reg.matching(&ctx).is_empty());
+        assert!(reg.render_for_prompt(&ctx).is_none());
+
+        // A single enabled skill can still match on its trigger.
+        let mut skills = crate::skills::builtin::builtin_skills();
+        for skill in &mut skills {
+            skill.enabled = skill.id == "mvp";
+        }
+        let reg = SkillRegistry { skills };
+        let matched = reg.matching(&ctx);
+        assert_eq!(matched.len(), 1);
+        assert_eq!(matched[0].id, "mvp");
     }
 }

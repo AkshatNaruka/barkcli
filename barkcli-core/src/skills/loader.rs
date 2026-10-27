@@ -53,6 +53,7 @@ pub fn parse_skill(content: &str, filename: &str, source: SkillSource) -> Skill 
         triggers,
         source: source.clone(),
         path: None,
+        enabled: true,
     }
 }
 

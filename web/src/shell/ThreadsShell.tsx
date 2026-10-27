@@ -9,9 +9,11 @@ import { UniversalComposer } from "./UniversalComposer";
 interface ThreadsShellProps {
   boardName: string | null;
   onOpenCardForm?: (card: Card) => void;
+  /** A card the user asked about from another surface; opens the composer. */
+  seed?: { text: string; nonce: number } | null;
 }
 
-export function ThreadsShell({ boardName }: ThreadsShellProps) {
+export function ThreadsShell({ boardName, seed }: ThreadsShellProps) {
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeThread, setActiveThread] = useState<ThreadDetail | null>(null);
@@ -24,6 +26,13 @@ export function ThreadsShell({ boardName }: ThreadsShellProps) {
     setComposerInitialText(text || "");
     setComposerOpen(true);
   };
+
+  // Board cards can hand a prompt to the composer ("Ask agent").
+  useEffect(() => {
+    if (!seed) return;
+    setComposerInitialText(seed.text);
+    setComposerOpen(true);
+  }, [seed]);
 
   const loadThreads = useCallback(async () => {
     setLoading(true);

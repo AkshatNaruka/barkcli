@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { QuietSelect } from "./components/QuietSelect";
 import type {
   Board as BoardType,
@@ -31,7 +31,6 @@ import { TableView } from "./components/TableView";
 import { ListView } from "./components/ListView";
 import { CardForm } from "./components/CardForm";
 import { CommandPalette } from "./components/CommandPalette";
-import { ThemeDropdown } from "./components/ThemeDropdown";
 import { ServerStatus } from "./components/ServerStatus";
 import { HistoryView } from "./components/HistoryView";
 import { SkillsView } from "./components/SkillsView";
@@ -41,6 +40,8 @@ import { InspectorRail } from "./shell/InspectorRail";
 import { OperationsView } from "./shell/OperationsView";
 import { BrainSurface } from "./shell/BrainSurface";
 import { AgentsSurface } from "./shell/AgentsSurface";
+import { CustomizePanel } from "./shell/CustomizePanel";
+import { useTheme } from "./lib/theme";
 import { SURFACES } from "./lib/surfaces";
 
 function isBlockedCard(c: Card): boolean {
@@ -199,6 +200,13 @@ export function App() {
   const [loading, setLoading] = useState(true);
   const [route, setRoute] = useRoute();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [composeSeed, setComposeSeed] = useState<{ text: string; nonce: number } | null>(null);
+  const { railOrder, hidden } = useTheme();
+  const visibleSurfaces = useMemo(
+    () => railOrder.filter((id) => !hidden.includes(id)),
+    [railOrder, hidden]
+  );
   const [form, setForm] = useState<{ card?: Card; columnId?: string; dueDate?: string } | null>(null);
   const [toast, setToast] = useState<{ message: string; action?: { label: string; onClick: () => void } } | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -220,6 +228,13 @@ export function App() {
     const label = SURFACES.find((s) => s.id === route)?.label.toLowerCase() ?? route;
     document.title = `barkcli · ${label}`;
   }, [route]);
+
+  // A shared look may hide the surface this tab is currently on.
+  useEffect(() => {
+    if (!hidden.includes(route)) return;
+    const next = visibleSurfaces[0];
+    if (next) setRoute(next);
+  }, [hidden, route, visibleSurfaces, setRoute]);
 
   const [gitInfo, setGitInfo] = useState<GitInfo | null>(null);
   const [historyCard, setHistoryCard] = useState<{ id: string; entries: any[] } | null>(null);
@@ -308,6 +323,32 @@ export function App() {
     setTimeout(() => setToast(null), 4000);
   }, []);
 
+  // Board → agent handoff. Plan & run dispatches immediately; Ask agent opens
+  // the composer with the card as context so the user can steer first.
+  const handlePlanCard = useCallback(
+    async (card: Card) => {
+      notify(`Dispatching an agent for “${card.title}”…`);
+      const res = await cardPlanAndRun(card.id, undefined, boardName || undefined);
+      notify(res ? "Agent dispatched — follow it in Agents" : "Could not dispatch an agent");
+    },
+    [boardName, notify]
+  );
+
+  const handleAskAgent = useCallback(
+    (card: Card) => {
+      const text = [
+        `Help me with this card: “${card.title}” (${card.id}, ${card.column}).`,
+        card.description ? `\n${card.description}` : "",
+        "\nWhat should we do next?",
+      ]
+        .filter(Boolean)
+        .join("\n");
+      setComposeSeed({ text, nonce: Date.now() });
+      setRoute("chat");
+    },
+    [setRoute]
+  );
+
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -335,16 +376,27 @@ export function App() {
         });
         return;
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
+        e.preventDefault();
+        setCustomizeOpen(true);
+        return;
+      }
       if (e.key === "?") {
         e.preventDefault();
         setHelpOpen((p) => !p);
         return;
       }
-      // 1–7 jump between surfaces, in rail order.
+      // 1–7 jump between the surfaces currently in the rail.
       const digit = Number(e.key);
-      if (!e.metaKey && !e.ctrlKey && Number.isInteger(digit) && digit >= 1 && digit <= 7) {
+      if (
+        !e.metaKey &&
+        !e.ctrlKey &&
+        Number.isInteger(digit) &&
+        digit >= 1 &&
+        digit <= visibleSurfaces.length
+      ) {
         e.preventDefault();
-        setRoute(SURFACES[digit - 1].id);
+        setRoute(visibleSurfaces[digit - 1]);
         return;
       }
       if (route === "board") {
@@ -357,7 +409,7 @@ export function App() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [route, board, boardName, loadBoard, notify]);
+  }, [route, board, boardName, loadBoard, notify, visibleSurfaces]);
 
   const switchBoard = useCallback((name: string) => {
     if (name === boardName) return;
@@ -523,6 +575,7 @@ export function App() {
       <AppRail
         surface={route}
         onNavigate={setRoute}
+        onCustomize={() => setCustomizeOpen(true)}
         counts={{ chat: 0, board: boardOpen, agents: agentsActive }}
       />
 
@@ -566,7 +619,14 @@ export function App() {
           )}
           <ServerStatus />
           <InstallButton />
-          <ThemeDropdown />
+          <button
+            onClick={() => setCustomizeOpen(true)}
+            title="Appearance (⌘,)"
+            aria-label="Appearance"
+            className="w-7 h-7 rounded-md flex items-center justify-center text-muted hover:text-text hover:bg-white/[0.05] border border-transparent hover:border-border transition-colors"
+          >
+            <Icon name="palette" size={15} />
+          </button>
         </div>
       </header>
 
@@ -575,6 +635,7 @@ export function App() {
           {route === "chat" && (
             <ThreadsShell
               boardName={boardName}
+              seed={composeSeed}
               onOpenCardForm={(card) => handleOpenForm({ card })}
             />
           )}
@@ -591,6 +652,8 @@ export function App() {
               onShowHistory={handleShowHistory}
               onShowActivity={handleShowActivity}
               onCopyCommitMsg={handleCopyCommitMsg}
+              onPlanCard={handlePlanCard}
+              onAskAgent={handleAskAgent}
             />
           )}
           {route === "board" && !board && <SurfaceEmpty label="Loading board…" />}
@@ -672,8 +735,10 @@ export function App() {
           onNavigate={(colId, cardId) => { setRoute("board"); }}
           onAddCard={(colId) => { setForm({ columnId: colId }); setPaletteOpen(false); }}
           onEditCard={(card) => { setForm({ card }); setPaletteOpen(false); }}
+          onCustomize={() => setCustomizeOpen(true)}
         />
       )}
+      <CustomizePanel open={customizeOpen} onClose={() => setCustomizeOpen(false)} />
 
       {/* Toasts */}
       {toast && (
@@ -718,6 +783,8 @@ function BoardPage({
   onShowHistory,
   onShowActivity,
   onCopyCommitMsg,
+  onPlanCard,
+  onAskAgent,
 }: {
   board: BoardType;
   onMoveCard: (id: string, col: string) => void;
@@ -729,6 +796,8 @@ function BoardPage({
   onShowHistory: (cardId: string) => void;
   onShowActivity: (cardId: string) => void;
   onCopyCommitMsg: (card: Card) => void;
+  onPlanCard: (card: Card) => void;
+  onAskAgent: (card: Card) => void;
 }) {
   const [view, setView] = useState<ViewMode>("board");
   const [filter, setFilter] = useState("");
@@ -822,6 +891,8 @@ function BoardPage({
             onShowHistory={onShowHistory}
             onShowActivity={onShowActivity}
             onCopyCommitMsg={onCopyCommitMsg}
+            onPlanCard={onPlanCard}
+            onAskAgent={onAskAgent}
           />
         )}
         {view === "table" && (

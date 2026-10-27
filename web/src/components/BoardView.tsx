@@ -16,9 +16,11 @@ interface Props {
   onShowHistory: (cardId: string) => void;
   onShowActivity: (cardId: string) => void;
   onCopyCommitMsg: (card: Card) => void;
+  onPlanCard: (card: Card) => void;
+  onAskAgent: (card: Card) => void;
 }
 
-export function BoardView({ board, onMoveCard, onTogglePin, onAddToColumn, onEditCard, onDeleteCard, onShowHistory, onShowActivity, onCopyCommitMsg }: Props) {
+export function BoardView({ board, onMoveCard, onTogglePin, onAddToColumn, onEditCard, onDeleteCard, onShowHistory, onShowActivity, onCopyCommitMsg, onPlanCard, onAskAgent }: Props) {
   const [activeCard, setActiveCard] = useState<Card | null>(null);
 
   const sensors = useSensors(
@@ -79,13 +81,15 @@ export function BoardView({ board, onMoveCard, onTogglePin, onAddToColumn, onEdi
             onShowHistory={onShowHistory}
             onShowActivity={onShowActivity}
             onCopyCommitMsg={onCopyCommitMsg}
+            onPlanCard={onPlanCard}
+            onAskAgent={onAskAgent}
           />
         ))}
       </div>
       <DragOverlay>
         {activeCard && (
           <div className="w-72 opacity-90">
-            <KanbanCard card={activeCard} isOverlay onEdit={() => {}} onDelete={() => {}} onTogglePin={() => {}} onShowHistory={() => {}} onShowActivity={() => {}} onCopyCommitMsg={() => {}} />
+            <KanbanCard card={activeCard} isOverlay onEdit={() => {}} onDelete={() => {}} onTogglePin={() => {}} onShowHistory={() => {}} onShowActivity={() => {}} onCopyCommitMsg={() => {}} onPlanCard={() => {}} onAskAgent={() => {}} />
           </div>
         )}
       </DragOverlay>

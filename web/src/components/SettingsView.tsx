@@ -139,19 +139,26 @@ export function SettingsView({
 
         {/* Theme */}
         <Section title="Theme">
-          <div className="flex bg-surface rounded-md p-0.5 w-fit border border-border">
-            {(["black", "light", "system"] as Theme[]).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTheme(t)}
-                className={`px-3 py-1 text-xs rounded font-medium capitalize transition-colors ${
-                  theme === t ? "bg-accent text-white" : "text-muted hover:text-text"
-                }`}
-              >
-                {t}
-              </button>
-            ))}
+          <div className="flex flex-wrap bg-surface rounded-md p-0.5 w-fit border border-border">
+            {(["black", "slate", "neon", "light", "system"] as Theme[]).map((t) => {
+              const label =
+                t === "black" ? "Bark" : t === "slate" ? "Slate" : t === "neon" ? "Terminal" : t === "light" ? "Paper" : "Auto";
+              return (
+                <button
+                  key={t}
+                  onClick={() => setTheme(t)}
+                  className={`px-3 py-1 text-xs rounded font-medium transition-colors ${
+                    theme === t ? "bg-accent text-white" : "text-muted hover:text-text"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
+          <p className="mt-2 text-[10.5px] text-muted/70">
+            Accent, rail labels, surface order and share links live in Appearance (⌘,).
+          </p>
         </Section>
 
         {/* AI config */}

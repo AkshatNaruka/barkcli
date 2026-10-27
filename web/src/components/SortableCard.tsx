@@ -12,9 +12,11 @@ interface Props {
   onShowHistory: (cardId: string) => void;
   onShowActivity: (cardId: string) => void;
   onCopyCommitMsg: (card: Card) => void;
+  onPlanCard: (card: Card) => void;
+  onAskAgent: (card: Card) => void;
 }
 
-export const SortableCard = React.memo(function SortableCard({ card, onEdit, onDelete, onTogglePin, onShowHistory, onShowActivity, onCopyCommitMsg }: Props) {
+export const SortableCard = React.memo(function SortableCard({ card, onEdit, onDelete, onTogglePin, onShowHistory, onShowActivity, onCopyCommitMsg, onPlanCard, onAskAgent }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: card.id,
   });
@@ -35,6 +37,8 @@ export const SortableCard = React.memo(function SortableCard({ card, onEdit, onD
         onShowHistory={onShowHistory}
         onShowActivity={onShowActivity}
         onCopyCommitMsg={onCopyCommitMsg}
+        onPlanCard={onPlanCard}
+        onAskAgent={onAskAgent}
       />
     </div>
   );

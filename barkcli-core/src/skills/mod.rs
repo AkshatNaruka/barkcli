@@ -2,6 +2,7 @@ pub mod builtin;
 pub mod install;
 pub mod loader;
 pub mod lock;
+pub mod manage;
 pub mod publish;
 pub mod registry;
 

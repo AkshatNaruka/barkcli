@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import type { Card } from "../lib/types";
 import { Avatar } from "./Avatar";
 import { PriorityBadge } from "./PriorityBadge";
@@ -14,10 +15,12 @@ interface Props {
   onShowHistory: (cardId: string) => void;
   onShowActivity: (cardId: string) => void;
   onCopyCommitMsg: (card: Card) => void;
+  onPlanCard: (card: Card) => void;
+  onAskAgent: (card: Card) => void;
 }
 
-export const KanbanCard = React.memo(function KanbanCard({ card, isOverlay, onEdit, onDelete, onTogglePin, onShowHistory, onShowActivity, onCopyCommitMsg }: Props) {
-  const [menuOpen, setMenuOpen] = useState(false);
+export const KanbanCard = React.memo(function KanbanCard({ card, isOverlay, onEdit, onDelete, onTogglePin, onShowHistory, onShowActivity, onCopyCommitMsg, onPlanCard, onAskAgent }: Props) {
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const [showDesc, setShowDesc] = useState(false);
   const checklistDone = card.checklist.filter((i) => i.done).length;
   const checklistTotal = card.checklist.length;
@@ -54,35 +57,74 @@ export const KanbanCard = React.memo(function KanbanCard({ card, isOverlay, onEd
       {/* Pin — inline, quiet */}
       {/* Menu + title spawn below */}
 
-      {/* Kebab — hover only */}
-      <div className="absolute right-1.5 top-1.5 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+      {/* Kebab + agent — hover only */}
+      <div className="absolute right-1.5 top-1.5 z-10 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
-          onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
+          onClick={(e) => { e.stopPropagation(); onAskAgent(card); }}
+          title="Ask an agent about this card"
+          aria-label="Ask an agent about this card"
+          className="text-muted hover:text-accent-text p-1 rounded bg-card/80 transition-colors"
+        >
+          <Icon name="spark" size={13} />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (menuPos) {
+              setMenuPos(null);
+              return;
+            }
+            const rect = e.currentTarget.getBoundingClientRect();
+            const width = 184;
+            const height = 252;
+            const openUp = rect.bottom + height > window.innerHeight;
+            setMenuPos({
+              top: openUp ? Math.max(8, rect.top - height - 6) : rect.bottom + 6,
+              left: Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8)),
+            });
+          }}
           className="text-muted hover:text-text p-1 rounded bg-card/80"
+          aria-label="Card actions"
         >
           <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
             <circle cx="8" cy="3" r="1.5" /><circle cx="8" cy="8" r="1.5" /><circle cx="8" cy="13" r="1.5" />
           </svg>
         </button>
-        {menuOpen && (
-          <>
-            <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} />
-            <div className="absolute right-0 top-7 z-20 bg-card rounded-lg dialog-elevated border border-border py-1 min-w-[170px]">
-              <MenuItem onClick={(e) => { e.stopPropagation(); onEdit(card); setMenuOpen(false); }} icon="pencil" label="Edit" />
-              <MenuItem onClick={(e) => { e.stopPropagation(); onTogglePin(card.id); setMenuOpen(false); }} icon="pin" label={card.pinned ? "Unpin" : "Pin"} />
-              <MenuItem onClick={(e) => { e.stopPropagation(); onCopyCommitMsg(card); setMenuOpen(false); }} icon="copy" label="Copy commit msg" />
-              <MenuItem onClick={(e) => { e.stopPropagation(); onShowHistory(card.id); setMenuOpen(false); }} icon="history" label="History" />
-              <MenuItem onClick={(e) => { e.stopPropagation(); onShowActivity(card.id); setMenuOpen(false); }} icon="pulse" label="Activity" />
-              <div className="border-t border-border my-0.5" />
-              <MenuItem onClick={(e) => { e.stopPropagation(); onDelete(card.id); setMenuOpen(false); }} icon="trash" label="Delete" danger />
-            </div>
-          </>
-        )}
       </div>
+
+      {menuPos &&
+        createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[80]"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuPos(null);
+              }}
+            />
+            <div
+              className="fixed z-[81] bg-card rounded-lg dialog-elevated border border-border py-1 min-w-[184px]"
+              style={{ top: menuPos.top, left: menuPos.left }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <MenuItem onClick={() => { onPlanCard(card); setMenuPos(null); }} icon="spark" label="Plan & run" />
+              <MenuItem onClick={() => { onAskAgent(card); setMenuPos(null); }} icon="comment" label="Ask agent" />
+              <div className="border-t border-border my-0.5" />
+              <MenuItem onClick={() => { onEdit(card); setMenuPos(null); }} icon="pencil" label="Edit" />
+              <MenuItem onClick={() => { onTogglePin(card.id); setMenuPos(null); }} icon="pin" label={card.pinned ? "Unpin" : "Pin"} />
+              <MenuItem onClick={() => { onCopyCommitMsg(card); setMenuPos(null); }} icon="copy" label="Copy commit msg" />
+              <MenuItem onClick={() => { onShowHistory(card.id); setMenuPos(null); }} icon="history" label="History" />
+              <MenuItem onClick={() => { onShowActivity(card.id); setMenuPos(null); }} icon="pulse" label="Activity" />
+              <div className="border-t border-border my-0.5" />
+              <MenuItem onClick={() => { onDelete(card.id); setMenuPos(null); }} icon="trash" label="Delete" danger />
+            </div>
+          </>,
+          document.body
+        )}
 
       {/* Title — the first thing you see; id & description live in the tooltip */}
       <div
-        className="font-medium text-sm text-text leading-snug cursor-pointer pr-4"
+        className="font-medium text-sm text-text leading-snug cursor-pointer pr-12"
         onClick={() => setShowDesc(!showDesc)}
         title={`${card.id}${card.description ? ` — ${card.description}` : ""}`}
       >
@@ -183,8 +225,8 @@ function MenuItem({
   label,
   danger,
 }: {
-  onClick: (e: React.MouseEvent) => void;
-  icon: "pencil" | "pin" | "copy" | "history" | "pulse" | "trash";
+  onClick: () => void;
+  icon: "pencil" | "pin" | "copy" | "history" | "pulse" | "trash" | "spark" | "comment";
   label: string;
   danger?: boolean;
 }) {

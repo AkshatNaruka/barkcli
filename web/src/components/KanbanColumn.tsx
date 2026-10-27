@@ -15,9 +15,11 @@ interface Props {
   onShowHistory: (cardId: string) => void;
   onShowActivity: (cardId: string) => void;
   onCopyCommitMsg: (card: Card) => void;
+  onPlanCard: (card: Card) => void;
+  onAskAgent: (card: Card) => void;
 }
 
-export const KanbanColumn = React.memo(function KanbanColumn({ column, cards, onAdd, onEdit, onDelete, onTogglePin, onShowHistory, onShowActivity, onCopyCommitMsg }: Props) {
+export const KanbanColumn = React.memo(function KanbanColumn({ column, cards, onAdd, onEdit, onDelete, onTogglePin, onShowHistory, onShowActivity, onCopyCommitMsg, onPlanCard, onAskAgent }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
   const ids = cards.map((c) => c.id);
   const pinned = cards.filter((c) => c.pinned).length;
@@ -59,6 +61,8 @@ export const KanbanColumn = React.memo(function KanbanColumn({ column, cards, on
                 onShowHistory={onShowHistory}
                 onShowActivity={onShowActivity}
                 onCopyCommitMsg={onCopyCommitMsg}
+                onPlanCard={onPlanCard}
+                onAskAgent={onAskAgent}
               />
             ))
           )}
