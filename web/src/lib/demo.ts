@@ -113,7 +113,7 @@ interface DemoStore {
   undoStack: Record<string, string[]>;
 }
 
-const STORE_KEY = "barkcli-demo-v2";
+const STORE_KEY = "barkcli-demo-v3";
 let store: DemoStore | null = null;
 
 // Relative dates keep the demo board alive on every visit.
@@ -152,14 +152,15 @@ function seedBoards(): Record<string, Board> {
     // The OAuth workstream — the board's live story (matches the Mind page).
     card({
       id: "add-oauth", title: "Add OAuth login", column: "todo", priority: "high",
-      labels: ["auth"], effort: 3, area: "web", spec_id: "sso",
+      labels: ["auth", "sprint:sprint-14"], effort: 3, area: "web", spec_id: "sso",
       description: "Sign in with GitHub / Google behind the sso spec — provider adapters, redirect round-trip, session bootstrap.",
       acceptance_criteria: ["Callback round-trips without a 500", "Session cookie set on success"],
       updated_at: h(3), created_at: d(4),
     }),
     card({
       id: "fix-checkout", title: "Fix checkout crash", column: "todo", priority: "high",
-      labels: ["bug"], effort: 2, area: "web", spec_id: "checkout",
+      labels: ["bug", "sprint:sprint-14"], effort: 2, area: "web", spec_id: "checkout",
+      links: [{ ty: "parent", target: "oauth-flow" }],
       blocked_by: "oauth-flow",
       description: "Nil unwrap on an unauthenticated cart crashes the buy flow; guard lands with the OAuth branch.",
       acceptance_criteria: ["Regression test on anonymous cart", "Crash no longer reproducible"],
@@ -167,7 +168,7 @@ function seedBoards(): Record<string, Board> {
     }),
     card({
       id: "autopilot-gates", title: "Autopilot human gates", column: "todo", priority: "high",
-      labels: ["smart", "orchestrate"], effort: 5, area: "smart", spec_id: "autopilot",
+      labels: ["smart", "orchestrate", "sprint:sprint-14"], effort: 5, area: "smart", spec_id: "autopilot",
       blocked_by: "oauth-flow",
       description: "Agents work card-by-card; humans approve at phase gates (plan, review, merge).",
       acceptance_criteria: ["Plan approval happens in the web UI", "Every gate also runs from the CLI"],
@@ -176,13 +177,14 @@ function seedBoards(): Record<string, Board> {
     }),
     card({
       id: "tui-mouse-scroll", title: "Mouse wheel scrolling in TUI", column: "todo", priority: "low",
-      labels: ["tui"], effort: 1, area: "tui",
+      labels: ["tui", "sprint:sprint-14"], effort: 1, area: "tui",
       description: "Column panels should scroll with the wheel without leaving selection mode.",
       updated_at: d(9), created_at: d(60),
     }),
     card({
       id: "oauth-flow", title: "Implement OAuth flow", column: "doing", priority: "high",
-      labels: ["auth"], effort: 5, area: "web", spec_id: "sso",
+      labels: ["auth", "sprint:sprint-14"], effort: 5, area: "web", spec_id: "sso",
+      links: [{ ty: "parent", target: "add-oauth" }],
       description: "Wiring the redirect round-trip: authorize URL, code exchange, and the first session write.",
       checklist: [
         { text: "Authorize request builds state + nonce", done: true },
@@ -193,7 +195,7 @@ function seedBoards(): Record<string, Board> {
     }),
     card({
       id: "demo-hosting", title: "Static demo hosting", column: "doing", priority: "high",
-      labels: ["web", "server"], effort: 3, area: "web", pinned: true,
+      labels: ["web", "server", "sprint:sprint-14"], effort: 3, area: "web", pinned: true,
       description: "Serve the web app on a static host behind an in-browser demo API — writes persist to localStorage.",
       checklist: [
         { text: "Detect static hosting automatically", done: true },
@@ -205,48 +207,49 @@ function seedBoards(): Record<string, Board> {
     }),
     card({
       id: "store-tokens", title: "Store tokens securely", column: "review", priority: "medium",
-      labels: ["auth", "memory"], effort: 2, area: "web", spec_id: "sso",
+      labels: ["auth", "memory", "sprint:sprint-14"], effort: 2, area: "web", spec_id: "sso",
+      links: [{ ty: "parent", target: "oauth-flow" }],
       description: "Refresh tokens in the OS keychain (not .board files), rotation on refresh, revocation on logout.",
       acceptance_criteria: ["No token ever hits the YAML", "Keychain read/write on all three OSes"],
       updated_at: h(4), created_at: d(7),
     }),
     card({
       id: "share-links", title: "Shareable card permalinks", column: "review", priority: "low",
-      labels: ["web"], effort: 1, area: "web",
+      labels: ["web", "sprint:sprint-14"], effort: 1, area: "web",
       description: "#board/<card> hash routes that open the card form directly from a URL.",
       updated_at: h(9), created_at: d(15),
     }),
     card({
       id: "kiosk-mode", title: "Kiosk mode for wall displays", column: "done", priority: "high",
-      labels: ["web"], effort: 3, area: "web",
+      labels: ["web", "sprint:sprint-14"], effort: 3, area: "web",
       links: [{ ty: "related", target: "demo-mode" }],
       checklist: [{ text: "Hide chrome + autoscroll board", done: true }],
       updated_at: h(6), created_at: d(16),
     }),
     card({
       id: "card-crud", title: "Card CRUD", column: "done", priority: "high",
-      labels: ["cli"], effort: 3, description: "Add, list, show, update, remove cards.",
+      labels: ["cli", "sprint:sprint-14"], effort: 3, description: "Add, list, show, update, remove cards.",
       comments: [{ author: "max", text: "shipped in 0.5.0", at: d(4) }],
       updated_at: d(4), created_at: d(45),
     }),
     card({
       id: "burndown-chart", title: "Sprint burndown + effort reports", column: "done", priority: "medium",
-      labels: ["web", "reports"], effort: 2, description: "Burndown per sprint with effort estimates.",
+      labels: ["web", "reports", "sprint:sprint-14"], effort: 2, description: "Burndown per sprint with effort estimates.",
       updated_at: d(5), created_at: d(35),
     }),
     card({
       id: "memory-tiers", title: "Memory tiers working → long_term", column: "done", priority: "medium",
-      labels: ["memory"], effort: 3, description: "Decay + consolidation promote hot memories, evict the rest.",
+      labels: ["memory", "sprint:sprint-14"], effort: 3, description: "Decay + consolidation promote hot memories, evict the rest.",
       updated_at: d(6), created_at: d(40),
     }),
     card({
       id: "skill-registry", title: "Skills registry in .board/", column: "done", priority: "low",
-      labels: ["orchestrate"], effort: 2, description: "BMAD-style skills served to agents via /api/skills.",
+      labels: ["orchestrate", "sprint:sprint-13"], effort: 2, description: "BMAD-style skills served to agents via /api/skills.",
       updated_at: d(7), created_at: d(50),
     }),
     card({
       id: "history-bundles", title: "History Bundles v0.7", column: "done", priority: "high",
-      labels: ["cli", "smart"], effort: 5, area: "smart", spec_id: "bundles",
+      labels: ["cli", "smart", "sprint:sprint-14"], effort: 5, area: "smart", spec_id: "bundles",
       description: "Group related commits into reviewable bundles and map them to cards.",
       checklist: [
         { text: "Scan git log into bundle candidates", done: true },
@@ -259,31 +262,31 @@ function seedBoards(): Record<string, Board> {
     }),
     card({
       id: "ws-live-reload", title: "WebSocket live reload", column: "done", priority: "medium",
-      labels: ["web", "serve"], effort: 2, area: "serve",
+      labels: ["web", "serve", "sprint:sprint-13"], effort: 2, area: "serve",
       description: "Push file changes to the browser over /ws; skip reloads caused by our own debounced saves.",
       updated_at: d(10), created_at: d(12),
     }),
     card({
       id: "autopilot-intake", title: "Plain-language intent intake", column: "done", priority: "medium",
-      labels: ["smart"], effort: 2, area: "smart",
+      labels: ["smart", "sprint:sprint-13"], effort: 2, area: "smart",
       description: "One text box: 'Add Google OAuth' → proposes a card with acceptance criteria.",
       updated_at: d(11), created_at: d(10),
     }),
     card({
       id: "brain-view-polish", title: "Brain graph polish", column: "done", priority: "medium",
-      labels: ["web", "memory"], effort: 2, area: "web",
+      labels: ["web", "memory", "sprint:sprint-13"], effort: 2, area: "web",
       description: "Auto layout, minimap search focus, and connected-node inspector for the memory graph.",
       updated_at: d(12), created_at: d(20),
     }),
     card({
       id: "calendar-remind", title: "Calendar reminders in web + TUI", column: "done", priority: "medium",
-      labels: ["web", "tui"], effort: 3,
+      labels: ["web", "tui", "sprint:sprint-13"], effort: 3,
       description: "remind_at fires a toast in the web app and a line in the TUI agenda.",
       updated_at: d(13), created_at: d(30),
     }),
     card({
       id: "vscode-sync-review", title: "VS Code: review card diff before save", column: "done", priority: "medium",
-      labels: ["vscode"], effort: 2, area: "vscode",
+      labels: ["vscode", "sprint:sprint-13"], effort: 2, area: "vscode",
       description: "Show a diff preview tree-side before writing YAML back to the board file.",
       updated_at: d(14), created_at: d(28),
     }),
@@ -888,7 +891,25 @@ const ROUTES: Route[] = [
   {
     method: "POST", re: /^\/api\/sprints$/, handle: (_m, { body }) => {
       const s = getStore();
-      s.sprints.push({ name: body.name || "sprint", start: new Date().toISOString().slice(0, 10), end: body.end || inDays(14).slice(0, 10), created_at: new Date().toISOString() });
+      const name = body.name || "sprint";
+      const start = new Date().toISOString().slice(0, 10);
+      const existing = s.sprints.find((sp) => sp.name === name);
+      if (existing) {
+        existing.start = start;
+        existing.end = body.end || existing.end;
+      } else {
+        s.sprints.push({ name, start, end: body.end || inDays(14).slice(0, 10), created_at: new Date().toISOString() });
+      }
+      // Mirror the server: starting a sprint tags open todo/doing cards.
+      const { b, key } = boardFor(null);
+      const label = `sprint:${name}`;
+      for (const card of b.cards) {
+        if ((card.column === "todo" || card.column === "doing") && !card.labels.includes(label)) {
+          card.labels.push(label);
+          card.updated_at = new Date().toISOString();
+          logHistory("update", key, { card: card.id, old_value: "backlog", new_value: label });
+        }
+      }
       persist();
       emitChange();
       return {};
@@ -901,7 +922,18 @@ const ROUTES: Route[] = [
       const target = (body?.name ? s.sprints.filter((sp) => sp.name === body.name) : s.sprints).filter((sp) => !sp.end || new Date(sp.end).getTime() >= Date.now());
       target.sort((a, b) => (a.start && b.start ? (a.start < b.start ? 1 : -1) : 0));
       if (target[0]) {
-        target[0].end = now;
+        const ended = target[0];
+        ended.end = now;
+        // Mirror the server: unfinished cards leave the sprint on end.
+        const label = `sprint:${ended.name}`;
+        const { b, key } = boardFor(null);
+        for (const card of b.cards) {
+          if (card.labels.includes(label) && card.column !== "done") {
+            card.labels = card.labels.filter((l) => l !== label);
+            card.updated_at = new Date().toISOString();
+            logHistory("update", key, { card: card.id, old_value: label, new_value: "backlog" });
+          }
+        }
         persist();
         emitChange();
       }

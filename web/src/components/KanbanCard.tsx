@@ -40,7 +40,12 @@ export const KanbanCard = React.memo(function KanbanCard({ card, isOverlay, onEd
       : null);
 
   const displayLabels = card.labels
-    .filter((l) => !l.startsWith("type:") && !l.startsWith("agent:"))
+    .filter(
+      (l) =>
+        !l.startsWith("type:") &&
+        !l.startsWith("agent:") &&
+        !l.startsWith("sprint:")
+    )
     .slice(0, 2);
 
   return (
