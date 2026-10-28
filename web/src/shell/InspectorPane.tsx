@@ -9,6 +9,7 @@ import type {
   RunContext,
   ContextPack,
   ProductPlan,
+  ReviewState,
 } from "../lib/types";
 import {
   fetchTaskDiff,
@@ -22,6 +23,15 @@ import {
   createOrchestraPlan,
   dispatchOrchestraPlan,
   fetchOrchestra,
+  fetchReview,
+  markReviewViewed,
+  addReviewComment,
+  resolveReviewComment,
+  deleteReviewComment,
+  requestRunChanges,
+  askAboutRun,
+  openInEditor,
+  mergeRun,
 } from "../lib/api";
 import { Icon } from "../components/Icon";
 import { UnifiedDiff } from "../components/UnifiedDiff";
@@ -75,6 +85,13 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
   const [teamPlan, setTeamPlan] = useState<ProductPlan | null>(null);
   const [teamPlanBusy, setTeamPlanBusy] = useState(false);
   const [teamPlanError, setTeamPlanError] = useState<string | null>(null);
+  const [review, setReview] = useState<ReviewState | null>(null);
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const [reviewNotice, setReviewNotice] = useState<string | null>(null);
+  const [changesOpen, setChangesOpen] = useState(false);
+  const [changesNote, setChangesNote] = useState("");
+  const [askOpen, setAskOpen] = useState(false);
+  const [askText, setAskText] = useState("");
   const autoSelected = useRef(false);
 
   const planEvent = useMemo(
@@ -138,6 +155,12 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
   const currentTaskId = latestRun?.id || taskEvent?.data?.task_id || card?.id;
   const currentSessionId = taskEvent?.data?.session_id;
   const diffCount = diffData?.files?.length || 0;
+  const reviewId = latestRun?.id || card?.id;
+  const reviewFiles = review ? Object.values(review.files || {}) : [];
+  const viewedCount = reviewFiles.filter((file) => file.viewed).length;
+  const openReviewComments = (review?.comments || []).filter(
+    (comment) => !comment.resolved
+  ).length;
   const contextPack = previewPack || runContext?.context || null;
   const contextManifest = contextPack?.manifest;
   const contextBudget = contextManifest?.budget_tokens || 0;
@@ -182,6 +205,19 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
       cancelled = true;
     };
   }, [threadId, runRevision]);
+
+  useEffect(() => {
+    if (tab !== "diff" || !reviewId) {
+      return;
+    }
+    let cancelled = false;
+    void Promise.resolve(fetchReview(reviewId)).then((next) => {
+      if (!cancelled) setReview(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, reviewId, runRevision]);
 
   useEffect(() => {
     if (tab !== "gate" || !latestRun) {
@@ -284,6 +320,155 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
       cancelled = true;
     };
   }, [tab, currentSessionId]);
+
+  const refreshReview = async () => {
+    if (!reviewId) return;
+    const next = await fetchReview(reviewId);
+    if (next) setReview(next);
+  };
+
+  const handleToggleViewed = async (path: string, viewed: boolean) => {
+    if (!reviewId) return;
+    setReview((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        files: {
+          ...current.files,
+          [path]: {
+            path,
+            viewed,
+            updated_at: new Date().toISOString(),
+          },
+        },
+      };
+    });
+    const next = await markReviewViewed(reviewId, path, viewed);
+    if (next) setReview(next);
+  };
+
+  const handleAddComment = async (
+    path: string,
+    line: number | undefined,
+    side: string | undefined,
+    body: string
+  ) => {
+    if (!reviewId) return;
+    setReviewBusy(true);
+    setReviewNotice(null);
+    try {
+      const comment = await addReviewComment(reviewId, {
+        path,
+        line,
+        side,
+        body,
+        run_id: latestRun?.id,
+      });
+      if (!comment) {
+        setReviewNotice("Could not add the comment.");
+        return;
+      }
+      await refreshReview();
+    } finally {
+      setReviewBusy(false);
+    }
+  };
+
+  const handleResolveComment = async (commentId: string, resolved: boolean) => {
+    if (!reviewId) return;
+    const next = await resolveReviewComment(reviewId, commentId, resolved);
+    if (next) {
+      setReview((current) =>
+        current
+          ? {
+              ...current,
+              comments: current.comments.map((comment) =>
+                comment.id === next.id ? next : comment
+              ),
+            }
+          : current
+      );
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!reviewId) return;
+    const ok = await deleteReviewComment(reviewId, commentId);
+    if (ok) {
+      setReview((current) =>
+        current
+          ? {
+              ...current,
+              comments: current.comments.filter((comment) => comment.id !== commentId),
+            }
+          : current
+      );
+    }
+  };
+
+  const handleOpenLine = (path: string, line?: number) => {
+    void openInEditor(path, line, latestRun?.id).then((result) => {
+      if (!result?.opened) {
+        setReviewNotice("No supported editor was found. Set BARKCLI_EDITOR to open files.");
+      }
+    });
+  };
+
+  const submitChanges = async () => {
+    if (!latestRun) return;
+    setReviewBusy(true);
+    setReviewNotice(null);
+    try {
+      const result = await requestRunChanges(latestRun.id, changesNote.trim() || undefined);
+      if (!result?.run) {
+        setReviewNotice("Could not start a follow-up run.");
+        return;
+      }
+      setChangesOpen(false);
+      setChangesNote("");
+      setReviewNotice(`Follow-up run ${result.run.id} started.`);
+    } finally {
+      setReviewBusy(false);
+    }
+  };
+
+  const submitQuestion = async () => {
+    if (!latestRun || !askText.trim()) return;
+    setReviewBusy(true);
+    setReviewNotice(null);
+    try {
+      const result = await askAboutRun(latestRun.id, askText.trim());
+      if (!result?.run) {
+        setReviewNotice("Could not start the review question.");
+        return;
+      }
+      setAskOpen(false);
+      setAskText("");
+      setReviewNotice(`Review question sent to ${result.run.provider}.`);
+    } finally {
+      setReviewBusy(false);
+    }
+  };
+
+  const mergeReviewedRun = async () => {
+    if (!latestRun) return;
+    const confirmed = window.confirm(
+      `Merge ${latestRun.branch || latestRun.id} into the current branch?\n\nThe gate has passed. This releases the worktree after a successful merge.`
+    );
+    if (!confirmed) return;
+    setReviewBusy(true);
+    setReviewNotice(null);
+    try {
+      const result = await mergeRun(latestRun.id, true);
+      if (!result) {
+        setReviewNotice("Merge failed. Resolve conflicts and try again.");
+        return;
+      }
+      setReviewNotice(`Merged ${result.branch || latestRun.branch || "run"}.`);
+    } finally {
+      setReviewBusy(false);
+    }
+  };
 
   return (
     <aside
@@ -568,22 +753,172 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
 
         {tab === "diff" && (
           <div>
-            <div className="flex items-center gap-2 border-b border-border/60 px-4 py-2.5">
-              <div className="min-w-0 flex-1">
-                <div className="truncate font-mono text-[10px] text-text">
-                  {diffData?.branch || taskEvent?.data?.branch || "worktree"}
+            <div className="border-b border-border/60 px-4 py-2.5">
+              <div className="flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-mono text-[10px] text-text">
+                    {diffData?.branch || taskEvent?.data?.branch || "worktree"}
+                  </div>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-2 font-mono text-[9px] text-muted/60">
+                    <span>{currentTaskId || "no worker"}</span>
+                    {diffCount > 0 && (
+                      <>
+                        <span className="text-muted/30">·</span>
+                        <span>{diffCount} files</span>
+                      </>
+                    )}
+                    {reviewFiles.length > 0 && (
+                      <>
+                        <span className="text-muted/30">·</span>
+                        <span>
+                          {viewedCount}/{reviewFiles.length} viewed
+                        </span>
+                      </>
+                    )}
+                    {openReviewComments > 0 && (
+                      <>
+                        <span className="text-muted/30">·</span>
+                        <span className="text-warning">
+                          {openReviewComments} open comment{openReviewComments === 1 ? "" : "s"}
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <div className="mt-0.5 flex items-center gap-2 font-mono text-[9px] text-muted/60">
-                  <span>{currentTaskId || "no worker"}</span>
-                  {diffCount > 0 && (
-                    <>
-                      <span className="text-muted/30">·</span>
-                      <span>{diffCount} files</span>
-                    </>
-                  )}
-                </div>
+                {reviewBusy && (
+                  <Icon name="refresh" size={12} className="mt-0.5 animate-spin text-muted" />
+                )}
+                {loadingDiff && !reviewBusy && (
+                  <Icon name="refresh" size={12} className="mt-0.5 animate-spin text-muted" />
+                )}
               </div>
-              {loadingDiff && <Icon name="refresh" size={12} className="animate-spin text-muted" />}
+
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAskOpen((open) => !open);
+                    setChangesOpen(false);
+                  }}
+                  disabled={!latestRun}
+                  className="inline-flex items-center gap-1 rounded border border-border bg-card px-2 py-1 text-[10px] text-text hover:bg-white/[0.04] disabled:opacity-40"
+                >
+                  <Icon name="comment" size={9} /> Ask
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setChangesOpen((open) => !open);
+                    setAskOpen(false);
+                  }}
+                  disabled={!latestRun}
+                  className="inline-flex items-center gap-1 rounded border border-warning/30 bg-warning-soft px-2 py-1 text-[10px] text-warning hover:brightness-110 disabled:opacity-40"
+                >
+                  <Icon name="refresh" size={9} /> Request changes
+                </button>
+                {latestRun?.status === "passed" && (
+                  <button
+                    type="button"
+                    onClick={() => void mergeReviewedRun()}
+                    disabled={reviewBusy}
+                    className="ml-auto inline-flex items-center gap-1 rounded bg-accent px-2 py-1 text-[10px] font-medium text-white hover:bg-accent-hover disabled:opacity-50"
+                  >
+                    <Icon name="check" size={9} /> Approve & merge
+                  </button>
+                )}
+              </div>
+
+              {reviewNotice && (
+                <div className="mt-2 flex items-start gap-2 rounded border border-accent/25 bg-accent-soft px-2 py-1.5 text-[10px] text-accent-text">
+                  <span className="min-w-0 flex-1">{reviewNotice}</span>
+                  <button
+                    type="button"
+                    onClick={() => setReviewNotice(null)}
+                    className="text-muted hover:text-text"
+                    aria-label="Dismiss"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+
+              {changesOpen && (
+                <div className="mt-2 rounded border border-warning/25 bg-surface/60 p-2">
+                  <div className="text-[9px] uppercase tracking-wide text-muted/60">
+                    Request changes
+                  </div>
+                  <textarea
+                    autoFocus
+                    value={changesNote}
+                    onChange={(event) => setChangesNote(event.target.value)}
+                    rows={2}
+                    placeholder="Add a note for the builder. Open review comments are included automatically."
+                    className="mt-1 w-full resize-y rounded border border-border bg-bg px-2 py-1.5 text-[10.5px] text-text outline-none focus:border-accent/60"
+                  />
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => void submitChanges()}
+                      disabled={reviewBusy || (!changesNote.trim() && openReviewComments === 0)}
+                      className="rounded bg-accent px-2 py-1 text-[10px] font-medium text-white hover:bg-accent-hover disabled:opacity-40"
+                    >
+                      {reviewBusy ? "Starting…" : "Send to builder"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setChangesOpen(false);
+                        setChangesNote("");
+                      }}
+                      className="rounded border border-border px-2 py-1 text-[10px] text-muted hover:text-text"
+                    >
+                      Cancel
+                    </button>
+                    <span className="ml-auto text-[9px] text-muted/45">
+                      starts a follow-up run
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {askOpen && (
+                <div className="mt-2 rounded border border-border bg-surface/60 p-2">
+                  <div className="text-[9px] uppercase tracking-wide text-muted/60">
+                    Ask about this change
+                  </div>
+                  <textarea
+                    autoFocus
+                    value={askText}
+                    onChange={(event) => setAskText(event.target.value)}
+                    rows={2}
+                    placeholder="e.g. Why is this branch taken before the cache lookup?"
+                    className="mt-1 w-full resize-y rounded border border-border bg-bg px-2 py-1.5 text-[10.5px] text-text outline-none focus:border-accent/60"
+                  />
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => void submitQuestion()}
+                      disabled={reviewBusy || !askText.trim()}
+                      className="rounded bg-accent px-2 py-1 text-[10px] font-medium text-white hover:bg-accent-hover disabled:opacity-40"
+                    >
+                      {reviewBusy ? "Sending…" : "Ask agent"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAskOpen(false);
+                        setAskText("");
+                      }}
+                      className="rounded border border-border px-2 py-1 text-[10px] text-muted hover:text-text"
+                    >
+                      Cancel
+                    </button>
+                    <span className="ml-auto text-[9px] text-muted/45">
+                      read-only answer
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {loadingDiff ? (
@@ -601,7 +936,15 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
                 Reopen the Workbench to try again.
               </Empty>
             ) : diffData?.diff ? (
-              <UnifiedDiff diff={diffData.diff} />
+              <UnifiedDiff
+                diff={diffData.diff}
+                review={review}
+                onToggleViewed={reviewId ? handleToggleViewed : undefined}
+                onAddComment={reviewId ? handleAddComment : undefined}
+                onResolveComment={reviewId ? handleResolveComment : undefined}
+                onDeleteComment={reviewId ? handleDeleteComment : undefined}
+                onOpenLine={handleOpenLine}
+              />
             ) : (
               <Empty>
                 No changes recorded on this worktree yet.

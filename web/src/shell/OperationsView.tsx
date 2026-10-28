@@ -9,12 +9,14 @@ import { ReportsView } from "../components/ReportsView";
 import { AgentPromptView } from "../components/AgentPromptView";
 import { DocsView } from "../components/DocsView";
 import { SettingsView } from "../components/SettingsView";
+import { ShipView } from "../components/ShipView";
 import { rawHashRoute } from "../lib/hashnav";
 import { operationsTabFromLegacy } from "../lib/surfaces";
 import type { Board, Card, Sprint } from "../lib/types";
 
 type OpTab =
   | "workspace"
+  | "ship"
   | "code"
   | "timeline"
   | "specs"
@@ -26,6 +28,7 @@ type OpTab =
 
 const TABS: Array<{ id: OpTab; label: string; icon: IconName }> = [
   { id: "workspace", label: "Workspace", icon: "layers" },
+  { id: "ship", label: "Ship", icon: "branch" },
   { id: "code", label: "Code", icon: "code" },
   { id: "timeline", label: "Timeline", icon: "clock" },
   { id: "specs", label: "Specs", icon: "doc" },
@@ -91,6 +94,7 @@ export function OperationsView({
 
       <div className="flex-1 overflow-hidden min-h-0">
         {tab === "workspace" && <ContextView boardName={boardName} />}
+        {tab === "ship" && <ShipView board={board} boardName={boardName} />}
         {tab === "code" && board && (
           <CodeView board={board} onOpenFile={onOpenFile} onEditCard={onEditCard} />
         )}

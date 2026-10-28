@@ -150,6 +150,33 @@ where
         .route("/api/context/file/digest", post(context_file_digest_handler))
         .route("/api/code", get(code_handler))
         .route("/api/config", get(config_handler))
+        // Review, repository, editor, and ship actions (M4)
+        .route("/api/reviews/{id}", get(review_state_handler))
+        .route("/api/reviews/{id}/viewed", post(review_viewed_handler))
+        .route(
+            "/api/reviews/{id}/comments",
+            post(review_add_comment_handler),
+        )
+        .route(
+            "/api/reviews/{id}/comments/{comment_id}",
+            delete(review_delete_comment_handler),
+        )
+        .route(
+            "/api/reviews/{id}/comments/{comment_id}/resolve",
+            post(review_resolve_comment_handler),
+        )
+        .route("/api/runs/{id}/request-changes", post(request_changes_handler))
+        .route("/api/runs/{id}/ask", post(ask_about_run_handler))
+        .route("/api/editor/detect", get(editor_detect_handler))
+        .route("/api/open", post(open_file_handler))
+        .route("/api/repo/tree", get(repo_tree_handler))
+        .route("/api/repo/file", get(repo_file_handler))
+        .route("/api/git/status", get(git_status_handler))
+        .route("/api/git/worktrees", get(git_worktrees_handler))
+        .route("/api/git/commit", post(git_commit_handler))
+        .route("/api/git/push", post(git_push_handler))
+        .route("/api/git/merge", post(git_merge_handler))
+        .route("/api/git/pr", post(git_pr_handler))
         // Liveness probe (public — see `auth_layer`); no disk access.
         .route("/api/ping", get(ping_handler))
         // Management layer endpoints
@@ -4635,6 +4662,534 @@ async fn merge_run_handler(
         .map_err(|e| ServerError::bad(e.to_string()))?;
     let _ = state.tx.send("reload".to_string());
     Ok(Json(serde_json::to_value(outcome).unwrap_or(serde_json::json!(null))))
+}
+
+// ---------------------------------------------------------------------------
+// Review, repository, editor, and ship (M4)
+// ---------------------------------------------------------------------------
+
+async fn review_state_handler(
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let state = barkcli_core::review::ReviewStore::from_project()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .load(&id)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    Ok(Json(
+        serde_json::to_value(state).unwrap_or_else(|_| serde_json::json!(null)),
+    ))
+}
+
+#[derive(Deserialize)]
+struct ReviewViewedRequest {
+    path: String,
+    viewed: bool,
+}
+
+async fn review_viewed_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(req): Json<ReviewViewedRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let store = barkcli_core::review::ReviewStore::from_project()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let mut review = store
+        .load(&id)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    review.mark_viewed(&req.path, req.viewed);
+    store
+        .save(&review)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(
+        serde_json::to_value(review).unwrap_or_else(|_| serde_json::json!(null)),
+    ))
+}
+
+#[derive(Deserialize)]
+struct ReviewCommentRequest {
+    path: String,
+    #[serde(default)]
+    line: Option<u32>,
+    #[serde(default)]
+    side: Option<String>,
+    body: String,
+    #[serde(default)]
+    run_id: Option<String>,
+    #[serde(default)]
+    author: Option<String>,
+}
+
+async fn review_add_comment_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(req): Json<ReviewCommentRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let store = barkcli_core::review::ReviewStore::from_project()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let mut review = store
+        .load(&id)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let comment = review
+        .add_comment(
+            &req.path,
+            req.line,
+            req.side,
+            &req.body,
+            req.author.as_deref().unwrap_or("you"),
+            req.run_id,
+        )
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    store
+        .save(&review)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(
+        serde_json::to_value(comment).unwrap_or_else(|_| serde_json::json!(null)),
+    ))
+}
+
+#[derive(Deserialize)]
+struct ResolveCommentRequest {
+    resolved: bool,
+}
+
+async fn review_resolve_comment_handler(
+    State(state): State<Arc<AppState>>,
+    Path((id, comment_id)): Path<(String, String)>,
+    Json(req): Json<ResolveCommentRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let store = barkcli_core::review::ReviewStore::from_project()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let mut review = store
+        .load(&id)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let comment = review
+        .resolve_comment(&comment_id, req.resolved)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    store
+        .save(&review)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(
+        serde_json::to_value(comment).unwrap_or_else(|_| serde_json::json!(null)),
+    ))
+}
+
+async fn review_delete_comment_handler(
+    State(state): State<Arc<AppState>>,
+    Path((id, comment_id)): Path<(String, String)>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let store = barkcli_core::review::ReviewStore::from_project()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let mut review = store
+        .load(&id)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    review
+        .delete_comment(&comment_id)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    store
+        .save(&review)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "deleted": comment_id })))
+}
+
+#[derive(Deserialize)]
+struct RequestChangesRequest {
+    #[serde(default)]
+    note: Option<String>,
+    #[serde(default)]
+    provider: Option<String>,
+    #[serde(default)]
+    model: Option<String>,
+}
+
+async fn request_changes_handler(
+    State(state): State<Arc<AppState>>,
+    Path(run_id): Path<String>,
+    Query(params): Query<BoardQuery>,
+    Json(req): Json<RequestChangesRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, params.name)?;
+    let store = barkcli_core::runtime::RuntimeStore::from_project()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let previous = store
+        .load_run(&run_id)
+        .map_err(|e| ServerError::bad(format!("run not found: {e}")))?;
+    let review = barkcli_core::review::ReviewStore::from_project()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .load(&run_id)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let digest = review.prompt_digest();
+    if digest.trim().is_empty() && req.note.as_deref().unwrap_or("").trim().is_empty() {
+        return Err(ServerError::bad(
+            "add a review comment or a note before requesting changes",
+        ));
+    }
+    let mut prompt = format!(
+        "Address the human review feedback for this task. Keep the change scoped to the feedback.\n\n{}",
+        if digest.trim().is_empty() {
+            "General feedback:".to_string()
+        } else {
+            format!("Review comments:\n{digest}")
+        }
+    );
+    if let Some(note) = req.note.filter(|note| !note.trim().is_empty()) {
+        prompt.push_str(&format!("\nAdditional note:\n{note}\n"));
+    }
+    prompt.push_str("\nRun the project gate and commit the fix. Do not merge or push.");
+    let tx = state.thread_tx.clone();
+    let sink: barkcli_core::runtime::ThreadSink = Arc::new(move |event| {
+        let _ = tx.send(event);
+    });
+    let service = barkcli_core::runtime::RunService::from_project(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let run = service
+        .start_for_card(
+            &previous.card_id,
+            barkcli_core::runtime::CreateRunRequest {
+                provider: req.provider.or_else(|| Some(previous.provider.clone())),
+                model: req.model.or_else(|| previous.model.clone()),
+                role: previous.role.clone(),
+                agent_id: previous.agent_id.clone(),
+                permission_mode: Some("auto".into()),
+                prompt: Some(prompt),
+                test_cmd: previous.gate.as_ref().and_then(|gate| gate.command.clone()),
+                skills: Vec::new(),
+                resume: true,
+                parent_run_id: Some(previous.id.clone()),
+            },
+            Some(sink),
+        )
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "run": run, "comments": review.open_comments().len() })))
+}
+
+#[derive(Deserialize)]
+struct AskRunRequest {
+    question: String,
+    #[serde(default)]
+    path: Option<String>,
+    #[serde(default)]
+    line: Option<u32>,
+}
+
+async fn ask_about_run_handler(
+    State(state): State<Arc<AppState>>,
+    Path(run_id): Path<String>,
+    Query(params): Query<BoardQuery>,
+    Json(req): Json<AskRunRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let question = req.question.trim();
+    if question.is_empty() {
+        return Err(ServerError::bad("a question is required"));
+    }
+    let board_name = resolve_board_name(&state, params.name)?;
+    let previous = barkcli_core::runtime::RuntimeStore::from_project()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .load_run(&run_id)
+        .map_err(|e| ServerError::bad(format!("run not found: {e}")))?;
+    let location = req
+        .path
+        .as_deref()
+        .map(|path| match req.line {
+            Some(line) => format!(" at {path}:{line}"),
+            None => format!(" at {path}"),
+        })
+        .unwrap_or_default();
+    let prompt = format!(
+        "Answer this review question{location}. Do not modify files, run the gate, commit, or merge.\n\nQuestion: {question}"
+    );
+    let tx = state.thread_tx.clone();
+    let sink: barkcli_core::runtime::ThreadSink = Arc::new(move |event| {
+        let _ = tx.send(event);
+    });
+    let service = barkcli_core::runtime::RunService::from_project(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let run = service
+        .start_for_card(
+            &previous.card_id,
+            barkcli_core::runtime::CreateRunRequest {
+                provider: Some(previous.provider.clone()),
+                model: previous.model.clone(),
+                role: Some("reviewer".into()),
+                agent_id: None,
+                permission_mode: Some("read-only".into()),
+                prompt: Some(prompt),
+                test_cmd: None,
+                skills: Vec::new(),
+                resume: true,
+                parent_run_id: Some(previous.id.clone()),
+            },
+            Some(sink),
+        )
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "run": run })))
+}
+
+async fn editor_detect_handler() -> Result<Json<serde_json::Value>, ServerError> {
+    let editors = barkcli_core::editor::editors();
+    Ok(Json(serde_json::json!({
+        "editors": editors,
+        "preferred": std::env::var("BARKCLI_EDITOR").ok(),
+    })))
+}
+
+#[derive(Deserialize)]
+struct OpenFileRequest {
+    path: String,
+    #[serde(default)]
+    line: Option<u32>,
+    #[serde(default)]
+    editor: Option<String>,
+    /// Open inside this run's worktree instead of the project root.
+    #[serde(default)]
+    run_id: Option<String>,
+}
+
+async fn open_file_handler(
+    Json(req): Json<OpenFileRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let root = if let Some(run_id) = req.run_id.as_deref() {
+        let run = barkcli_core::runtime::RuntimeStore::from_project()
+            .map_err(|e| ServerError::internal(e.to_string()))?
+            .load_run(run_id)
+            .map_err(|e| ServerError::bad(format!("run not found: {e}")))?;
+        run.worktree
+            .map(std::path::PathBuf::from)
+            .ok_or_else(|| ServerError::bad("this run has no worktree"))?
+    } else {
+        barkcli_core::repo::project_root()
+            .map_err(|e| ServerError::internal(e.to_string()))?
+    };
+    let editor = barkcli_core::editor::open_file_in_root(
+        &root,
+        &req.path,
+        req.line,
+        req.editor.as_deref(),
+    )
+    .map_err(|e| ServerError::bad(e.to_string()))?;
+    Ok(Json(serde_json::json!({
+        "opened": true,
+        "path": barkcli_core::repo::normalize_relative(&req.path)
+            .map_err(|e| ServerError::bad(e.to_string()))?,
+        "editor": editor,
+    })))
+}
+
+#[derive(Deserialize)]
+struct RepoTreeQuery {
+    #[serde(default)]
+    path: Option<String>,
+    #[serde(default)]
+    depth: Option<usize>,
+}
+
+async fn repo_tree_handler(
+    Query(query): Query<RepoTreeQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let root = barkcli_core::repo::project_root()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let entries = barkcli_core::repo::list_tree(
+        &root,
+        query.path.as_deref().unwrap_or("."),
+        query.depth.unwrap_or(4),
+    )
+    .map_err(|e| ServerError::bad(e.to_string()))?;
+    Ok(Json(serde_json::json!({ "root": root, "entries": entries })))
+}
+
+#[derive(Deserialize)]
+struct RepoFileQuery {
+    path: String,
+    #[serde(default)]
+    max_bytes: Option<usize>,
+}
+
+async fn repo_file_handler(
+    Query(query): Query<RepoFileQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let root = barkcli_core::repo::project_root()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let file = barkcli_core::repo::read_file(
+        &root,
+        &query.path,
+        query.max_bytes.unwrap_or(200_000).clamp(1024, 2_000_000),
+    )
+    .map_err(|e| ServerError::bad(e.to_string()))?;
+    Ok(Json(
+        serde_json::to_value(file).unwrap_or_else(|_| serde_json::json!(null)),
+    ))
+}
+
+async fn git_status_handler() -> Result<Json<serde_json::Value>, ServerError> {
+    let root = barkcli_core::repo::project_root()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let status = barkcli_core::repo::git_status(&root)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(
+        serde_json::to_value(status).unwrap_or_else(|_| serde_json::json!(null)),
+    ))
+}
+
+async fn git_worktrees_handler() -> Result<Json<serde_json::Value>, ServerError> {
+    let root = barkcli_core::repo::project_root()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let worktrees = barkcli_core::repo::git_worktrees(&root)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(
+        serde_json::to_value(worktrees).unwrap_or_else(|_| serde_json::json!([])),
+    ))
+}
+
+#[derive(Deserialize)]
+struct GitCommitRequest {
+    message: String,
+    #[serde(default)]
+    paths: Vec<String>,
+    #[serde(default)]
+    card_id: Option<String>,
+}
+
+async fn git_commit_handler(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<BoardQuery>,
+    Json(req): Json<GitCommitRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let root = barkcli_core::repo::project_root()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let commit = barkcli_core::repo::git_commit(&root, &req.message, &req.paths)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    if let Some(card_id) = req.card_id.filter(|id| !id.trim().is_empty()) {
+        let board_name = resolve_board_name(&state, params.name)?;
+        let _ = barkcli_core::storage::board_file::update_board(&board_name, |board| {
+            if let Some(card) = board.cards.iter_mut().find(|card| card.id == card_id) {
+                card.labels.push(format!("commit:{}", commit.sha));
+                card.updated_at = Utc::now();
+            }
+            Ok(())
+        });
+    }
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({
+        "sha": commit.sha,
+        "message": commit.message,
+        "files": commit.files,
+    })))
+}
+
+#[derive(Deserialize)]
+struct GitPushRequest {
+    #[serde(default)]
+    remote: Option<String>,
+    #[serde(default)]
+    branch: Option<String>,
+    #[serde(default)]
+    dry_run: bool,
+    #[serde(default)]
+    confirm: bool,
+}
+
+async fn git_push_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<GitPushRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    if !req.dry_run && !req.confirm {
+        return Err(ServerError::bad("push requires confirm=true"));
+    }
+    let root = barkcli_core::repo::project_root()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let status = barkcli_core::repo::git_status(&root)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let remote = req.remote.unwrap_or_else(|| "origin".into());
+    let branch = req.branch.unwrap_or(status.branch);
+    let output = barkcli_core::repo::git_push(&root, &remote, &branch, req.dry_run)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({
+        "remote": remote,
+        "branch": branch,
+        "dry_run": req.dry_run,
+        "output": output,
+    })))
+}
+
+#[derive(Deserialize)]
+struct GitMergeRequest {
+    branch: String,
+    #[serde(default)]
+    message: Option<String>,
+    #[serde(default)]
+    confirm: bool,
+}
+
+async fn git_merge_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<GitMergeRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    if !req.confirm {
+        return Err(ServerError::bad("merge requires confirm=true"));
+    }
+    let root = barkcli_core::repo::project_root()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let status = barkcli_core::repo::git_status(&root)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    if !status.clean {
+        return Err(ServerError::bad(
+            "commit or stash working tree changes before merging",
+        ));
+    }
+    let output = barkcli_core::repo::git_merge(&root, &req.branch, req.message.as_deref())
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({
+        "branch": req.branch,
+        "output": output,
+        "head": barkcli_core::repo::git_status(&root).ok().map(|status| status.head),
+    })))
+}
+
+#[derive(Deserialize)]
+struct GitPrRequest {
+    title: String,
+    #[serde(default)]
+    body: Option<String>,
+    #[serde(default)]
+    base: Option<String>,
+    #[serde(default)]
+    draft: bool,
+    #[serde(default)]
+    dry_run: bool,
+    #[serde(default)]
+    confirm: bool,
+}
+
+async fn git_pr_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<GitPrRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    if !req.dry_run && !req.confirm {
+        return Err(ServerError::bad("creating a pull request requires confirm=true"));
+    }
+    let root = barkcli_core::repo::project_root()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let output = barkcli_core::repo::git_pr(
+        &root,
+        &req.title,
+        req.body.as_deref().unwrap_or(""),
+        req.base.as_deref(),
+        req.draft,
+        req.dry_run,
+    )
+    .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({
+        "dry_run": req.dry_run,
+        "output": output,
+    })))
 }
 
 // ---------------------------------------------------------------------------

@@ -193,6 +193,28 @@ impl ProviderAdapter for FakeProvider {
                         interrupted: true,
                     });
                 }
+                if let Ok(relative) = std::env::var("BARKCLI_FAKE_WRITE") {
+                    let relative_path = std::path::Path::new(&relative);
+                    let safe = !relative_path.is_absolute()
+                        && !relative_path.components().any(|component| {
+                            matches!(component, std::path::Component::ParentDir)
+                        });
+                    if safe && !relative.trim().is_empty() {
+                        let file = std::path::Path::new(&cwd).join(relative_path);
+                        if let Some(parent) = file.parent() {
+                            let _ = std::fs::create_dir_all(parent);
+                        }
+                        let content = std::env::var("BARKCLI_FAKE_CONTENT")
+                            .unwrap_or_else(|_| "fake provider change\n".to_string());
+                        std::fs::write(&file, content)?;
+                        sink(RuntimeEvent::FileChange {
+                            path: relative.clone(),
+                            change: "modified".into(),
+                            additions: 1,
+                            deletions: 0,
+                        });
+                    }
+                }
                 sink(RuntimeEvent::Assistant {
                     text: "Fake provider received the task and is ready.".into(),
                     partial: false,

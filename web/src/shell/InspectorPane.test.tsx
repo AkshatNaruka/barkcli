@@ -11,6 +11,15 @@ const {
   approveOrchestraPlan,
   createOrchestraPlan,
   dispatchOrchestraPlan,
+  fetchReview,
+  markReviewViewed,
+  addReviewComment,
+  resolveReviewComment,
+  deleteReviewComment,
+  requestRunChanges,
+  askAboutRun,
+  openInEditor,
+  mergeRun,
 } = vi.hoisted(() => ({
   fetchTaskDiff: vi.fn(),
   evalSession: vi.fn(),
@@ -18,6 +27,15 @@ const {
   approveOrchestraPlan: vi.fn(),
   createOrchestraPlan: vi.fn(),
   dispatchOrchestraPlan: vi.fn(),
+  fetchReview: vi.fn(),
+  markReviewViewed: vi.fn(),
+  addReviewComment: vi.fn(),
+  resolveReviewComment: vi.fn(),
+  deleteReviewComment: vi.fn(),
+  requestRunChanges: vi.fn(),
+  askAboutRun: vi.fn(),
+  openInEditor: vi.fn(),
+  mergeRun: vi.fn(),
 }));
 
 vi.mock("../lib/api", () => ({
@@ -27,6 +45,15 @@ vi.mock("../lib/api", () => ({
   approveOrchestraPlan,
   createOrchestraPlan,
   dispatchOrchestraPlan,
+  fetchReview,
+  markReviewViewed,
+  addReviewComment,
+  resolveReviewComment,
+  deleteReviewComment,
+  requestRunChanges,
+  askAboutRun,
+  openInEditor,
+  mergeRun,
 }));
 
 const card: Card = {
@@ -47,6 +74,7 @@ const card: Card = {
 };
 
 fetchOrchestra.mockResolvedValue(null);
+fetchReview.mockResolvedValue(null);
 
 const events: ThreadEvent[] = [
   {

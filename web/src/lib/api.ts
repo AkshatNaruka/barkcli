@@ -33,6 +33,13 @@ import type {
   ProductPlan,
   DispatchReport,
   AssignmentRecommendation,
+  ReviewState,
+  ReviewComment,
+  RepoEntry,
+  RepoFile,
+  GitStatus,
+  EditorDetection,
+  WorktreeInfo,
 } from "./types";
 import { load as yamlParse, dump as yamlDump } from "js-yaml";
 import { isDemoMode, getDemoCardHistory, onDemoChange } from "./demo";
@@ -750,8 +757,25 @@ function fetchSessionsVsCode(): Promise<SessionEntry[]> {
   });
 }
 
+export async function openInEditor(
+  path: string,
+  line?: number,
+  runId?: string,
+  editor?: string
+): Promise<{ opened: boolean; editor?: { name: string; id: string } } | null> {
+  if (isVscode) {
+    vscodeApi?.postMessage({ type: "openFile", path, line: line ?? 0 });
+    return { opened: true };
+  }
+  return postJson("/api/open", { path, line, run_id: runId, editor });
+}
+
 export function openFileInEditor(path: string, line?: number) {
-  vscodeApi?.postMessage({ type: "openFile", path, line: line ?? 0 });
+  if (isVscode) {
+    vscodeApi?.postMessage({ type: "openFile", path, line: line ?? 0 });
+    return;
+  }
+  void openInEditor(path, line);
 }
 
 // ── Memory API ──
@@ -1744,4 +1768,194 @@ export async function approveRun(
 
 export async function answerRun(runId: string, text: string): Promise<any | null> {
   return postJson(`/api/runs/${encodeURIComponent(runId)}/answer`, { text });
+}
+
+// ---------------------------------------------------------------------------
+// Review, repository, editor, and ship (M4)
+// ---------------------------------------------------------------------------
+
+export async function fetchReview(id: string): Promise<ReviewState | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(withToken(`/api/reviews/${encodeURIComponent(id)}`));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function markReviewViewed(
+  id: string,
+  path: string,
+  viewed: boolean
+): Promise<ReviewState | null> {
+  return postJson(`/api/reviews/${encodeURIComponent(id)}/viewed`, { path, viewed });
+}
+
+export async function addReviewComment(
+  id: string,
+  payload: {
+    path: string;
+    line?: number;
+    side?: string;
+    body: string;
+    run_id?: string;
+  }
+): Promise<ReviewComment | null> {
+  return postJson(`/api/reviews/${encodeURIComponent(id)}/comments`, payload);
+}
+
+export async function resolveReviewComment(
+  id: string,
+  commentId: string,
+  resolved: boolean
+): Promise<ReviewComment | null> {
+  return postJson(
+    `/api/reviews/${encodeURIComponent(id)}/comments/${encodeURIComponent(commentId)}/resolve`,
+    { resolved }
+  );
+}
+
+export async function deleteReviewComment(
+  id: string,
+  commentId: string
+): Promise<boolean> {
+  if (isVscode) return false;
+  try {
+    const res = await fetch(
+      withToken(
+        `/api/reviews/${encodeURIComponent(id)}/comments/${encodeURIComponent(commentId)}`
+      ),
+      { method: "DELETE" }
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function requestRunChanges(
+  runId: string,
+  note?: string
+): Promise<{ run?: RunRecord; comments?: number } | null> {
+  return postJson(`/api/runs/${encodeURIComponent(runId)}/request-changes`, { note });
+}
+
+export async function askAboutRun(
+  runId: string,
+  question: string,
+  path?: string,
+  line?: number
+): Promise<{ run?: RunRecord } | null> {
+  return postJson(`/api/runs/${encodeURIComponent(runId)}/ask`, {
+    question,
+    path,
+    line,
+  });
+}
+
+export async function detectEditors(): Promise<EditorDetection | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(withToken("/api/editor/detect"));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchRepoTree(
+  path = ".",
+  depth = 4
+): Promise<{ root: string; entries: RepoEntry[] } | null> {
+  if (isVscode) return null;
+  try {
+    const params = new URLSearchParams({ path, depth: String(depth) });
+    const res = await fetch(withToken(`/api/repo/tree?${params}`));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchRepoFile(path: string): Promise<RepoFile | null> {
+  if (isVscode) return null;
+  try {
+    const params = new URLSearchParams({ path });
+    const res = await fetch(withToken(`/api/repo/file?${params}`));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchGitStatus(): Promise<GitStatus | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(withToken("/api/git/status"));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function gitCommit(
+  message: string,
+  paths: string[] = [],
+  cardId?: string
+): Promise<{ sha: string; message: string; files: string[] } | null> {
+  return postJson("/api/git/commit", { message, paths, card_id: cardId });
+}
+
+export async function gitPush(
+  options: { remote?: string; branch?: string; dryRun?: boolean; confirm?: boolean } = {}
+): Promise<any | null> {
+  return postJson("/api/git/push", {
+    remote: options.remote,
+    branch: options.branch,
+    dry_run: options.dryRun ?? false,
+    confirm: options.confirm ?? false,
+  });
+}
+
+export async function gitMerge(
+  branch: string,
+  message?: string,
+  confirm = false
+): Promise<any | null> {
+  return postJson("/api/git/merge", { branch, message, confirm });
+}
+
+export async function gitCreatePr(options: {
+  title: string;
+  body?: string;
+  base?: string;
+  draft?: boolean;
+  dryRun?: boolean;
+  confirm?: boolean;
+}): Promise<any | null> {
+  return postJson("/api/git/pr", {
+    title: options.title,
+    body: options.body,
+    base: options.base,
+    draft: options.draft ?? false,
+    dry_run: options.dryRun ?? false,
+    confirm: options.confirm ?? false,
+  });
+}
+
+export async function fetchWorktrees(): Promise<WorktreeInfo[] | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(withToken("/api/git/worktrees"));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
 }

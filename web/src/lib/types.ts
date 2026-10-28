@@ -701,3 +701,81 @@ export interface TaskDiff {
   diff: string;
   files: string[];
 }
+
+export interface ReviewComment {
+  id: string;
+  path: string;
+  line?: number;
+  side?: string;
+  body: string;
+  author: string;
+  resolved: boolean;
+  created_at: string;
+  run_id?: string;
+}
+
+export interface ReviewFile {
+  path: string;
+  viewed: boolean;
+  updated_at: string;
+}
+
+export interface ReviewState {
+  version: number;
+  id: string;
+  updated_at: string;
+  files: Record<string, ReviewFile>;
+  comments: ReviewComment[];
+}
+
+export interface RepoEntry {
+  path: string;
+  name: string;
+  kind: "file" | "dir";
+  size?: number;
+}
+
+export interface RepoFile {
+  path: string;
+  content: string;
+  bytes: number;
+  truncated: boolean;
+  binary: boolean;
+}
+
+export interface GitChange {
+  status: string;
+  path: string;
+}
+
+export interface GitStatus {
+  branch: string;
+  head: string;
+  upstream?: string;
+  ahead: number;
+  behind: number;
+  clean: boolean;
+  changes: GitChange[];
+}
+
+export interface EditorInfo {
+  id: string;
+  name: string;
+  command: string;
+  available: boolean;
+  line_style: string;
+}
+
+export interface EditorDetection {
+  editors: EditorInfo[];
+  preferred?: string;
+}
+
+export interface WorktreeInfo {
+  path: string;
+  head: string;
+  branch?: string;
+  bare: boolean;
+  detached: boolean;
+  locked: boolean;
+}
