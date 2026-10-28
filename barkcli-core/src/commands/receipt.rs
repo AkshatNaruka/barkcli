@@ -12,10 +12,9 @@ use crate::guard::diff::{diff_for_scope, DiffScope};
 use crate::guard::{self, GuardOptions};
 use crate::receipt::builder::{self, ReceiptInput};
 use crate::receipt::{
-    self, find_receipt, list_receipts, save_receipt, AgentEvidence, DiffEvidence, GateEvidence,
-    ReceiptSummary, ReviewEvidence, WorkspaceEvidence,
+    self, find_receipt, list_receipts, save_receipt, AgentEvidence, GateEvidence, ReceiptSummary,
+    WorkspaceEvidence,
 };
-use crate::review::ReviewStore;
 use crate::storage::board_dir::find_project_root;
 use crate::storage::board_file::read_board;
 use crate::storage::config_store::read_config;
@@ -168,7 +167,7 @@ fn run_create(args: &[String]) -> Result<()> {
     };
 
     let (base, head) = split_range(&scope);
-    let review = review_evidence(&card_id, diff.files.len() as u32);
+    let review = builder::review_evidence(&card_id, diff.files.len() as u32);
     let input = ReceiptInput {
         card_id: card.id.clone(),
         card_title: card.title.clone(),
@@ -190,7 +189,7 @@ fn run_create(args: &[String]) -> Result<()> {
             head_sha: git_opt(&root, &["rev-parse", &head]),
             worktree: None,
         },
-        diff: diff_evidence(&diff),
+        diff: builder::diff_evidence(&diff),
         gate: None,
         guard: guard_report,
         review,
@@ -335,45 +334,6 @@ fn tail_of(stdout: &[u8], stderr: &[u8]) -> String {
     redact_text(&lines[start..].join("\n"))
 }
 
-fn review_evidence(card_id: &str, total_files: u32) -> ReviewEvidence {
-    let Ok(store) = ReviewStore::from_project() else {
-        return ReviewEvidence {
-            total_files,
-            ..ReviewEvidence::default()
-        };
-    };
-    let Ok(state) = store.load(card_id) else {
-        return ReviewEvidence {
-            total_files,
-            ..ReviewEvidence::default()
-        };
-    };
-    ReviewEvidence {
-        open_comments: state.comments.iter().filter(|comment| !comment.resolved).count() as u32,
-        resolved_comments: state.comments.iter().filter(|comment| comment.resolved).count() as u32,
-        viewed_files: state.files.values().filter(|file| file.viewed).count() as u32,
-        total_files: total_files.max(state.files.len() as u32),
-    }
-}
-
-fn diff_evidence(diff: &crate::guard::DiffSet) -> DiffEvidence {
-    let paths: Vec<String> = diff.files.iter().map(|file| file.path.clone()).collect();
-    let test_files: Vec<String> = paths
-        .iter()
-        .filter(|path| crate::code::tests::is_test_file(path))
-        .cloned()
-        .collect();
-    let (files, additions, deletions) = diff.stats();
-    DiffEvidence {
-        files,
-        additions,
-        deletions,
-        paths,
-        test_files,
-    }
-    .normalize()
-}
-
 fn branch_scope(root: &Path, branch: &str) -> DiffScope {
     for candidate in ["main", "master", "trunk"] {
         if candidate == branch {
@@ -466,11 +426,11 @@ mod tests {
         for index in 0..20 {
             stdout.push_str(&format!("line {index}\n"));
         }
-        stdout.push_str("token sk-abcdefghijklmnopqrstuvwxyz123456\n");
+        stdout.push_str(&format!("token sk-{}\n", "a".repeat(30)));
         let tail = tail_of(stdout.as_bytes(), b"");
         assert!(!tail.contains("line 4"));
         assert!(tail.contains("line 19"));
-        assert!(!tail.contains("sk-abcdef"));
+        assert!(!tail.contains("sk-aaaa"));
         assert!(tail.contains("[REDACTED]"));
     }
 
@@ -489,7 +449,7 @@ mod tests {
 
     #[test]
     fn diff_evidence_marks_test_files() {
-        use crate::guard::diff::{ChangedFile, DiffSet, FileStatus};
+        use crate::guard::diff::{ChangedFile, DiffLine, DiffSet, FileStatus};
         use std::collections::HashMap;
 
         let file = |path: &str| ChangedFile {
@@ -507,14 +467,31 @@ mod tests {
             files: vec![file("src/lib.rs"), file("src/lib_test.rs")],
             contents: HashMap::new(),
         };
-        let evidence = diff_evidence(&diff);
+        let evidence = builder::diff_evidence(&diff);
         assert_eq!(evidence.files, 2);
         assert_eq!(evidence.test_files, vec!["src/lib_test.rs"]);
+        assert!(evidence.tests_changed);
+
+        let mut inline = file("src/lib.rs");
+        inline.added = vec![DiffLine {
+            old_line: None,
+            new_line: Some(1),
+            text: "#[cfg(test)]".into(),
+        }];
+        let inline_diff = DiffSet {
+            base: "a".into(),
+            head: "b".into(),
+            files: vec![inline],
+            contents: HashMap::new(),
+        };
+        let inline_evidence = builder::diff_evidence(&inline_diff);
+        assert!(inline_evidence.test_files.is_empty());
+        assert!(inline_evidence.tests_changed);
     }
 
     #[test]
     fn review_evidence_defaults_without_store() {
-        let evidence = review_evidence("c-does-not-exist", 3);
+        let evidence = builder::review_evidence("c-does-not-exist", 3);
         assert_eq!(evidence.total_files, 3);
         assert_eq!(evidence.open_comments, 0);
     }

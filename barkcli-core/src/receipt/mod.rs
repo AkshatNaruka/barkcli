@@ -72,6 +72,10 @@ pub struct DiffEvidence {
     /// Subset of `paths`.
     #[serde(default)]
     pub test_files: Vec<String>,
+    /// True when a test file changed or the diff adds inline test markers
+    /// (`#[test]` / `#[cfg(test)]`). Rust projects keep tests in source files.
+    #[serde(default)]
+    pub tests_changed: bool,
 }
 
 impl DiffEvidence {
@@ -591,6 +595,7 @@ mod tests {
                 deletions: 2,
                 paths: vec!["src/a.rs".into(), "src/a_test.rs".into()],
                 test_files: vec!["src/a_test.rs".into()],
+                tests_changed: true,
             }
             .normalize(),
             gate: GateEvidence {
@@ -846,6 +851,7 @@ mod tests {
             deletions: 1,
             paths,
             test_files: vec!["src/missing_test.rs".into(), "src/1.rs".into()],
+            tests_changed: false,
         }
         .normalize();
         assert_eq!(evidence.paths.len(), 200);

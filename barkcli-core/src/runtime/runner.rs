@@ -14,8 +14,15 @@ use super::store::{RunRecorder, RuntimeStore};
 use super::{RuntimeService, ThreadSink};
 use crate::agent::worktree::{acquire_worktree, is_managed_worktree, release_worktree};
 use crate::context::{CompileRequest, ContextEngine};
+use crate::guard::{self, DiffSet, GuardReport};
+use crate::receipt::{
+    self,
+    builder::{self, ReceiptInput},
+    AgentEvidence, DiffEvidence, GateEvidence, WorkspaceEvidence,
+};
 use crate::storage::board_dir::find_project_root;
 use crate::storage::board_file::{read_board, update_board};
+use crate::storage::config_store::read_config;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CreateRunRequest {
@@ -340,6 +347,44 @@ impl RunService {
             .ok_or_else(|| anyhow!("run worktree has no name"))?
             .to_string();
         let root = find_project_root()?;
+        let config = read_config(&root.join(".board")).unwrap_or_default();
+        let base_sha = git_out(&root, &["merge-base", "HEAD", &branch]).ok();
+        let head_sha = git_out(&root, &["rev-parse", &branch]).ok();
+
+        let guard_scan = if config.guard.enabled {
+            match guard::scan_branch_diff(&root, &branch, &config.guard) {
+                Ok(scan) => {
+                    let (errors, warnings, _) = scan.1.counts();
+                    eprintln!(
+                        "guard: {} finding(s) ({} error(s), {} warning(s))",
+                        scan.1.findings.len(),
+                        errors,
+                        warnings
+                    );
+                    Some(scan)
+                }
+                Err(err) => {
+                    eprintln!("guard: skipped ({err})");
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
+        if config.guard.block
+            && guard_scan
+                .as_ref()
+                .map(|(_, report)| !report.passed)
+                .unwrap_or(false)
+        {
+            let errors = guard_scan
+                .as_ref()
+                .map(|(_, report)| report.counts().0)
+                .unwrap_or(0);
+            return Err(anyhow!("guard blocked merge: {errors} error(s)"));
+        }
+
         let merge = Command::new("git")
             .args(["merge", "--no-ff", "--no-edit", &branch])
             .current_dir(&root)
@@ -356,9 +401,30 @@ impl RunService {
             ));
         }
         let commit = git_out(&root, &["rev-parse", "HEAD"]).ok();
+
+        let mut receipt_id = None;
+        if config.receipts.auto {
+            match write_merge_receipt(
+                &root,
+                &self.board_name,
+                &run,
+                &branch,
+                base_sha,
+                head_sha,
+                guard_scan.as_ref(),
+            ) {
+                Ok(receipt) => {
+                    eprintln!("receipt {}", receipt.id);
+                    receipt_id = Some(receipt.id);
+                }
+                Err(err) => eprintln!("receipt skipped: {err}"),
+            }
+        }
+
         let event = RuntimeEvent::Merged {
             branch: branch.clone(),
             commit: commit.clone(),
+            receipt_id,
         };
         let _ = self.store().record(&mut run, event);
         let _ = release_worktree(&slug, true);
@@ -652,6 +718,73 @@ fn tail(text: &str, lines: usize) -> String {
     all[all.len().saturating_sub(lines)..].join("\n")
 }
 
+fn gate_evidence_from_summary(summary: &GateSummary) -> GateEvidence {
+    GateEvidence {
+        command: summary.command.clone(),
+        passed: summary.passed,
+        skipped: false,
+        duration_ms: None,
+        log_path: summary.log_path.clone(),
+        tail: None,
+        finished_at: Some(summary.finished_at),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn write_merge_receipt(
+    root: &Path,
+    board_name: &str,
+    run: &RunRecord,
+    branch: &str,
+    base_sha: Option<String>,
+    head_sha: Option<String>,
+    guard_scan: Option<&(DiffSet, GuardReport)>,
+) -> Result<receipt::Receipt> {
+    let board = read_board(board_name)?;
+    let card = board
+        .find_card(&run.card_id)
+        .ok_or_else(|| anyhow!("card `{}` not found", run.card_id))?;
+
+    let diff = guard_scan
+        .map(|(diff, _)| builder::diff_evidence(diff))
+        .unwrap_or(DiffEvidence {
+            files: run.diff_stats.files,
+            additions: run.diff_stats.additions,
+            deletions: run.diff_stats.deletions,
+            ..DiffEvidence::default()
+        });
+    let review = builder::review_evidence(&run.card_id, diff.files);
+
+    let input = ReceiptInput {
+        card_id: run.card_id.clone(),
+        card_title: card.title.clone(),
+        card_description: card.description.clone(),
+        task_id: None,
+        run_id: Some(run.id.clone()),
+        thread_id: Some(run.thread_id.clone()),
+        agent: AgentEvidence {
+            provider: run.provider.clone(),
+            model: run.model.clone(),
+            role: run.role.clone(),
+            agent_id: run.agent_id.clone(),
+        },
+        workspace: WorkspaceEvidence {
+            branch: Some(branch.to_string()),
+            base_sha: base_sha.or_else(|| run.base_sha.clone()),
+            head_sha: head_sha.or_else(|| run.head_sha.clone()),
+            worktree: run.worktree.clone(),
+        },
+        diff,
+        gate: run.gate.as_ref().map(gate_evidence_from_summary),
+        guard: guard_scan.map(|(_, report)| report.clone()),
+        review,
+        created_at: None,
+    };
+
+    let receipt = builder::build(input);
+    receipt::save_receipt(root, receipt)
+}
+
 /// Human-facing gate summary for the workbench.
 pub fn gate_summary(run: &RunRecord) -> Option<GateSummary> {
     run.gate.clone()
@@ -685,6 +818,23 @@ mod tests {
         let text = (1..=50).map(|n| n.to_string()).collect::<Vec<_>>().join("\n");
         let result = tail(&text, 3);
         assert_eq!(result, "48\n49\n50");
+    }
+
+    #[test]
+    fn gate_evidence_from_summary_maps_fields() {
+        let summary = GateSummary {
+            passed: true,
+            command: Some("cargo test".into()),
+            summary: Some("ok".into()),
+            log_path: Some("gate.log".into()),
+            finished_at: chrono::Utc::now(),
+        };
+        let evidence = gate_evidence_from_summary(&summary);
+        assert!(evidence.passed);
+        assert!(!evidence.skipped);
+        assert_eq!(evidence.command.as_deref(), Some("cargo test"));
+        assert_eq!(evidence.log_path.as_deref(), Some("gate.log"));
+        assert_eq!(evidence.finished_at, Some(summary.finished_at));
     }
 
     #[test]

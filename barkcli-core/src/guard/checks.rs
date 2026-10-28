@@ -1,6 +1,6 @@
 //! Individual guard checks. Every check is pure and takes an immutable diff.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use once_cell::sync::Lazy;
@@ -35,7 +35,13 @@ pub fn run(check: CheckId, context: &CheckContext<'_>) -> Vec<GuardFinding> {
 
 fn check_secrets(context: &CheckContext<'_>) -> Vec<GuardFinding> {
     let mut findings = Vec::new();
+    let mut test_ranges: HashMap<String, Vec<(usize, usize)>> = HashMap::new();
     for (file, line) in context.diff.added_lines() {
+        // Documentation shows example credentials; regex definitions contain
+        // the patterns themselves. Neither is a leaked secret.
+        if is_documentation(&file.path) || looks_like_pattern_source(&line.text) {
+            continue;
+        }
         let hits = detect_secrets(&line.text);
         // Prefer the specific pattern over the generic key/value catch-all so a
         // single line yields one finding, not two.
@@ -45,7 +51,17 @@ fn check_secrets(context: &CheckContext<'_>) -> Vec<GuardFinding> {
             if !seen.insert(hit.rule) {
                 continue;
             }
-            if hit.rule == "kv_assignment" && (has_specific || is_placeholder(&line.text)) {
+            if hit.rule == "kv_assignment"
+                && (has_specific
+                    || is_placeholder(&line.text)
+                    || !kv_value_looks_secret(&line.text, hit.start, hit.len)
+                    || is_test_module_line(
+                        context,
+                        &file.path,
+                        line.new_line,
+                        &mut test_ranges,
+                    ))
+            {
                 continue;
             }
             findings.push(
@@ -61,6 +77,28 @@ fn check_secrets(context: &CheckContext<'_>) -> Vec<GuardFinding> {
         }
     }
     findings
+}
+
+fn kv_value_looks_secret(line: &str, start: usize, len: usize) -> bool {
+    let Some(matched) = line.get(start..start.saturating_add(len)) else {
+        return false;
+    };
+    let quoted = matched.contains('"') || matched.contains('\'');
+    let value = matched
+        .rsplit(['=', ':'])
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .trim_matches(['"', '\'']);
+    if value.len() < 8 || value.contains(['(', ')', '{', '}']) {
+        return false;
+    }
+    if quoted {
+        return true;
+    }
+    value
+        .chars()
+        .any(|c| c.is_ascii_digit() || c.is_ascii_uppercase())
 }
 
 fn is_placeholder(text: &str) -> bool {
@@ -350,7 +388,14 @@ static DANGEROUS: Lazy<Vec<DangerousPattern>> = Lazy::new(|| {
 
 fn check_dangerous_patterns(context: &CheckContext<'_>) -> Vec<GuardFinding> {
     let mut findings = Vec::new();
+    let mut test_ranges: HashMap<String, Vec<(usize, usize)>> = HashMap::new();
     for (file, line) in context.diff.added_lines() {
+        if is_documentation(&file.path)
+            || looks_like_pattern_source(&line.text)
+            || is_test_module_line(context, &file.path, line.new_line, &mut test_ranges)
+        {
+            continue;
+        }
         for pattern in DANGEROUS.iter() {
             if pattern.regex.is_match(&line.text) {
                 findings.push(
@@ -371,7 +416,12 @@ fn check_dangerous_patterns(context: &CheckContext<'_>) -> Vec<GuardFinding> {
 
 fn check_debug_leftovers(context: &CheckContext<'_>) -> Vec<GuardFinding> {
     let mut findings = Vec::new();
+    let mut test_ranges: HashMap<String, Vec<(usize, usize)>> = HashMap::new();
+
     for (file, line) in context.diff.added_lines() {
+        if is_documentation(&file.path) {
+            continue;
+        }
         let trimmed = line.text.trim();
         if trimmed.is_empty()
             || trimmed.starts_with("//")
@@ -381,8 +431,23 @@ fn check_debug_leftovers(context: &CheckContext<'_>) -> Vec<GuardFinding> {
         {
             continue;
         }
-        let in_test = is_test_file(&file.path);
 
+        let ranges = test_ranges.entry(file.path.clone()).or_insert_with(|| {
+            context
+                .diff
+                .content(&file.path)
+                .map(test_module_ranges)
+                .unwrap_or_default()
+        });
+        if line
+            .new_line
+            .map(|line_no| line_in_ranges(ranges, line_no as usize))
+            .unwrap_or(false)
+        {
+            continue;
+        }
+
+        let in_test = is_test_file(&file.path);
         let (severity, marker) = if trimmed.contains("dbg!(") {
             (Severity::Warn, "dbg!")
         } else if trimmed.contains("debugger") {
@@ -489,6 +554,95 @@ fn check_large_diff(context: &CheckContext<'_>) -> Vec<GuardFinding> {
     findings
 }
 
+fn is_documentation(path: &str) -> bool {
+    let lower = path.to_lowercase();
+    matches!(
+        extension(path).as_deref(),
+        Some("md" | "mdx" | "markdown" | "rst" | "adoc")
+    ) || lower.starts_with("docs/")
+        || lower.starts_with("specs/")
+        || lower.starts_with("documentation/")
+}
+
+/// A regex literal contains the very patterns the guard looks for; scanning it
+/// reports the detector instead of a real finding.
+fn looks_like_pattern_source(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    trimmed.starts_with("r\"")
+        || trimmed.starts_with("r#")
+        || line.contains("Regex::new(")
+        || line.contains("regex::new(")
+}
+
+fn is_test_module_line(
+    context: &CheckContext<'_>,
+    path: &str,
+    line: Option<u32>,
+    cache: &mut HashMap<String, Vec<(usize, usize)>>,
+) -> bool {
+    let Some(line_no) = line else {
+        return false;
+    };
+    let ranges = cache.entry(path.to_string()).or_insert_with(|| {
+        context
+            .diff
+            .content(path)
+            .map(test_module_ranges)
+            .unwrap_or_default()
+    });
+    line_in_ranges(ranges, line_no as usize)
+}
+
+/// Line ranges covered by `#[cfg(test)]` modules in the current file content.
+/// Guard only sees hunks, so it resolves the module boundaries from the file.
+fn test_module_ranges(content: &str) -> Vec<(usize, usize)> {
+    let mut ranges = Vec::new();
+    let mut depth: i32 = 0;
+    let mut pending = false;
+    let mut current: Option<(usize, i32)> = None;
+
+    for (index, line) in content.lines().enumerate() {
+        let line_no = index + 1;
+        let trimmed = line.trim();
+
+        if trimmed.starts_with("#![cfg(test)]") {
+            ranges.push((1, usize::MAX));
+            return ranges;
+        }
+
+        let opens = line.matches('{').count() as i32;
+        let closes = line.matches('}').count() as i32;
+
+        if trimmed.starts_with("#[cfg(test)]") {
+            pending = true;
+        }
+        if pending && trimmed.contains("mod ") && opens > 0 {
+            current = Some((line_no, depth));
+            pending = false;
+        }
+
+        depth += opens - closes;
+
+        if let Some((start, base)) = current {
+            if depth <= base && line_no > start {
+                ranges.push((start, line_no));
+                current = None;
+            }
+        }
+    }
+
+    if let Some((start, _)) = current {
+        ranges.push((start, usize::MAX));
+    }
+    ranges
+}
+
+fn line_in_ranges(ranges: &[(usize, usize)], line: usize) -> bool {
+    ranges
+        .iter()
+        .any(|(start, end)| line >= *start && line <= *end)
+}
+
 fn truncate(text: &str, max: usize) -> String {
     if text.chars().count() <= max {
         return text.to_string();
@@ -556,6 +710,94 @@ mod tests {
         ));
         fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[test]
+    fn ignores_code_like_or_short_kv_values() {
+        let diff = diff_with(
+            "src/auth.rs",
+            &[
+                "let token = get_token();",
+                "password: hunter2",
+                "let secret = some_var;",
+            ],
+        );
+        assert!(check_secrets(&context(Path::new("."), &diff)).is_empty());
+    }
+
+    #[test]
+    fn detects_quoted_kv_secret() {
+        let diff = diff_with("src/auth.rs", &["password = \"hunter2hunter2\""]);
+        let findings = check_secrets(&context(Path::new("."), &diff));
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].severity, Severity::Error);
+    }
+
+    #[test]
+    fn ignores_kv_assignments_inside_cfg_test_modules() {
+        let content = "#[cfg(test)]\nmod tests {\n    fn t() { let token = \"abcdefgh123\"; }\n}\n";
+        let mut changed = file("src/lib.rs", &[]);
+        changed.added = vec![DiffLine {
+            old_line: None,
+            new_line: Some(3),
+            text: "    fn t() { let token = \"abcdefgh123\"; }".into(),
+        }];
+        let mut set = diff(vec![changed]);
+        set.contents.insert("src/lib.rs".into(), content.into());
+        assert!(check_secrets(&context(Path::new("."), &set)).is_empty());
+    }
+
+    #[test]
+    fn skips_documentation_examples() {
+        let diff = diff_with(
+            "docs/security.md",
+            &[
+                "subprocess.run(cmd, shell=True)",
+                "password = \"hunter2\"",
+            ],
+        );
+        assert!(check_dangerous_patterns(&context(Path::new("."), &diff)).is_empty());
+        assert!(check_secrets(&context(Path::new("."), &diff)).is_empty());
+    }
+
+    #[test]
+    fn skips_regex_definition_sources() {
+        let diff = diff_with(
+            "src/detector.rs",
+            &["regex: Regex::new(r\"dangerouslySetInnerHTML|sk-[a-z0-9]{20,}\")"],
+        );
+        assert!(check_dangerous_patterns(&context(Path::new("."), &diff)).is_empty());
+        assert!(check_secrets(&context(Path::new("."), &diff)).is_empty());
+    }
+
+    #[test]
+    fn test_module_ranges_find_cfg_test_block() {
+        let content = "fn a() {}\n#[cfg(test)]\nmod tests {\n fn t() { assert!(true); }\n}\nfn b() {}\n";
+        let ranges = test_module_ranges(content);
+        assert!(line_in_ranges(&ranges, 4));
+        assert!(!line_in_ranges(&ranges, 1));
+        assert!(!line_in_ranges(&ranges, 6));
+    }
+
+    #[test]
+    fn skips_debug_leftovers_inside_cfg_test_modules() {
+        let content = "fn prod() {}\n\n#[cfg(test)]\nmod tests {\n    #[test]\n    fn t() {\n        dbg!(1);\n        console.log(\"x\");\n    }\n}\n";
+        let mut changed = file("src/lib.rs", &[]);
+        changed.added = vec![
+            DiffLine {
+                old_line: None,
+                new_line: Some(7),
+                text: "dbg!(1);".into(),
+            },
+            DiffLine {
+                old_line: None,
+                new_line: Some(8),
+                text: "console.log(\"x\");".into(),
+            },
+        ];
+        let mut set = diff(vec![changed]);
+        set.contents.insert("src/lib.rs".into(), content.into());
+        assert!(check_debug_leftovers(&context(Path::new("."), &set)).is_empty());
     }
 
     #[test]

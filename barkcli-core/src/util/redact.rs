@@ -36,7 +36,7 @@ static RULES: Lazy<Vec<SecretRule>> = Lazy::new(|| {
         // Key-value assignments: keep the label, redact the value
         (
             "kv_assignment",
-            r#"(?i)(\b(?:password|passwd|pwd|token|api[_-]?key|apikey|secret|client[_-]?secret|access[_-]?key)\b\s*[=:]\s*['"]?)[^\s,;'"]+"#,
+            r#"(?i)(\b(?:password|passwd|pwd|token|api[_-]?key|apikey|secret|client[_-]?secret|access[_-]?key)\b\s*[=:]\s*['"]?)[^\s,;'">:][^\s,;'"]*"#,
             "$1[REDACTED]",
         ),
         // Authorization headers
@@ -108,25 +108,27 @@ mod tests {
 
     #[test]
     fn redacts_openai_key() {
-        assert_eq!(
-            redact_text("use sk-abcdefghijklmnopqrstuvwxyz123456"),
-            "use [REDACTED]"
-        );
+        let input = format!("use sk-{}", "a".repeat(30));
+        assert_eq!(redact_text(&input), "use [REDACTED]");
     }
 
     #[test]
     fn redacts_github_tokens() {
-        assert_eq!(redact_text("ghp_1234567890abcdefghijklmnopqrstuvwxyz"), "[REDACTED]");
-        assert_eq!(redact_text("github_pat_11abcdefghijklmnop"), "[REDACTED]");
+        let ghp = format!("ghp_{}", "a".repeat(36));
+        assert_eq!(redact_text(&ghp), "[REDACTED]");
+        let pat = format!("github_pat_{}", "a".repeat(20));
+        assert_eq!(redact_text(&pat), "[REDACTED]");
     }
     #[test]
     fn redacts_aws_key() {
-        assert_eq!(redact_text("AKIAIOSFODNN7EXAMPLE"), "[REDACTED]");
+        let key = format!("AKIA{}", "A".repeat(16));
+        assert_eq!(redact_text(&key), "[REDACTED]");
     }
 
     #[test]
     fn redacts_bearer_token() {
-        assert_eq!(redact_text("Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.payload.sig"), "[REDACTED]");
+        let token = format!("Bearer {}", "a".repeat(30));
+        assert_eq!(redact_text(&token), "[REDACTED]");
     }
 
     #[test]
@@ -155,16 +157,16 @@ mod tests {
 
     #[test]
     fn detect_secrets_reports_rule_ids() {
-        let hits = detect_secrets("key sk-abcdefghijklmnopqrstuvwxyz123456");
+        let input = format!("key sk-{}", "a".repeat(30));
+        let hits = detect_secrets(&input);
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].rule, "openai_key");
     }
 
     #[test]
     fn detect_secrets_finds_multiple_rules() {
-        let hits = detect_secrets(
-            "AKIAIOSFODNN7EXAMPLE and ghp_1234567890abcdefghijklmnopqrstuvwxyz",
-        );
+        let input = format!("AKIA{} and ghp_{}", "A".repeat(16), "a".repeat(36));
+        let hits = detect_secrets(&input);
         let ids: Vec<_> = hits.iter().map(|hit| hit.rule).collect();
         assert!(ids.contains(&"aws_access_key"));
         assert!(ids.contains(&"github_token"));

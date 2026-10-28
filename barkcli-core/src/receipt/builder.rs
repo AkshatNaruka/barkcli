@@ -6,7 +6,11 @@ use super::{
     assess_confidence, AgentEvidence, ConfidenceInput, DiffEvidence, GateEvidence, GuardEvidence,
     Receipt, ReviewEvidence, WorkspaceEvidence, RECEIPT_VERSION,
 };
+use crate::code::tests::is_test_file;
+use crate::guard::diff::DiffSet;
 use crate::guard::GuardReport;
+use crate::review::ReviewStore;
+use crate::util::redact::redact_text;
 
 const MAX_INTENT_CHARS: usize = 240;
 const MAX_GUARD_FINDINGS: usize = 50;
@@ -30,7 +34,7 @@ pub struct ReceiptInput {
 
 pub fn build(input: ReceiptInput) -> Receipt {
     let diff = input.diff.normalize();
-    let tests_changed = !diff.test_files.is_empty();
+    let tests_changed = diff.tests_changed || !diff.test_files.is_empty();
 
     // `None` means no gate ran. `skipped` is the on-wire representation of that
     // fact so confidence never mistakes it for a failed gate.
@@ -100,6 +104,60 @@ pub fn new_id() -> String {
     )
 }
 
+/// Evidence for the diff a receipt covers.
+pub fn diff_evidence(diff: &DiffSet) -> DiffEvidence {
+    let paths: Vec<String> = diff.files.iter().map(|file| file.path.clone()).collect();
+    let test_files: Vec<String> = paths
+        .iter()
+        .filter(|path| is_test_file(path))
+        .cloned()
+        .collect();
+    let inline_tests = diff.files.iter().any(|file| {
+        file.added.iter().any(|line| {
+            line.text.contains("#[test]") || line.text.contains("#[cfg(test)]")
+        })
+    });
+    let (files, additions, deletions) = diff.stats();
+    DiffEvidence {
+        files,
+        additions,
+        deletions,
+        paths,
+        tests_changed: inline_tests || !test_files.is_empty(),
+        test_files,
+    }
+    .normalize()
+}
+
+/// Review state for the card. Missing state is normal (nobody reviewed yet).
+pub fn review_evidence(card_id: &str, total_files: u32) -> ReviewEvidence {
+    let Ok(store) = ReviewStore::from_project() else {
+        return ReviewEvidence {
+            total_files,
+            ..ReviewEvidence::default()
+        };
+    };
+    let Ok(state) = store.load(card_id) else {
+        return ReviewEvidence {
+            total_files,
+            ..ReviewEvidence::default()
+        };
+    };
+    ReviewEvidence {
+        open_comments: state.comments.iter().filter(|comment| !comment.resolved).count() as u32,
+        resolved_comments: state.comments.iter().filter(|comment| comment.resolved).count() as u32,
+        viewed_files: state.files.values().filter(|file| file.viewed).count() as u32,
+        total_files: total_files.max(state.files.len() as u32),
+    }
+}
+
+/// Last `lines` lines of gate output, redacted before it is persisted.
+pub fn tail_evidence(text: &str, lines: usize) -> String {
+    let all: Vec<&str> = text.lines().collect();
+    let start = all.len().saturating_sub(lines);
+    redact_text(&all[start..].join("\n"))
+}
+
 fn intent_of(title: &str, description: Option<&str>) -> String {
     let mut intent = title.trim().to_string();
     if let Some(line) = description
@@ -148,6 +206,7 @@ mod tests {
                 deletions: 5,
                 paths: vec!["src/login.rs".into(), "src/login_test.rs".into()],
                 test_files: vec!["src/login_test.rs".into()],
+                tests_changed: true,
             },
             gate: Some(GateEvidence {
                 command: Some("cargo test".into()),

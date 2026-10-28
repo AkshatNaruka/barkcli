@@ -265,6 +265,20 @@ pub fn scan_branch(root: &Path, branch: &str) -> Result<GuardReport> {
     scan_branch_with(root, branch, &GuardSettings::default())
 }
 
+/// Resolve `merge-base(HEAD, branch)..branch`, run checks, and return both the
+/// diff and report so merge paths can build receipts without re-scanning.
+pub fn scan_branch_diff(
+    root: &Path,
+    branch: &str,
+    settings: &GuardSettings,
+) -> Result<(DiffSet, GuardReport)> {
+    let base = merge_base(root, branch)?;
+    let scope = DiffScope::Range(format!("{base}..{branch}"));
+    let diff = diff_for_scope(root, &scope)?;
+    let report = scan_diff(root, &diff, &GuardOptions::from_settings(scope, settings));
+    Ok((diff, report))
+}
+
 pub fn scan_branch_with(
     root: &Path,
     branch: &str,
