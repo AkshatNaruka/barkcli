@@ -155,7 +155,7 @@ fn run_create(args: &[String]) -> Result<()> {
         Some(branch) => branch,
         None => current_branch(&root)?,
     };
-    let scope = branch_scope(&root, &branch);
+    let scope = guard::branch_scope(&root, &branch);
     let diff = diff_for_scope(&root, &scope)?;
 
     let config = read_config(&root.join(".board")).unwrap_or_default();
@@ -332,18 +332,6 @@ fn tail_of(stdout: &[u8], stderr: &[u8]) -> String {
     let lines: Vec<&str> = text.lines().collect();
     let start = lines.len().saturating_sub(15);
     redact_text(&lines[start..].join("\n"))
-}
-
-fn branch_scope(root: &Path, branch: &str) -> DiffScope {
-    for candidate in ["main", "master", "trunk"] {
-        if candidate == branch {
-            continue;
-        }
-        if let Some(base) = git_opt(root, &["merge-base", candidate, branch]) {
-            return DiffScope::Range(format!("{base}..{branch}"));
-        }
-    }
-    DiffScope::Range(format!("{branch}~1..{branch}"))
 }
 
 fn split_range(scope: &DiffScope) -> (String, String) {

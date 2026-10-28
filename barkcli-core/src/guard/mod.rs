@@ -312,6 +312,41 @@ pub fn merge_base(root: &Path, branch: &str) -> Result<String> {
     Ok(base)
 }
 
+/// Review range for a feature branch: merge-base with the repository's base
+/// branch (`main`, `master`, or `trunk`) through the branch tip.
+///
+/// Merge paths deliberately use [`merge_base`] instead: there `HEAD` is the
+/// branch the agent forked from, which is the correct comparison even when the
+/// project's base branch is something else.
+pub fn branch_scope(root: &Path, branch: &str) -> DiffScope {
+    for candidate in ["main", "master", "trunk"] {
+        if candidate == branch {
+            continue;
+        }
+        if let Some(base) = git_opt(root, &["merge-base", candidate, branch]) {
+            return DiffScope::Range(format!("{base}..{branch}"));
+        }
+    }
+    if let Some(base) = git_opt(root, &["merge-base", "HEAD", branch]) {
+        return DiffScope::Range(format!("{base}..{branch}"));
+    }
+    DiffScope::Range(format!("{branch}~1..{branch}"))
+}
+
+fn git_opt(root: &Path, args: &[&str]) -> Option<String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(args)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    (!text.is_empty()).then_some(text)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -33,8 +33,7 @@ pub fn run_guard(args: &[String]) -> Result<()> {
     }
 
     let scope = if let Some(branch) = &parsed.branch {
-        let base = guard::merge_base(&root, branch)?;
-        DiffScope::Range(format!("{base}..{branch}"))
+        guard::branch_scope(&root, branch)
     } else if let Some(range) = &parsed.range {
         DiffScope::Range(range.clone())
     } else {

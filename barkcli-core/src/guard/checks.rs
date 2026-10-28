@@ -397,18 +397,24 @@ fn check_dangerous_patterns(context: &CheckContext<'_>) -> Vec<GuardFinding> {
             continue;
         }
         for pattern in DANGEROUS.iter() {
-            if pattern.regex.is_match(&line.text) {
-                findings.push(
-                    GuardFinding::new(
-                        CheckId::DangerousPattern,
-                        pattern.severity,
-                        &file.path,
-                        line.new_line,
-                        format!("{} ({})", pattern.message, pattern.id),
-                    )
-                    .with_evidence(truncate(&redact_text(line.text.trim()), 160)),
-                );
+            let Some(found) = pattern.regex.find(&line.text) else {
+                continue;
+            };
+            // Documentation and detector tables spell out the pattern inside a
+            // string; only code that actually performs the call is a finding.
+            if is_inside_string_literal(&line.text, found.start()) {
+                continue;
             }
+            findings.push(
+                GuardFinding::new(
+                    CheckId::DangerousPattern,
+                    pattern.severity,
+                    &file.path,
+                    line.new_line,
+                    format!("{} ({})", pattern.message, pattern.id),
+                )
+                .with_evidence(truncate(&redact_text(line.text.trim()), 160)),
+            );
         }
     }
     findings
@@ -459,6 +465,14 @@ fn check_debug_leftovers(context: &CheckContext<'_>) -> Vec<GuardFinding> {
         } else {
             continue;
         };
+        if line
+            .text
+            .find(marker)
+            .map(|index| is_inside_string_literal(&line.text, index))
+            .unwrap_or(false)
+        {
+            continue;
+        }
 
         findings.push(
             GuardFinding::new(
@@ -562,6 +576,28 @@ fn is_documentation(path: &str) -> bool {
     ) || lower.starts_with("docs/")
         || lower.starts_with("specs/")
         || lower.starts_with("documentation/")
+}
+
+/// True when `index` falls inside a single- or double-quoted string literal on
+/// this line. Enough for one-line fixtures and detector tables; multi-line
+/// strings are handled by the documentation/test-module filters.
+fn is_inside_string_literal(line: &str, index: usize) -> bool {
+    let mut quote: Option<char> = None;
+    let mut escaped = false;
+    for (offset, ch) in line.char_indices() {
+        if offset >= index {
+            break;
+        }
+        match quote {
+            Some(_) if escaped => escaped = false,
+            Some(_) if ch == '\\' => escaped = true,
+            Some(active) if ch == active => quote = None,
+            Some(_) => {}
+            None if ch == '"' || ch == '\'' => quote = Some(ch),
+            None => {}
+        }
+    }
+    quote.is_some()
 }
 
 /// A regex literal contains the very patterns the guard looks for; scanning it
@@ -758,6 +794,19 @@ mod tests {
         );
         assert!(check_dangerous_patterns(&context(Path::new("."), &diff)).is_empty());
         assert!(check_secrets(&context(Path::new("."), &diff)).is_empty());
+    }
+
+    #[test]
+    fn ignores_patterns_inside_string_literals() {
+        let diff = diff_with(
+            "src/messages.rs",
+            &[
+                "message: \"shell=True enables command injection\"",
+                "if line.contains(\"dbg!(\") {",
+            ],
+        );
+        assert!(check_dangerous_patterns(&context(Path::new("."), &diff)).is_empty());
+        assert!(check_debug_leftovers(&context(Path::new("."), &diff)).is_empty());
     }
 
     #[test]
