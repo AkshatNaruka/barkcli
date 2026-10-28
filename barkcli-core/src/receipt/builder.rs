@@ -98,10 +98,7 @@ pub fn build(input: ReceiptInput) -> Receipt {
 }
 
 pub fn new_id() -> String {
-    format!(
-        "rcpt_{}",
-        &uuid::Uuid::new_v4().simple().to_string()[..12]
-    )
+    format!("rcpt_{}", &uuid::Uuid::new_v4().simple().to_string()[..12])
 }
 
 /// Evidence for the diff a receipt covers.
@@ -113,9 +110,9 @@ pub fn diff_evidence(diff: &DiffSet) -> DiffEvidence {
         .cloned()
         .collect();
     let inline_tests = diff.files.iter().any(|file| {
-        file.added.iter().any(|line| {
-            line.text.contains("#[test]") || line.text.contains("#[cfg(test)]")
-        })
+        file.added
+            .iter()
+            .any(|line| line.text.contains("#[test]") || line.text.contains("#[cfg(test)]"))
     });
     let (files, additions, deletions) = diff.stats();
     DiffEvidence {
@@ -144,8 +141,16 @@ pub fn review_evidence(card_id: &str, total_files: u32) -> ReviewEvidence {
         };
     };
     ReviewEvidence {
-        open_comments: state.comments.iter().filter(|comment| !comment.resolved).count() as u32,
-        resolved_comments: state.comments.iter().filter(|comment| comment.resolved).count() as u32,
+        open_comments: state
+            .comments
+            .iter()
+            .filter(|comment| !comment.resolved)
+            .count() as u32,
+        resolved_comments: state
+            .comments
+            .iter()
+            .filter(|comment| comment.resolved)
+            .count() as u32,
         viewed_files: state.files.values().filter(|file| file.viewed).count() as u32,
         total_files: total_files.max(state.files.len() as u32),
     }

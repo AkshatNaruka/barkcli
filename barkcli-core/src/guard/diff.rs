@@ -230,7 +230,9 @@ fn parse_header_path(rest: &str) -> Option<String> {
     if rest == "/dev/null" {
         return None;
     }
-    Some(unescape_git_path(rest.trim_start_matches("b/").trim_start_matches("a/")))
+    Some(unescape_git_path(
+        rest.trim_start_matches("b/").trim_start_matches("a/"),
+    ))
 }
 
 fn unescape_git_path(path: &str) -> String {
@@ -314,11 +316,7 @@ fn has_head(root: &Path) -> bool {
         .unwrap_or(false)
 }
 
-fn load_contents(
-    root: &Path,
-    scope: &DiffScope,
-    files: &[ChangedFile],
-) -> HashMap<String, String> {
+fn load_contents(root: &Path, scope: &DiffScope, files: &[ChangedFile]) -> HashMap<String, String> {
     let mut contents = HashMap::new();
     let mut total = 0usize;
     let head_rev = scope.head_rev();
@@ -374,7 +372,12 @@ mod tests {
     use std::process::Command;
 
     fn git(dir: &Path, args: &[&str]) {
-        let out = Command::new("git").arg("-C").arg(dir).args(args).output().unwrap();
+        let out = Command::new("git")
+            .arg("-C")
+            .arg(dir)
+            .args(args)
+            .output()
+            .unwrap();
         assert!(
             out.status.success(),
             "git {:?} failed: {}",

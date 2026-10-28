@@ -91,8 +91,11 @@ impl GuardArgs {
                 "--strict" => parsed.strict = true,
                 "--branch" => {
                     index += 1;
-                    parsed.branch =
-                        Some(args.get(index).context("--branch needs a branch name")?.clone());
+                    parsed.branch = Some(
+                        args.get(index)
+                            .context("--branch needs a branch name")?
+                            .clone(),
+                    );
                 }
                 "--scope" => {
                     index += 1;
@@ -100,11 +103,17 @@ impl GuardArgs {
                 }
                 "--range" => {
                     index += 1;
-                    parsed.range = Some(args.get(index).context("--range needs a revision range")?.clone());
+                    parsed.range = Some(
+                        args.get(index)
+                            .context("--range needs a revision range")?
+                            .clone(),
+                    );
                 }
                 "--checks" => {
                     index += 1;
-                    let raw = args.get(index).context("--checks needs comma-separated names")?;
+                    let raw = args
+                        .get(index)
+                        .context("--checks needs comma-separated names")?;
                     parsed.checks = Some(
                         raw.split(',')
                             .map(str::trim)

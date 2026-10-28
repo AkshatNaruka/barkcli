@@ -13,8 +13,10 @@ static JS_IMPORT: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r#"(?:from\s+|require\s*\(\s*|import\s*\(\s*)['"]([^'"]+)['"]"#).unwrap()
 });
 static PY_IMPORT: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(?m)^\s*(?:from\s+([A-Za-z_][A-Za-z0-9_.]*)\s+import|import\s+([A-Za-z_][A-Za-z0-9_.]*))")
-        .unwrap()
+    Regex::new(
+        r"(?m)^\s*(?:from\s+([A-Za-z_][A-Za-z0-9_.]*)\s+import|import\s+([A-Za-z_][A-Za-z0-9_.]*))",
+    )
+    .unwrap()
 });
 static QUOTED: Lazy<Regex> = Lazy::new(|| Regex::new(r#"['"]([^'"]+)['"]"#).unwrap());
 
@@ -33,19 +35,92 @@ pub struct ImportRef {
 
 const RUST_ROOTS: &[&str] = &["crate", "self", "super", "std", "core", "alloc"];
 const JS_BUILTINS: &[&str] = &[
-    "fs", "path", "http", "https", "crypto", "os", "util", "url", "stream", "events",
-    "child_process", "assert", "zlib", "buffer", "process", "timers", "net", "tls", "dns",
-    "querystring", "readline", "worker_threads", "perf_hooks", "v8", "vm", "module",
+    "fs",
+    "path",
+    "http",
+    "https",
+    "crypto",
+    "os",
+    "util",
+    "url",
+    "stream",
+    "events",
+    "child_process",
+    "assert",
+    "zlib",
+    "buffer",
+    "process",
+    "timers",
+    "net",
+    "tls",
+    "dns",
+    "querystring",
+    "readline",
+    "worker_threads",
+    "perf_hooks",
+    "v8",
+    "vm",
+    "module",
 ];
 const PY_STDLIB: &[&str] = &[
-    "os", "sys", "json", "re", "pathlib", "typing", "datetime", "math", "subprocess",
-    "collections", "itertools", "functools", "dataclasses", "unittest", "logging",
-    "argparse", "asyncio", "time", "random", "shutil", "tempfile", "uuid", "hashlib",
-    "base64", "io", "csv", "sqlite3", "threading", "multiprocessing", "socket", "ssl",
-    "urllib", "http", "email", "html", "xml", "unittest", "__future__", "contextlib",
-    "copy", "enum", "glob", "inspect", "operator", "pickle", "platform", "pprint",
-    "queue", "signal", "stat", "string", "struct", "traceback", "types", "warnings",
-    "weakref", "zipfile", "zlib",
+    "os",
+    "sys",
+    "json",
+    "re",
+    "pathlib",
+    "typing",
+    "datetime",
+    "math",
+    "subprocess",
+    "collections",
+    "itertools",
+    "functools",
+    "dataclasses",
+    "unittest",
+    "logging",
+    "argparse",
+    "asyncio",
+    "time",
+    "random",
+    "shutil",
+    "tempfile",
+    "uuid",
+    "hashlib",
+    "base64",
+    "io",
+    "csv",
+    "sqlite3",
+    "threading",
+    "multiprocessing",
+    "socket",
+    "ssl",
+    "urllib",
+    "http",
+    "email",
+    "html",
+    "xml",
+    "unittest",
+    "__future__",
+    "contextlib",
+    "copy",
+    "enum",
+    "glob",
+    "inspect",
+    "operator",
+    "pickle",
+    "platform",
+    "pprint",
+    "queue",
+    "signal",
+    "stat",
+    "string",
+    "struct",
+    "traceback",
+    "types",
+    "warnings",
+    "weakref",
+    "zipfile",
+    "zlib",
 ];
 
 /// Declared dependency names from the repo root and the nearest ancestor
@@ -236,8 +311,15 @@ fn requirements_deps(content: &str) -> HashSet<String> {
         }
         let name = trimmed
             .split(|c: char| {
-                c == '[' || c == '<' || c == '>' || c == '=' || c == '!' || c == '~'
-                    || c == ';' || c == ' ' || c == '\t'
+                c == '['
+                    || c == '<'
+                    || c == '>'
+                    || c == '='
+                    || c == '!'
+                    || c == '~'
+                    || c == ';'
+                    || c == ' '
+                    || c == '\t'
             })
             .next()
             .unwrap_or("")
@@ -262,8 +344,7 @@ fn pyproject_deps(content: &str) -> HashSet<String> {
             continue;
         }
         if section == "tool.poetry.dependencies"
-            || section.starts_with("tool.poetry.group.")
-                && section.ends_with(".dependencies")
+            || section.starts_with("tool.poetry.group.") && section.ends_with(".dependencies")
         {
             if let Some((name, _)) = trimmed.split_once('=') {
                 let name = name.trim().trim_matches('"');
@@ -297,8 +378,15 @@ fn pyproject_deps(content: &str) -> HashSet<String> {
 fn requirement_name(spec: &str) -> Option<String> {
     let name = spec
         .split(|c: char| {
-            c == '[' || c == '<' || c == '>' || c == '=' || c == '!' || c == '~'
-                || c == ';' || c == ' ' || c == '\t'
+            c == '['
+                || c == '<'
+                || c == '>'
+                || c == '='
+                || c == '!'
+                || c == '~'
+                || c == ';'
+                || c == ' '
+                || c == '\t'
         })
         .next()?
         .trim();
@@ -321,9 +409,7 @@ pub fn levenshtein(a: &str, b: &str) -> usize {
         curr[0] = i + 1;
         for (j, cb) in b.iter().enumerate() {
             let cost = usize::from(ca != cb);
-            curr[j + 1] = (prev[j + 1] + 1)
-                .min(curr[j] + 1)
-                .min(prev[j] + cost);
+            curr[j + 1] = (prev[j + 1] + 1).min(curr[j] + 1).min(prev[j] + cost);
         }
         std::mem::swap(&mut prev, &mut curr);
     }

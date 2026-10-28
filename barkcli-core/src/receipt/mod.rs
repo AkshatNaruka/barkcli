@@ -330,8 +330,7 @@ pub fn save_receipt(root: &Path, mut receipt: Receipt) -> Result<Receipt> {
     receipt.seal();
 
     let dir = receipts_dir(root);
-    std::fs::create_dir_all(&dir)
-        .with_context(|| format!("failed to create {}", dir.display()))?;
+    std::fs::create_dir_all(&dir).with_context(|| format!("failed to create {}", dir.display()))?;
 
     let json_path = dir.join(format!("{}.json", receipt.id));
     // Receipts are immutable: a second write with the same id is a no-op.
@@ -351,8 +350,8 @@ pub fn load_receipt(root: &Path, id: &str) -> Result<Receipt> {
     let path = receipts_dir(root).join(format!("{id}.json"));
     let content =
         std::fs::read_to_string(&path).with_context(|| format!("receipt `{id}` not found"))?;
-    let receipt: Receipt =
-        serde_json::from_str(&content).with_context(|| format!("failed to parse {}", path.display()))?;
+    let receipt: Receipt = serde_json::from_str(&content)
+        .with_context(|| format!("failed to parse {}", path.display()))?;
     Ok(receipt)
 }
 
@@ -394,7 +393,11 @@ pub fn list_receipts(root: &Path, card_id: Option<&str>) -> Result<Vec<Receipt>>
         }
         receipts.push(receipt);
     }
-    receipts.sort_by(|a, b| b.created_at.cmp(&a.created_at).then_with(|| b.id.cmp(&a.id)));
+    receipts.sort_by(|a, b| {
+        b.created_at
+            .cmp(&a.created_at)
+            .then_with(|| b.id.cmp(&a.id))
+    });
     receipts.truncate(MAX_LISTED);
     Ok(receipts)
 }
@@ -463,7 +466,11 @@ pub fn to_markdown(receipt: &Receipt) -> String {
     } else {
         out.push_str(&format!(
             "- **{}**{}\n",
-            if receipt.gate.passed { "Passed" } else { "Failed" },
+            if receipt.gate.passed {
+                "Passed"
+            } else {
+                "Failed"
+            },
             receipt
                 .gate
                 .duration_ms
@@ -492,7 +499,11 @@ pub fn to_markdown(receipt: &Receipt) -> String {
             "- {} error(s), {} warning(s) — {}\n",
             receipt.guard.errors,
             receipt.guard.warnings,
-            if receipt.guard.passed { "passed" } else { "failed" }
+            if receipt.guard.passed {
+                "passed"
+            } else {
+                "failed"
+            }
         ));
         if !receipt.guard.findings.is_empty() {
             out.push_str("\n| Severity | Check | Location | Message |\n");
@@ -543,7 +554,13 @@ pub fn to_markdown(receipt: &Receipt) -> String {
 
 fn short(sha: &Option<String>) -> &str {
     sha.as_deref()
-        .map(|value| if value.len() > 12 { &value[..12] } else { value })
+        .map(|value| {
+            if value.len() > 12 {
+                &value[..12]
+            } else {
+                value
+            }
+        })
         .unwrap_or("unknown")
 }
 
@@ -652,7 +669,10 @@ mod tests {
     fn clean_input_is_high_confidence() {
         let confidence = assess_confidence(&ConfidenceInput::default());
         assert_eq!(confidence.level, ConfidenceLevel::High);
-        assert_eq!(confidence.reasons, vec!["gate passed, guard clean, tests updated"]);
+        assert_eq!(
+            confidence.reasons,
+            vec!["gate passed, guard clean, tests updated"]
+        );
     }
 
     #[test]
@@ -727,7 +747,10 @@ mod tests {
             let confidence = assess_confidence(&input);
             assert_eq!(confidence.level, expected, "{needle}");
             assert!(
-                confidence.reasons.iter().any(|reason| reason.contains(needle)),
+                confidence
+                    .reasons
+                    .iter()
+                    .any(|reason| reason.contains(needle)),
                 "missing reason `{needle}` in {:?}",
                 confidence.reasons
             );
@@ -743,7 +766,10 @@ mod tests {
         });
         assert_eq!(confidence.level, ConfidenceLevel::Low);
         assert!(confidence.reasons.iter().any(|r| r.contains("gate failed")));
-        assert!(confidence.reasons.iter().any(|r| r.contains("guard warning")));
+        assert!(confidence
+            .reasons
+            .iter()
+            .any(|r| r.contains("guard warning")));
     }
 
     #[test]

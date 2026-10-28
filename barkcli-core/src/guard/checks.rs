@@ -55,12 +55,7 @@ fn check_secrets(context: &CheckContext<'_>) -> Vec<GuardFinding> {
                 && (has_specific
                     || is_placeholder(&line.text)
                     || !kv_value_looks_secret(&line.text, hit.start, hit.len)
-                    || is_test_module_line(
-                        context,
-                        &file.path,
-                        line.new_line,
-                        &mut test_ranges,
-                    ))
+                    || is_test_module_line(context, &file.path, line.new_line, &mut test_ranges))
             {
                 continue;
             }
@@ -147,7 +142,10 @@ fn check_dependencies(context: &CheckContext<'_>, check: CheckId) -> Vec<GuardFi
         }
         // Rust code imports `barkcli_core` while Cargo.toml declares
         // `barkcli-core`; compare on the normalized spelling.
-        let normalized: Vec<String> = declared.iter().map(|name| language.normalize(name)).collect();
+        let normalized: Vec<String> = declared
+            .iter()
+            .map(|name| language.normalize(name))
+            .collect();
 
         for import in imports {
             if language.is_local_module(context.root, &file.path, &import.name) {
@@ -298,7 +296,9 @@ fn lockfiles_for(manifest: &str) -> Option<&'static [&'static str]> {
             "yarn.lock",
             "bun.lockb",
         ]),
-        "requirements.txt" | "pyproject.toml" => Some(&["poetry.lock", "uv.lock", "requirements.txt"]),
+        "requirements.txt" | "pyproject.toml" => {
+            Some(&["poetry.lock", "uv.lock", "requirements.txt"])
+        }
         _ => None,
     }
 }
@@ -511,16 +511,14 @@ fn check_missing_tests(context: &CheckContext<'_>) -> Vec<GuardFinding> {
     }
 
     match (production_path, tests_changed) {
-        (Some(path), false) => vec![
-            GuardFinding::new(
-                CheckId::MissingTests,
-                Severity::Warn,
-                path,
-                None,
-                "production code changed without a matching test change",
-            )
-            .with_suggestion("Add or update a test that exercises the changed behavior."),
-        ],
+        (Some(path), false) => vec![GuardFinding::new(
+            CheckId::MissingTests,
+            Severity::Warn,
+            path,
+            None,
+            "production code changed without a matching test change",
+        )
+        .with_suggestion("Add or update a test that exercises the changed behavior.")],
         _ => Vec::new(),
     }
 }
@@ -529,9 +527,28 @@ fn is_code_file(path: &str) -> bool {
     matches!(
         extension(path).as_deref(),
         Some(
-            "rs" | "ts" | "tsx" | "js" | "jsx" | "mjs" | "cjs" | "py" | "go" | "java" | "kt"
-                | "swift" | "c" | "cc" | "cpp" | "h" | "hpp" | "rb" | "php" | "cs" | "scala"
-                | "ex" | "exs"
+            "rs" | "ts"
+                | "tsx"
+                | "js"
+                | "jsx"
+                | "mjs"
+                | "cjs"
+                | "py"
+                | "go"
+                | "java"
+                | "kt"
+                | "swift"
+                | "c"
+                | "cc"
+                | "cpp"
+                | "h"
+                | "hpp"
+                | "rb"
+                | "php"
+                | "cs"
+                | "scala"
+                | "ex"
+                | "exs"
         )
     )
 }
@@ -547,7 +564,10 @@ fn check_large_diff(context: &CheckContext<'_>) -> Vec<GuardFinding> {
                 Severity::Warn,
                 "(diff)",
                 None,
-                format!("diff touches {files} files (threshold {})", context.large_files),
+                format!(
+                    "diff touches {files} files (threshold {})",
+                    context.large_files
+                ),
             )
             .with_suggestion("Split the change or flag it for a slower review."),
         );
@@ -560,7 +580,10 @@ fn check_large_diff(context: &CheckContext<'_>) -> Vec<GuardFinding> {
                 Severity::Warn,
                 "(diff)",
                 None,
-                format!("diff changes {lines} lines (threshold {})", context.large_lines),
+                format!(
+                    "diff changes {lines} lines (threshold {})",
+                    context.large_lines
+                ),
             )
             .with_suggestion("Split the change or flag it for a slower review."),
         );
@@ -568,7 +591,7 @@ fn check_large_diff(context: &CheckContext<'_>) -> Vec<GuardFinding> {
     findings
 }
 
-fn is_documentation(path: &str) -> bool {
+pub(crate) fn is_documentation(path: &str) -> bool {
     let lower = path.to_lowercase();
     matches!(
         extension(path).as_deref(),
@@ -787,10 +810,7 @@ mod tests {
     fn skips_documentation_examples() {
         let diff = diff_with(
             "docs/security.md",
-            &[
-                "subprocess.run(cmd, shell=True)",
-                "password = \"hunter2\"",
-            ],
+            &["subprocess.run(cmd, shell=True)", "password = \"hunter2\""],
         );
         assert!(check_dangerous_patterns(&context(Path::new("."), &diff)).is_empty());
         assert!(check_secrets(&context(Path::new("."), &diff)).is_empty());
@@ -821,7 +841,8 @@ mod tests {
 
     #[test]
     fn test_module_ranges_find_cfg_test_block() {
-        let content = "fn a() {}\n#[cfg(test)]\nmod tests {\n fn t() { assert!(true); }\n}\nfn b() {}\n";
+        let content =
+            "fn a() {}\n#[cfg(test)]\nmod tests {\n fn t() { assert!(true); }\n}\nfn b() {}\n";
         let ranges = test_module_ranges(content);
         assert!(line_in_ranges(&ranges, 4));
         assert!(!line_in_ranges(&ranges, 1));
@@ -928,10 +949,7 @@ mod tests {
             "src/lib.rs".into(),
             "use serde::Serialize;\nuse notreal::Thing;\n".into(),
         );
-        let findings = check_dependencies(
-            &context(&dir, &set),
-            CheckId::UndeclaredDependency,
-        );
+        let findings = check_dependencies(&context(&dir, &set), CheckId::UndeclaredDependency);
         assert_eq!(findings.len(), 1);
         assert!(findings[0].message.contains("notreal"));
         fs::remove_dir_all(dir).ok();
@@ -944,10 +962,7 @@ mod tests {
         let mut set = diff_with("app.py", &["import reqeusts"]);
         set.contents
             .insert("app.py".into(), "import reqeusts\n".into());
-        let findings = check_dependencies(
-            &context(&dir, &set),
-            CheckId::SuspiciousDependency,
-        );
+        let findings = check_dependencies(&context(&dir, &set), CheckId::SuspiciousDependency);
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].severity, Severity::Error);
         assert!(findings[0].message.contains("requests"));
@@ -958,7 +973,8 @@ mod tests {
     fn dependency_checks_silent_without_manifest() {
         let dir = temp_dir("nomanifest");
         let mut set = diff_with("app.py", &["import requests"]);
-        set.contents.insert("app.py".into(), "import requests\n".into());
+        set.contents
+            .insert("app.py".into(), "import requests\n".into());
         assert!(check_dependencies(&context(&dir, &set), CheckId::UndeclaredDependency).is_empty());
         fs::remove_dir_all(dir).ok();
     }
@@ -976,9 +992,7 @@ mod tests {
             "src/lib.rs".into(),
             "use barkcli_core::models::Config;\n".into(),
         );
-        assert!(
-            check_dependencies(&context(&dir, &set), CheckId::UndeclaredDependency).is_empty()
-        );
+        assert!(check_dependencies(&context(&dir, &set), CheckId::UndeclaredDependency).is_empty());
         fs::remove_dir_all(dir).ok();
     }
 
@@ -991,9 +1005,7 @@ mod tests {
         let mut set = diff_with("src/guard/mod.rs", &["use diff::DiffSet;"]);
         set.contents
             .insert("src/guard/mod.rs".into(), "use diff::DiffSet;\n".into());
-        assert!(
-            check_dependencies(&context(&dir, &set), CheckId::UndeclaredDependency).is_empty()
-        );
+        assert!(check_dependencies(&context(&dir, &set), CheckId::UndeclaredDependency).is_empty());
         fs::remove_dir_all(dir).ok();
     }
 

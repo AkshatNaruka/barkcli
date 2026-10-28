@@ -40,7 +40,9 @@ fn print_help() {
     println!("  list [--card <id>] [--json]                 List receipts, newest first");
     println!("  show <id|card> [--json]                     Show a receipt (Markdown by default)");
     println!("  create --card <id> [--branch <b>] [--run <id>] [--json]");
-    println!("  verify <id|card> [--rerun-gate] [--json]    Recompute the hash and check the branch");
+    println!(
+        "  verify <id|card> [--rerun-gate] [--json]    Recompute the hash and check the branch"
+    );
 }
 
 fn run_list(args: &[String]) -> Result<()> {
@@ -132,7 +134,11 @@ fn run_create(args: &[String]) -> Result<()> {
             }
             "--branch" => {
                 index += 1;
-                branch = Some(args.get(index).context("--branch needs a branch name")?.clone());
+                branch = Some(
+                    args.get(index)
+                        .context("--branch needs a branch name")?
+                        .clone(),
+                );
             }
             "--run" => {
                 index += 1;
@@ -432,7 +438,10 @@ mod tests {
             split_range(&DiffScope::Range("a...b".into())),
             ("a".into(), "b".into())
         );
-        assert_eq!(split_range(&DiffScope::Worktree), ("HEAD".into(), "WORKTREE".into()));
+        assert_eq!(
+            split_range(&DiffScope::Worktree),
+            ("HEAD".into(), "WORKTREE".into())
+        );
     }
 
     #[test]
