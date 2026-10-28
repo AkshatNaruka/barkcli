@@ -220,6 +220,8 @@ impl ContextEngine {
 
     /// Compile a pack without writing it or advancing the thread ledger.
     pub fn compile(&self, req: &CompileRequest) -> Result<ContextPack> {
+        let trace = std::env::var("BARKCLI_CONTEXT_TRACE").is_ok();
+        let started = std::time::Instant::now();
         let budget = req
             .budget_tokens
             .unwrap_or(self.settings.budget_tokens)
@@ -233,6 +235,9 @@ impl ContextEngine {
             .to_string();
 
         let repo = RepoMap::build(&self.root, &self.settings.exclusions);
+        if trace {
+            eprintln!("context: repo map {:?} ({} files)", started.elapsed(), repo.files.len());
+        }
         let previous = self.store.previous_pack(&req.thread_id);
         let mut exclusions = repo
             .excluded
@@ -247,6 +252,9 @@ impl ContextEngine {
         // rebuilt the whole index for every candidate, which made a large repo
         // look like a hang.
         let symbol_index = crate::code::index::SymbolIndex::build(&self.root);
+        if trace {
+            eprintln!("context: symbol index {:?} ({} files)", started.elapsed(), symbol_index.files.len());
+        }
         let candidates = self.select_candidates(
             &req.card,
             req.extra_prompt.as_deref(),
@@ -254,6 +262,9 @@ impl ContextEngine {
             &mut exclusions,
             &symbol_index,
         );
+        if trace {
+            eprintln!("context: candidates {:?} ({} selected)", started.elapsed(), candidates.len());
+        }
         let explicit_skills = req
             .explicit_skills
             .iter()
@@ -261,6 +272,9 @@ impl ContextEngine {
             .filter(|skill| !skill.is_empty())
             .collect::<Vec<_>>();
         let attached = self.route_skills(req, &role, &candidates, &explicit_skills);
+        if trace {
+            eprintln!("context: skills {:?} ({} attached)", started.elapsed(), attached.len());
+        }
 
         let stable_cap = budget.saturating_mul(64) / 100;
         let mut stable_sections = Vec::new();
@@ -288,6 +302,9 @@ impl ContextEngine {
 
         let invariants_cap = (stable_cap / 7).max(220);
         let invariants = self.invariants_context(invariants_cap);
+        if trace {
+            eprintln!("context: invariants {:?}", started.elapsed());
+        }
         if !invariants.trim().is_empty() {
             stable_sections.push(section(
                 "invariants",
@@ -300,6 +317,9 @@ impl ContextEngine {
 
         let memory_cap = (stable_cap / 10).max(180);
         let memory = self.memory_context(&req.card, memory_cap);
+        if trace {
+            eprintln!("context: memory {:?}", started.elapsed());
+        }
         if !memory.trim().is_empty() {
             stable_sections.push(section(
                 "memory",
@@ -312,6 +332,9 @@ impl ContextEngine {
 
         let project_cap = (stable_cap / 5).max(240);
         let project_text = self.project_context(project_cap);
+        if trace {
+            eprintln!("context: project {:?}", started.elapsed());
+        }
         stable_sections.push(section(
             "project",
             "Project context",
@@ -346,6 +369,9 @@ impl ContextEngine {
             .sum::<usize>();
         let mut selected_files = Vec::new();
         for candidate in candidates {
+            if trace {
+                eprintln!("context: reading {:?}", candidate.path);
+            }
             if selected_files.len() >= self.settings.max_files {
                 exclusions.push(ContextExclusion {
                     path: candidate.path.clone(),
@@ -371,6 +397,9 @@ impl ContextEngine {
                     reason: reason.1,
                 }),
             }
+        }
+        if trace {
+            eprintln!("context: files read {:?} ({} files)", started.elapsed(), selected_files.len());
         }
         for selected in &selected_files {
             stable_sections.push(ContextSection {

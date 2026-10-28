@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::{Mutex, OnceLock};
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -36,7 +37,7 @@ pub const SOURCE_EXTS: &[&str] = &[
 pub const SKIP_DIRS: &[&str] = &[
     ".git", ".board", "target", "node_modules", "dist", "build", ".next", "out", "vendor",
     ".venv", "venv", "__pycache__", ".claude", ".opencode", ".vscode", "coverage", ".gradle",
-    ".idea",
+    ".idea", ".build", ".swiftpm", ".dart_tool", "Pods",
 ];
 
 /// Extensions searchable/readable by the token benchmark (source + docs;
@@ -86,6 +87,15 @@ pub(crate) fn ignored_by_gitignore(path: &Path, ignores: &[String]) -> bool {
 }
 
 fn glob_to_regex(glob: &str) -> Result<regex::Regex> {
+    static CACHE: OnceLock<Mutex<HashMap<String, regex::Regex>>> = OnceLock::new();
+    let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Some(cached) = cache
+        .lock()
+        .ok()
+        .and_then(|cache| cache.get(glob).cloned())
+    {
+        return Ok(cached);
+    }
     let mut re = String::from("^");
     for c in glob.chars() {
         match c {
@@ -102,7 +112,11 @@ fn glob_to_regex(glob: &str) -> Result<regex::Regex> {
         }
     }
     re.push('$');
-    regex::Regex::new(&re).context("glob regex")
+    let compiled = regex::Regex::new(&re).context("glob regex")?;
+    if let Ok(mut cache) = cache.lock() {
+        cache.insert(glob.to_string(), compiled.clone());
+    }
+    Ok(compiled)
 }
 
 pub(crate) fn load_gitignores(root: &Path) -> Vec<String> {

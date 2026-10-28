@@ -245,6 +245,7 @@ pub fn git_status(root: &Path) -> Result<GitStatus> {
             let path = line.get(3..).unwrap_or("").trim().to_string();
             GitChange { status, path }
         })
+        .filter(|change| !is_generated_path(&change.path))
         .collect::<Vec<_>>();
     Ok(GitStatus {
         branch,
@@ -255,6 +256,14 @@ pub fn git_status(root: &Path) -> Result<GitStatus> {
         clean: changes.is_empty(),
         changes,
     })
+}
+
+/// Files barkcli maintains and rewrites for its own context. They should stay
+/// out of the ship status so a background digest never looks like user work or
+/// blocks a merge. A full `git add -A` commit still includes them.
+fn is_generated_path(path: &str) -> bool {
+    let path = path.trim();
+    path == "project_context.md" || path.ends_with(".board.lock")
 }
 
 pub fn git_commit(root: &Path, message: &str, paths: &[String]) -> Result<GitCommitResult> {
@@ -531,8 +540,10 @@ mod tests {
         git(&["commit", "-m", "base"]);
 
         fs::write(root.join("brand-new.txt"), "new\n").unwrap();
+        fs::write(root.join("project_context.md"), "generated\n").unwrap();
         let status = git_status(&root).unwrap();
         assert!(status.changes.iter().any(|change| change.path.contains("brand-new.txt")));
+        assert!(!status.changes.iter().any(|change| change.path.contains("project_context.md")));
         let message = "fix: $(touch SHOULD_NOT_EXIST); `whoami`";
         let commit = git_commit(&root, message, &[]).unwrap();
         assert_eq!(commit.sha.len(), 7);

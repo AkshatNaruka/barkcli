@@ -30,6 +30,10 @@ pub const BUILTIN_IGNORED_DIRS: &[&str] = &[
     "coverage",
     ".gradle",
     ".idea",
+    ".build",
+    ".swiftpm",
+    ".dart_tool",
+    "Pods",
     "desktop/target",
 ];
 
