@@ -2,23 +2,19 @@
 
 use std::path::Path;
 use std::process::Command;
-use std::time::Instant;
 
 use anyhow::{bail, Context, Result};
-use chrono::Utc;
-use serde::Serialize;
 
 use crate::guard::diff::{diff_for_scope, DiffScope};
 use crate::guard::{self, GuardOptions};
 use crate::receipt::builder::{self, ReceiptInput};
 use crate::receipt::{
-    self, find_receipt, list_receipts, save_receipt, AgentEvidence, GateEvidence, ReceiptSummary,
+    self, find_receipt, list_receipts, save_receipt, AgentEvidence, ReceiptSummary,
     WorkspaceEvidence,
 };
 use crate::storage::board_dir::find_project_root;
 use crate::storage::board_file::read_board;
 use crate::storage::config_store::read_config;
-use crate::util::redact::redact_text;
 
 pub fn run_receipt(args: &[String]) -> Result<()> {
     match args.first().map(String::as_str) {
@@ -222,14 +218,6 @@ fn run_create(args: &[String]) -> Result<()> {
     Ok(())
 }
 
-#[derive(Debug, Serialize)]
-struct VerifyOutput {
-    valid: bool,
-    hash_ok: bool,
-    branch_moved: Option<bool>,
-    gate: Option<GateEvidence>,
-}
-
 fn run_verify(args: &[String]) -> Result<()> {
     let mut selector = None;
     let mut rerun_gate = false;
@@ -244,100 +232,44 @@ fn run_verify(args: &[String]) -> Result<()> {
     }
     let selector = selector.context("receipt verify needs an id or card id")?;
     let root = find_project_root()?;
-    let receipt = find_receipt(&root, &selector)?;
+    let verification = receipt::verify_receipt(&root, &selector, rerun_gate)?;
 
-    let hash_ok = receipt.hash_ok();
-    let branch_moved = branch_moved(&root, &receipt);
-    let gate = if rerun_gate {
-        Some(rerun_gate_command(&root, &receipt.gate)?)
-    } else {
-        None
-    };
-    let gate_ok = gate
-        .as_ref()
-        .map(|gate| gate.passed || gate.skipped)
-        .unwrap_or(true);
-    let valid = hash_ok && branch_moved != Some(true) && gate_ok;
-
-    let output = VerifyOutput {
-        valid,
-        hash_ok,
-        branch_moved,
-        gate,
-    };
     if json {
-        println!("{}", serde_json::to_string_pretty(&output)?);
+        println!("{}", serde_json::to_string_pretty(&verification)?);
     } else {
-        println!("receipt {}", receipt.id);
-        println!("hash:   {}", if hash_ok { "ok" } else { "MISMATCH" });
+        println!("receipt {}", verification.receipt_id);
+        println!(
+            "hash:   {}",
+            if verification.hash_ok {
+                "ok"
+            } else {
+                "MISMATCH"
+            }
+        );
         println!(
             "branch: {}",
-            match branch_moved {
+            match verification.branch_moved {
                 Some(true) => "moved since the receipt was written",
                 Some(false) => "unchanged",
                 None => "not checked (no recorded branch head)",
             }
         );
-        if let Some(gate) = &output.gate {
+        if let Some(gate) = &verification.gate {
             println!(
                 "gate:   {} (rerun)",
                 if gate.passed { "passed" } else { "failed" }
             );
         }
-        println!("valid:  {}", if valid { "yes" } else { "NO" });
+        println!(
+            "valid:  {}",
+            if verification.valid { "yes" } else { "NO" }
+        );
     }
 
-    if !valid {
+    if !verification.valid {
         bail!("receipt verification failed");
     }
     Ok(())
-}
-
-fn branch_moved(root: &Path, receipt: &receipt::Receipt) -> Option<bool> {
-    let branch = receipt.workspace.branch.as_deref()?;
-    let recorded = receipt.workspace.head_sha.as_deref()?;
-    let current = git_opt(root, &["rev-parse", branch])?;
-    Some(current != recorded)
-}
-
-fn rerun_gate_command(root: &Path, gate: &GateEvidence) -> Result<GateEvidence> {
-    let Some(command) = &gate.command else {
-        return Ok(GateEvidence {
-            skipped: true,
-            ..gate.clone()
-        });
-    };
-
-    let started = Instant::now();
-    let output = Command::new("sh")
-        .arg("-c")
-        .arg(command)
-        .current_dir(root)
-        .output()
-        .with_context(|| format!("failed to run `{command}`"))?;
-    let duration_ms = started.elapsed().as_millis() as u64;
-
-    Ok(GateEvidence {
-        command: Some(command.clone()),
-        passed: output.status.success(),
-        skipped: false,
-        duration_ms: Some(duration_ms),
-        log_path: gate.log_path.clone(),
-        tail: Some(tail_of(&output.stdout, &output.stderr)),
-        finished_at: Some(Utc::now()),
-    })
-}
-
-fn tail_of(stdout: &[u8], stderr: &[u8]) -> String {
-    let mut text = String::from_utf8_lossy(stdout).to_string();
-    let stderr = String::from_utf8_lossy(stderr);
-    if !text.is_empty() && !stderr.is_empty() {
-        text.push('\n');
-    }
-    text.push_str(&stderr);
-    let lines: Vec<&str> = text.lines().collect();
-    let start = lines.len().saturating_sub(15);
-    redact_text(&lines[start..].join("\n"))
 }
 
 fn split_range(scope: &DiffScope) -> (String, String) {
@@ -412,20 +344,6 @@ mod tests {
         assert!(table.contains("rcpt_abc"));
         assert!(table.contains("high"));
         assert!(table.contains('3'));
-    }
-
-    #[test]
-    fn tail_keeps_last_15_lines_and_redacts() {
-        let mut stdout = String::new();
-        for index in 0..20 {
-            stdout.push_str(&format!("line {index}\n"));
-        }
-        stdout.push_str(&format!("token sk-{}\n", "a".repeat(30)));
-        let tail = tail_of(stdout.as_bytes(), b"");
-        assert!(!tail.contains("line 4"));
-        assert!(tail.contains("line 19"));
-        assert!(!tail.contains("sk-aaaa"));
-        assert!(tail.contains("[REDACTED]"));
     }
 
     #[test]

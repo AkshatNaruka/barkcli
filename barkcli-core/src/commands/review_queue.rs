@@ -113,7 +113,7 @@ pub fn run(args: &[String]) -> Result<()> {
     Ok(())
 }
 
-fn build_queue(
+pub(crate) fn build_queue(
     root: &Path,
     board: &Board,
     board_name: &str,

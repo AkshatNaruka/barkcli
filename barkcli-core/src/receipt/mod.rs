@@ -7,6 +7,8 @@
 pub mod builder;
 
 use std::path::{Path, PathBuf};
+use std::process::Command;
+use std::time::Instant;
 
 use anyhow::{bail, Context, Result};
 use chrono::{DateTime, Utc};
@@ -14,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::guard::GuardFinding;
+use crate::util::redact::redact_text;
 
 pub const RECEIPT_VERSION: u32 = 1;
 /// Receipts are capped so a long-lived repo never turns listing into a crawl.
@@ -412,6 +415,96 @@ pub fn find_receipt(root: &Path, selector: &str) -> Result<Receipt> {
         .into_iter()
         .next()
         .ok_or_else(|| anyhow::anyhow!("no receipt found for card `{selector}`"))
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Verification {
+    pub receipt_id: String,
+    pub valid: bool,
+    pub hash_ok: bool,
+    pub branch_moved: Option<bool>,
+    pub gate: Option<GateEvidence>,
+}
+
+/// Recompute the receipt hash and, optionally, the branch head and gate.
+/// Shared by the CLI and MCP so both report the same verdict.
+pub fn verify_receipt(root: &Path, selector: &str, rerun_gate: bool) -> Result<Verification> {
+    let receipt = find_receipt(root, selector)?;
+    let hash_ok = receipt.hash_ok();
+    let branch_moved = branch_moved(root, &receipt);
+    let gate = if rerun_gate {
+        Some(rerun_gate_command(root, &receipt.gate)?)
+    } else {
+        None
+    };
+    let gate_ok = gate
+        .as_ref()
+        .map(|gate| gate.passed || gate.skipped)
+        .unwrap_or(true);
+    let valid = hash_ok && branch_moved != Some(true) && gate_ok;
+    Ok(Verification {
+        receipt_id: receipt.id,
+        valid,
+        hash_ok,
+        branch_moved,
+        gate,
+    })
+}
+
+fn branch_moved(root: &Path, receipt: &Receipt) -> Option<bool> {
+    let branch = receipt.workspace.branch.as_deref()?;
+    let recorded = receipt.workspace.head_sha.as_deref()?;
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["rev-parse", branch])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let current = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    Some(current != recorded)
+}
+
+fn rerun_gate_command(root: &Path, gate: &GateEvidence) -> Result<GateEvidence> {
+    let Some(command) = &gate.command else {
+        return Ok(GateEvidence {
+            skipped: true,
+            ..gate.clone()
+        });
+    };
+
+    let started = Instant::now();
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(command)
+        .current_dir(root)
+        .output()
+        .with_context(|| format!("failed to run `{command}`"))?;
+    let duration_ms = started.elapsed().as_millis() as u64;
+
+    Ok(GateEvidence {
+        command: Some(command.clone()),
+        passed: output.status.success(),
+        skipped: false,
+        duration_ms: Some(duration_ms),
+        log_path: gate.log_path.clone(),
+        tail: Some(tail_of(&output.stdout, &output.stderr)),
+        finished_at: Some(Utc::now()),
+    })
+}
+
+fn tail_of(stdout: &[u8], stderr: &[u8]) -> String {
+    let mut text = String::from_utf8_lossy(stdout).to_string();
+    let stderr = String::from_utf8_lossy(stderr);
+    if !text.is_empty() && !stderr.is_empty() {
+        text.push('\n');
+    }
+    text.push_str(&stderr);
+    let lines: Vec<&str> = text.lines().collect();
+    let start = lines.len().saturating_sub(15);
+    redact_text(&lines[start..].join("\n"))
 }
 
 pub fn to_markdown(receipt: &Receipt) -> String {
@@ -891,5 +984,19 @@ mod tests {
         receipt.guard.findings[0].message = "a | b".into();
         let markdown = to_markdown(&receipt);
         assert!(markdown.contains("a \\| b"));
+    }
+
+    #[test]
+    fn tail_keeps_last_15_lines_and_redacts() {
+        let mut stdout = String::new();
+        for index in 0..20 {
+            stdout.push_str(&format!("line {index}\n"));
+        }
+        stdout.push_str(&format!("token sk-{}\n", "a".repeat(30)));
+        let tail = tail_of(stdout.as_bytes(), b"");
+        assert!(!tail.contains("line 4"));
+        assert!(tail.contains("line 19"));
+        assert!(!tail.contains("sk-aaaa"));
+        assert!(tail.contains("[REDACTED]"));
     }
 }
