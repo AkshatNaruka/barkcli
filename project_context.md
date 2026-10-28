@@ -56,5 +56,5 @@ Read this file FIRST when starting a session; drill into only what it points at.
 
 <!-- ctx:block id="verify" src="barkcli context digest" updated="2026-10-28T05:53Z" staleness="0.00" -->
 ## Verification status
-- Verified @ 74344b1 · all sections fresh (staleness < 0.4)
+- Verified @ b56a5cc · all sections fresh (staleness < 0.4)
 - Guide: staleness 0 fresh · ≥0.4 review the section · ≥0.8 likely wrong.
