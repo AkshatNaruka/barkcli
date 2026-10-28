@@ -67,11 +67,13 @@ pub fn run_guard(args: &[String]) -> Result<()> {
         print!("{}", render_report(&report));
     }
 
-    if report.has_errors() && (settings.block || parsed.strict) {
+    if blocks_merge(&report, settings.block, parsed.strict) {
+        let (errors, warnings, _) = report.counts();
         bail!(
-            "guard found {} error(s) — merge blocked ({})",
-            report.counts().0,
-            if settings.block {
+            "guard found {} error(s) and {} warning(s) — merge blocked ({})",
+            errors,
+            warnings,
+            if settings.block && errors > 0 {
                 "guard.block = true"
             } else {
                 "--strict"
@@ -79,6 +81,13 @@ pub fn run_guard(args: &[String]) -> Result<()> {
         );
     }
     Ok(())
+}
+
+/// `guard.block` blocks errors; `--strict` also promotes warnings. Clean
+/// reports never block, so strict CI stays green on a quiet diff.
+fn blocks_merge(report: &GuardReport, block: bool, strict: bool) -> bool {
+    let (errors, warnings, _) = report.counts();
+    (block && errors > 0) || (strict && (errors > 0 || warnings > 0))
 }
 
 impl GuardArgs {
@@ -297,5 +306,23 @@ mod tests {
             "a..b".to_string(),
         ];
         assert!(GuardArgs::parse(&args).is_err());
+    }
+
+    #[test]
+    fn blocking_follows_advisory_default_and_strict_promotion() {
+        let mut report = sample();
+        // Errors are advisory unless the project opts in.
+        assert!(!blocks_merge(&report, false, false));
+        assert!(blocks_merge(&report, true, false));
+
+        // Warnings only block in strict mode.
+        report.findings.retain(|f| f.severity == Severity::Warn);
+        report.passed = true;
+        assert!(!blocks_merge(&report, true, false));
+        assert!(blocks_merge(&report, false, true));
+
+        // A clean report never blocks.
+        report.findings.clear();
+        assert!(!blocks_merge(&report, true, true));
     }
 }
