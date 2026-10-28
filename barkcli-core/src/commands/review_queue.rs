@@ -113,7 +113,9 @@ pub fn run(args: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn build_queue(
+/// Build the risk-ranked queue for `board`. Shared by the CLI, the MCP server,
+/// and the HTTP server so every surface reports the same order.
+pub fn build_queue(
     root: &Path,
     board: &Board,
     board_name: &str,
