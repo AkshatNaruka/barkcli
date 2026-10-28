@@ -840,6 +840,8 @@ fn print_usage() {
     println!("  memory <cmd>        Cross-session memory (add, search, list, stats, compress)");
     println!("  monitor             Dashboard: agents, tasks, insights (--watch for live)");
     println!("  review [card-id]    Validate completed tasks (--all, --auto)");
+    println!("  review queue        Risk-ranked review queue (--all, --limit, --json)");
+    println!("  review next         Highest-risk card to review next");
     println!("  guard               Deterministic pre-merge scan (--branch, --range, --json, --strict)");
     println!("  receipt             Merge receipts: list, show, create, verify");
     println!("  mind sync|show      Compile + show Mind snapshot/digest");
