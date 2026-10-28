@@ -29,6 +29,10 @@ import { Icon } from "./components/Icon";
 import { BoardView } from "./components/BoardView";
 import { TableView } from "./components/TableView";
 import { ListView } from "./components/ListView";
+import {
+  ReviewQueueButton,
+  ReviewQueuePanel,
+} from "./components/ReviewQueuePanel";
 import { CardForm } from "./components/CardForm";
 import { CommandPalette } from "./components/CommandPalette";
 import { ServerStatus } from "./components/ServerStatus";
@@ -650,6 +654,7 @@ export function App() {
           {route === "board" && board && (
             <BoardPage
               board={board}
+              boardName={boardName}
               onMoveCard={handleMoveCard}
               onTogglePin={handleTogglePin}
               onAddCard={() => handleOpenForm({ columnId: board.columns[0]?.id || "todo" })}
@@ -787,6 +792,7 @@ export function App() {
 
 function BoardPage({
   board,
+  boardName,
   onMoveCard,
   onTogglePin,
   onAddCard,
@@ -800,6 +806,7 @@ function BoardPage({
   onAskAgent,
 }: {
   board: BoardType;
+  boardName?: string | null;
   onMoveCard: (id: string, col: string) => void;
   onTogglePin: (id: string) => void;
   onAddCard: () => void;
@@ -813,6 +820,7 @@ function BoardPage({
   onAskAgent: (card: Card) => void;
 }) {
   const [view, setView] = useState<ViewMode>("board");
+  const [queueOpen, setQueueOpen] = useState(false);
   const [filter, setFilter] = useState("");
   const [chips, setChips] = useState<string[]>([]);
   const toggleChip = (chip: string) =>
@@ -863,6 +871,7 @@ function BoardPage({
             </button>
           ))}
         </div>
+        <ReviewQueueButton boardName={boardName} onOpen={() => setQueueOpen(true)} />
         <input
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
@@ -925,6 +934,16 @@ function BoardPage({
           />
         )}
       </div>
+      <ReviewQueuePanel
+        open={queueOpen}
+        boardName={boardName}
+        onClose={() => setQueueOpen(false)}
+        onSelectCard={(cardId) => {
+          const card = board.cards.find((candidate) => candidate.id === cardId);
+          if (card) onEditCard(card);
+          setQueueOpen(false);
+        }}
+      />
     </div>
   );
 }

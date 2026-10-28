@@ -167,6 +167,12 @@ where
         )
         .route("/api/runs/{id}/request-changes", post(request_changes_handler))
         .route("/api/runs/{id}/ask", post(ask_about_run_handler))
+        // Trust layer: receipts, guard, review queue (SPEC-007)
+        .route("/api/receipts", get(list_receipts_handler))
+        .route("/api/receipts/{id}", get(get_receipt_handler))
+        .route("/api/receipts/{id}/verify", post(verify_receipt_handler))
+        .route("/api/guard/scan", post(guard_scan_handler))
+        .route("/api/review/queue", get(review_queue_handler))
         .route("/api/editor/detect", get(editor_detect_handler))
         .route("/api/open", post(open_file_handler))
         .route("/api/repo/tree", get(repo_tree_handler))
@@ -460,6 +466,8 @@ async fn auto_init() {
                         priorities: vec!["low".into(), "medium".into(), "high".into()],
                         ai: None,
                         runtime: Default::default(),
+                        guard: Default::default(),
+                        receipts: Default::default(),
                     };
                     let config_json = serde_json::to_string_pretty(&config).unwrap_or_default();
                     let _ = std::fs::write(board_dir.join("config.json"), config_json);
@@ -4932,6 +4940,149 @@ async fn ask_about_run_handler(
     Ok(Json(serde_json::json!({ "run": run })))
 }
 
+// ---------------------------------------------------------------------------
+// Trust layer: receipts, guard, and the review queue (SPEC-007)
+// ---------------------------------------------------------------------------
+
+#[derive(Deserialize)]
+struct ReceiptQuery {
+    #[serde(default)]
+    card_id: Option<String>,
+}
+
+async fn list_receipts_handler(
+    Query(query): Query<ReceiptQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let root = barkcli_core::storage::board_dir::find_project_root()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let receipts = barkcli_core::receipt::list_receipts(&root, query.card_id.as_deref())
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let summaries: Vec<barkcli_core::receipt::ReceiptSummary> =
+        receipts.iter().map(Into::into).collect();
+    Ok(Json(serde_json::json!({ "receipts": summaries })))
+}
+
+async fn get_receipt_handler(
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let root = barkcli_core::storage::board_dir::find_project_root()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let receipt = barkcli_core::receipt::find_receipt(&root, &id)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let markdown = barkcli_core::receipt::to_markdown(&receipt);
+    Ok(Json(
+        serde_json::json!({ "receipt": receipt, "markdown": markdown }),
+    ))
+}
+
+#[derive(Deserialize, Default)]
+struct VerifyReceiptRequest {
+    #[serde(default)]
+    rerun_gate: bool,
+}
+
+async fn verify_receipt_handler(
+    Path(id): Path<String>,
+    Json(req): Json<VerifyReceiptRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let root = barkcli_core::storage::board_dir::find_project_root()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let verification = barkcli_core::receipt::verify_receipt(&root, &id, req.rerun_gate)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    Ok(Json(
+        serde_json::to_value(verification)
+            .map_err(|e| ServerError::internal(e.to_string()))?,
+    ))
+}
+
+#[derive(Deserialize, Default)]
+struct GuardScanRequest {
+    /// Git revision range, e.g. `main...HEAD`.
+    #[serde(default)]
+    range: Option<String>,
+    /// Scan only staged changes.
+    #[serde(default)]
+    staged: bool,
+    /// Scan a branch against the repository base branch.
+    #[serde(default)]
+    branch: Option<String>,
+}
+
+async fn guard_scan_handler(
+    Json(req): Json<GuardScanRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    if req.range.is_some() && req.staged {
+        return Err(ServerError::bad("use either `range` or `staged`, not both"));
+    }
+    if req.branch.is_some() && (req.range.is_some() || req.staged) {
+        return Err(ServerError::bad(
+            "use either `branch` or `range`/`staged`, not both",
+        ));
+    }
+
+    let root = barkcli_core::storage::board_dir::find_project_root()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let settings = barkcli_core::storage::board_dir::find_board_dir_opt()
+        .ok()
+        .flatten()
+        .and_then(|dir| barkcli_core::storage::config_store::read_config(&dir).ok())
+        .map(|config| config.guard)
+        .unwrap_or_default();
+    if !settings.enabled {
+        return Err(ServerError::bad(
+            "guard is disabled (`guard.enabled = false` in .board/config.json)",
+        ));
+    }
+
+    let scope = if let Some(branch) = req.branch.as_deref() {
+        barkcli_core::guard::branch_scope(&root, branch)
+    } else if let Some(range) = req.range {
+        barkcli_core::guard::diff::DiffScope::Range(range)
+    } else if req.staged {
+        barkcli_core::guard::diff::DiffScope::Staged
+    } else {
+        barkcli_core::guard::diff::DiffScope::Worktree
+    };
+    let options = barkcli_core::guard::GuardOptions::from_settings(scope, &settings);
+    let report = barkcli_core::guard::scan(&root, &options)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    Ok(Json(
+        serde_json::to_value(report).map_err(|e| ServerError::internal(e.to_string()))?,
+    ))
+}
+
+#[derive(Deserialize)]
+struct ReviewQueueQuery {
+    #[serde(default)]
+    board: Option<String>,
+    #[serde(default)]
+    all: Option<bool>,
+    #[serde(default)]
+    limit: Option<usize>,
+}
+
+async fn review_queue_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<ReviewQueueQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, query.board)?;
+    let board = barkcli_core::storage::board_file::read_board(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let root = barkcli_core::storage::board_dir::find_project_root()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let mut items = barkcli_core::commands::review_queue::build_queue(
+        &root,
+        &board,
+        &board_name,
+        query.all.unwrap_or(false),
+    )
+    .map_err(|e| ServerError::internal(e.to_string()))?;
+    if let Some(limit) = query.limit {
+        items.truncate(limit);
+    }
+    Ok(Json(serde_json::json!({ "items": items })))
+}
+
 async fn editor_detect_handler() -> Result<Json<serde_json::Value>, ServerError> {
     let editors = barkcli_core::editor::editors();
     Ok(Json(serde_json::json!({
@@ -6363,5 +6514,194 @@ mod tests {
         assert_eq!(percent_decode("100%25"), "100%");
         assert_eq!(percent_decode("bad%zz"), "bad%zz");
         assert_eq!(percent_decode("+"), "+");
+    }
+
+    // ── Trust layer routes (SPEC-007) ──
+
+    static CWD_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    static TEMP_PROJECT_SEQ: AtomicU64 = AtomicU64::new(0);
+
+    /// A throwaway board project for the duration of one test. Restores the
+    /// process working directory on drop, before removing the directory.
+    struct TempProject {
+        dir: std::path::PathBuf,
+        prev: std::path::PathBuf,
+        _lock: std::sync::MutexGuard<'static, ()>,
+    }
+
+    impl TempProject {
+        fn root(&self) -> &std::path::Path {
+            &self.dir
+        }
+    }
+
+    impl Drop for TempProject {
+        fn drop(&mut self) {
+            let _ = std::env::set_current_dir(&self.prev);
+            let _ = std::fs::remove_dir_all(&self.dir);
+        }
+    }
+
+    fn with_temp_project() -> TempProject {
+        let lock = CWD_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let dir = std::env::temp_dir().join(format!(
+            "bark_server_trust_{}_{}_{}",
+            std::process::id(),
+            TEMP_PROJECT_SEQ.fetch_add(1, Ordering::Relaxed),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(dir.join(".board")).unwrap();
+        std::fs::write(dir.join(".board").join("config.json"), r#"{"version":1}"#).unwrap();
+        let git = |args: &[&str]| {
+            let out = std::process::Command::new("git")
+                .current_dir(&dir)
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(
+                out.status.success(),
+                "git {args:?} failed: {}",
+                String::from_utf8_lossy(&out.stderr)
+            );
+        };
+        git(&["init", "-q"]);
+        git(&["config", "user.email", "test@example.com"]);
+        git(&["config", "user.name", "Test"]);
+        std::fs::write(dir.join("README.md"), "temp\n").unwrap();
+        git(&["add", "-A"]);
+        git(&["commit", "-q", "-m", "init"]);
+
+        let prev = std::env::current_dir().unwrap();
+        std::env::set_current_dir(&dir).unwrap();
+        TempProject {
+            dir,
+            prev,
+            _lock: lock,
+        }
+    }
+
+    fn trust_router(state: Arc<AppState>) -> Router {
+        Router::new()
+            .route("/api/receipts", get(list_receipts_handler))
+            .route("/api/receipts/{id}", get(get_receipt_handler))
+            .route("/api/receipts/{id}/verify", post(verify_receipt_handler))
+            .route("/api/guard/scan", post(guard_scan_handler))
+            .route("/api/review/queue", get(review_queue_handler))
+            .layer(middleware::from_fn_with_state(state.clone(), auth_layer))
+            .with_state(state)
+    }
+
+    fn post_json_request(uri: &str, body: serde_json::Value) -> Request {
+        Request::builder()
+            .method("POST")
+            .uri(uri)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(axum::body::Body::from(body.to_string()))
+            .unwrap()
+    }
+
+    async fn json_body(res: Response) -> serde_json::Value {
+        let body = to_bytes(res.into_body(), usize::MAX).await.unwrap();
+        serde_json::from_slice(&body).unwrap()
+    }
+
+    #[tokio::test]
+    async fn receipts_route_is_registered() {
+        let _project = with_temp_project();
+        let app = trust_router(test_state(None));
+        let res = app.oneshot(get_request("/api/receipts")).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let value = json_body(res).await;
+        assert_eq!(value["receipts"].as_array().unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn receipt_routes_require_auth() {
+        for (method, uri) in [
+            ("GET", "/api/receipts"),
+            ("GET", "/api/receipts/rcpt_deadbeef0000"),
+            ("POST", "/api/receipts/rcpt_deadbeef0000/verify"),
+            ("POST", "/api/guard/scan"),
+            ("GET", "/api/review/queue"),
+        ] {
+            let app = trust_router(test_state(Some("secret")));
+            let request = if method == "POST" {
+                post_json_request(uri, serde_json::json!({}))
+            } else {
+                get_request(uri)
+            };
+            let res = app.oneshot(request).await.unwrap();
+            assert_eq!(res.status(), StatusCode::UNAUTHORIZED, "{uri} leaked");
+        }
+    }
+
+    #[tokio::test]
+    async fn guard_scan_rejects_both_range_and_staged() {
+        let _project = with_temp_project();
+        let app = trust_router(test_state(None));
+        let res = app
+            .oneshot(post_json_request(
+                "/api/guard/scan",
+                serde_json::json!({ "range": "main...HEAD", "staged": true }),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+        let value = json_body(res).await;
+        assert!(value["error"].as_str().unwrap().contains("either"));
+    }
+
+    #[tokio::test]
+    async fn guard_scan_returns_a_report() {
+        let project = with_temp_project();
+        std::fs::write(project.root().join("src.rs"), "fn main() {}\n").unwrap();
+        let app = trust_router(test_state(None));
+        let res = app
+            .oneshot(post_json_request(
+                "/api/guard/scan",
+                serde_json::json!({}),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let value = json_body(res).await;
+        assert_eq!(value["version"], 1);
+        assert!(value["findings"].is_array());
+    }
+
+    #[tokio::test]
+    async fn review_queue_returns_json_array() {
+        let project = with_temp_project();
+        std::fs::write(
+            project.root().join("work.board"),
+            r#"title: work
+columns:
+- id: todo
+  name: Todo
+- id: review
+  name: Review
+cards:
+- id: card-1
+  title: Ship the trust layer
+  column: review
+"#,
+        )
+        .unwrap();
+        let app = trust_router(test_state(None));
+        let res = app
+            .oneshot(get_request("/api/review/queue?board=work"))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let value = json_body(res).await;
+        let items = value["items"].as_array().unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0]["card_id"], "card-1");
+        assert_eq!(items[0]["column"], "review");
     }
 }

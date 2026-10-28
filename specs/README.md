@@ -2,7 +2,7 @@
 
 > Solo-first, team-ready. CLI is truth. TF-IDF now, ONNX later. 4 BMAD skills.
 
-This directory holds the authoritative build specs for the YC MVP. All specs built in **single branch `feat/mvp-all-specs`**.
+This directory holds the authoritative build specs for the YC MVP. Specs 001–005 shipped on **`feat/mvp-all-specs`**; later specs use dedicated branches.
 
 | Spec | Name | Status | PR |
 |------|------|--------|----|
@@ -11,6 +11,10 @@ This directory holds the authoritative build specs for the YC MVP. All specs bui
 | [003](./SPEC-003-skills.md) | Skills Registry (mvp/planning/scrum-master/test) | ✅ done | #8 |
 | [004](./SPEC-004-server-mcp-team.md) | Team Protocol (Card.spec_id + /api/mind + /api/skills + MCP) | ✅ done | #8 |
 | [005](./SPEC-005-polish-release.md) | Polish & Release v0.3.0 | ✅ done | #8 |
+| [006](./SPEC-006-fleet.md) | Fleet: sessions, worktrees, leases | ✅ done | — |
+| [007](./SPEC-007-trust-layer.md) | Trust Layer: receipts, guard, risk-ranked review | ✅ done | — |
+
+**Trust Layer plan:** [PLAN-007](./PLAN-007-trust-layer.md) · research: [TRUST_LAYER_RESEARCH](../docs/internal/TRUST_LAYER_RESEARCH.md)
 
 **Branch:** `feat/mvp-all-specs` → `master` via #8. Tags `v0.3.0-mvp` + `v0.3.1-mvp` (web).
 

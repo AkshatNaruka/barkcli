@@ -10,6 +10,10 @@ use crate::util::style;
 ///   --board <n>   Target board
 ///   --auto        Auto-move passing cards to done
 pub fn run_review(args: &[String]) -> Result<()> {
+    if matches!(args.first().map(String::as_str), Some("queue" | "next")) {
+        return super::review_queue::run(args);
+    }
+
     let review_all = args.iter().any(|a| a == "--all");
     let auto_move = args.iter().any(|a| a == "--auto");
 

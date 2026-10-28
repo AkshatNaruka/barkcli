@@ -469,6 +469,72 @@ Run an orchestration cycle (decompose, dispatch, monitor).
 }
 ```
 
+### Trust layer
+
+These five tools let an agent check its own work before asking a human to trust
+it, and let a reviewer audit what landed. All return JSON.
+
+#### `guard_scan`
+
+Run deterministic checks on a diff before merging. Call this on your branch
+after the gate passes and before you report completion.
+
+```json
+{
+  "name": "guard_scan",
+  "arguments": { "range": "main...HEAD" }
+}
+```
+
+Arguments: `range` (git revision range), `staged` (boolean), or neither for the
+worktree. `range` and `staged` are mutually exclusive. Returns a `GuardReport`
+with findings, severities, and a `passed` flag.
+
+#### `receipt_list`
+
+List merge receipts, newest first. Call after a merge, or when asked what
+shipped and how confident it is.
+
+```json
+{ "name": "receipt_list", "arguments": { "card_id": "jwt-login" } }
+```
+
+#### `receipt_get`
+
+Get one receipt plus its Markdown rendering. Call when you need the full proof
+bundle for a card: gate, guard, diff, review counts, confidence reasons, hash.
+
+```json
+{ "name": "receipt_get", "arguments": { "id_or_card": "jwt-login" } }
+```
+
+#### `receipt_verify`
+
+Recompute the receipt hash, check whether the branch moved, and optionally
+rerun the gate. Call when trusting a receipt written by another session or
+machine.
+
+```json
+{
+  "name": "receipt_verify",
+  "arguments": { "id_or_card": "rcpt_0123456789ab", "rerun_gate": true }
+}
+```
+
+Returns `{ receipt_id, valid, hash_ok, branch_moved, gate? }`.
+
+#### `review_queue`
+
+Return cards waiting for review, ranked by risk. Call when deciding what to
+review next instead of walking the board in creation order.
+
+```json
+{ "name": "review_queue", "arguments": { "all": false, "limit": 10 } }
+```
+
+Each item carries `risk.score`, `risk.tier` (`must` / `should` / `skim` /
+`unknown`), and the reasons behind the score.
+
 ## Smart History Bundles
 
 Bundles are a metadata overlay on git history. They never modify, rewrite, or curate git history directly. All git operations are read-only; any history-curating export creates a new branch.

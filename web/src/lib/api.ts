@@ -35,6 +35,9 @@ import type {
   AssignmentRecommendation,
   ReviewState,
   ReviewComment,
+  Receipt,
+  ReceiptVerification,
+  QueueItem,
   RepoEntry,
   RepoFile,
   GitStatus,
@@ -1782,6 +1785,45 @@ export async function fetchReview(id: string): Promise<ReviewState | null> {
     return await res.json();
   } catch {
     return null;
+  }
+}
+
+/** The newest receipt for a card (or an exact `rcpt_…` id). */
+export async function fetchReceipt(cardId: string): Promise<Receipt | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(withToken(`/api/receipts/${encodeURIComponent(cardId)}`));
+    if (!res.ok) return null;
+    const body = await res.json();
+    return body?.receipt ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function verifyReceipt(
+  id: string
+): Promise<ReceiptVerification | null> {
+  return postJson(`/api/receipts/${encodeURIComponent(id)}/verify`, {});
+}
+
+export async function fetchReviewQueue(
+  boardName?: string | null,
+  all = false
+): Promise<{ items: QueueItem[] }> {
+  if (isVscode) return { items: [] };
+  try {
+    const params = new URLSearchParams();
+    if (boardName) params.set("board", boardName);
+    if (all) params.set("all", "true");
+    const query = params.toString();
+    const res = await fetch(
+      withToken(`/api/review/queue${query ? `?${query}` : ""}`)
+    );
+    if (!res.ok) return { items: [] };
+    return await res.json();
+  } catch {
+    return { items: [] };
   }
 }
 

@@ -15,6 +15,7 @@ Complete reference for all barkcli commands.
 - [Housekeeping](#housekeeping)
 - [Orchestration](#orchestration)
 - [Autonomy](#autonomy)
+- [Trust Layer](#trust-layer)
 - [Spec Management](#spec-management)
 - [Flags](#flags)
 
@@ -530,6 +531,102 @@ barkcli skills publish db-index-audit
 
 Legacy modes stay: `skills install <id> [--from <path>]` copies one skill
 into the project; `skills list` / `skills show` browse the registry view.
+
+---
+
+## Trust Layer
+
+Deterministic verification for agent work: scan the diff before merging, write
+a receipt when it lands, and review in risk order. No cloud service or LLM is
+in the decision path.
+
+### `barkcli guard`
+
+Scan a diff for secrets, dependency mistakes, missing tests, and dangerous
+patterns.
+
+```shell
+barkcli guard                          # uncommitted changes (git diff HEAD)
+barkcli guard --scope staged           # staged changes only
+barkcli guard --branch feat/login      # branch vs the repository base branch
+barkcli guard --range main...HEAD      # any git revision range
+barkcli guard --checks secret,missing_tests --json
+barkcli guard --strict                 # exit 1 on errors even when advisory
+```
+
+| Flag | Description |
+|---|---|
+| `--branch <name>` | Scan a branch against `main` / `master` / `trunk` (falls back to `HEAD` or `branch~1`) |
+| `--range <rev>` | Scan an explicit range such as `main...HEAD` |
+| `--scope worktree\|staged` | Select uncommitted or staged changes (default: worktree) |
+| `--checks <list>` | Comma-separated subset of checks |
+| `--json` | Machine-readable `GuardReport` |
+| `--strict` | Promote warnings to failures; exit `1` on any error or warning |
+
+Checks:
+
+| Check | Severity | Catches |
+|---|---|---|
+| `secret` | error | API keys, tokens, private keys, high-entropy assignments |
+| `undeclared_dependency` | error | Imports missing from `Cargo.toml` / `package.json` / `pyproject.toml` |
+| `suspicious_dependency` | warn | Typosquat-shaped or non-registry package sources |
+| `lockfile_drift` | warn | Manifest changed without its lockfile |
+| `dangerous_pattern` | error | `eval`, `exec`, `shell=True`, raw SQL, TLS verification off |
+| `missing_tests` | warn | Production code changed with no test change |
+| `debug_leftover` | warn | `dbg!`, `console.log`, `print(` in production paths |
+| `large_diff` | warn | More than 40 files or 800 changed lines |
+
+The scan is **advisory by default**. To block merges on error findings, set:
+
+```json
+{ "guard": { "block": true } }
+```
+
+in `.board/config.json`. `guard` also works standalone in any git repository;
+without `.board/` it uses defaults. Exit codes: `0` clean or advisory; `1` when
+`guard.block` is on and errors exist, or when `--strict` is set and any error or
+warning exists.
+
+### `barkcli receipt`
+
+Verifiable proof of a merge, written automatically by `barkcli run` and the web
+runner to `.board/receipts/`.
+
+```shell
+barkcli receipt list [--card <id>] [--json]
+barkcli receipt show <id|card> [--json]        # Markdown by default
+barkcli receipt create --card <id> [--branch <b>] [--run <id>] [--json]
+barkcli receipt verify <id|card> [--rerun-gate] [--json]
+```
+
+A receipt records the intent, agent and model, branch and head SHA, diff stats
+and paths, gate verdict and duration, guard findings, review counts, a
+confidence level with reasons, and a SHA-256 content hash. `verify` recomputes
+the hash, checks whether the branch moved, and — with `--rerun-gate` — reruns
+the recorded gate command.
+
+Confidence: **High** requires a passed gate, a clean guard, changed tests, and
+no open review comments. A missing gate is always **Low**; guard warnings or a
+missing guard report cap it at **Medium**.
+
+Receipts are local-first in v1 and not committed. `receipt show` renders
+Markdown for sharing; the id is `rcpt_` plus 12 hex characters.
+
+### `barkcli review queue` / `barkcli review next`
+
+Rank cards waiting for review by risk.
+
+```shell
+barkcli review queue                 # cards in the review column
+barkcli review queue --all           # include doing
+barkcli review queue --limit 10 --json
+barkcli review next                  # highest-risk card to open first
+```
+
+Risk combines security-sensitive paths (30), complexity (20), missing tests
+(20), churn (15), public API changes (10), and size (5). Tiers: **Must** ≥ 70,
+**Should** ≥ 40, **Skim** below 40, **Unknown** when no diff can be resolved.
+Docs and Markdown-only changes do not score security points.
 
 ---
 

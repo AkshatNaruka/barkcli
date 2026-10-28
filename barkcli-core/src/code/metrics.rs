@@ -113,7 +113,7 @@ fn extract_functions(content: &str) -> Vec<(String, usize, usize)> {
 
         if in_function {
             brace_depth += line.matches('{').count();
-            brace_depth -= line.matches('}').count();
+            brace_depth = brace_depth.saturating_sub(line.matches('}').count());
 
             if brace_depth == 0 && line.contains('}') {
                 if let Some((name, start)) = current_fn.take() {
@@ -472,6 +472,14 @@ fn complex() {
         let metrics = compute_metrics("src/complex.rs", content);
         assert!(metrics.complexity.cyclomatic > 5);
         assert!(metrics.complexity.max_nesting > 3);
+    }
+
+    #[test]
+    fn metrics_tolerate_unbalanced_braces() {
+        let content = "}\nfunction x() {\n}\n";
+        let metrics = compute_metrics("web/app.js", content);
+        assert!(metrics.lines > 0);
+        assert!(metrics.functions >= 1);
     }
 
     #[test]

@@ -122,6 +122,8 @@ fn dispatch(cmd: &str, cmd_args: &[String]) -> Result<()> {
         "brain" => commands::brain::run_brain(cmd_args)?,
         "monitor" => commands::monitor::run_monitor(cmd_args)?,
         "review" => commands::review::run_review(cmd_args)?,
+        "guard" => commands::guard::run_guard(cmd_args)?,
+        "receipt" => commands::receipt::run_receipt(cmd_args)?,
         "mind" => commands::mind::run_mind(cmd_args)?,
         "overview" => commands::overview::run_overview(cmd_args)?,
         "skills" | "skill" => commands::skills::run_skills(cmd_args)?,
@@ -838,6 +840,10 @@ fn print_usage() {
     println!("  memory <cmd>        Cross-session memory (add, search, list, stats, compress)");
     println!("  monitor             Dashboard: agents, tasks, insights (--watch for live)");
     println!("  review [card-id]    Validate completed tasks (--all, --auto)");
+    println!("  review queue        Risk-ranked review queue (--all, --limit, --json)");
+    println!("  review next         Highest-risk card to review next");
+    println!("  guard               Deterministic pre-merge scan (--branch, --range, --json, --strict)");
+    println!("  receipt             Merge receipts: list, show, create, verify");
     println!("  mind sync|show      Compile + show Mind snapshot/digest");
     println!("  overview            4-panel human narrative (board/sprint/blockers/next)");
     println!("  skills list|show    BMAD skills (mvp/planning/scrum-master/test)");

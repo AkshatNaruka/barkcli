@@ -12,7 +12,7 @@
 //! - `resources/list`: List available resources
 //! - `resources/read`: Read a resource
 //!
-//! # Available Tools (71)
+//! # Available Tools (76)
 //!
 //! ## Board Management
 //! - `board_list`: List all boards
@@ -57,6 +57,11 @@
 //! - `orchestrate_next` / `orchestrate_cycle`: Dispatch
 //! - `memory_add` / `memory_search` / `memory_list`: Cross-session memory
 //! - `session_spawn` / `session_list` / `session_logs` / `session_kill` / `fleet_status`: Sessions & fleet
+//!
+//! ## Trust Layer
+//! - `guard_scan`: Deterministic pre-merge checks
+//! - `receipt_list` / `receipt_get` / `receipt_verify`: Merge receipts and integrity
+//! - `review_queue`: Risk-ranked review order
 //!
 //! ## Autopilot (agent-driven loop with human gates)
 //! - `autopilot_status`: Loop phase, human gates, agent next action
@@ -1259,6 +1264,104 @@ impl McpServer {
                 }
             }),
             serde_json::json!({
+                "name": "guard_scan",
+                "description": "Run deterministic pre-merge checks (secrets, dependencies, tests, dangerous patterns). Use before merging agent work.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "board": {
+                            "type": "string",
+                            "description": "Board name (optional)"
+                        },
+                        "range": {
+                            "type": "string",
+                            "description": "Git revision range (optional; defaults to the worktree)"
+                        },
+                        "staged": {
+                            "type": "boolean",
+                            "description": "Scan staged changes instead of the worktree"
+                        }
+                    },
+                    "required": []
+                }
+            }),
+            serde_json::json!({
+                "name": "receipt_list",
+                "description": "List merge receipts, newest first. Use after a merge to see what shipped and how confident it is.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "board": {
+                            "type": "string",
+                            "description": "Board name (optional)"
+                        },
+                        "card_id": {
+                            "type": "string",
+                            "description": "Only receipts for this card (optional)"
+                        }
+                    },
+                    "required": []
+                }
+            }),
+            serde_json::json!({
+                "name": "receipt_get",
+                "description": "Get one merge receipt and its markdown rendering by id or card id. Use to show the proof bundle for a card.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "id_or_card": {
+                            "type": "string",
+                            "description": "Receipt id (rcpt_…) or card id"
+                        },
+                        "board": {
+                            "type": "string",
+                            "description": "Board name (optional)"
+                        }
+                    },
+                    "required": ["id_or_card"]
+                }
+            }),
+            serde_json::json!({
+                "name": "receipt_verify",
+                "description": "Verify a receipt hash, branch head, and optionally rerun its gate. Use when trusting a receipt from another session or machine.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "id_or_card": {
+                            "type": "string",
+                            "description": "Receipt id (rcpt_…) or card id"
+                        },
+                        "rerun_gate": {
+                            "type": "boolean",
+                            "description": "Rerun the recorded gate command (optional)"
+                        }
+                    },
+                    "required": ["id_or_card"]
+                }
+            }),
+            serde_json::json!({
+                "name": "review_queue",
+                "description": "Risk-ranked cards waiting for review. Use when deciding what to review next.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "board": {
+                            "type": "string",
+                            "description": "Board name (optional)"
+                        },
+                        "all": {
+                            "type": "boolean",
+                            "description": "Include cards in doing as well as review"
+                        },
+                        "limit": {
+                            "type": "number",
+                            "description": "Maximum number of items (optional)"
+                        }
+                    },
+                    "required": []
+                }
+            }),
+            serde_json::json!({
                 "name": "session_spawn",
                 "description": "Spawn an agent session, optionally bound to a task (acquires worktree + claims with lease + spawns backend)",
                 "inputSchema": {
@@ -1711,6 +1814,12 @@ impl McpServer {
             "task_heartbeat" => self.tool_task_heartbeat(arguments),
             "handoff" => self.tool_handoff(arguments),
             "verify" => self.tool_verify(arguments),
+            // Trust layer
+            "guard_scan" => self.tool_guard_scan(arguments),
+            "receipt_list" => self.tool_receipt_list(arguments),
+            "receipt_get" => self.tool_receipt_get(arguments),
+            "receipt_verify" => self.tool_receipt_verify(arguments),
+            "review_queue" => self.tool_review_queue(arguments),
             "session_spawn" => self.tool_session_spawn(arguments),
             "session_list" => self.tool_session_list(arguments),
             "session_logs" => self.tool_session_logs(arguments),
@@ -3119,6 +3228,87 @@ impl McpServer {
         }))
     }
 
+    // ── Trust layer: guard, receipts, review queue ──
+
+    fn tool_guard_scan(&self, args: Value) -> Result<Value> {
+        let root = crate::storage::board_dir::find_project_root()?;
+        let config = crate::storage::config_store::read_config(&root.join(".board"))
+            .unwrap_or_default();
+        let scope = if let Some(range) = args.get("range").and_then(|value| value.as_str()) {
+            crate::guard::diff::DiffScope::Range(range.to_string())
+        } else if args
+            .get("staged")
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false)
+        {
+            crate::guard::diff::DiffScope::Staged
+        } else {
+            crate::guard::diff::DiffScope::Worktree
+        };
+        let options = crate::guard::GuardOptions::from_settings(scope, &config.guard);
+        let report = crate::guard::scan(&root, &options)?;
+        Ok(serde_json::to_value(report)?)
+    }
+
+    fn tool_receipt_list(&self, args: Value) -> Result<Value> {
+        let root = crate::storage::board_dir::find_project_root()?;
+        let card_id = args.get("card_id").and_then(|value| value.as_str());
+        let receipts = crate::receipt::list_receipts(&root, card_id)?;
+        let summaries: Vec<crate::receipt::ReceiptSummary> = receipts
+            .iter()
+            .map(crate::receipt::ReceiptSummary::from)
+            .collect();
+        Ok(serde_json::json!({ "receipts": summaries }))
+    }
+
+    fn tool_receipt_get(&self, args: Value) -> Result<Value> {
+        let selector = args
+            .get("id_or_card")
+            .and_then(|value| value.as_str())
+            .ok_or_else(|| anyhow::anyhow!("id_or_card required"))?;
+        let root = crate::storage::board_dir::find_project_root()?;
+        let receipt = crate::receipt::find_receipt(&root, selector)?;
+        let markdown = crate::receipt::to_markdown(&receipt);
+        Ok(serde_json::json!({
+            "receipt": receipt,
+            "markdown": markdown,
+        }))
+    }
+
+    fn tool_receipt_verify(&self, args: Value) -> Result<Value> {
+        let selector = args
+            .get("id_or_card")
+            .and_then(|value| value.as_str())
+            .ok_or_else(|| anyhow::anyhow!("id_or_card required"))?;
+        let rerun_gate = args
+            .get("rerun_gate")
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false);
+        let root = crate::storage::board_dir::find_project_root()?;
+        let verification = crate::receipt::verify_receipt(&root, selector, rerun_gate)?;
+        Ok(serde_json::to_value(verification)?)
+    }
+
+    fn tool_review_queue(&self, args: Value) -> Result<Value> {
+        let board = self.resolve_board(&args)?;
+        let all = args
+            .get("all")
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false);
+        let limit = args
+            .get("limit")
+            .and_then(|value| value.as_u64())
+            .map(|value| value as usize);
+        let root = crate::storage::board_dir::find_project_root()?;
+        let board_model = crate::storage::board_file::read_board(&board)?;
+        let mut items =
+            crate::commands::review_queue::build_queue(&root, &board_model, &board, all)?;
+        if let Some(limit) = limit {
+            items.truncate(limit);
+        }
+        Ok(serde_json::json!({ "items": items }))
+    }
+
     // ── Fleet: sessions ──
 
     fn tool_session_spawn(&self, args: Value) -> Result<Value> {
@@ -3568,4 +3758,58 @@ impl McpServer {
 pub fn run_mcp_server() -> Result<()> {
     let mut server = McpServer::new();
     server.run()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn request(method: &str, params: Value) -> JsonRpcRequest {
+        JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: Some(serde_json::json!(1)),
+            method: method.into(),
+            params,
+        }
+    }
+
+    #[test]
+    fn tool_list_contains_trust_tools() {
+        let server = McpServer::new();
+        let response = server.handle_tools_list(request("tools/list", serde_json::json!({})));
+        let result = response.result.expect("tools/list result");
+        let names: Vec<&str> = result["tools"]
+            .as_array()
+            .expect("tools array")
+            .iter()
+            .filter_map(|tool| tool["name"].as_str())
+            .collect();
+        for name in [
+            "guard_scan",
+            "receipt_list",
+            "receipt_get",
+            "receipt_verify",
+            "review_queue",
+        ] {
+            assert!(names.contains(&name), "missing tool `{name}`");
+        }
+    }
+
+    #[test]
+    fn tool_guard_scan_rejects_unknown_range() {
+        let server = McpServer::new();
+        let result = server.tool_guard_scan(serde_json::json!({
+            "range": "definitely-not-a-rev..HEAD"
+        }));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn tool_receipt_get_missing_returns_error() {
+        let server = McpServer::new();
+        let result = server.tool_receipt_get(serde_json::json!({
+            "id_or_card": "rcpt_does_not_exist"
+        }));
+        assert!(result.is_err());
+    }
 }

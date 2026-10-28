@@ -28,6 +28,7 @@ You decide *what* gets built. Agents propose plans, do the work, and report back
 
 - [Why barkcli?](#why-barkcli)
 - [Features](#features)
+- [Trust layer](#trust-layer)
 - [Screenshots](#screenshots)
 - [Install](#install)
 - [Quick Start](#quick-start)
@@ -52,7 +53,7 @@ Intent in, plans out. barkcli is the management layer for AI agents: humans writ
 
 - **Tasks are files.** Boards are plain YAML committed to your repo. Diff them, merge them, grep them, roll them back — exactly like code.
 - **One binary, four interfaces.** CLI, terminal UI (ratatui), web app (axum), and a VS Code Custom Editor. Same data, every surface.
-- **AI agents in the loop.** 71 MCP tools let Claude Code, OpenCode, and Cursor read tasks, claim work, and update progress — with full project context.
+- **AI agents in the loop.** 76 MCP tools let Claude Code, OpenCode, and Cursor read tasks, claim work, and update progress — with full project context.
 - **Local-first, free core.** No accounts, no subscriptions to use it. Works fully offline. MIT licensed — your data never leaves your machine. A hosted team layer (multiplayer, cloud sync, analytics) is planned at $99/month per team.
 
 ---
@@ -64,7 +65,7 @@ Intent in, plans out. barkcli is the management layer for AI agents: humans writ
 | 🧠 **Mind** | Compiled project snapshot — health, blockers, stale work, next actions. One command answers "what's happening?". |
 | 📋 **Board** | Columns, priorities, labels, assignees, checklists, comments, effort, due dates, reminders. Drag-and-drop in the web app. |
 | 🔗 **Spec Traceability** | Specs → requirements → code. Every card links to its spec and to the code that implements it. |
-| 🛠 **MCP Server** | 71 tools for AI coding agents — board, task, memory, specs, orchestration, sessions. `barkcli mcp`. |
+| 🛠 **MCP Server** | 76 tools for AI coding agents — board, task, memory, specs, orchestration, sessions. `barkcli mcp`. |
 | 🤖 **Autopilot** | Intent → plan gate → dispatched packets → review → merge gate. Or go fully autonomous: `barkcli run "<intent>" --agents 3 --yes` — parallel agents in worktrees, your tests as the gate, merge train for the winners. |
 | 🧠 **Memory** | Four-tier local memory + project facts that persist across sessions. Hybrid search. |
 | 📦 **Skills Registry** | Playbooks injected into agent prompts on trigger matches. Install from any git repo (`skills install owner/repo`), pinned in a committed `skills.lock` (rev + sha256), publish back via PR. |
@@ -72,6 +73,26 @@ Intent in, plans out. barkcli is the management layer for AI agents: humans writ
 | 🎯 **Code Context** | Symbol search (`barkcli code`), file-to-card mapping, git-aware refresh. |
 | ⏱ **Timeline** | Checkpoints, undo, diff, blame, validate, doctor. Your board, version-controlled. |
 | 🔀 **Import/Export** | YAML and JSON. Migrate from Linear, Jira, Trello, GitHub Projects. |
+
+---
+
+## Trust layer
+
+> **Agents write code. barkcli proves it.**
+
+The bottleneck is no longer writing the diff — it is trusting it. Three commands close that gap without a cloud service or an LLM in the decision path:
+
+```bash
+barkcli guard                 # deterministic pre-merge scan (secrets, deps, tests, danger)
+barkcli receipt show <card>   # what shipped, who wrote it, what passed, and a SHA-256
+barkcli review next           # the riskiest card waiting for review
+```
+
+`barkcli guard` checks the diff for hardcoded secrets, undeclared or suspicious dependencies, lockfile drift, dangerous patterns (`eval`, `shell=True`, raw SQL), debug leftovers, missing tests, and oversized diffs. It is **advisory by default**; set `"guard": { "block": true }` in `.board/config.json` to make errors block a merge. It also runs standalone in any git repo.
+
+Every merge through `barkcli run` writes a **receipt** to `.board/receipts/`: the intent, agent, branch and head SHA, diff stats, gate verdict, guard findings, review counts, a confidence level with reasons, and a content hash. `barkcli receipt verify` recomputes the hash and checks whether the branch moved — so a receipt can be audited later, on another machine, without trusting the agent that produced it. Receipts are local-first in v1; `receipt show` renders Markdown for sharing.
+
+`barkcli review queue` ranks cards in review by risk — security-sensitive paths, complexity, missing tests, churn, public API changes, and size — and `review next` picks the one to open first. The web app has the same surfaces: a **Receipt** tab in the workbench and a **Review queue** panel on the board.
 
 ---
 
@@ -253,7 +274,7 @@ barkcli mcp
 
 **OpenCode** — add to `.opencode/config.json`; **Cursor** — `.cursor/mcp.json`, same shape.
 
-The 71 tools cover boards, cards, tasks, agents, memory, specs, sessions, orchestration, code search, and autopilot. Agents can read task context, claim work, update progress, and run cycles — all inside your repo.
+The 76 tools cover boards, cards, tasks, agents, memory, specs, sessions, orchestration, code search, autopilot, and the trust layer. Agents can read task context, claim work, update progress, and run cycles — all inside your repo.
 
 - [Integration hub](https://akshatnaruka.github.io/barkcli/integrations)
 - [AI agent setup guide](https://akshatnaruka.github.io/barkcli/guides/ai-agent-setup)

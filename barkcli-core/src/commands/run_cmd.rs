@@ -45,9 +45,17 @@ use crate::agent::{
     build_task_prompt, load_session, save_session, sessions_dir, skills_for_task, AgentRole,
     Session, SessionBackend, SessionStatus, TaskQueue,
 };
+use crate::guard::{self, DiffSet, GuardReport};
 use crate::memory::store::{MemoryStore, ProjectFact};
+use crate::models::config::{GuardSettings, ReceiptSettings};
+use crate::receipt::{
+    self,
+    builder::{self, ReceiptInput},
+    AgentEvidence, GateEvidence, WorkspaceEvidence,
+};
 use crate::storage::board_dir::{find_board_dir, find_project_root};
 use crate::storage::board_file::{read_board, update_board};
+use crate::storage::config_store::read_config;
 use crate::util::style;
 use super::fleet::{ensure_agent, load_queue, load_registry, save_queue, save_registry};
 use super::intake::{
@@ -124,6 +132,7 @@ pub struct GateResult {
     pub ok: bool,
     pub skipped: bool,
     pub tail: String,
+    pub duration_ms: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -311,6 +320,14 @@ pub fn run(opts: RunOptions) -> Result<RunReport> {
         Some(b) => b.clone(),
         None => first_board()?,
     };
+
+    // Read trust settings once; every merge in this run uses the same policy.
+    let config = find_board_dir()
+        .ok()
+        .and_then(|dir| read_config(&dir).ok())
+        .unwrap_or_default();
+    let guard_settings = config.guard.clone();
+    let receipt_settings = config.receipts.clone();
 
     let (card_id, classification) = if let Some(ref cid) = opts.card_id {
         let card = find_card(&board_name, cid)?;
@@ -642,6 +659,8 @@ pub fn run(opts: RunOptions) -> Result<RunReport> {
                     &mut outcomes,
                     &mut merged_branches,
                     &mut verdicts,
+                    &guard_settings,
+                    &receipt_settings,
                 )? {
                     HandleSignal::Normal => {}
                     HandleSignal::SoloWait(task_id) => {
@@ -917,6 +936,7 @@ fn dispatch_next(
                     ok: false,
                     skipped: true,
                     tail: String::new(),
+                    duration_ms: 0,
                 },
                 dirty: false,
                 made_commits: 0,
@@ -1030,6 +1050,7 @@ fn run_attempt(
             skipped: true,
             tail: "No test command detected (no Cargo.toml / package.json test script / pyproject / go.mod) — gate skipped; pass --test-cmd for real verification"
                 .into(),
+            duration_ms: 0,
         },
     };
     let dirty = !git_out(wt_path, &["status", "--porcelain"])
@@ -1094,6 +1115,8 @@ fn handle_done(
     outcomes: &mut Vec<TaskOutcome>,
     merged_branches: &mut Vec<String>,
     verdicts: &mut HashMap<String, String>,
+    guard_settings: &GuardSettings,
+    receipt_settings: &ReceiptSettings,
 ) -> Result<HandleSignal> {
     let task_id = done.task_id.clone();
     let attempt_no = done.attempt;
@@ -1204,6 +1227,70 @@ fn handle_done(
         }
 
         let root = find_project_root()?;
+        let base_sha = git_out(&root, &["merge-base", "HEAD", &branch])
+            .ok()
+            .map(|sha| sha.trim().to_string());
+        let head_sha = git_out(&root, &["rev-parse", &branch])
+            .ok()
+            .map(|sha| sha.trim().to_string());
+
+        // Guard runs after the gate and before the merge. A scan failure is
+        // advisory: the gate already passed, so do not block on a guard error.
+        let guard_scan = if guard_settings.enabled {
+            match guard::scan_branch_diff(&root, &branch, guard_settings) {
+                Ok(scan) => {
+                    let (errors, warnings, _) = scan.1.counts();
+                    println!(
+                        "{} guard: {} finding(s) ({} error(s), {} warning(s))",
+                        if scan.1.passed {
+                            style::ok("✔")
+                        } else {
+                            style::warn("⚠")
+                        },
+                        scan.1.findings.len(),
+                        errors,
+                        warnings
+                    );
+                    Some(scan)
+                }
+                Err(err) => {
+                    println!("{} guard: skipped ({})", style::warn("⚠"), err);
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
+        if should_block_merge(
+            guard_settings,
+            guard_scan.as_ref().map(|(_, report)| report),
+        ) {
+            let errors = guard_scan
+                .as_ref()
+                .map(|(_, report)| report.counts().0)
+                .unwrap_or(0);
+            let note = format!("guard blocked merge: {} error(s)", errors);
+            q.add_note(&task_id, "runner", &note)?;
+            save_queue(board_name, &q)?;
+            println!(
+                "{} guard blocked merge — branch {} kept for review",
+                style::warn("✘"),
+                style::strong(&branch)
+            );
+            outcomes.push(TaskOutcome {
+                task_id: task_id.clone(),
+                title: done.title,
+                attempts: attempt_no,
+                status: "ready-unmerged".into(),
+                merged: false,
+                gate: Some(done.gate),
+                transcript: transcript_path,
+                note: Some(note),
+            });
+            return Ok(HandleSignal::SoloClear(task_id));
+        }
+
         match git_out(&root, &["merge", "--no-ff", "--no-edit", &branch]) {
             Ok(_) => {
                 release_worktree(&slug, true).ok();
@@ -1235,6 +1322,31 @@ fn handle_done(
                     })),
                 );
                 let _ = crate::threads::append_event(&task.card_id, &merge_ev);
+
+                if receipt_settings.auto {
+                    match write_merge_receipt(
+                        &root,
+                        board_name,
+                        &task,
+                        &session,
+                        &branch,
+                        base_sha.clone(),
+                        head_sha.clone(),
+                        guard_scan.as_ref(),
+                        &done.gate,
+                    ) {
+                        Ok(receipt) => println!(
+                            "{} receipt {} → .board/receipts/{}.json",
+                            style::ok("✔"),
+                            style::strong(&receipt.id),
+                            receipt.id
+                        ),
+                        Err(err) => {
+                            println!("{} receipt skipped: {}", style::warn("⚠"), err);
+                        }
+                    }
+                }
+
                 merged_branches.push(branch);
                 outcomes.push(TaskOutcome {
                     task_id: task_id.clone(),
@@ -1357,6 +1469,66 @@ fn beat_lease(board_name: &str, task_id: &str, lease_minutes: i64) -> Result<()>
         save_queue(board_name, &q)?;
     }
     Ok(())
+}
+
+fn should_block_merge(settings: &GuardSettings, report: Option<&GuardReport>) -> bool {
+    settings.block && report.map(|report| !report.passed).unwrap_or(false)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn write_merge_receipt(
+    root: &Path,
+    board_name: &str,
+    task: &TaskRequest,
+    session: &Session,
+    branch: &str,
+    base_sha: Option<String>,
+    head_sha: Option<String>,
+    guard_scan: Option<&(DiffSet, GuardReport)>,
+    gate: &GateResult,
+) -> Result<receipt::Receipt> {
+    let card = find_card(board_name, &task.card_id)?;
+    let diff = guard_scan
+        .map(|(diff, _)| builder::diff_evidence(diff))
+        .unwrap_or_default();
+    let review = builder::review_evidence(&task.card_id, diff.files);
+
+    let input = ReceiptInput {
+        card_id: card.id.clone(),
+        card_title: card.title.clone(),
+        card_description: card.description.clone(),
+        task_id: Some(task.id.clone()),
+        run_id: None,
+        thread_id: None,
+        agent: AgentEvidence {
+            provider: session.backend.as_str().to_string(),
+            model: None,
+            role: task.metadata.role.clone(),
+            agent_id: Some(session.agent_id.clone()),
+        },
+        workspace: WorkspaceEvidence {
+            branch: Some(branch.to_string()),
+            base_sha,
+            head_sha,
+            worktree: session.worktree_path.clone(),
+        },
+        diff,
+        gate: Some(GateEvidence {
+            command: gate.cmd.clone(),
+            passed: gate.ok,
+            skipped: gate.skipped,
+            duration_ms: Some(gate.duration_ms),
+            log_path: None,
+            tail: Some(builder::tail_evidence(&gate.tail, 15)),
+            finished_at: Some(Utc::now()),
+        }),
+        guard: guard_scan.map(|(_, report)| report.clone()),
+        review,
+        created_at: None,
+    };
+
+    let receipt = builder::build(input);
+    receipt::save_receipt(root, receipt)
 }
 
 fn title_of(board_name: &str, task_id: &str) -> Result<String> {
@@ -1631,7 +1803,8 @@ pub(crate) fn detect_test_cmd(dir: &Path, override_cmd: Option<String>) -> Optio
 /// Run the gate in the worktree. Output is teed to `<session>/gate.log`; its
 /// tail (40 lines) becomes the re-dispatch verdict on failure.
 fn run_gate(dir: &Path, cmd: &str, sess_dir: &Path) -> GateResult {
-    match Command::new("sh")
+    let started = Instant::now();
+    let result = match Command::new("sh")
         .args(["-c", cmd])
         .current_dir(dir)
         .stdin(Stdio::null())
@@ -1649,6 +1822,7 @@ fn run_gate(dir: &Path, cmd: &str, sess_dir: &Path) -> GateResult {
                 ok: o.status.success(),
                 skipped: false,
                 tail: last_lines(&combined, 40),
+                duration_ms: started.elapsed().as_millis() as u64,
             }
         }
         Err(e) => GateResult {
@@ -1656,8 +1830,10 @@ fn run_gate(dir: &Path, cmd: &str, sess_dir: &Path) -> GateResult {
             ok: false,
             skipped: false,
             tail: format!("gate command failed to start: {}", e),
+            duration_ms: started.elapsed().as_millis() as u64,
         },
-    }
+    };
+    result
 }
 
 fn commit_worktree(wt: &Path, task: &TaskRequest) -> Result<bool> {
@@ -1772,6 +1948,34 @@ mod tests {
         assert!(opts.card_id.is_none());
         assert_eq!(opts.max_agents, 1);
         assert_eq!(opts.max_attempts, 3);
+    }
+
+    #[test]
+    fn guard_blocks_only_when_configured_and_failing() {
+        let report = |passed: bool| GuardReport {
+            version: 1,
+            generated_at: Utc::now(),
+            base: "HEAD".into(),
+            head: "feat".into(),
+            files: 1,
+            additions: 1,
+            deletions: 0,
+            checks: vec!["secret".into()],
+            findings: Vec::new(),
+            passed,
+        };
+
+        let advisory = GuardSettings::default();
+        assert!(!should_block_merge(&advisory, Some(&report(false))));
+        assert!(!should_block_merge(&advisory, None));
+
+        let blocking = GuardSettings {
+            block: true,
+            ..GuardSettings::default()
+        };
+        assert!(should_block_merge(&blocking, Some(&report(false))));
+        assert!(!should_block_merge(&blocking, Some(&report(true))));
+        assert!(!should_block_merge(&blocking, None));
     }
 }
 

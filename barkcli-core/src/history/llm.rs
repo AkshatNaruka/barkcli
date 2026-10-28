@@ -325,10 +325,13 @@ mod tests {
     #[test]
     fn redact_before_llm() {
         // Verify redaction works on typical secret patterns
-        let text = "password: hunter2, api_key: sk-abcdefghijklmnopqrstuvwxyz123456";
-        let redacted = redact_text(text);
+        let text = format!(
+            "password: hunter2, api_key: sk-{}",
+            "a".repeat(30)
+        );
+        let redacted = redact_text(&text);
         assert!(!redacted.contains("hunter2"));
-        assert!(!redacted.contains("sk-abcdefgh"));
+        assert!(!redacted.contains("sk-aaaa"));
         assert!(redacted.contains("[REDACTED]"));
     }
 }

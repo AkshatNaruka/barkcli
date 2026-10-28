@@ -522,6 +522,141 @@ POST /api/doctor
 | `POST` | `/api/orchestrate/cycle` | Run orchestration cycle |
 | `GET` | `/api/orchestrate/status` | Orchestration status |
 
+## Trust Layer Endpoints
+
+Deterministic verification for agent work (SPEC-007). All routes follow the
+same token auth as the rest of `/api/*`.
+
+| Method | Endpoint | Returns |
+|---|---|---|
+| `GET` | `/api/receipts?card_id=` | `{ receipts: ReceiptSummary[] }` |
+| `GET` | `/api/receipts/:id` | `{ receipt, markdown }` |
+| `POST` | `/api/receipts/:id/verify` | `{ receipt_id, valid, hash_ok, branch_moved, gate? }` |
+| `POST` | `/api/guard/scan` | `GuardReport` |
+| `GET` | `/api/review/queue?board=&all=&limit=` | `{ items: QueueItem[] }` |
+
+`:id` accepts either a `rcpt_…` receipt id or a card id (newest receipt for
+that card).
+
+### List Receipts
+
+```http
+GET /api/receipts?card_id=jwt-login
+```
+
+```json
+{
+  "receipts": [
+    {
+      "id": "rcpt_0123456789ab",
+      "card_id": "jwt-login",
+      "created_at": "2026-10-28T10:01:00Z",
+      "confidence": "high",
+      "gate_passed": true,
+      "files": 4,
+      "additions": 120,
+      "deletions": 8,
+      "guard_errors": 0,
+      "guard_warnings": 0
+    }
+  ]
+}
+```
+
+### Get Receipt
+
+```http
+GET /api/receipts/rcpt_0123456789ab
+```
+
+Returns the full receipt object plus its Markdown rendering:
+
+```json
+{ "receipt": { "id": "rcpt_…", "confidence": { "level": "high", "reasons": [] } }, "markdown": "# Merge receipt …" }
+```
+
+### Verify Receipt
+
+```http
+POST /api/receipts/rcpt_0123456789ab/verify
+Content-Type: application/json
+
+{ "rerun_gate": false }
+```
+
+`rerun_gate` is optional (default `false`). The response says whether the
+content hash still matches, whether the recorded branch head moved, and — when
+rerun — the new gate verdict.
+
+### Guard Scan
+
+```http
+POST /api/guard/scan
+Content-Type: application/json
+
+{ "range": "main...HEAD" }
+```
+
+Body fields: `range` (revision range), `staged` (boolean), or `branch` (scan a
+branch against the base branch). Sending more than one of these is a `400`.
+With an empty body the worktree is scanned. Returns a `GuardReport`:
+
+```json
+{
+  "version": 1,
+  "base": "HEAD",
+  "head": "WORKTREE",
+  "files": 4,
+  "additions": 120,
+  "deletions": 8,
+  "checks": ["secret", "missing_tests"],
+  "findings": [
+    {
+      "check": "secret",
+      "severity": "error",
+      "path": "src/config.rs",
+      "line": 12,
+      "message": "Hardcoded token",
+      "suggestion": "Move it to an environment variable"
+    }
+  ],
+  "passed": false
+}
+```
+
+### Review Queue
+
+```http
+GET /api/review/queue?board=dev&all=false&limit=10
+```
+
+```json
+{
+  "items": [
+    {
+      "card_id": "jwt-login",
+      "title": "Implement JWT login",
+      "column": "review",
+      "branch": "bark/jwt-login",
+      "receipt_id": null,
+      "files": 3,
+      "additions": 80,
+      "deletions": 4,
+      "risk": {
+        "score": 80,
+        "tier": "must",
+        "reasons": [
+          { "signal": "security_path", "points": 30, "detail": "Touches src/auth/session.rs" }
+        ]
+      }
+    }
+  ]
+}
+```
+
+Tiers: `must` (≥ 70), `should` (≥ 40), `skim` (< 40), `unknown` (no diff
+resolved). Unknown items sort last.
+
 ## Other Endpoints
 
 | Method | Endpoint | Description |

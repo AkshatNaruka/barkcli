@@ -10,6 +10,8 @@ import type {
   ContextPack,
   ProductPlan,
   ReviewState,
+  Receipt,
+  ReceiptVerification,
 } from "../lib/types";
 import {
   fetchTaskDiff,
@@ -24,6 +26,8 @@ import {
   dispatchOrchestraPlan,
   fetchOrchestra,
   fetchReview,
+  fetchReceipt,
+  verifyReceipt,
   markReviewViewed,
   addReviewComment,
   resolveReviewComment,
@@ -35,6 +39,7 @@ import {
 } from "../lib/api";
 import { Icon } from "../components/Icon";
 import { UnifiedDiff } from "../components/UnifiedDiff";
+import { ReceiptPanel } from "../components/ReceiptPanel";
 
 interface InspectorPaneProps {
   card?: Card;
@@ -43,12 +48,13 @@ interface InspectorPaneProps {
   onClose?: () => void;
 }
 
-type WorkbenchTab = "plan" | "diff" | "gate" | "eval" | "context";
+type WorkbenchTab = "plan" | "diff" | "gate" | "receipt" | "eval" | "context";
 
 const TABS: Array<{ id: WorkbenchTab; label: string }> = [
   { id: "plan", label: "Plan" },
   { id: "diff", label: "Diff" },
   { id: "gate", label: "Gate" },
+  { id: "receipt", label: "Receipt" },
   { id: "eval", label: "Eval" },
   { id: "context", label: "Context" },
 ];
@@ -88,6 +94,11 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
   const [review, setReview] = useState<ReviewState | null>(null);
   const [reviewBusy, setReviewBusy] = useState(false);
   const [reviewNotice, setReviewNotice] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<Receipt | null>(null);
+  const [loadingReceipt, setLoadingReceipt] = useState(false);
+  const [receiptVerification, setReceiptVerification] =
+    useState<ReceiptVerification | null>(null);
+  const [verifyingReceipt, setVerifyingReceipt] = useState(false);
   const [changesOpen, setChangesOpen] = useState(false);
   const [changesNote, setChangesNote] = useState("");
   const [askOpen, setAskOpen] = useState(false);
@@ -218,6 +229,37 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
       cancelled = true;
     };
   }, [tab, reviewId, runRevision]);
+
+  useEffect(() => {
+    setReceipt(null);
+    setReceiptVerification(null);
+  }, [card?.id]);
+
+  useEffect(() => {
+    if (tab !== "receipt" || !card?.id) return;
+    let cancelled = false;
+    setLoadingReceipt(true);
+    fetchReceipt(card.id)
+      .then((next) => {
+        if (!cancelled) setReceipt(next);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingReceipt(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, card?.id, runRevision]);
+
+  const handleVerifyReceipt = async () => {
+    if (!receipt || verifyingReceipt) return;
+    setVerifyingReceipt(true);
+    try {
+      setReceiptVerification(await verifyReceipt(receipt.id));
+    } finally {
+      setVerifyingReceipt(false);
+    }
+  };
 
   useEffect(() => {
     if (tab !== "gate" || !latestRun) {
@@ -1022,6 +1064,16 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
               </Empty>
             )}
           </div>
+        )}
+
+        {tab === "receipt" && (
+          <ReceiptPanel
+            receipt={receipt}
+            loading={loadingReceipt}
+            verification={receiptVerification}
+            verifying={verifyingReceipt}
+            onVerify={handleVerifyReceipt}
+          />
         )}
 
         {tab === "eval" && (
