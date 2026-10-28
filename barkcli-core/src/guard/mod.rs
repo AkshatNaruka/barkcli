@@ -212,9 +212,15 @@ impl GuardOptions {
 /// Run the configured checks over the diff selected by `options.scope`.
 pub fn scan(root: &Path, options: &GuardOptions) -> Result<GuardReport> {
     let diff = diff_for_scope(root, &options.scope)?;
+    Ok(scan_diff(root, &diff, options))
+}
+
+/// Scan an already-resolved diff. Used by receipt creation and merge paths so
+/// the same diff drives both the report and the receipt evidence.
+pub fn scan_diff(root: &Path, diff: &DiffSet, options: &GuardOptions) -> GuardReport {
     let context = checks::CheckContext {
         root,
-        diff: &diff,
+        diff,
         large_files: options.large_files,
         large_lines: options.large_lines,
     };
@@ -236,11 +242,11 @@ pub fn scan(root: &Path, options: &GuardOptions) -> Result<GuardReport> {
         .iter()
         .any(|finding| finding.severity == Severity::Error);
 
-    Ok(GuardReport {
+    GuardReport {
         version: GUARD_VERSION,
         generated_at: Utc::now(),
-        base: diff.base,
-        head: diff.head,
+        base: diff.base.clone(),
+        head: diff.head.clone(),
         files,
         additions,
         deletions,
@@ -251,7 +257,7 @@ pub fn scan(root: &Path, options: &GuardOptions) -> Result<GuardReport> {
             .collect(),
         findings,
         passed,
-    })
+    }
 }
 
 /// Scan `branch` against the merge base with `HEAD`.
