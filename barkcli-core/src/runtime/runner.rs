@@ -186,7 +186,12 @@ impl RunService {
             agent_id: request.agent_id.clone(),
             permission_mode,
             provider_session_id,
-            raw_log_path: None,
+            raw_log_path: Some(
+                self.store()
+                    .raw_log_path(&run_id)
+                    .to_string_lossy()
+                    .to_string(),
+            ),
         };
 
         let mut run = RunRecord::new(&start);

@@ -147,7 +147,9 @@ impl ProviderAdapter for OpencodeProvider {
         if let Some(session) = req.provider_session_id.as_deref() {
             cmd.arg("--session").arg(session);
         } else {
-            cmd.arg("--session").arg(format!("bark-{}", req.run_id));
+            // OpenCode validates session IDs and requires the `ses` prefix.
+            cmd.arg("--session")
+                .arg(format!("ses_bark_{}", req.run_id.trim_start_matches("run_")));
         }
         if req.permission_mode == "auto" || req.permission_mode == "full" {
             cmd.arg("--auto");
