@@ -12,7 +12,7 @@ This directory holds the authoritative build specs for the YC MVP. Specs 001–0
 | [004](./SPEC-004-server-mcp-team.md) | Team Protocol (Card.spec_id + /api/mind + /api/skills + MCP) | ✅ done | #8 |
 | [005](./SPEC-005-polish-release.md) | Polish & Release v0.3.0 | ✅ done | #8 |
 | [006](./SPEC-006-fleet.md) | Fleet: sessions, worktrees, leases | ✅ done | — |
-| [007](./SPEC-007-trust-layer.md) | Trust Layer: receipts, guard, risk-ranked review | 📝 proposed | — |
+| [007](./SPEC-007-trust-layer.md) | Trust Layer: receipts, guard, risk-ranked review | ✅ done | — |
 
 **Trust Layer plan:** [PLAN-007](./PLAN-007-trust-layer.md) · research: [TRUST_LAYER_RESEARCH](../docs/internal/TRUST_LAYER_RESEARCH.md)
 

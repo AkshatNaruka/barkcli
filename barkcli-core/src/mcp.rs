@@ -1265,7 +1265,7 @@ impl McpServer {
             }),
             serde_json::json!({
                 "name": "guard_scan",
-                "description": "Run deterministic pre-merge checks (secrets, dependencies, tests, dangerous patterns)",
+                "description": "Run deterministic pre-merge checks (secrets, dependencies, tests, dangerous patterns). Use before merging agent work.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -1287,7 +1287,7 @@ impl McpServer {
             }),
             serde_json::json!({
                 "name": "receipt_list",
-                "description": "List merge receipts, newest first",
+                "description": "List merge receipts, newest first. Use after a merge to see what shipped and how confident it is.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -1305,7 +1305,7 @@ impl McpServer {
             }),
             serde_json::json!({
                 "name": "receipt_get",
-                "description": "Get one merge receipt and its markdown rendering by id or card id",
+                "description": "Get one merge receipt and its markdown rendering by id or card id. Use to show the proof bundle for a card.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -1323,7 +1323,7 @@ impl McpServer {
             }),
             serde_json::json!({
                 "name": "receipt_verify",
-                "description": "Verify a receipt hash, branch head, and optionally rerun its gate",
+                "description": "Verify a receipt hash, branch head, and optionally rerun its gate. Use when trusting a receipt from another session or machine.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -1341,7 +1341,7 @@ impl McpServer {
             }),
             serde_json::json!({
                 "name": "review_queue",
-                "description": "Risk-ranked cards waiting for review",
+                "description": "Risk-ranked cards waiting for review. Use when deciding what to review next.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
