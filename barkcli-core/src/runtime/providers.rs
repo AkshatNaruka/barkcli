@@ -103,6 +103,11 @@ fn codex_capabilities() -> ProviderCapabilities {
     }
 }
 
+fn opencode_session_id(run_id: &str) -> String {
+    // OpenCode validates session IDs and requires the `ses` prefix.
+    format!("ses_bark_{}", run_id.trim_start_matches("run_"))
+}
+
 pub struct OpencodeProvider;
 impl OpencodeProvider {
     pub fn new() -> Self {
@@ -147,9 +152,7 @@ impl ProviderAdapter for OpencodeProvider {
         if let Some(session) = req.provider_session_id.as_deref() {
             cmd.arg("--session").arg(session);
         } else {
-            // OpenCode validates session IDs and requires the `ses` prefix.
-            cmd.arg("--session")
-                .arg(format!("ses_bark_{}", req.run_id.trim_start_matches("run_")));
+            cmd.arg("--session").arg(opencode_session_id(&req.run_id));
         }
         if req.permission_mode == "auto" || req.permission_mode == "full" {
             cmd.arg("--auto");
@@ -757,6 +760,13 @@ fn session_id_of(value: &Value) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn opencode_session_ids_are_valid() {
+        let id = opencode_session_id("run_abc123");
+        assert_eq!(id, "ses_bark_abc123");
+        assert!(id.starts_with("ses"));
+    }
 
     #[test]
     fn normalizes_claude_assistant_text() {

@@ -87,6 +87,10 @@ impl ProviderAdapter for ScriptProvider {
     }
 
     fn start(&self, req: StartRun, sink: EventSink) -> anyhow::Result<Box<dyn RunHandle>> {
+        anyhow::ensure!(
+            req.raw_log_path.is_some(),
+            "run service must provide a raw provider log path"
+        );
         let api_stop = Arc::new(AtomicBool::new(false));
         let stop = api_stop.clone();
         let run_id = req.run_id.clone();
