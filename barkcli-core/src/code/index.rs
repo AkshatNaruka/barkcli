@@ -107,21 +107,32 @@ fn glob_to_regex(glob: &str) -> Result<regex::Regex> {
 
 pub(crate) fn load_gitignores(root: &Path) -> Vec<String> {
     let mut ignores = Vec::new();
-    let mut dirs = vec![root.to_path_buf()];
-    while let Some(dir) = dirs.pop() {
-        let gi = dir.join(".gitignore");
-        if let Ok(content) = std::fs::read_to_string(&gi) {
+    // Walk with the same bounded traversal as the symbol index. A plain
+    // recursive `read_dir` here used to descend into `target/`,
+    // `node_modules/`, and worktrees, turning every context compile into a
+    // multi-minute filesystem crawl on a real project.
+    let walker = WalkDir::new(root)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|entry| {
+            if entry.depth() == 0 {
+                return true;
+            }
+            if entry.file_type().is_dir() {
+                let name = entry.file_name().to_string_lossy();
+                return !SKIP_DIRS.contains(&name.as_ref());
+            }
+            true
+        });
+    for entry in walker.flatten() {
+        if !entry.file_type().is_file() || entry.file_name() != ".gitignore" {
+            continue;
+        }
+        if let Ok(content) = std::fs::read_to_string(entry.path()) {
             for line in content.lines() {
                 let l = line.trim();
                 if !l.is_empty() && !l.starts_with('#') {
                     ignores.push(l.to_string());
-                }
-            }
-        }
-        if let Ok(rd) = std::fs::read_dir(&dir) {
-            for e in rd.flatten() {
-                if e.path().is_dir() {
-                    dirs.push(e.path());
                 }
             }
         }
@@ -301,6 +312,17 @@ mod tests {
         assert!(!hits.is_empty());
         assert_eq!(hits[0].path, "src/api.ts");
         assert!(hits[0].matched_symbols.contains(&"fetchBoard".to_string()));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn gitignore_loading_does_not_descend_into_build_dirs() {
+        let root = tmp_tree();
+        fs::create_dir_all(root.join("target")).unwrap();
+        fs::write(root.join("target/.gitignore"), "src/*\n").unwrap();
+        let idx = SymbolIndex::build(&root);
+        let paths: Vec<&str> = idx.files.iter().map(|f| f.path.as_str()).collect();
+        assert!(paths.contains(&"src/auth.rs"));
         let _ = fs::remove_dir_all(&root);
     }
 

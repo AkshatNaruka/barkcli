@@ -802,7 +802,7 @@ export function ThreadPane({
 
                 if (event.kind === "user") {
                   return (
-                    <article key={event.id} className="group">
+                    <article key={`${event.id}:${event.seq}`} className="group">
                       <div className="mb-2 flex items-center gap-2 text-[10px] text-muted">
                         <span className="font-medium text-muted-strong">You</span>
                         <span className="text-muted/40">·</span>
@@ -817,7 +817,7 @@ export function ThreadPane({
 
                 if (event.kind === "assistant" || event.kind === "assistant_delta") {
                   return (
-                    <article key={event.id}>
+                    <article key={`${event.id}:${event.seq}`}>
                       <div className="mb-2 flex items-center gap-2">
                         <span className="flex h-5 w-5 items-center justify-center rounded-[5px] bg-accent-soft font-mono text-[10px] font-semibold text-accent-text">
                           b
@@ -845,7 +845,7 @@ export function ThreadPane({
                   const running = event.kind === "run_started";
                   return (
                     <div
-                      key={event.id}
+                      key={`${event.id}:${event.seq}`}
                       className="flex flex-wrap items-center gap-2 border-l-2 border-accent/40 py-0.5 pl-3 text-[10.5px] text-muted"
                     >
                       <span
@@ -867,7 +867,7 @@ export function ThreadPane({
                       : "";
                   return (
                     <details
-                      key={event.id}
+                      key={`${event.id}:${event.seq}`}
                       className="overflow-hidden rounded-lg border border-border/70 bg-surface/20"
                     >
                       <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-[10.5px] text-muted-strong">
@@ -892,7 +892,7 @@ export function ThreadPane({
                   const data = event.data || {};
                   return (
                     <div
-                      key={event.id}
+                      key={`${event.id}:${event.seq}`}
                       className="flex flex-wrap items-center gap-2 font-mono text-[9.5px] text-muted"
                     >
                       <Icon name="code" size={10} className="text-accent-text/80" />
@@ -911,7 +911,7 @@ export function ThreadPane({
                   const data = event.data || {};
                   return (
                     <div
-                      key={event.id}
+                      key={`${event.id}:${event.seq}`}
                       className="flex flex-wrap items-center gap-2 rounded-md border border-border/70 bg-surface/20 px-3 py-1.5 font-mono text-[9.5px] text-muted"
                     >
                       <Icon name="code" size={10} />
@@ -927,7 +927,7 @@ export function ThreadPane({
                   const data = event.data || {};
                   return (
                     <div
-                      key={event.id}
+                      key={`${event.id}:${event.seq}`}
                       className="rounded-lg border border-warning/40 bg-warning/5 px-3 py-2.5"
                     >
                       <div className="flex items-center gap-2 text-[11px] font-medium text-warning">
@@ -962,7 +962,7 @@ export function ThreadPane({
                   const interrupted = event.kind === "run_interrupted";
                   return (
                     <div
-                      key={event.id}
+                      key={`${event.id}:${event.seq}`}
                       className={`flex flex-wrap items-center gap-2 text-[11px] ${
                         failed ? "text-danger" : interrupted ? "text-warning" : "text-success"
                       }`}
@@ -980,7 +980,7 @@ export function ThreadPane({
                 if (event.kind === "usage") {
                   return (
                     <div
-                      key={event.id}
+                      key={`${event.id}:${event.seq}`}
                       className="font-mono text-[9px] uppercase tracking-[0.08em] text-muted/55"
                     >
                       {event.text} · <EventTime iso={event.created_at} />
@@ -990,7 +990,7 @@ export function ThreadPane({
 
                 if (event.kind === "log") {
                   return (
-                    <details key={event.id} className="text-[10px] text-muted/65">
+                    <details key={`${event.id}:${event.seq}`} className="text-[10px] text-muted/65">
                       <summary className="cursor-pointer list-none font-mono text-[9px] uppercase tracking-[0.1em] text-muted/45">
                         log · {event.text.slice(0, 80)}
                       </summary>
@@ -1009,7 +1009,7 @@ export function ThreadPane({
                   );
                   return (
                     <section
-                      key={event.id}
+                      key={`${event.id}:${event.seq}`}
                       className="border-y border-border/80 py-4"
                       aria-label="Plan proposal"
                     >
@@ -1101,7 +1101,7 @@ export function ThreadPane({
 
                 if (event.kind === "plan_approved") {
                   return (
-                    <div key={event.id} className="flex items-center gap-2 text-[11.5px] text-success">
+                    <div key={`${event.id}:${event.seq}`} className="flex items-center gap-2 text-[11.5px] text-success">
                       <Icon name="check" size={13} className="shrink-0" />
                       <span>{event.text}</span>
                       <EventTime iso={event.created_at} />
@@ -1115,7 +1115,7 @@ export function ThreadPane({
                   const branch = event.data?.branch;
                   return (
                     <div
-                      key={event.id}
+                      key={`${event.id}:${event.seq}`}
                       className="rounded-lg border border-border/80 bg-surface/30 px-3 py-2.5"
                     >
                       <div className="flex flex-wrap items-center gap-2">
@@ -1200,7 +1200,7 @@ export function ThreadPane({
 
                 if (event.kind === "agent_output") {
                   return (
-                    <div key={event.id} className="overflow-hidden rounded-lg border border-border/80">
+                    <div key={`${event.id}:${event.seq}`} className="overflow-hidden rounded-lg border border-border/80">
                       <div className="flex items-center gap-2 border-b border-border/60 bg-surface/60 px-3 py-1.5 font-mono text-[9px] text-muted">
                         <Icon name="code" size={11} />
                         worker output
@@ -1217,7 +1217,7 @@ export function ThreadPane({
                   const passed = Boolean(event.data?.passed);
                   return (
                     <div
-                      key={event.id}
+                      key={`${event.id}:${event.seq}`}
                       className={`flex flex-wrap items-center gap-2 border-l-2 py-1 pl-3 text-[11.5px] ${
                         passed ? "border-success/70" : "border-danger/70"
                       }`}
@@ -1238,7 +1238,7 @@ export function ThreadPane({
 
                 if (event.kind === "merge") {
                   return (
-                    <div key={event.id} className="flex items-center gap-2 text-[11.5px] text-accent-text">
+                    <div key={`${event.id}:${event.seq}`} className="flex items-center gap-2 text-[11.5px] text-accent-text">
                       <Icon name="branch" size={12} className="shrink-0" />
                       <span>{event.text}</span>
                       <EventTime iso={event.created_at} />
@@ -1247,7 +1247,7 @@ export function ThreadPane({
                 }
 
                 return (
-                  <div key={event.id} className="text-[11.5px] leading-relaxed text-muted">
+                  <div key={`${event.id}:${event.seq}`} className="text-[11.5px] leading-relaxed text-muted">
                     <span className="font-medium text-muted-strong">{event.author}</span>
                     <span className="mx-2 text-muted/40">·</span>
                     {event.text}

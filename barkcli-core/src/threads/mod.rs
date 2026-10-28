@@ -122,7 +122,15 @@ impl ThreadEvent {
     ) -> Self {
         let cid = card_id.into();
         let now = Utc::now();
-        let id = format!("evt_{}_{}", now.timestamp_millis(), crate::util::slug::to_slug(&cid));
+        // Millisecond timestamps collide when a provider emits a burst of
+        // events (started + first tool call). Keep the readable prefix and add
+        // an entropy suffix so ids stay unique within one process.
+        let id = format!(
+            "evt_{}_{}_{}",
+            now.timestamp_millis(),
+            crate::util::slug::to_slug(&cid),
+            &uuid::Uuid::new_v4().simple().to_string()[..8]
+        );
         Self {
             id,
             card_id: cid.clone(),
