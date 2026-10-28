@@ -19,6 +19,10 @@ const api = vi.hoisted(() => ({
   stopRun: vi.fn(),
   mergeRun: vi.fn(),
   fetchProviders: vi.fn(async () => []),
+  fetchRoles: vi.fn(async () => [
+    { id: "builder", name: "Builder" },
+    { id: "reviewer", name: "Reviewer" },
+  ]),
 }));
 
 vi.mock("../lib/api", () => api);

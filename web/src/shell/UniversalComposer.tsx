@@ -141,9 +141,9 @@ export function UniversalComposer({
               className="rounded border border-border/60 px-1.5 py-1 text-[10px] text-muted"
             >
               <option value="opencode">opencode</option>
-              <option value="claude">claude</option>
+              <option value="claude-code">claude code</option>
               <option value="codex">codex</option>
-              <option value="gemini">gemini</option>
+              <option value="human">human</option>
             </QuietSelect>
             <QuietSelect
               value={mode}

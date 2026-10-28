@@ -6,7 +6,9 @@ import type {
   Column,
   ChecklistItem,
   LinkType,
+  RoleDef,
 } from "../lib/types";
+import { fetchRoles } from "../lib/api";
 import { Icon } from "./Icon";
 import { QuietSelect } from "./QuietSelect";
 
@@ -58,8 +60,17 @@ export function CardForm({
     (["task", "feature", "bug"].includes(detectedType) ? detectedType : "feature") as any
   );
   const detectedBackend = card?.labels?.find((l) => l.startsWith("agent:"))?.replace("agent:", "") ||
-    (["opencode", "board", "codex", "claude"].includes(card?.assignee?.toLowerCase() || "") ? card?.assignee?.toLowerCase() : "opencode");
+    (["opencode", "board", "codex", "claude", "claude-code", "human"].includes(card?.assignee?.toLowerCase() || "") ? card?.assignee?.toLowerCase() : "opencode");
   const [backend, setBackend] = useState<string>(detectedBackend || "opencode");
+  const [roles, setRoles] = useState<RoleDef[]>([
+    { id: "builder", name: "Builder" } as RoleDef,
+    { id: "product-owner", name: "Product Owner" } as RoleDef,
+    { id: "reviewer", name: "Reviewer" } as RoleDef,
+    { id: "indie-hacker", name: "Indie Hacker" } as RoleDef,
+  ]);
+  const [role, setRole] = useState(
+    card?.labels?.find((label) => label.startsWith("role:"))?.slice(5) || "builder"
+  );
 
   const [title, setTitle] = useState(card?.title || "");
   const [desc, setDesc] = useState(card?.description || "");
@@ -78,6 +89,16 @@ export function CardForm({
 
   const [acceptance, setAcceptance] = useState<string[]>(card?.acceptance_criteria || []);
   const [newAc, setNewAc] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchRoles().then((next) => {
+      if (!cancelled && next.length > 0) setRoles(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [links, setLinks] = useState<CardLink[]>(card?.links || []);
   const [linkTarget, setLinkTarget] = useState("");
@@ -141,9 +162,12 @@ export function CardForm({
 
   const buildCleanLabels = () => {
     const baseLabels = labels.split(",").map((s) => s.trim()).filter(Boolean);
-    const filtered = baseLabels.filter((l) => !l.startsWith("type:") && !l.startsWith("agent:"));
+    const filtered = baseLabels.filter(
+      (l) => !l.startsWith("type:") && !l.startsWith("agent:") && !l.startsWith("role:")
+    );
     filtered.push(`type:${itemType}`);
     filtered.push(`agent:${backend}`);
+    if (role) filtered.push(`role:${role}`);
     return filtered;
   };
 
@@ -278,16 +302,17 @@ export function CardForm({
                 value={backend}
                 onChange={(e) => {
                   setBackend(e.target.value);
-                  if (!assignee || ["opencode", "board", "codex", "claude"].includes(assignee.toLowerCase())) {
+                  if (!assignee || ["opencode", "board", "codex", "claude", "claude-code", "human"].includes(assignee.toLowerCase())) {
                     setAssignee(e.target.value);
                   }
                 }}
                 className="w-full bg-surface px-2.5 py-1.5 text-xs text-text font-mono"
               >
                 <option value="opencode">OpenCode</option>
-                <option value="board">Board Runner Pool</option>
+                <option value="claude-code">Claude Code</option>
                 <option value="codex">Codex</option>
-                <option value="claude">Claude Code</option>
+                <option value="human">Human</option>
+                <option value="board">Board Runner Pool</option>
               </QuietSelect>
             </div>
           </div>
@@ -339,6 +364,21 @@ export function CardForm({
                   ))}
                 </div>
               )}
+            </div>
+            <div>
+              <span className={fieldName}>Role</span>
+              <QuietSelect
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                aria-label="Work role"
+                className="w-full bg-surface px-2.5 py-1.5 text-xs text-text"
+              >
+                {roles.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </QuietSelect>
             </div>
             <div className="col-span-2">
               <span className={fieldName}>Labels</span>

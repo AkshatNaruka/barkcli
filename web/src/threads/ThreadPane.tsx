@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import type { Card, ThreadEvent, ThreadDetail, RunRecord, ProviderStatus } from "../lib/types";
+import type { Card, ThreadEvent, ThreadDetail, RunRecord, ProviderStatus, RoleDef } from "../lib/types";
 import {
   fetchThread,
   postThreadMessage,
@@ -15,6 +15,7 @@ import {
   stopRun,
   mergeRun,
   fetchProviders,
+  fetchRoles,
 } from "../lib/api";
 import { Icon } from "../components/Icon";
 import { QuietSelect } from "../components/QuietSelect";
@@ -334,6 +335,8 @@ export function ThreadPane({
   const [reloadKey, setReloadKey] = useState(0);
   const [input, setInput] = useState("");
   const [backend, setBackend] = useState("opencode");
+  const [role, setRole] = useState("builder");
+  const [roles, setRoles] = useState<RoleDef[]>([]);
   const [providers, setProviders] = useState<ProviderStatus[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [transcriptSessionId, setTranscriptSessionId] = useState<string | null>(null);
@@ -355,6 +358,7 @@ export function ThreadPane({
 
   useEffect(() => {
     let cancelled = false;
+    fetchRoles().then((next) => setRoles(next));
     fetchProviders().then((next) => {
       if (cancelled) return;
       const visible = next.filter((provider) => provider.id !== "fake");
@@ -388,7 +392,13 @@ export function ThreadPane({
       .then((data) => {
         if (cancelled) return;
         setThread(data);
-        if (data?.card) selectCardRef.current?.(data.card);
+        if (data?.card) {
+          selectCardRef.current?.(data.card);
+          const cardRole = data.card.labels
+            ?.find((label) => label.startsWith("role:"))
+            ?.slice(5);
+          if (cardRole) setRole(cardRole);
+        }
         if (!data) setLoadError(true);
       })
       .catch(() => {
@@ -512,7 +522,7 @@ export function ThreadPane({
       const provider = backend === "claude" ? "claude-code" : backend;
       const run = await startThreadRun(threadId, {
         provider,
-        role: "builder",
+        role,
         prompt: latestUserText,
         parent_run_id: parentRunId,
       });
@@ -1362,6 +1372,22 @@ export function ThreadPane({
               className="block max-h-48 min-h-[52px] w-full resize-none bg-transparent px-3.5 pb-1 pt-3 text-[12.5px] leading-relaxed text-text placeholder:text-muted/65 focus:outline-none"
             />
             <div className="flex items-center gap-2 px-2.5 pb-2">
+              <QuietSelect
+                value={role}
+                onChange={(event) => setRole(event.target.value)}
+                aria-label="Run role"
+                title="Role policy for this run"
+                className="text-[10px] text-muted hover:text-text"
+              >
+                {(roles.length > 0
+                  ? roles
+                  : [{ id: "builder", name: "Builder" } as RoleDef]
+                ).map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </QuietSelect>
               <QuietSelect
                 value={backend}
                 onChange={(event) => setBackend(event.target.value)}
