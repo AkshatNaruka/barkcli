@@ -38,7 +38,9 @@ pub fn main_is_dirty() -> Result<bool> {
         .filter(|l| !l.starts_with("??"))
         .any(|l| {
             let path = if l.len() >= 3 { l[3..].trim() } else { "" };
-            !path.ends_with(".board") && path != "project_context.md" && !path.ends_with(".board.lock")
+            !path.ends_with(".board")
+                && path != "project_context.md"
+                && !path.ends_with(".board.lock")
         }))
 }
 
