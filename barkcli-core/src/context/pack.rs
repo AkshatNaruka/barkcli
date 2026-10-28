@@ -243,11 +243,16 @@ impl ContextEngine {
             })
             .collect::<Vec<_>>();
 
+        // Build the symbol index once. Selecting per-file symbols previously
+        // rebuilt the whole index for every candidate, which made a large repo
+        // look like a hang.
+        let symbol_index = crate::code::index::SymbolIndex::build(&self.root);
         let candidates = self.select_candidates(
             &req.card,
             req.extra_prompt.as_deref(),
             &repo,
             &mut exclusions,
+            &symbol_index,
         );
         let explicit_skills = req
             .explicit_skills
@@ -356,7 +361,7 @@ impl ContextEngine {
                 });
                 continue;
             }
-            match self.read_candidate(candidate, remaining) {
+            match self.read_candidate(candidate, remaining, &symbol_index) {
                 Ok(selected) => {
                     used += selected.tokens;
                     selected_files.push(selected);
@@ -673,6 +678,7 @@ impl ContextEngine {
         extra_prompt: Option<&str>,
         repo: &RepoMap,
         exclusions: &mut Vec<ContextExclusion>,
+        index: &crate::code::index::SymbolIndex,
     ) -> Vec<Candidate> {
         let mut candidates = Vec::new();
         let mut seen = BTreeSet::new();
@@ -735,7 +741,6 @@ impl ContextEngine {
             index_query.push(' ');
             index_query.extend(criterion.chars().take(300));
         }
-        let index = crate::code::index::SymbolIndex::build(&self.root);
         for scored in index.match_title(&index_query, 2, self.settings.max_files.max(6)) {
             if let Some(reason) = is_allowed(&scored.path, &self.settings.exclusions) {
                 exclusions.push(ContextExclusion {
@@ -917,7 +922,12 @@ impl ContextEngine {
         scored.into_iter().take(MAX_SKILLS).map(|(_, skill)| skill).collect()
     }
 
-    fn read_candidate(&self, candidate: Candidate, max_tokens: usize) -> Result<SelectedFile, (String, String)> {
+    fn read_candidate(
+        &self,
+        candidate: Candidate,
+        max_tokens: usize,
+        index: &crate::code::index::SymbolIndex,
+    ) -> Result<SelectedFile, (String, String)> {
         let path = self.root.join(&candidate.path);
         let metadata = std::fs::metadata(&path).map_err(|error| {
             (
@@ -947,7 +957,7 @@ impl ContextEngine {
         let hash = hash_text(&content);
         let content = truncate_tokens(&content, max_tokens);
         let bytes = content.len();
-        let symbols = crate::code::index::SymbolIndex::build(&self.root)
+        let symbols = index
             .get(&candidate.path)
             .map(|entry| entry.symbols.iter().take(8).cloned().collect::<Vec<_>>())
             .unwrap_or_default();
