@@ -449,6 +449,7 @@ impl OrchestraService {
                 skills: profile.skills.clone(),
                 resume: true,
                 parent_run_id: None,
+                skip_gate: false,
             };
 
             match self.launcher.start_plan_run(&card_id, request, sink.clone()) {

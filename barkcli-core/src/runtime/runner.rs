@@ -44,6 +44,10 @@ pub struct CreateRunRequest {
     /// Retry the previous attempt in a new worktree.
     #[serde(default)]
     pub parent_run_id: Option<String>,
+    /// Review questions are answer-only: skip the project gate and mark the
+    /// run complete without a test verdict.
+    #[serde(default)]
+    pub skip_gate: bool,
 }
 
 fn default_resume() -> bool {
@@ -231,6 +235,7 @@ impl RunService {
         let final_title = card.title.clone();
         let final_worktree = worktree.clone();
         let final_test_cmd = request.test_cmd.clone();
+        let skip_gate = request.skip_gate;
         let monitor = thread::Builder::new()
             .name(format!("bark-run-{run_id}"))
             .spawn(move || {
@@ -244,6 +249,7 @@ impl RunService {
                     final_worktree,
                     base_sha,
                     final_test_cmd,
+                    skip_gate,
                 ) {
                     eprintln!("bark runtime: run {run_id} finalize failed: {error}");
                 }
@@ -431,6 +437,7 @@ fn finalize_run(
     worktree: PathBuf,
     base_sha: String,
     test_cmd: Option<String>,
+    skip_gate: bool,
 ) -> Result<()> {
     let outcome = handle.wait();
     let run = recorder.snapshot();
@@ -485,7 +492,16 @@ fn finalize_run(
         deletions: stats.deletions,
     })?;
 
-    let gate = run_gate(&store, &recorder.snapshot(), &worktree, test_cmd.as_deref())?;
+    let gate = if skip_gate {
+        GateOutcome {
+            passed: true,
+            command: None,
+            summary: "Gate skipped for this answer-only run".into(),
+            log_path: None,
+        }
+    } else {
+        run_gate(&store, &recorder.snapshot(), &worktree, test_cmd.as_deref())?
+    };
     let run_id = recorder.snapshot().id;
     recorder.record(RuntimeEvent::Gate {
         passed: gate.passed,

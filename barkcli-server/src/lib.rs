@@ -4859,6 +4859,7 @@ async fn request_changes_handler(
                 skills: Vec::new(),
                 resume: true,
                 parent_run_id: Some(previous.id.clone()),
+                skip_gate: false,
             },
             Some(sink),
         )
@@ -4922,6 +4923,7 @@ async fn ask_about_run_handler(
                 skills: Vec::new(),
                 resume: true,
                 parent_run_id: Some(previous.id.clone()),
+                skip_gate: true,
             },
             Some(sink),
         )
