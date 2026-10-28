@@ -272,7 +272,7 @@ pub fn scan_branch_with(
     scan(root, &options)
 }
 
-fn merge_base(root: &Path, branch: &str) -> Result<String> {
+pub fn merge_base(root: &Path, branch: &str) -> Result<String> {
     let output = Command::new("git")
         .arg("-C")
         .arg(root)

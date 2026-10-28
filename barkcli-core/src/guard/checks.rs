@@ -107,14 +107,21 @@ fn check_dependencies(context: &CheckContext<'_>, check: CheckId) -> Vec<GuardFi
         if declared.is_empty() {
             continue;
         }
+        // Rust code imports `barkcli_core` while Cargo.toml declares
+        // `barkcli-core`; compare on the normalized spelling.
+        let normalized: Vec<String> = declared.iter().map(|name| language.normalize(name)).collect();
 
         for import in imports {
-            if declared.contains(&import.name) || !reported.insert(import.name.clone()) {
+            if language.is_local_module(context.root, &file.path, &import.name) {
+                continue;
+            }
+            let import_name = language.normalize(&import.name);
+            if normalized.contains(&import_name) || !reported.insert(import_name.clone()) {
                 continue;
             }
 
-            let nearest = nearest_declared(&import.name, declared.iter(), 2)
-                .filter(|(candidate, _)| candidate.len() >= 4 && import.name.len() >= 4);
+            let nearest = nearest_declared(&import_name, normalized.iter(), 2)
+                .filter(|(candidate, _)| candidate.len() >= 4 && import_name.len() >= 4);
 
             if let Some((candidate, distance)) = nearest {
                 if check == CheckId::SuspiciousDependency {
@@ -187,6 +194,25 @@ impl Language {
             Self::JavaScript => "npm",
             Self::Python => "Python",
         }
+    }
+
+    fn normalize(&self, name: &str) -> String {
+        match self {
+            Self::Rust => name.replace('-', "_"),
+            _ => name.to_string(),
+        }
+    }
+
+    /// `use diff::…` refers to a sibling module, not a missing crate.
+    fn is_local_module(&self, root: &Path, file: &str, name: &str) -> bool {
+        if *self != Self::Rust {
+            return false;
+        }
+        let full = root.join(file);
+        let Some(dir) = full.parent() else {
+            return false;
+        };
+        dir.join(format!("{name}.rs")).is_file() || dir.join(name).join("mod.rs").is_file()
     }
 }
 
@@ -347,7 +373,12 @@ fn check_debug_leftovers(context: &CheckContext<'_>) -> Vec<GuardFinding> {
     let mut findings = Vec::new();
     for (file, line) in context.diff.added_lines() {
         let trimmed = line.text.trim();
-        if trimmed.is_empty() {
+        if trimmed.is_empty()
+            || trimmed.starts_with("//")
+            || trimmed.starts_with('#')
+            || trimmed.starts_with('"')
+            || trimmed.starts_with('\'')
+        {
             continue;
         }
         let in_test = is_test_file(&file.path);
@@ -638,6 +669,40 @@ mod tests {
         let mut set = diff_with("app.py", &["import requests"]);
         set.contents.insert("app.py".into(), "import requests\n".into());
         assert!(check_dependencies(&context(&dir, &set), CheckId::UndeclaredDependency).is_empty());
+        fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn rust_hyphen_and_underscore_names_are_equivalent() {
+        let dir = temp_dir("hyphen");
+        fs::write(
+            dir.join("Cargo.toml"),
+            "[dependencies]\nbarkcli-core = { path = \"..\" }\n",
+        )
+        .unwrap();
+        let mut set = diff_with("src/lib.rs", &["use barkcli_core::models::Config;"]);
+        set.contents.insert(
+            "src/lib.rs".into(),
+            "use barkcli_core::models::Config;\n".into(),
+        );
+        assert!(
+            check_dependencies(&context(&dir, &set), CheckId::UndeclaredDependency).is_empty()
+        );
+        fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn local_module_imports_are_not_dependencies() {
+        let dir = temp_dir("localmod");
+        fs::create_dir_all(dir.join("src/guard")).unwrap();
+        fs::write(dir.join("Cargo.toml"), "[dependencies]\nserde = \"1\"\n").unwrap();
+        fs::write(dir.join("src/guard/diff.rs"), "").unwrap();
+        let mut set = diff_with("src/guard/mod.rs", &["use diff::DiffSet;"]);
+        set.contents
+            .insert("src/guard/mod.rs".into(), "use diff::DiffSet;\n".into());
+        assert!(
+            check_dependencies(&context(&dir, &set), CheckId::UndeclaredDependency).is_empty()
+        );
         fs::remove_dir_all(dir).ok();
     }
 
