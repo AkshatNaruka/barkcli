@@ -172,6 +172,7 @@ export function ThreadsShell({
             <InspectorPane
               card={activeThread?.card}
               events={activeThread?.events || []}
+              threadId={selectedId || undefined}
               onClose={() => setInspectorOpen(false)}
             />
           </div>
@@ -182,6 +183,7 @@ export function ThreadsShell({
         <InspectorPane
           card={activeThread?.card}
           events={activeThread?.events || []}
+          threadId={selectedId || undefined}
           onClose={() => setInspectorOpen(false)}
         />
       )}

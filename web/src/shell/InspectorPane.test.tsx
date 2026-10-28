@@ -4,12 +4,30 @@ import userEvent from "@testing-library/user-event";
 import type { Card, ThreadEvent } from "../lib/types";
 import { InspectorPane } from "./InspectorPane";
 
-const { fetchTaskDiff, evalSession } = vi.hoisted(() => ({
+const {
+  fetchTaskDiff,
+  evalSession,
+  fetchOrchestra,
+  approveOrchestraPlan,
+  createOrchestraPlan,
+  dispatchOrchestraPlan,
+} = vi.hoisted(() => ({
   fetchTaskDiff: vi.fn(),
   evalSession: vi.fn(),
+  fetchOrchestra: vi.fn(),
+  approveOrchestraPlan: vi.fn(),
+  createOrchestraPlan: vi.fn(),
+  dispatchOrchestraPlan: vi.fn(),
 }));
 
-vi.mock("../lib/api", () => ({ fetchTaskDiff, evalSession }));
+vi.mock("../lib/api", () => ({
+  fetchTaskDiff,
+  evalSession,
+  fetchOrchestra,
+  approveOrchestraPlan,
+  createOrchestraPlan,
+  dispatchOrchestraPlan,
+}));
 
 const card: Card = {
   id: "demo-mode",
@@ -27,6 +45,8 @@ const card: Card = {
   created_at: "2026-10-27T08:00:00Z",
   updated_at: "2026-10-27T11:00:00Z",
 };
+
+fetchOrchestra.mockResolvedValue(null);
 
 const events: ThreadEvent[] = [
   {

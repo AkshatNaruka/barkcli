@@ -1,4 +1,5 @@
 pub mod builtin;
+pub mod discover;
 pub mod install;
 pub mod loader;
 pub mod lock;

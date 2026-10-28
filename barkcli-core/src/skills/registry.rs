@@ -31,6 +31,9 @@ pub struct Skill {
     pub triggers: Vec<String>,
     pub source: SkillSource,
     pub path: Option<PathBuf>,
+    /// Always route this skill when it is enabled, regardless of triggers.
+    #[serde(default)]
+    pub always: bool,
     /// Disabled skills stay installed but never reach an agent prompt.
     #[serde(default = "skill_enabled_default")]
     pub enabled: bool,
@@ -47,6 +50,7 @@ pub struct MatchContext {
     pub pipeline_phase: String, // intake | plan | dispatch | review
 }
 
+#[derive(Debug, Clone)]
 pub struct SkillRegistry {
     pub skills: Vec<Skill>,
 }

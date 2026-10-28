@@ -18,11 +18,33 @@ pub enum ThreadEventKind {
     Assistant,
     PlanProposed,
     PlanApproved,
+    PlanRejected,
     TaskSpawned,
     AgentOutput,
     Gate,
     Merge,
     Steer,
+    RunQueued,
+    RunStarted,
+    RunStatus,
+    AssistantDelta,
+    ToolCall,
+    FileChange,
+    ApprovalRequested,
+    ApprovalResolved,
+    Question,
+    Answer,
+    ContextCompiled,
+    ContextCompacted,
+    Handoff,
+    Review,
+    RunCompleted,
+    RunFailed,
+    RunInterrupted,
+    Usage,
+    Checkpoint,
+    Diff,
+    Log,
     #[serde(untagged)]
     Custom(String),
 }
@@ -34,11 +56,33 @@ impl ThreadEventKind {
             Self::Assistant => "assistant",
             Self::PlanProposed => "plan_proposed",
             Self::PlanApproved => "plan_approved",
+            Self::PlanRejected => "plan_rejected",
             Self::TaskSpawned => "task_spawned",
             Self::AgentOutput => "agent_output",
             Self::Gate => "gate",
             Self::Merge => "merge",
             Self::Steer => "steer",
+            Self::RunQueued => "run_queued",
+            Self::RunStarted => "run_started",
+            Self::RunStatus => "run_status",
+            Self::AssistantDelta => "assistant_delta",
+            Self::ToolCall => "tool_call",
+            Self::FileChange => "file_change",
+            Self::ApprovalRequested => "approval_requested",
+            Self::ApprovalResolved => "approval_resolved",
+            Self::Question => "question",
+            Self::Answer => "answer",
+            Self::ContextCompiled => "context_compiled",
+            Self::ContextCompacted => "context_compacted",
+            Self::Handoff => "handoff",
+            Self::Review => "review",
+            Self::RunCompleted => "run_completed",
+            Self::RunFailed => "run_failed",
+            Self::RunInterrupted => "run_interrupted",
+            Self::Usage => "usage",
+            Self::Checkpoint => "checkpoint",
+            Self::Diff => "diff",
+            Self::Log => "log",
             Self::Custom(s) => s.as_str(),
         }
     }
@@ -48,6 +92,18 @@ impl ThreadEventKind {
 pub struct ThreadEvent {
     pub id: String,
     pub card_id: String,
+    /// Thread identity. Defaults to `card_id` for older events.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
+    /// Monotonic per-thread sequence. `0` means the event predates v2.
+    #[serde(default)]
+    pub seq: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub run_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub turn_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_event_id: Option<String>,
     pub kind: ThreadEventKind,
     pub author: String,
     pub text: String,
@@ -69,7 +125,12 @@ impl ThreadEvent {
         let id = format!("evt_{}_{}", now.timestamp_millis(), crate::util::slug::to_slug(&cid));
         Self {
             id,
-            card_id: cid,
+            card_id: cid.clone(),
+            thread_id: Some(cid),
+            seq: 0,
+            run_id: None,
+            turn_id: None,
+            parent_event_id: None,
             kind,
             author: author.into(),
             text: text.into(),
@@ -110,19 +171,39 @@ pub fn thread_path(card_id: &str) -> Result<PathBuf> {
 }
 
 pub fn append_event_to_dir(dir: &std::path::Path, card_id: &str, event: &ThreadEvent) -> Result<()> {
+    append_event_to_dir_returning(dir, card_id, event).map(|_| ())
+}
+
+/// Append under the thread file lock and return the event as persisted, with
+/// its assigned monotonic sequence number.
+pub fn append_event_to_dir_returning(
+    dir: &std::path::Path,
+    card_id: &str,
+    event: &ThreadEvent,
+) -> Result<ThreadEvent> {
     if !dir.exists() {
         create_dir_all(dir).context("failed to create directory")?;
     }
     let safe_name = crate::util::slug::to_slug(card_id);
     let path = dir.join(format!("{}.jsonl", safe_name));
-    let mut file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&path)
-        .with_context(|| format!("failed to open thread file {:?}", path))?;
-    let line = serde_json::to_string(event).context("failed to serialize thread event")?;
-    writeln!(file, "{}", line).context("failed to append thread event")?;
-    Ok(())
+    crate::util::lock::with_lock(&path, || {
+        let mut event = event.clone();
+        if event.thread_id.is_none() {
+            event.thread_id = Some(card_id.to_string());
+        }
+        if event.seq == 0 {
+            let existing = read_events_from_dir(dir, card_id).unwrap_or_default();
+            event.seq = existing.iter().map(|e| e.seq).max().unwrap_or(0) + 1;
+        }
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+            .with_context(|| format!("failed to open thread file {:?}", path))?;
+        let line = serde_json::to_string(&event).context("failed to serialize thread event")?;
+        writeln!(file, "{}", line).context("failed to append thread event")?;
+        Ok(event)
+    })
 }
 
 pub fn read_events_from_dir(dir: &std::path::Path, card_id: &str) -> Result<Vec<ThreadEvent>> {

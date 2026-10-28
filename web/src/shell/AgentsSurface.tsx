@@ -1,13 +1,15 @@
 import React, { useState } from "react";
 import { Icon, type IconName } from "../components/Icon";
-import { OrchestrateView } from "../components/OrchestrateView";
+import { OrchestraWorkView } from "../components/OrchestraWorkView";
 import { SprintView } from "../components/SprintView";
+import { TeamView } from "../components/TeamView";
 import type { Board, Card, Sprint } from "../lib/types";
 
-type AgentsTab = "orchestra" | "sprints";
+type AgentsTab = "team" | "orchestra" | "sprints";
 
 const TABS: Array<{ id: AgentsTab; label: string; icon: IconName }> = [
-  { id: "orchestra", label: "Orchestra", icon: "users" },
+  { id: "team", label: "Team", icon: "users" },
+  { id: "orchestra", label: "Orchestra", icon: "pulse" },
   { id: "sprints", label: "Sprints", icon: "cycle" },
 ];
 
@@ -28,7 +30,7 @@ export function AgentsSurface({
   onSprintChanged: () => void;
   onEditCard: (card: Card) => void;
 }) {
-  const [tab, setTab] = useState<AgentsTab>("orchestra");
+  const [tab, setTab] = useState<AgentsTab>("team");
 
   return (
     <div className="h-full flex flex-col min-h-0">
@@ -51,7 +53,10 @@ export function AgentsSurface({
         })}
       </div>
       <div className="flex-1 overflow-hidden min-h-0">
-        {tab === "orchestra" && <OrchestrateView boardName={boardName} />}
+        {tab === "team" && <TeamView boardName={boardName} />}
+        {tab === "orchestra" && (
+          <OrchestraWorkView boardName={boardName} board={board} />
+        )}
         {tab === "sprints" && (
           <SprintView
             board={board}

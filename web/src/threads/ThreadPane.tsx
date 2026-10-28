@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import type { Card, ThreadEvent, ThreadDetail } from "../lib/types";
+import type { Card, ThreadEvent, ThreadDetail, RunRecord, ProviderStatus } from "../lib/types";
 import {
   fetchThread,
   postThreadMessage,
@@ -11,6 +11,10 @@ import {
   steerSession,
   forkSession,
   raceTask,
+  startThreadRun,
+  stopRun,
+  mergeRun,
+  fetchProviders,
 } from "../lib/api";
 import { Icon } from "../components/Icon";
 import { QuietSelect } from "../components/QuietSelect";
@@ -163,6 +167,158 @@ function EmptyThread({ onNewIntent }: { onNewIntent?: (suggestion?: string) => v
   );
 }
 
+function runStatusLabel(status: RunRecord["status"]): string {
+  switch (status) {
+    case "queued":
+    case "starting":
+      return "starting";
+    case "running":
+    case "waiting":
+      return "running";
+    case "needs_review":
+      return "needs review";
+    case "passed":
+      return "gate passed";
+    case "failed":
+      return "failed";
+    case "interrupted":
+      return "stopped";
+    case "cancelled":
+      return "cancelled";
+    case "merged":
+      return "merged";
+    default:
+      return status;
+  }
+}
+
+function runStatusTone(status: RunRecord["status"]): string {
+  if (status === "failed" || status === "cancelled") return "text-danger";
+  if (status === "interrupted") return "text-warning";
+  if (status === "passed" || status === "merged") return "text-success";
+  if (status === "needs_review") return "text-accent-text";
+  return "text-muted-strong";
+}
+
+function RunSummaryCard({
+  run,
+  busy,
+  onStop,
+  onRetry,
+  onMerge,
+}: {
+  run: RunRecord;
+  busy: boolean;
+  onStop: () => void;
+  onRetry: () => void;
+  onMerge: () => void;
+}) {
+  const active = ["queued", "starting", "running", "waiting"].includes(run.status);
+  const canMerge = run.status === "passed" && Boolean(run.gate?.passed);
+  const canRetry = ["failed", "interrupted", "needs_review"].includes(run.status);
+  return (
+    <section
+      className="rounded-[10px] border border-border/80 bg-surface/25 px-3.5 py-3"
+      aria-label={`Run ${run.ordinal}`}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-muted/70">
+          Run {run.ordinal}
+        </span>
+        <span className={`text-[11px] font-medium ${runStatusTone(run.status)}`}>
+          {runStatusLabel(run.status)}
+        </span>
+        <span className="font-mono text-[9.5px] text-muted/65">{run.provider}</span>
+        {run.model && (
+          <span className="truncate font-mono text-[9px] text-muted/50">{run.model}</span>
+        )}
+        <span className="ml-auto flex items-center gap-1">
+          {active && (
+            <button
+              type="button"
+              onClick={onStop}
+              disabled={busy}
+              className="flex h-6 items-center gap-1 rounded px-1.5 text-[10px] text-muted transition-colors hover:bg-danger/10 hover:text-danger disabled:opacity-40"
+            >
+              <Icon name="stop" size={10} />
+              Stop
+            </button>
+          )}
+          {canRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              disabled={busy}
+              className="flex h-6 items-center gap-1 rounded px-1.5 text-[10px] text-muted transition-colors hover:bg-white/[0.06] hover:text-text disabled:opacity-40"
+            >
+              <Icon name="refresh" size={10} />
+              Retry
+            </button>
+          )}
+          {canMerge && (
+            <button
+              type="button"
+              onClick={onMerge}
+              disabled={busy}
+              className="flex h-6 items-center gap-1 rounded bg-accent px-2 text-[10px] font-medium text-bg transition-opacity hover:opacity-90 disabled:opacity-40"
+            >
+              <Icon name="branch" size={10} />
+              Merge
+            </button>
+          )}
+        </span>
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[9px] text-muted/60">
+        {run.branch && (
+          <span className="inline-flex items-center gap-1">
+            <Icon name="branch" size={9} />
+            {run.branch}
+          </span>
+        )}
+        {run.worktree && (
+          <span className="max-w-[300px] truncate" title={run.worktree}>
+            {run.worktree.split("/").slice(-2).join("/")}
+          </span>
+        )}
+        {run.diff_stats.files > 0 && (
+          <span>
+            {run.diff_stats.files} files ·{" "}
+            <span className="text-success/80">+{run.diff_stats.additions}</span>{" "}
+            <span className="text-danger/80">−{run.diff_stats.deletions}</span>
+          </span>
+        )}
+        {(run.usage.input_tokens > 0 || run.usage.output_tokens > 0) && (
+          <span>
+            {run.usage.input_tokens.toLocaleString()} in /{" "}
+            {run.usage.output_tokens.toLocaleString()} out
+          </span>
+        )}
+      </div>
+
+      {run.gate && (
+        <div
+          className={`mt-2 flex flex-wrap items-center gap-2 border-l-2 py-0.5 pl-2.5 text-[10.5px] ${
+            run.gate.passed ? "border-success/70 text-success" : "border-danger/70 text-danger"
+          }`}
+        >
+          <span className="font-medium">
+            {run.gate.passed ? "Gate passed" : "Gate failed"}
+          </span>
+          {run.gate.command && (
+            <code className="truncate font-mono text-[9px] text-muted/65">
+              {run.gate.command}
+            </code>
+          )}
+        </div>
+      )}
+      {run.error && (
+        <p className="mt-1.5 text-[10.5px] leading-relaxed text-danger/90">{run.error}</p>
+      )}
+    </section>
+  );
+}
+
 export function ThreadPane({
   threadId,
   boardName,
@@ -178,6 +334,7 @@ export function ThreadPane({
   const [reloadKey, setReloadKey] = useState(0);
   const [input, setInput] = useState("");
   const [backend, setBackend] = useState("opencode");
+  const [providers, setProviders] = useState<ProviderStatus[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [transcriptSessionId, setTranscriptSessionId] = useState<string | null>(null);
   const [transcriptLines, setTranscriptLines] = useState<string[]>([]);
@@ -185,6 +342,8 @@ export function ThreadPane({
   const [steerSessionId, setSteerSessionId] = useState<string | null>(null);
   const [steerPrompt, setSteerPrompt] = useState("");
   const [actionStatus, setActionStatus] = useState<string | null>(null);
+  const [startingRun, setStartingRun] = useState(false);
+  const [runBusyId, setRunBusyId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const selectCardRef = useRef(onSelectCard);
   const refreshInboxRef = useRef(onRefreshInbox);
@@ -193,6 +352,23 @@ export function ThreadPane({
     selectCardRef.current = onSelectCard;
     refreshInboxRef.current = onRefreshInbox;
   }, [onSelectCard, onRefreshInbox]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchProviders().then((next) => {
+      if (cancelled) return;
+      const visible = next.filter((provider) => provider.id !== "fake");
+      setProviders(visible);
+      setBackend((current) => {
+        const installed = visible.filter((provider) => provider.available);
+        if (installed.some((provider) => provider.id === current)) return current;
+        return installed[0]?.id || current;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -241,6 +417,19 @@ export function ThreadPane({
             if (prev.events.some((e) => e.id === parsed.id)) return prev;
             return { ...prev, events: [...prev.events, parsed] };
           });
+          if (
+            parsed.kind === "run_started" ||
+            parsed.kind === "run_completed" ||
+            parsed.kind === "run_failed" ||
+            parsed.kind === "run_interrupted" ||
+            parsed.kind === "gate" ||
+            parsed.kind === "diff" ||
+            parsed.kind === "merge"
+          ) {
+            fetchThread(threadId, boardName).then((next) => {
+              if (next) setThread(next);
+            });
+          }
           refreshInboxRef.current?.();
         } catch {
           // Heartbeats and non-JSON frames are not events.
@@ -297,14 +486,111 @@ export function ThreadPane({
     }
   };
 
+  const runs = thread?.runs || [];
+  const latestRun = runs.length > 0 ? runs[runs.length - 1] : null;
+  const activeRun =
+    [...runs].reverse().find((run) =>
+      ["queued", "starting", "running", "waiting"].includes(run.status)
+    ) || null;
+  const latestUserText = [...(thread?.events || [])]
+    .reverse()
+    .find((event) => event.kind === "user")?.text;
+  const providerChoices: Array<Pick<ProviderStatus, "id" | "name" | "available">> =
+    providers.length > 0
+      ? providers
+      : [
+          { id: "opencode", name: "opencode", available: true },
+          { id: "claude-code", name: "claude", available: true },
+          { id: "codex", name: "codex", available: true },
+        ];
+
+  const handleStartRun = async (parentRunId?: string) => {
+    if (!threadId || startingRun) return;
+    setStartingRun(true);
+    setActionStatus("Creating an isolated worktree and starting the agent…");
+    try {
+      const provider = backend === "claude" ? "claude-code" : backend;
+      const run = await startThreadRun(threadId, {
+        provider,
+        role: "builder",
+        prompt: latestUserText,
+        parent_run_id: parentRunId,
+      });
+      if (!run) {
+        setActionStatus(
+          "Could not start the run. Commit or stash tracked changes, then check that the provider is installed and authenticated."
+        );
+        return;
+      }
+      setThread((prev) =>
+        prev
+          ? {
+              ...prev,
+              runs: [...(prev.runs || []).filter((item) => item.id !== run.id), run],
+            }
+          : prev
+      );
+      setActionStatus(`Run ${run.ordinal} started in ${run.branch || "a worktree"}.`);
+      refreshInboxRef.current?.();
+    } finally {
+      setStartingRun(false);
+    }
+  };
+
+  const handleStopRun = async (run: RunRecord) => {
+    setRunBusyId(run.id);
+    setActionStatus("Stopping the run…");
+    try {
+      const stopped = await stopRun(run.id);
+      if (stopped) {
+        setThread((prev) =>
+          prev
+            ? {
+                ...prev,
+                runs: (prev.runs || []).map((item) => (item.id === stopped.id ? stopped : item)),
+              }
+            : prev
+        );
+        setActionStatus("Run stopped. The worktree is preserved for resume or review.");
+      } else {
+        setActionStatus("The run could not be stopped. It may already have finished.");
+      }
+    } finally {
+      setRunBusyId(null);
+    }
+  };
+
+  const handleMergeRun = async (run: RunRecord) => {
+    if (!run.gate?.passed) return;
+    const ok = window.confirm(
+      `Merge ${run.branch || "this run"} into the current branch?\n\nThis merges the reviewed, gate-passing work into main.`
+    );
+    if (!ok) return;
+    setRunBusyId(run.id);
+    setActionStatus("Merging the passing branch…");
+    try {
+      const merged = await mergeRun(run.id, true);
+      if (merged) {
+        const updated = await fetchThread(threadId!, boardName);
+        if (updated) setThread(updated);
+        setActionStatus("Merged. The card is marked done.");
+      } else {
+        setActionStatus("Merge failed. Resolve the conflict, then retry from the worktree.");
+      }
+    } finally {
+      setRunBusyId(null);
+    }
+  };
+
   const handleApprovePlan = async () => {
     if (!threadId) return;
     setActionStatus("Approving plan and dispatching workers…");
-    await approvePlan(threadId, boardName);
+    const approved = await approvePlan(threadId, boardName);
     const updated = await fetchThread(threadId, boardName);
     if (updated) setThread(updated);
     onRefreshInbox?.();
     setActionStatus(null);
+    if (approved) await handleStartRun();
   };
 
   const handleRejectPlan = async () => {
@@ -418,6 +704,24 @@ export function ThreadPane({
           <span className="mr-1 hidden font-mono text-[9.5px] text-muted/60 xl:inline">
             {threadId}
           </span>
+          <button
+            type="button"
+            onClick={() => handleStartRun()}
+            disabled={startingRun || Boolean(activeRun)}
+            title={
+              activeRun
+                ? "A run is already active"
+                : "Run this card in an isolated worktree with the selected provider"
+            }
+            className="flex h-7 items-center gap-1.5 rounded-md border border-border px-2 text-[10.5px] text-muted-strong transition-colors hover:border-border-strong hover:text-text disabled:opacity-40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+          >
+            <Icon
+              name={activeRun ? "pulse" : "arrowUp"}
+              size={12}
+              className={activeRun ? "animate-pulse text-success" : undefined}
+            />
+            <span className="hidden sm:inline">{activeRun ? "running" : startingRun ? "starting" : "run"}</span>
+          </button>
           {onOpenInspector && (
             <button
               type="button"
@@ -473,6 +777,18 @@ export function ThreadPane({
             </div>
           )}
 
+          {!loading && !loadError && latestRun && (
+            <div className="mb-6">
+              <RunSummaryCard
+                run={latestRun}
+                busy={runBusyId === latestRun.id || startingRun}
+                onStop={() => handleStopRun(latestRun)}
+                onRetry={() => handleStartRun(latestRun.id)}
+                onMerge={() => handleMergeRun(latestRun)}
+              />
+            </div>
+          )}
+
           {!loading && thread && thread.events.length > 0 && (
             <div className="space-y-7">
               {thread.events.map((event) => {
@@ -499,7 +815,7 @@ export function ThreadPane({
                   );
                 }
 
-                if (event.kind === "assistant") {
+                if (event.kind === "assistant" || event.kind === "assistant_delta") {
                   return (
                     <article key={event.id}>
                       <div className="mb-2 flex items-center gap-2">
@@ -511,12 +827,177 @@ export function ThreadPane({
                         </span>
                         <span className="text-[10px] text-muted/40">·</span>
                         <EventTime iso={event.created_at} />
+                        {event.kind === "assistant_delta" && (
+                          <span className="font-mono text-[8.5px] uppercase tracking-[0.1em] text-muted/40">
+                            streaming
+                          </span>
+                        )}
                         <span className="ml-auto hidden font-mono text-[9px] text-muted/45 sm:inline">
                           {localTime}
                         </span>
                       </div>
                       <Prose text={event.text} />
                     </article>
+                  );
+                }
+
+                if (event.kind === "run_started" || event.kind === "run_status") {
+                  const running = event.kind === "run_started";
+                  return (
+                    <div
+                      key={event.id}
+                      className="flex flex-wrap items-center gap-2 border-l-2 border-accent/40 py-0.5 pl-3 text-[10.5px] text-muted"
+                    >
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          running ? "animate-pulse bg-success" : "bg-accent/70"
+                        }`}
+                      />
+                      <span className="text-muted-strong">{event.text}</span>
+                      <EventTime iso={event.created_at} />
+                    </div>
+                  );
+                }
+
+                if (event.kind === "tool_call") {
+                  const data = event.data || {};
+                  const input =
+                    data.input && Object.keys(data.input).length > 0
+                      ? JSON.stringify(data.input, null, 2)
+                      : "";
+                  return (
+                    <details
+                      key={event.id}
+                      className="overflow-hidden rounded-lg border border-border/70 bg-surface/20"
+                    >
+                      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-[10.5px] text-muted-strong">
+                        <Icon name="robot" size={11} className="text-accent-text" />
+                        <span className="font-medium">{data.name || "tool"}</span>
+                        <span className="font-mono text-[9px] text-muted/55">
+                          {data.status || "completed"}
+                        </span>
+                        <EventTime iso={event.created_at} />
+                        <Icon name="arrowDown" size={10} className="ml-auto text-muted/50" />
+                      </summary>
+                      {input && (
+                        <pre className="max-h-56 overflow-auto border-t border-border/60 px-3 py-2 font-mono text-[10px] leading-relaxed text-muted">
+                          {input}
+                        </pre>
+                      )}
+                    </details>
+                  );
+                }
+
+                if (event.kind === "file_change") {
+                  const data = event.data || {};
+                  return (
+                    <div
+                      key={event.id}
+                      className="flex flex-wrap items-center gap-2 font-mono text-[9.5px] text-muted"
+                    >
+                      <Icon name="code" size={10} className="text-accent-text/80" />
+                      <span className="text-muted-strong">{data.path || event.text}</span>
+                      {data.additions != null && (
+                        <span className="text-success/80">+{data.additions}</span>
+                      )}
+                      {data.deletions != null && (
+                        <span className="text-danger/80">−{data.deletions}</span>
+                      )}
+                    </div>
+                  );
+                }
+
+                if (event.kind === "diff") {
+                  const data = event.data || {};
+                  return (
+                    <div
+                      key={event.id}
+                      className="flex flex-wrap items-center gap-2 rounded-md border border-border/70 bg-surface/20 px-3 py-1.5 font-mono text-[9.5px] text-muted"
+                    >
+                      <Icon name="code" size={10} />
+                      <span className="text-muted-strong">{data.files || 0} files</span>
+                      <span className="text-success/80">+{data.additions || 0}</span>
+                      <span className="text-danger/80">−{data.deletions || 0}</span>
+                      <EventTime iso={event.created_at} />
+                    </div>
+                  );
+                }
+
+                if (event.kind === "approval_requested" || event.kind === "question") {
+                  const data = event.data || {};
+                  return (
+                    <div
+                      key={event.id}
+                      className="rounded-lg border border-warning/40 bg-warning/5 px-3 py-2.5"
+                    >
+                      <div className="flex items-center gap-2 text-[11px] font-medium text-warning">
+                        <Icon name="warn" size={12} />
+                        {event.kind === "approval_requested" ? "Approval requested" : "Agent question"}
+                      </div>
+                      <p className="mt-1 text-[11.5px] leading-relaxed text-muted-strong">
+                        {data.title || data.text || event.text}
+                      </p>
+                      {Array.isArray(data.options) && data.options.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {data.options.map((option: string) => (
+                            <span
+                              key={option}
+                              className="rounded border border-border px-2 py-0.5 font-mono text-[9px] text-muted"
+                            >
+                              {option}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                if (
+                  event.kind === "run_completed" ||
+                  event.kind === "run_failed" ||
+                  event.kind === "run_interrupted"
+                ) {
+                  const failed = event.kind === "run_failed";
+                  const interrupted = event.kind === "run_interrupted";
+                  return (
+                    <div
+                      key={event.id}
+                      className={`flex flex-wrap items-center gap-2 text-[11px] ${
+                        failed ? "text-danger" : interrupted ? "text-warning" : "text-success"
+                      }`}
+                    >
+                      <Icon
+                        name={failed ? "warn" : interrupted ? "stop" : "check"}
+                        size={11}
+                      />
+                      <span>{event.text}</span>
+                      <EventTime iso={event.created_at} />
+                    </div>
+                  );
+                }
+
+                if (event.kind === "usage") {
+                  return (
+                    <div
+                      key={event.id}
+                      className="font-mono text-[9px] uppercase tracking-[0.08em] text-muted/55"
+                    >
+                      {event.text} · <EventTime iso={event.created_at} />
+                    </div>
+                  );
+                }
+
+                if (event.kind === "log") {
+                  return (
+                    <details key={event.id} className="text-[10px] text-muted/65">
+                      <summary className="cursor-pointer list-none font-mono text-[9px] uppercase tracking-[0.1em] text-muted/45">
+                        log · {event.text.slice(0, 80)}
+                      </summary>
+                      <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap font-mono text-[9.5px] leading-relaxed text-muted/70">
+                        {event.text}
+                      </pre>
+                    </details>
                   );
                 }
 
@@ -885,13 +1366,34 @@ export function ThreadPane({
                 value={backend}
                 onChange={(event) => setBackend(event.target.value)}
                 aria-label="Agent backend"
+                title={providers.find((provider) => provider.id === backend)?.detail || "Agent backend"}
                 className="text-[10px] text-muted hover:text-text"
               >
-                <option value="opencode">opencode</option>
-                <option value="claude">claude</option>
-                <option value="codex">codex</option>
-                <option value="gemini">gemini</option>
+                {providerChoices.map((provider) => (
+                  <option
+                    key={provider.id}
+                    value={provider.id}
+                    disabled={!provider.available}
+                  >
+                    {provider.name}
+                    {!provider.available ? " · not found" : ""}
+                  </option>
+                ))}
               </QuietSelect>
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  providers.find((provider) => provider.id === backend)?.available
+                    ? "bg-success"
+                    : providers.length > 0
+                      ? "bg-danger"
+                      : "bg-muted"
+                }`}
+                title={
+                  providers.find((provider) => provider.id === backend)?.available
+                    ? "Provider installed"
+                    : "Provider not found on PATH"
+                }
+              />
               <span className="hidden font-mono text-[9px] text-muted/55 sm:inline">
                 {submitting ? "sending…" : "enter to send"}
               </span>

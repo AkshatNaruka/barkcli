@@ -7,6 +7,7 @@ pub fn parse_skill(content: &str, filename: &str, source: SkillSource) -> Skill 
     let mut name = None;
     let mut description = None;
     let mut triggers: Vec<String> = Vec::new();
+    let mut always = false;
 
     for line in frontmatter.lines() {
         let line = line.trim();
@@ -29,6 +30,12 @@ pub fn parse_skill(content: &str, filename: &str, source: SkillSource) -> Skill 
                         .filter(|s| !s.is_empty())
                         .collect();
                 }
+                "always" => {
+                    always = matches!(
+                        v.to_ascii_lowercase().as_str(),
+                        "true" | "yes" | "1" | "on"
+                    );
+                }
                 _ => {}
             }
         }
@@ -40,7 +47,18 @@ pub fn parse_skill(content: &str, filename: &str, source: SkillSource) -> Skill 
         .unwrap_or("skill")
         .to_string();
 
-    let final_id = id.unwrap_or_else(|| file_stem.clone());
+    let final_id = id.unwrap_or_else(|| {
+        if file_stem.eq_ignore_ascii_case("skill") {
+            Path::new(filename)
+                .parent()
+                .and_then(Path::file_name)
+                .and_then(|name| name.to_str())
+                .unwrap_or(&file_stem)
+                .to_string()
+        } else {
+            file_stem.clone()
+        }
+    });
     let final_name = name.unwrap_or_else(|| file_stem.clone());
     let final_desc = description.unwrap_or_default();
 
@@ -53,6 +71,7 @@ pub fn parse_skill(content: &str, filename: &str, source: SkillSource) -> Skill 
         triggers,
         source: source.clone(),
         path: None,
+        always,
         enabled: true,
     }
 }
@@ -72,6 +91,11 @@ fn split_frontmatter(content: &str) -> (String, String) {
 pub fn load_from_path(path: &Path, source: SkillSource) -> Option<Skill> {
     let content = std::fs::read_to_string(path).ok()?;
     let mut skill = parse_skill(&content, &path.file_name()?.to_string_lossy(), source);
+    if skill.id.eq_ignore_ascii_case("skill") {
+        if let Some(parent) = path.parent().and_then(Path::file_name) {
+            skill.id = parent.to_string_lossy().to_string();
+        }
+    }
     skill.path = Some(path.to_path_buf());
     Some(skill)
 }

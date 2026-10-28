@@ -136,7 +136,15 @@ pub struct MemoryStore {
 impl MemoryStore {
     /// Open or create the memory store for a board.
     pub fn open(board_name: &str) -> Result<Self> {
-        let path = memory_path(board_name)?;
+        let board_dir = find_board_dir()?;
+        Self::open_at(board_name, &board_dir)
+    }
+
+    /// Open the store rooted at an explicit board directory. Context
+    /// compilation uses this so previews and tests never read another
+    /// project's memory.
+    pub fn open_at(board_name: &str, board_dir: &std::path::Path) -> Result<Self> {
+        let path = memory_path_at(board_name, board_dir);
         let memory = if path.exists() {
             let content = std::fs::read_to_string(&path).context("failed to read memory")?;
             serde_json::from_str(&content).unwrap_or_default()
@@ -533,11 +541,10 @@ impl MemoryStore {
 }
 
 /// Get the memory file path for a board.
-fn memory_path(board_name: &str) -> Result<PathBuf> {
-    let board_dir = find_board_dir()?;
+fn memory_path_at(board_name: &str, board_dir: &std::path::Path) -> PathBuf {
     let dir = board_dir.join("memory");
     std::fs::create_dir_all(&dir).ok();
-    Ok(dir.join(format!("{}.json", board_name)))
+    dir.join(format!("{board_name}.json"))
 }
 
 #[cfg(test)]

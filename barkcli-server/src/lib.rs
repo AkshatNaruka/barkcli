@@ -115,6 +115,19 @@ where
         .route("/api/threads/{id}", get(get_thread_handler))
         .route("/api/threads/{id}/messages", post(post_thread_message_handler))
         .route("/api/threads/{id}/stream", get(stream_thread_handler))
+        .route(
+            "/api/threads/{id}/runs",
+            get(list_thread_runs_handler).post(start_thread_run_handler),
+        )
+        .route("/api/providers", get(list_providers_handler))
+        .route("/api/providers/{id}/probe", post(probe_provider_handler))
+        .route("/api/runs/{id}", get(get_run_handler))
+        .route("/api/runs/{id}/diff", get(run_diff_handler))
+        .route("/api/runs/{id}/gate", get(run_gate_handler))
+        .route("/api/runs/{id}/context", get(run_context_handler))
+        .route("/api/runs/{id}/stop", post(stop_run_handler))
+        .route("/api/runs/{id}/merge", post(merge_run_handler))
+        .route("/api/context/preview", post(context_preview_handler))
         .route("/api/sessions/{id}/transcript", get(session_transcript_handler))
         .route("/api/sessions/{id}/stop", post(session_stop_handler))
         .route("/api/sessions/{id}/steer", post(session_steer_handler))
@@ -158,6 +171,54 @@ where
             get(get_agent_handler).delete(delete_agent_handler),
         )
         .route("/api/agents/{agent_id}/status", get(agent_status_handler))
+        .route("/api/roles", get(list_roles_handler))
+        .route(
+            "/api/agents/profiles",
+            get(list_profiles_handler).post(save_profile_handler),
+        )
+        .route("/api/agents/profiles/default", post(default_team_handler))
+        .route(
+            "/api/agents/profiles/{profile_id}/status",
+            post(profile_status_handler),
+        )
+        .route("/api/agents/assign", post(assign_agent_handler))
+        .route("/api/orchestra", get(orchestra_snapshot_handler))
+        .route("/api/orchestra/tick", post(orchestra_tick_handler))
+        .route("/api/orchestra/plans", post(create_orchestra_plan_handler))
+        .route(
+            "/api/orchestra/plans/{plan_id}",
+            get(get_orchestra_plan_handler),
+        )
+        .route(
+            "/api/orchestra/plans/{plan_id}/approve",
+            post(approve_orchestra_plan_handler),
+        )
+        .route(
+            "/api/orchestra/plans/{plan_id}/dispatch",
+            post(dispatch_orchestra_plan_handler),
+        )
+        .route(
+            "/api/orchestra/plans/{plan_id}/cancel",
+            post(cancel_orchestra_plan_handler),
+        )
+        .route(
+            "/api/orchestra/plans/{plan_id}/tasks/{task_id}/assign",
+            post(assign_orchestra_task_handler),
+        )
+        .route(
+            "/api/orchestra/plans/{plan_id}/tasks/{task_id}/assignments",
+            get(orchestra_task_assignments_handler),
+        )
+        .route(
+            "/api/orchestra/plans/{plan_id}/tasks/{task_id}/retry",
+            post(retry_orchestra_task_handler),
+        )
+        .route(
+            "/api/orchestra/plans/{plan_id}/questions/{question_id}/answer",
+            post(answer_orchestra_question_handler),
+        )
+        .route("/api/runs/{id}/approve", post(approve_run_handler))
+        .route("/api/runs/{id}/answer", post(answer_run_handler))
         .route("/api/orchestrate/next", post(orchestrate_next_handler))
         .route("/api/orchestrate/cycle", post(orchestrate_cycle_handler))
         .route("/api/orchestrate/status", get(orchestrate_status_handler))
@@ -239,6 +300,8 @@ where
         // Skills endpoints (SPEC-004 R2)
         .route("/api/skills", get(list_skills_handler).post(create_skill_handler))
         .route("/api/skills/install", post(install_skills_handler))
+        .route("/api/skills/discover", get(discover_skills_handler))
+        .route("/api/skills/discover/import", post(import_discovered_skill_handler))
         .route(
             "/api/skills/{id}",
             get(get_skill_handler)
@@ -369,6 +432,7 @@ async fn auto_init() {
                         default_labels: vec!["bug".into(), "feature".into(), "urgent".into()],
                         priorities: vec!["low".into(), "medium".into(), "high".into()],
                         ai: None,
+                        runtime: Default::default(),
                     };
                     let config_json = serde_json::to_string_pretty(&config).unwrap_or_default();
                     let _ = std::fs::write(board_dir.join("config.json"), config_json);
@@ -1128,12 +1192,21 @@ async fn context_file_digest_handler(
 #[derive(serde::Serialize)]
 struct ConfigResponse {
     ai: ConfigAi,
+    runtime: ConfigRuntime,
 }
 
 #[derive(serde::Serialize)]
 struct ConfigAi {
     base_url: String,
     model: String,
+}
+
+#[derive(serde::Serialize)]
+struct ConfigRuntime {
+    runtime_v2: bool,
+    default_provider: Option<String>,
+    context_budget_tokens: usize,
+    auto_merge: bool,
 }
 
 async fn config_handler() -> Result<Json<ConfigResponse>, ServerError> {
@@ -1143,6 +1216,12 @@ async fn config_handler() -> Result<Json<ConfigResponse>, ServerError> {
     let ai = cfg.ai.unwrap_or_default();
     Ok(Json(ConfigResponse {
         ai: ConfigAi { base_url: ai.base_url, model: ai.model },
+        runtime: ConfigRuntime {
+            runtime_v2: cfg.runtime.runtime_v2,
+            default_provider: cfg.runtime.default_provider,
+            context_budget_tokens: cfg.runtime.context_budget_tokens,
+            auto_merge: cfg.runtime.auto_merge,
+        },
     }))
 }
 
@@ -4068,6 +4147,7 @@ fn skill_json(skill: &barkcli_core::skills::Skill, include_content: bool) -> ser
         "triggers": skill.triggers,
         "source": skill.source.to_string(),
         "enabled": skill.enabled,
+        "always": skill.always,
     });
     if include_content {
         value["content"] = serde_json::Value::String(skill.content.clone());
@@ -4299,11 +4379,735 @@ async fn get_thread_handler(
         barkcli_core::threads::read_events(&card_id)
             .map_err(|e| ServerError::internal(e.to_string()))?
     };
+    let runs = barkcli_core::runtime::RuntimeStore::from_project()
+        .and_then(|store| store.list_runs(Some(&card_id)))
+        .unwrap_or_default();
     Ok(Json(serde_json::json!({
         "id": card_id,
         "card": card,
         "events": events,
+        "runs": runs,
     })))
+}
+
+async fn list_thread_runs_handler(
+    Path(card_id): Path<String>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let runs = barkcli_core::runtime::RuntimeStore::from_project()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .list_runs(Some(&card_id))
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(serde_json::to_value(runs).unwrap_or(serde_json::json!([]))))
+}
+
+async fn get_run_handler(
+    Path(run_id): Path<String>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let run = barkcli_core::runtime::RuntimeStore::from_project()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .load_run(&run_id)
+        .map_err(|e| ServerError::bad(format!("run not found: {e}")))?;
+    Ok(Json(serde_json::to_value(run).unwrap_or(serde_json::json!(null))))
+}
+
+async fn list_providers_handler() -> Json<serde_json::Value> {
+    let providers = barkcli_core::runtime::ProviderRegistry::standard().statuses();
+    Json(serde_json::to_value(providers).unwrap_or(serde_json::json!([])))
+}
+
+async fn probe_provider_handler(
+    Path(provider_id): Path<String>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let registry = barkcli_core::runtime::ProviderRegistry::standard();
+    let adapter = registry
+        .get(&provider_id)
+        .ok_or_else(|| ServerError::bad(format!("unknown provider: {provider_id}")))?;
+    Ok(Json(
+        serde_json::to_value(adapter.probe()).unwrap_or(serde_json::json!(null)),
+    ))
+}
+
+async fn start_thread_run_handler(
+    State(state): State<Arc<AppState>>,
+    Path(card_id): Path<String>,
+    Query(params): Query<BoardQuery>,
+    Json(req): Json<barkcli_core::runtime::CreateRunRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, params.name)?;
+    let tx = state.thread_tx.clone();
+    let sink: barkcli_core::runtime::ThreadSink = Arc::new(move |event| {
+        let _ = tx.send(event);
+    });
+    let service = barkcli_core::runtime::RunService::from_project(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let run = service
+        .start_for_card(&card_id, req, Some(sink))
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::to_value(run).unwrap_or(serde_json::json!(null))))
+}
+
+async fn run_diff_handler(
+    State(state): State<Arc<AppState>>,
+    Path(run_id): Path<String>,
+    Query(params): Query<BoardQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, params.name)?;
+    let service = barkcli_core::runtime::RunService::from_project(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let diff = service
+        .diff(&run_id)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    Ok(Json(serde_json::to_value(diff).unwrap_or(serde_json::json!(null))))
+}
+
+async fn run_gate_handler(
+    State(state): State<Arc<AppState>>,
+    Path(run_id): Path<String>,
+    Query(params): Query<BoardQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, params.name)?;
+    let service = barkcli_core::runtime::RunService::from_project(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let run = service
+        .store()
+        .load_run(&run_id)
+        .map_err(|e| ServerError::bad(format!("run not found: {e}")))?;
+    let log = run
+        .gate
+        .as_ref()
+        .and_then(|gate| gate.log_path.as_deref())
+        .and_then(|path| std::fs::read_to_string(path).ok())
+        .unwrap_or_default();
+    let gate = run.gate.clone();
+    Ok(Json(serde_json::json!({
+        "run": run,
+        "gate": gate,
+        "log": log,
+    })))
+}
+
+async fn run_context_handler(
+    Path(run_id): Path<String>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let store = barkcli_core::context::ContextStore::from_project()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let run = barkcli_core::runtime::RuntimeStore::from_project()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .load_run(&run_id)
+        .map_err(|e| ServerError::bad(format!("run not found: {e}")))?;
+    let context = run
+        .context_manifest_id
+        .as_deref()
+        .and_then(|manifest_id| store.load_pack(manifest_id).ok());
+    Ok(Json(serde_json::json!({
+        "run": run,
+        "context": context,
+        "available": context.is_some(),
+    })))
+}
+
+#[derive(Deserialize)]
+struct ContextPreviewRequest {
+    card_id: String,
+    #[serde(default)]
+    prompt: Option<String>,
+    #[serde(default)]
+    role: Option<String>,
+    #[serde(default)]
+    provider: Option<String>,
+    #[serde(default)]
+    permission_mode: Option<String>,
+    #[serde(default)]
+    skills: Vec<String>,
+    #[serde(default)]
+    budget_tokens: Option<usize>,
+}
+
+async fn context_preview_handler(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<BoardQuery>,
+    Json(req): Json<ContextPreviewRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, params.name)?;
+    let board = barkcli_core::storage::board_file::read_board(&board_name)
+        .map_err(|e| ServerError::bad(format!("board could not be read: {e}")))?;
+    let card = board
+        .cards
+        .iter()
+        .find(|card| card.id == req.card_id)
+        .cloned()
+        .ok_or_else(|| ServerError::bad(format!("card '{}' not found", req.card_id)))?;
+    let engine = barkcli_core::context::ContextEngine::from_project(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let pack = engine
+        .compile(&barkcli_core::context::CompileRequest {
+            thread_id: card.id.clone(),
+            card_id: card.id.clone(),
+            card,
+            run_id: None,
+            role: req.role,
+            provider: req.provider.unwrap_or_else(|| "opencode".into()),
+            permission_mode: req.permission_mode.unwrap_or_else(|| "auto".into()),
+            extra_prompt: req.prompt,
+            explicit_skills: req.skills,
+            budget_tokens: req.budget_tokens,
+        })
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    Ok(Json(
+        serde_json::to_value(pack).unwrap_or_else(|_| serde_json::json!(null)),
+    ))
+}
+
+async fn discover_skills_handler() -> Result<Json<serde_json::Value>, ServerError> {
+    let root = barkcli_core::storage::board_dir::find_project_root()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let skills = barkcli_core::skills::discover::discover(&root);
+    Ok(Json(serde_json::json!({ "skills": skills })))
+}
+
+#[derive(Deserialize)]
+struct ImportDiscoveredSkillRequest {
+    path: String,
+}
+
+async fn import_discovered_skill_handler(
+    Json(body): Json<ImportDiscoveredSkillRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let root = barkcli_core::storage::board_dir::find_project_root()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let imported = barkcli_core::skills::discover::import(&root, std::path::Path::new(&body.path))
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    Ok(Json(serde_json::json!({ "imported": imported })))
+}
+
+async fn stop_run_handler(
+    State(state): State<Arc<AppState>>,
+    Path(run_id): Path<String>,
+    Query(params): Query<BoardQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, params.name)?;
+    let service = barkcli_core::runtime::RunService::from_project(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    // A stopped run inside an orchestra plan must stop its sibling tasks too.
+    let cascaded = barkcli_core::agent::OrchestraService::from_project(&board_name)
+        .ok()
+        .and_then(|orchestra| orchestra.stop_run_cascade(&run_id).ok())
+        .flatten();
+    let run = if cascaded.is_some() {
+        service
+            .store()
+            .load_run(&run_id)
+            .map_err(|e| ServerError::bad(format!("run not found: {e}")))?
+    } else {
+        service
+            .stop(&run_id)
+            .map_err(|e| ServerError::bad(e.to_string()))?
+    };
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(
+        serde_json::to_value(run).unwrap_or_else(|_| serde_json::json!(null)),
+    ))
+}
+
+#[derive(serde::Deserialize, Default)]
+struct MergeRunRequest {
+    #[serde(default)]
+    approved: bool,
+}
+
+async fn merge_run_handler(
+    State(state): State<Arc<AppState>>,
+    Path(run_id): Path<String>,
+    Query(params): Query<BoardQuery>,
+    Json(req): Json<MergeRunRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    if !req.approved {
+        return Err(ServerError::bad(
+            "merge requires explicit human approval (approved: true)",
+        ));
+    }
+    let board_name = resolve_board_name(&state, params.name)?;
+    let service = barkcli_core::runtime::RunService::from_project(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let outcome = service
+        .merge(&run_id, req.approved)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::to_value(outcome).unwrap_or(serde_json::json!(null))))
+}
+
+// ---------------------------------------------------------------------------
+// Product team and orchestra (M3)
+// ---------------------------------------------------------------------------
+
+async fn list_roles_handler() -> Result<Json<serde_json::Value>, ServerError> {
+    let roles = barkcli_core::agent::RoleRegistry::from_project()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(
+        serde_json::to_value(roles.roles).unwrap_or(serde_json::json!([])),
+    ))
+}
+
+async fn list_profiles_handler() -> Result<Json<serde_json::Value>, ServerError> {
+    let profiles = barkcli_core::agent::ProfileStore::from_project()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .list()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(
+        serde_json::to_value(profiles).unwrap_or(serde_json::json!([])),
+    ))
+}
+
+async fn save_profile_handler(
+    State(state): State<Arc<AppState>>,
+    Json(mut profile): Json<barkcli_core::agent::AgentProfile>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    if profile.id.trim().is_empty() {
+        profile.id = barkcli_core::util::slug::to_slug(&profile.name);
+    }
+    if profile.id.trim().is_empty() {
+        return Err(ServerError::bad("agent name is required"));
+    }
+    let roles = barkcli_core::agent::RoleRegistry::from_project()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    if !roles.validate_role(&profile.role) {
+        return Err(ServerError::bad(format!(
+            "unknown role '{}'",
+            profile.role
+        )));
+    }
+    profile.capacity = profile.capacity.clamp(1, 8);
+    let saved = barkcli_core::agent::ProfileStore::from_project()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .save(profile)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(
+        serde_json::to_value(saved).unwrap_or(serde_json::json!(null)),
+    ))
+}
+
+async fn default_team_handler(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let profiles = barkcli_core::agent::ProfileStore::from_project()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .ensure_default_team()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "profiles": profiles })))
+}
+
+#[derive(Deserialize)]
+struct ProfileStatusRequest {
+    status: barkcli_core::agent::ProfileStatus,
+}
+
+async fn profile_status_handler(
+    State(state): State<Arc<AppState>>,
+    Path(profile_id): Path<String>,
+    Json(req): Json<ProfileStatusRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let saved = barkcli_core::agent::ProfileStore::from_project()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .set_status(&profile_id, req.status)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(
+        serde_json::to_value(saved).unwrap_or(serde_json::json!(null)),
+    ))
+}
+
+#[derive(Deserialize)]
+struct AssignAgentRequest {
+    #[serde(default)]
+    plan_id: Option<String>,
+    #[serde(default)]
+    task_id: Option<String>,
+    #[serde(default)]
+    role: Option<String>,
+    #[serde(default)]
+    title: Option<String>,
+    #[serde(default)]
+    description: Option<String>,
+    #[serde(default)]
+    labels: Vec<String>,
+    #[serde(default)]
+    files: Vec<String>,
+}
+
+async fn assign_agent_handler(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<BoardQuery>,
+    Json(req): Json<AssignAgentRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, params.name)?;
+    if let (Some(plan_id), Some(task_id)) = (req.plan_id.as_deref(), req.task_id.as_deref()) {
+        let service = barkcli_core::agent::OrchestraService::from_project(&board_name)
+            .map_err(|e| ServerError::internal(e.to_string()))?;
+        let ranked = service
+            .assignments(plan_id, task_id)
+            .map_err(|e| ServerError::bad(e.to_string()))?;
+        return Ok(Json(serde_json::json!({ "recommendations": ranked })));
+    }
+    let role = req
+        .role
+        .ok_or_else(|| ServerError::bad("role is required for a new task recommendation"))?;
+    let mut task = barkcli_core::agent::PlanTask::new(
+        "preview",
+        req.title.unwrap_or_else(|| "Task".into()),
+        role,
+    );
+    task.description = req.description.unwrap_or_default();
+    task.labels = req.labels;
+    task.files = req.files;
+    let profiles = barkcli_core::agent::ProfileStore::from_project()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .list()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let ranked = barkcli_core::agent::rank_agents(
+        &task,
+        &profiles,
+        &std::collections::HashMap::new(),
+        &std::collections::HashMap::new(),
+    );
+    Ok(Json(serde_json::json!({ "recommendations": ranked })))
+}
+
+#[derive(Deserialize)]
+struct OrchestraQuery {
+    name: Option<String>,
+    #[serde(default)]
+    auto_dispatch: bool,
+}
+
+async fn orchestra_snapshot_handler(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<OrchestraQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, params.name)?;
+    let service = barkcli_core::agent::OrchestraService::from_project(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let snapshot = service
+        .snapshot(params.auto_dispatch)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(
+        serde_json::to_value(snapshot).unwrap_or_else(|_| serde_json::json!(null)),
+    ))
+}
+
+#[derive(Deserialize, Default)]
+struct OrchestraTickRequest {
+    #[serde(default = "default_true")]
+    auto_dispatch: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+async fn orchestra_tick_handler(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<BoardQuery>,
+    Json(req): Json<OrchestraTickRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, params.name)?;
+    let service = barkcli_core::agent::OrchestraService::from_project(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let snapshot = service
+        .snapshot(req.auto_dispatch)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    if req.auto_dispatch {
+        let _ = state.tx.send("reload".to_string());
+    }
+    Ok(Json(
+        serde_json::to_value(snapshot).unwrap_or_else(|_| serde_json::json!(null)),
+    ))
+}
+
+#[derive(Deserialize)]
+struct CreateOrchestraPlanRequest {
+    #[serde(default)]
+    card_id: Option<String>,
+    #[serde(default)]
+    plan: Option<barkcli_core::agent::ProductPlan>,
+}
+
+async fn create_orchestra_plan_handler(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<BoardQuery>,
+    Json(req): Json<CreateOrchestraPlanRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, params.name)?;
+    let service = barkcli_core::agent::OrchestraService::from_project(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let plan = if let Some(mut plan) = req.plan {
+        if plan.parent_card_id.trim().is_empty() {
+            if let Some(card_id) = req.card_id {
+                plan.parent_card_id = card_id;
+            }
+        }
+        service
+            .create_plan_from(plan)
+            .map_err(|e| ServerError::bad(e.to_string()))?
+    } else {
+        let card_id = req
+            .card_id
+            .ok_or_else(|| ServerError::bad("card_id or plan is required"))?;
+        service
+            .create_plan(&card_id)
+            .map_err(|e| ServerError::bad(e.to_string()))?
+    };
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(
+        serde_json::to_value(plan).unwrap_or_else(|_| serde_json::json!(null)),
+    ))
+}
+
+async fn get_orchestra_plan_handler(
+    State(state): State<Arc<AppState>>,
+    Path(plan_id): Path<String>,
+    Query(params): Query<BoardQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, params.name)?;
+    let service = barkcli_core::agent::OrchestraService::from_project(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let plan = service
+        .reconcile_plan(&plan_id)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    Ok(Json(
+        serde_json::to_value(plan).unwrap_or_else(|_| serde_json::json!(null)),
+    ))
+}
+
+async fn approve_orchestra_plan_handler(
+    State(state): State<Arc<AppState>>,
+    Path(plan_id): Path<String>,
+    Query(params): Query<BoardQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, params.name)?;
+    let service = barkcli_core::agent::OrchestraService::from_project(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let plan = service
+        .approve_plan(&plan_id)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(
+        serde_json::to_value(plan).unwrap_or_else(|_| serde_json::json!(null)),
+    ))
+}
+
+async fn dispatch_orchestra_plan_handler(
+    State(state): State<Arc<AppState>>,
+    Path(plan_id): Path<String>,
+    Query(params): Query<BoardQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, params.name)?;
+    let tx = state.thread_tx.clone();
+    let sink: barkcli_core::runtime::ThreadSink = Arc::new(move |event| {
+        let _ = tx.send(event);
+    });
+    let service = barkcli_core::agent::OrchestraService::from_project(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let report = service
+        .dispatch_plan(&plan_id, Some(sink))
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(
+        serde_json::to_value(report).unwrap_or_else(|_| serde_json::json!(null)),
+    ))
+}
+
+async fn cancel_orchestra_plan_handler(
+    State(state): State<Arc<AppState>>,
+    Path(plan_id): Path<String>,
+    Query(params): Query<BoardQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, params.name)?;
+    let service = barkcli_core::agent::OrchestraService::from_project(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let plan = service
+        .cancel_plan(&plan_id)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(
+        serde_json::to_value(plan).unwrap_or_else(|_| serde_json::json!(null)),
+    ))
+}
+
+#[derive(Deserialize)]
+struct AssignOrchestraTaskRequest {
+    agent_id: String,
+}
+
+async fn assign_orchestra_task_handler(
+    State(state): State<Arc<AppState>>,
+    Path((plan_id, task_id)): Path<(String, String)>,
+    Query(params): Query<BoardQuery>,
+    Json(req): Json<AssignOrchestraTaskRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, params.name)?;
+    let service = barkcli_core::agent::OrchestraService::from_project(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let plan = service
+        .assign_task(&plan_id, &task_id, &req.agent_id)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(
+        serde_json::to_value(plan).unwrap_or_else(|_| serde_json::json!(null)),
+    ))
+}
+
+async fn orchestra_task_assignments_handler(
+    State(state): State<Arc<AppState>>,
+    Path((plan_id, task_id)): Path<(String, String)>,
+    Query(params): Query<BoardQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, params.name)?;
+    let service = barkcli_core::agent::OrchestraService::from_project(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let ranked = service
+        .assignments(&plan_id, &task_id)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    Ok(Json(serde_json::json!({ "recommendations": ranked })))
+}
+
+async fn retry_orchestra_task_handler(
+    State(state): State<Arc<AppState>>,
+    Path((plan_id, task_id)): Path<(String, String)>,
+    Query(params): Query<BoardQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, params.name)?;
+    let service = barkcli_core::agent::OrchestraService::from_project(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let plan = service
+        .retry_task(&plan_id, &task_id)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let report = service
+        .dispatch_plan(&plan_id, None)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "plan": plan, "report": report })))
+}
+
+#[derive(Deserialize)]
+struct AnswerQuestionRequest {
+    answer: String,
+}
+
+async fn answer_orchestra_question_handler(
+    State(state): State<Arc<AppState>>,
+    Path((plan_id, question_id)): Path<(String, String)>,
+    Query(params): Query<BoardQuery>,
+    Json(req): Json<AnswerQuestionRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, params.name)?;
+    let service = barkcli_core::agent::OrchestraService::from_project(&board_name)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let plan = service
+        .answer_question(&plan_id, &question_id, &req.answer)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(
+        serde_json::to_value(plan).unwrap_or_else(|_| serde_json::json!(null)),
+    ))
+}
+
+#[derive(Deserialize)]
+struct ApproveRunRequest {
+    approved: bool,
+    #[serde(default)]
+    note: Option<String>,
+    #[serde(default)]
+    merge: bool,
+}
+
+async fn approve_run_handler(
+    State(state): State<Arc<AppState>>,
+    Path(run_id): Path<String>,
+    Query(params): Query<BoardQuery>,
+    Json(req): Json<ApproveRunRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, params.name)?;
+    let run = barkcli_core::runtime::RuntimeStore::from_project()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .load_run(&run_id)
+        .map_err(|e| ServerError::bad(format!("run not found: {e}")))?;
+    let board_dir = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let event = barkcli_core::threads::ThreadEvent::new(
+        &run.card_id,
+        barkcli_core::threads::ThreadEventKind::ApprovalResolved,
+        "you",
+        if req.approved {
+            "Approved merge".to_string()
+        } else {
+            "Rejected merge".to_string()
+        },
+        Some(serde_json::json!({
+            "run_id": run.id,
+            "approved": req.approved,
+            "note": req.note,
+            "kind": "merge",
+        })),
+    );
+    let _ = barkcli_core::threads::append_event_to_dir(
+        &board_dir.join("threads"),
+        &run.card_id,
+        &event,
+    );
+    let _ = state.thread_tx.send(event);
+    let mut outcome = None;
+    if req.approved && req.merge {
+        let service = barkcli_core::runtime::RunService::from_project(&board_name)
+            .map_err(|e| ServerError::internal(e.to_string()))?;
+        outcome = Some(
+            service
+                .merge(&run_id, true)
+                .map_err(|e| ServerError::bad(e.to_string()))?,
+        );
+    }
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({
+        "approved": req.approved,
+        "merged": outcome.is_some(),
+        "outcome": outcome,
+    })))
+}
+
+#[derive(Deserialize)]
+struct AnswerRunRequest {
+    text: String,
+}
+
+async fn answer_run_handler(
+    State(state): State<Arc<AppState>>,
+    Path(run_id): Path<String>,
+    Json(req): Json<AnswerRunRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let run = barkcli_core::runtime::RuntimeStore::from_project()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .load_run(&run_id)
+        .map_err(|e| ServerError::bad(format!("run not found: {e}")))?;
+    let board_dir = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let event = barkcli_core::threads::ThreadEvent::new(
+        &run.card_id,
+        barkcli_core::threads::ThreadEventKind::Answer,
+        "you",
+        &req.text,
+        Some(serde_json::json!({ "run_id": run.id })),
+    );
+    let _ = barkcli_core::threads::append_event_to_dir(
+        &board_dir.join("threads"),
+        &run.card_id,
+        &event,
+    );
+    let _ = state.thread_tx.send(event.clone());
+    Ok(Json(
+        serde_json::to_value(event).unwrap_or_else(|_| serde_json::json!(null)),
+    ))
 }
 
 async fn create_thread_handler(
@@ -4483,26 +5287,37 @@ async fn post_thread_message_handler(
     Ok(Json(serde_json::to_value(&user_ev).unwrap_or_default()))
 }
 
+#[derive(Deserialize)]
+struct StreamQuery {
+    after_seq: Option<u64>,
+}
+
 async fn stream_thread_handler(
     State(state): State<Arc<AppState>>,
     Path(card_id): Path<String>,
+    Query(params): Query<StreamQuery>,
 ) -> Sse<impl futures::Stream<Item = Result<Event, std::convert::Infallible>>> {
-    let existing_events = barkcli_core::threads::read_events(&card_id).unwrap_or_default();
+    let after_seq = params.after_seq.unwrap_or(0);
+    let existing_events = barkcli_core::threads::read_events(&card_id)
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|ev| ev.seq == 0 || ev.seq > after_seq)
+        .collect::<Vec<_>>();
     let cid = card_id.clone();
     let initial_stream = futures::stream::iter(existing_events.into_iter().map(|ev| {
         Ok(Event::default().json_data(&ev).unwrap_or_else(|_| Event::default().data("{}")))
     }));
 
     let rx = state.thread_tx.subscribe();
-    let live_stream = futures::stream::unfold((rx, cid), |(mut rx, cid)| async move {
+    let live_stream = futures::stream::unfold((rx, cid, after_seq), |(mut rx, cid, after_seq)| async move {
         loop {
             match rx.recv().await {
                 Ok(ev) => {
-                    if ev.card_id == cid {
+                    if ev.card_id == cid && (ev.seq == 0 || ev.seq > after_seq) {
                         let sse_ev: Result<Event, std::convert::Infallible> = Ok(
                             Event::default().json_data(&ev).unwrap_or_else(|_| Event::default().data("{}"))
                         );
-                        return Some((sse_ev, (rx, cid)));
+                        return Some((sse_ev, (rx, cid, after_seq)));
                     }
                 }
                 Err(_) => return None,

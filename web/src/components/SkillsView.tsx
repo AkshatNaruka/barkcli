@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import type { DiscoveredSkill } from "../lib/types";
+import { fetchDiscoveredSkills, importDiscoveredSkill } from "../lib/api";
 import { Icon, type IconName } from "./Icon";
 
 interface SkillSummary {
@@ -364,6 +366,144 @@ function InstallSkillModal({
   );
 }
 
+function DiscoverSkillsModal({
+  onClose,
+  onImported,
+}: {
+  onClose: () => void;
+  onImported: () => void;
+}) {
+  const [skills, setSkills] = useState<DiscoveredSkill[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [imported, setImported] = useState<string[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    fetchDiscoveredSkills()
+      .then((next) => {
+        if (alive) setSkills(next);
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const importSkill = async (skill: DiscoveredSkill) => {
+    if (busyId || skill.already_installed) return;
+    setBusyId(skill.path);
+    setError(null);
+    try {
+      const result = await importDiscoveredSkill(skill.path);
+      if (!result) throw new Error("Import failed");
+      setImported((prev) => [...prev, result.id]);
+      setSkills((prev) =>
+        prev.map((item) =>
+          item.path === skill.path ? { ...item, already_installed: true } : item
+        )
+      );
+      onImported();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <ModalShell
+      title="Discover skills"
+      subtitle="Claude, OpenCode, and project markdown"
+      onClose={onClose}
+      wide
+      footer={
+        <button
+          onClick={onClose}
+          className="h-8 px-3 rounded-md border border-border text-[11.5px] text-muted hover:text-text"
+        >
+          Done
+        </button>
+      }
+    >
+      {loading ? (
+        <div className="space-y-2">
+          {[0, 1, 2].map((row) => (
+            <div key={row} className="h-12 animate-pulse rounded-md bg-surface/70" />
+          ))}
+        </div>
+      ) : skills.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-border px-4 py-6 text-center">
+          <p className="text-[12px] text-muted">No skill files found.</p>
+          <p className="mt-1 text-[10.5px] leading-relaxed text-muted/60">
+            Looked in <span className="font-mono">.board/skills</span>,{" "}
+            <span className="font-mono">skills</span>,{" "}
+            <span className="font-mono">.claude/skills</span>,{" "}
+            <span className="font-mono">.opencode/skills</span>, and personal agent folders.
+          </p>
+        </div>
+      ) : (
+        <div className="max-h-[50vh] overflow-auto divide-y divide-border/60 border-y border-border/60">
+          {skills.map((skill) => (
+            <div key={skill.path} className="flex items-start gap-3 py-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[12px] font-medium text-text">{skill.name}</span>
+                  <span className="font-mono text-[8.5px] uppercase text-muted/50">
+                    {skill.source}
+                  </span>
+                  {skill.always && (
+                    <span className="rounded bg-accent-soft px-1 py-0.5 font-mono text-[8px] text-accent-text">
+                      always
+                    </span>
+                  )}
+                </div>
+                <p className="mt-0.5 text-[10.5px] leading-relaxed text-muted">
+                  {skill.description || "No description"}
+                </p>
+                <div className="mt-1 truncate font-mono text-[8.5px] text-muted/45">
+                  {skill.path}
+                </div>
+                {skill.triggers.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {skill.triggers.slice(0, 6).map((trigger) => (
+                      <span
+                        key={trigger}
+                        className="rounded border border-border/70 px-1 py-0.5 font-mono text-[8px] text-muted/70"
+                      >
+                        {trigger}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => importSkill(skill)}
+                disabled={skill.already_installed || busyId === skill.path}
+                className="h-7 shrink-0 rounded-md border border-border px-2.5 text-[10.5px] text-muted transition-colors hover:border-border-strong hover:text-text disabled:opacity-40"
+              >
+                {skill.already_installed || imported.includes(skill.id)
+                  ? "Imported"
+                  : busyId === skill.path
+                    ? "Importing…"
+                    : "Import"}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {error && <p className="mt-3 text-[11px] text-danger">{error}</p>}
+      <p className="mt-3 text-[10px] text-muted/70">
+        Imports are copied into <span className="font-mono">.board/skills/</span> and start enabled.
+      </p>
+    </ModalShell>
+  );
+}
+
 export function SkillsView() {
   const [skills, setSkills] = useState<SkillSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -374,6 +514,7 @@ export function SkillsView() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [installOpen, setInstallOpen] = useState(false);
+  const [discoverOpen, setDiscoverOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -513,6 +654,12 @@ export function SkillsView() {
                 className="h-8 w-[190px] bg-card border border-border rounded-md pl-7 pr-2.5 text-[11.5px] text-text placeholder:text-muted/60 outline-none focus:border-accent/60"
               />
             </div>
+            <button
+              onClick={() => setDiscoverOpen(true)}
+              className="h-8 px-3 rounded-md border border-border text-[11.5px] text-muted hover:text-text hover:border-border-strong flex items-center gap-1.5 transition-colors"
+            >
+              <Icon name="search" size={12} /> Discover
+            </button>
             <button
               onClick={() => setInstallOpen(true)}
               className="h-8 px-3 rounded-md border border-border text-[11.5px] text-muted hover:text-text hover:border-border-strong flex items-center gap-1.5 transition-colors"
@@ -785,6 +932,16 @@ export function SkillsView() {
             setNotice(`${skill.name} created`);
             window.setTimeout(() => setNotice(null), 2200);
           }}
+        />
+      )}
+
+      {discoverOpen && (
+        <DiscoverSkillsModal
+          onClose={() => {
+            setDiscoverOpen(false);
+            load(true);
+          }}
+          onImported={() => load(true)}
         />
       )}
 

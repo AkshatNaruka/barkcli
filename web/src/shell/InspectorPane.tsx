@@ -1,12 +1,35 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import type { Card, ThreadEvent, TaskDiff } from "../lib/types";
-import { fetchTaskDiff, evalSession } from "../lib/api";
+import type {
+  Card,
+  ThreadEvent,
+  TaskDiff,
+  RunRecord,
+  RunDiff,
+  RunGate,
+  RunContext,
+  ContextPack,
+  ProductPlan,
+} from "../lib/types";
+import {
+  fetchTaskDiff,
+  evalSession,
+  fetchThreadRuns,
+  fetchRunDiff,
+  fetchRunGate,
+  fetchRunContext,
+  previewContext,
+  approveOrchestraPlan,
+  createOrchestraPlan,
+  dispatchOrchestraPlan,
+  fetchOrchestra,
+} from "../lib/api";
 import { Icon } from "../components/Icon";
 import { UnifiedDiff } from "../components/UnifiedDiff";
 
 interface InspectorPaneProps {
   card?: Card;
   events: ThreadEvent[];
+  threadId?: string;
   onClose?: () => void;
 }
 
@@ -32,15 +55,26 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function InspectorPane({ card, events, onClose }: InspectorPaneProps) {
+export function InspectorPane({ card, events, threadId, onClose }: InspectorPaneProps) {
   const [tab, setTab] = useState<WorkbenchTab>("plan");
-  const [diffData, setDiffData] = useState<TaskDiff | null>(null);
+  const [diffData, setDiffData] = useState<TaskDiff | RunDiff | null>(null);
   const [loadingDiff, setLoadingDiff] = useState(false);
   const [diffError, setDiffError] = useState(false);
   const [evalData, setEvalData] = useState<any | null>(null);
   const [loadingEval, setLoadingEval] = useState(false);
   const [evalError, setEvalError] = useState(false);
+  const [runs, setRuns] = useState<RunRecord[]>([]);
+  const [runDiff, setRunDiff] = useState<RunDiff | null>(null);
+  const [runGate, setRunGate] = useState<RunGate | null>(null);
+  const [loadingRunGate, setLoadingRunGate] = useState(false);
+  const [runContext, setRunContext] = useState<RunContext | null>(null);
+  const [loadingRunContext, setLoadingRunContext] = useState(false);
+  const [previewPack, setPreviewPack] = useState<ContextPack | null>(null);
+  const [previewing, setPreviewing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [teamPlan, setTeamPlan] = useState<ProductPlan | null>(null);
+  const [teamPlanBusy, setTeamPlanBusy] = useState(false);
+  const [teamPlanError, setTeamPlanError] = useState<string | null>(null);
   const autoSelected = useRef(false);
 
   const planEvent = useMemo(
@@ -51,6 +85,42 @@ export function InspectorPane({ card, events, onClose }: InspectorPaneProps) {
   );
   const proposal = planEvent?.data;
   const planApproved = events.some((event) => event.kind === "plan_approved");
+
+  useEffect(() => {
+    if (!card?.id) {
+      setTeamPlan(null);
+      return;
+    }
+    let cancelled = false;
+    void Promise.resolve(fetchOrchestra(false)).then((snapshot) => {
+      if (cancelled) return;
+      const next =
+        (snapshot?.plans || [])
+          .filter(
+            (plan) =>
+              plan.parent_card_id === card.id && plan.status !== "cancelled"
+          )
+          .sort((a, b) => b.created_at.localeCompare(a.created_at))[0] || null;
+      setTeamPlan(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [card?.id]);
+
+  const runTeamPlanAction = async (action: () => Promise<ProductPlan | null>) => {
+    setTeamPlanBusy(true);
+    setTeamPlanError(null);
+    try {
+      const plan = await action();
+      if (!plan) throw new Error("The team action failed.");
+      setTeamPlan(plan);
+    } catch (error) {
+      setTeamPlanError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setTeamPlanBusy(false);
+    }
+  };
   const gateEvent = useMemo(
     () => [...events].reverse().find((event) => event.kind === "gate"),
     [events]
@@ -64,9 +134,92 @@ export function InspectorPane({ card, events, onClose }: InspectorPaneProps) {
     () => [...events].reverse().find((event) => event.kind === "merge"),
     [events]
   );
-  const currentTaskId = taskEvent?.data?.task_id || card?.id;
+  const latestRun = runs.length > 0 ? runs[runs.length - 1] : undefined;
+  const currentTaskId = latestRun?.id || taskEvent?.data?.task_id || card?.id;
   const currentSessionId = taskEvent?.data?.session_id;
   const diffCount = diffData?.files?.length || 0;
+  const contextPack = previewPack || runContext?.context || null;
+  const contextManifest = contextPack?.manifest;
+  const contextBudget = contextManifest?.budget_tokens || 0;
+  const contextPct = contextBudget
+    ? Math.min(100, Math.round(((contextManifest?.estimated_tokens || 0) / contextBudget) * 100))
+    : 0;
+
+  const runRevision = useMemo(() => {
+    const relevant = new Set([
+      "run_started",
+      "run_completed",
+      "run_failed",
+      "run_interrupted",
+      "gate",
+      "diff",
+      "merge",
+    ]);
+    const last = [...events].reverse().find((event) => relevant.has(event.kind));
+    return last?.id || "";
+  }, [events]);
+
+  const gateVerdict = latestRun?.gate || gateData;
+  const gateCommand = latestRun?.gate?.command || gateData?.command;
+  const gateOutput = runGate?.log || gateData?.output || "";
+  const gateTime =
+    latestRun?.gate?.finished_at || gateEvent?.created_at || latestRun?.ended_at;
+
+  useEffect(() => {
+    setPreviewPack(null);
+  }, [threadId]);
+
+  useEffect(() => {
+    if (!threadId) {
+      setRuns([]);
+      return;
+    }
+    let cancelled = false;
+    fetchThreadRuns(threadId).then((next) => {
+      if (!cancelled) setRuns(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [threadId, runRevision]);
+
+  useEffect(() => {
+    if (tab !== "gate" || !latestRun) {
+      setRunGate(null);
+      return;
+    }
+    let cancelled = false;
+    setLoadingRunGate(true);
+    fetchRunGate(latestRun.id)
+      .then((next) => {
+        if (!cancelled) setRunGate(next);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingRunGate(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, latestRun?.id, latestRun?.gate?.finished_at]);
+
+  useEffect(() => {
+    if (tab !== "context" || !latestRun) {
+      setRunContext(null);
+      return;
+    }
+    let cancelled = false;
+    setLoadingRunContext(true);
+    fetchRunContext(latestRun.id)
+      .then((next) => {
+        if (!cancelled) setRunContext(next);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingRunContext(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, latestRun?.id, latestRun?.context_manifest_id]);
 
   // Match the reference: the artifact is the default panel once a worker exists.
   useEffect(() => {
@@ -81,15 +234,25 @@ export function InspectorPane({ card, events, onClose }: InspectorPaneProps) {
   }, [taskEvent, events.length]);
 
   useEffect(() => {
-    if (tab !== "diff" || !currentTaskId) return;
+    if (tab !== "diff") return;
     let cancelled = false;
     setDiffData(null);
+    setRunDiff(null);
     setDiffError(false);
     setLoadingDiff(true);
-    fetchTaskDiff(currentTaskId)
-      .then((res) => {
-        if (!cancelled) setDiffData(res);
-      })
+    const request = latestRun
+      ? fetchRunDiff(latestRun.id).then((res) => {
+          if (!cancelled) {
+            setRunDiff(res);
+            setDiffData(res);
+          }
+        })
+      : currentTaskId
+        ? fetchTaskDiff(currentTaskId).then((res) => {
+            if (!cancelled) setDiffData(res);
+          })
+        : Promise.resolve();
+    request
       .catch(() => {
         if (!cancelled) setDiffError(true);
       })
@@ -99,7 +262,7 @@ export function InspectorPane({ card, events, onClose }: InspectorPaneProps) {
     return () => {
       cancelled = true;
     };
-  }, [tab, currentTaskId]);
+  }, [tab, currentTaskId, latestRun?.id, latestRun?.head_sha, latestRun?.gate?.finished_at]);
 
   useEffect(() => {
     if (tab !== "eval" || !currentSessionId) return;
@@ -133,14 +296,14 @@ export function InspectorPane({ card, events, onClose }: InspectorPaneProps) {
           <span className="truncate font-mono text-[9.5px] text-muted/65">{currentTaskId}</span>
         )}
         <div className="ml-auto flex items-center gap-1">
-          {gateData && (
+          {gateVerdict && (
             <span
               className={`hidden items-center gap-1 font-mono text-[9px] sm:flex ${
-                gateData.passed ? "text-success" : "text-danger"
+                gateVerdict.passed ? "text-success" : "text-danger"
               }`}
             >
-              <span className={`h-1 w-1 rounded-full ${gateData.passed ? "bg-success" : "bg-danger"}`} />
-              {gateData.passed ? "gate passed" : "gate failed"}
+              <span className={`h-1 w-1 rounded-full ${gateVerdict.passed ? "bg-success" : "bg-danger"}`} />
+              {gateVerdict.passed ? "gate passed" : "gate failed"}
             </span>
           )}
           {onClose && (
@@ -185,9 +348,9 @@ export function InspectorPane({ card, events, onClose }: InspectorPaneProps) {
               {count != null && (
                 <span className="font-mono text-[9px] text-muted/55">{count}</span>
               )}
-              {item.id === "gate" && gateData && (
+              {item.id === "gate" && gateVerdict && (
                 <span
-                  className={`h-1 w-1 rounded-full ${gateData.passed ? "bg-success" : "bg-danger"}`}
+                  className={`h-1 w-1 rounded-full ${gateVerdict.passed ? "bg-success" : "bg-danger"}`}
                 />
               )}
               {active && (
@@ -284,6 +447,109 @@ export function InspectorPane({ card, events, onClose }: InspectorPaneProps) {
               <Empty>No plan yet. Send an intent in the thread to propose one.</Empty>
             )}
 
+            <div className="mt-6 border-t border-border/60 pt-4">
+              <div className="flex items-center justify-between">
+                <SectionLabel>Team plan</SectionLabel>
+                {teamPlan && (
+                  <span className="font-mono text-[8.5px] uppercase tracking-wide text-muted/60">
+                    {teamPlan.status.replace(/_/g, " ")}
+                  </span>
+                )}
+              </div>
+              {teamPlanError && (
+                <div className="mt-2 rounded border border-danger/25 bg-danger-soft px-2 py-1.5 text-[10px] text-danger">
+                  {teamPlanError}
+                </div>
+              )}
+              {teamPlan ? (
+                <>
+                  <div className="mt-2 flex items-center gap-2 text-[9.5px] text-muted">
+                    <span>{teamPlan.tasks.length} tasks</span>
+                    <span className="text-muted/35">·</span>
+                    <span>
+                      {teamPlan.tasks.filter((task) => task.status === "merged").length} merged
+                    </span>
+                    <span className="text-muted/35">·</span>
+                    <span>
+                      {teamPlan.tasks.filter((task) => task.status === "running").length} running
+                    </span>
+                  </div>
+                  <div className="mt-2 space-y-1">
+                    {teamPlan.tasks.map((task) => (
+                      <div
+                        key={task.id}
+                        className="flex items-center gap-2 rounded border border-border/70 bg-surface/40 px-2 py-1.5"
+                      >
+                        <span
+                          className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                            task.status === "merged"
+                              ? "bg-success"
+                              : task.status === "review"
+                                ? "bg-warning"
+                                : task.status === "running"
+                                  ? "bg-accent"
+                                  : task.status === "failed"
+                                    ? "bg-danger"
+                                    : "bg-border-strong"
+                          }`}
+                        />
+                        <span className="min-w-0 flex-1 truncate text-[10.5px] text-text">
+                          {task.title}
+                        </span>
+                        <span className="shrink-0 font-mono text-[8.5px] uppercase text-muted/60">
+                          {task.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 flex items-center gap-1.5">
+                    {teamPlan.status === "awaiting_approval" && (
+                      <button
+                        onClick={() =>
+                          void runTeamPlanAction(() => approveOrchestraPlan(teamPlan.id))
+                        }
+                        disabled={teamPlanBusy}
+                        className="inline-flex items-center gap-1 rounded bg-accent px-2 py-1 text-[10px] font-medium text-white hover:bg-accent-hover disabled:opacity-50"
+                      >
+                        <Icon name="check" size={10} /> Approve plan
+                      </button>
+                    )}
+                    {(teamPlan.status === "approved" || teamPlan.status === "running") && (
+                      <button
+                        onClick={() =>
+                          void runTeamPlanAction(async () => {
+                            const report = await dispatchOrchestraPlan(teamPlan.id);
+                            if (!report) throw new Error("Dispatch failed.");
+                            return report.plan;
+                          })
+                        }
+                        disabled={teamPlanBusy}
+                        className="inline-flex items-center gap-1 rounded border border-border bg-card px-2 py-1 text-[10px] text-text hover:bg-white/[0.04] disabled:opacity-50"
+                      >
+                        <Icon name="branch" size={10} />
+                        {teamPlan.status === "approved" ? "Dispatch" : "Fill slots"}
+                      </button>
+                    )}
+                    <span className="ml-auto text-[9px] text-muted/50">
+                      review in Agents → Orchestra
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <button
+                  onClick={() =>
+                    card &&
+                    void runTeamPlanAction(() => createOrchestraPlan(card.id))
+                  }
+                  disabled={!card || teamPlanBusy}
+                  className="mt-2 inline-flex items-center gap-1.5 rounded border border-border bg-card px-2 py-1.5 text-[10.5px] text-text hover:bg-white/[0.04] disabled:opacity-40"
+                >
+                  <Icon name="spark" size={11} />
+                  {teamPlanBusy ? "Proposing…" : "Plan with team"}
+                </button>
+              )}
+            </div>
+
             {card && card.acceptance_criteria?.length > 0 && (
               <div className="mt-6 border-t border-border/60 pt-4">
                 <SectionLabel>Card acceptance</SectionLabel>
@@ -348,49 +614,69 @@ export function InspectorPane({ card, events, onClose }: InspectorPaneProps) {
 
         {tab === "gate" && (
           <div className="p-4">
-            <SectionLabel>Acceptance gate</SectionLabel>
-            {gateData ? (
+            <div className="flex items-center justify-between gap-2">
+              <SectionLabel>Acceptance gate</SectionLabel>
+              {loadingRunGate && (
+                <Icon name="refresh" size={11} className="animate-spin text-muted/60" />
+              )}
+            </div>
+            {gateVerdict ? (
               <>
                 <div className="mt-3 flex items-center gap-2">
                   <span
                     className={`flex h-7 w-7 items-center justify-center rounded-full ${
-                      gateData.passed ? "bg-success/15 text-success" : "bg-danger/15 text-danger"
+                      gateVerdict.passed ? "bg-success/15 text-success" : "bg-danger/15 text-danger"
                     }`}
                   >
-                    <Icon name={gateData.passed ? "check" : "x"} size={14} />
+                    <Icon name={gateVerdict.passed ? "check" : "x"} size={14} />
                   </span>
                   <div>
                     <div
                       className={`text-[13px] font-medium ${
-                        gateData.passed ? "text-success" : "text-danger"
+                        gateVerdict.passed ? "text-success" : "text-danger"
                       }`}
                     >
-                      {gateData.passed ? "Gate passed" : "Gate failed"}
+                      {gateVerdict.passed ? "Gate passed" : "Gate failed"}
                     </div>
                     <div className="font-mono text-[9px] text-muted/65">
-                      {gateEvent ? new Date(gateEvent.created_at).toLocaleString() : ""}
+                      {gateTime ? new Date(gateTime).toLocaleString() : ""}
                     </div>
                   </div>
                 </div>
-                {gateData.command && (
+                {gateVerdict.summary && (
+                  <p className="mt-3 whitespace-pre-wrap text-[10.5px] leading-relaxed text-muted">
+                    {gateVerdict.summary}
+                  </p>
+                )}
+                {gateCommand && (
                   <div className="mt-4 border-y border-border/60 py-2.5">
                     <SectionLabel>Command</SectionLabel>
                     <code className="mt-1 block break-all font-mono text-[10px] text-accent-text">
-                      $ {gateData.command}
+                      $ {gateCommand}
                     </code>
                   </div>
                 )}
-                {gateData.output && (
+                {gateOutput && (
                   <div className="mt-4">
                     <SectionLabel>Log</SectionLabel>
                     <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap rounded border border-border/70 bg-surface/40 p-2.5 font-mono text-[9.5px] leading-relaxed text-muted-strong">
-                      {gateData.output}
+                      {gateOutput}
                     </pre>
                   </div>
                 )}
+                {latestRun?.status === "passed" && (
+                  <p className="mt-4 border-t border-border/60 pt-3 text-[10px] leading-relaxed text-muted/70">
+                    This run passed the gate. Merge is available from the run card in the
+                    conversation and always requires human approval.
+                  </p>
+                )}
               </>
             ) : (
-              <Empty>No gate has run for this thread yet.</Empty>
+              <Empty>
+                No gate has run for this thread yet.
+                <br />
+                Gates run after the agent commits its worktree changes.
+              </Empty>
             )}
           </div>
         )}
@@ -451,33 +737,66 @@ export function InspectorPane({ card, events, onClose }: InspectorPaneProps) {
           <div className="p-4">
             <div className="flex items-center justify-between gap-2">
               <SectionLabel>Thread context</SectionLabel>
-              <button
-                type="button"
-                onClick={async () => {
-                  const summary = [
-                    `# ${card?.title || "Thread"}`,
-                    `Card: ${card?.id || "none"}`,
-                    `Column: ${card?.column || "draft"}`,
-                    `Events: ${events.length}`,
-                    proposal?.rationale ? `Plan: ${proposal.rationale}` : "",
-                  ]
-                    .filter(Boolean)
-                    .join("\n");
-                  try {
-                    await navigator.clipboard.writeText(summary);
-                    setCopied(true);
-                    window.setTimeout(() => setCopied(false), 1500);
-                  } catch {
-                    // Clipboard access is permission-gated; the panel remains readable.
-                  }
-                }}
-                className="flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[9px] text-muted transition-colors hover:bg-white/[0.05] hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-                aria-label="Copy thread context"
-              >
-                <Icon name={copied ? "check" : "copy"} size={10} />
-                {copied ? "copied" : "copy"}
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!card || previewing) return;
+                    const lastUser = [...events].reverse().find((event) => event.kind === "user")?.text;
+                    setPreviewing(true);
+                    try {
+                      const pack = await previewContext({
+                        card_id: card.id,
+                        prompt: lastUser,
+                        role: latestRun?.role,
+                        provider: latestRun?.provider || "opencode",
+                      });
+                      setPreviewPack(pack);
+                    } finally {
+                      setPreviewing(false);
+                    }
+                  }}
+                  disabled={!card || previewing}
+                  className="flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[9px] text-muted transition-colors hover:bg-white/[0.05] hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent disabled:opacity-40"
+                  aria-label="Preview next run context"
+                >
+                  <Icon name={previewing ? "refresh" : "eye"} size={10} className={previewing ? "animate-spin" : ""} />
+                  preview
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const summary = [
+                      `# ${card?.title || "Thread"}`,
+                      `Card: ${card?.id || "none"}`,
+                      `Column: ${card?.column || "draft"}`,
+                      `Events: ${events.length}`,
+                      contextPack ? `Context: ${contextPack.reuse.reason}` : "",
+                      proposal?.rationale ? `Plan: ${proposal.rationale}` : "",
+                    ]
+                      .filter(Boolean)
+                      .join("\n");
+                    try {
+                      await navigator.clipboard.writeText(summary);
+                      setCopied(true);
+                      window.setTimeout(() => setCopied(false), 1500);
+                    } catch {
+                      // Clipboard access is permission-gated; the panel remains readable.
+                    }
+                  }}
+                  className="flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[9px] text-muted transition-colors hover:bg-white/[0.05] hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                  aria-label="Copy thread context"
+                >
+                  <Icon name={copied ? "check" : "copy"} size={10} />
+                  {copied ? "copied" : "copy"}
+                </button>
+              </div>
             </div>
+            {previewPack && (
+              <div className="mt-2 rounded border border-accent/25 bg-accent-soft px-2.5 py-2 text-[10px] leading-relaxed text-accent-text">
+                Previewing the next run before it starts. {previewPack.reuse.reason}
+              </div>
+            )}
             <div className="mt-3 divide-y divide-border/60 border-y border-border/60">
               {[
                 ["Card", card?.id || "none"],
@@ -491,6 +810,209 @@ export function InspectorPane({ card, events, onClose }: InspectorPaneProps) {
                 </div>
               ))}
             </div>
+
+            {loadingRunContext && (
+              <div className="mt-5 flex items-center gap-2 text-[10.5px] text-muted">
+                <Icon name="refresh" size={11} className="animate-spin" />
+                Loading context pack…
+              </div>
+            )}
+
+            {!loadingRunContext && !contextPack && (
+              <div className="mt-5 rounded-lg border border-dashed border-border/80 px-3 py-4">
+                <p className="text-[10.5px] leading-relaxed text-muted">
+                  No context pack for this thread yet. Start a run and Bark will compile a
+                  bounded prompt with a reusable stable prefix.
+                </p>
+              </div>
+            )}
+
+            {contextPack && contextManifest && (
+              <>
+                <div className="mt-5">
+                  <SectionLabel>Context pack</SectionLabel>
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <span
+                      className={`rounded border px-1.5 py-0.5 font-mono text-[9px] ${
+                        contextPack.reuse.reused
+                          ? "border-success/30 bg-success/10 text-success"
+                          : "border-accent/30 bg-accent-soft text-accent-text"
+                      }`}
+                    >
+                      {contextPack.reuse.reused ? "reused prefix" : "rebuilt"}
+                    </span>
+                    <span className="font-mono text-[9px] text-muted/70">
+                      {contextManifest.estimated_tokens.toLocaleString()} /{" "}
+                      {contextManifest.budget_tokens.toLocaleString()} tok
+                    </span>
+                    <span className="font-mono text-[9px] text-muted/50">
+                      {contextManifest.sections.filter((s) => s.kind === "stable").length} stable ·{" "}
+                      {contextManifest.sections.filter((s) => s.kind === "dynamic").length} dynamic
+                    </span>
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 font-mono text-[8.5px] text-muted/50">
+                    <span>{contextPack.reuse.stable_prefix_tokens.toLocaleString()} stable tok</span>
+                    <span>{contextPack.reuse.dynamic_tokens.toLocaleString()} dynamic tok</span>
+                    {contextPack.reuse.reused && (
+                      <span className="text-success/80">
+                        {contextPack.reuse.reused_tokens?.toLocaleString() || 0} reused
+                      </span>
+                    )}
+                    <span>{contextPack.reuse.cache_hits || 0} cache hit</span>
+                  </div>
+                  <div className="mt-2 h-1 overflow-hidden rounded-full bg-surface">
+                    <div
+                      className={`h-full rounded-full ${
+                        contextPct > 90 ? "bg-warning" : "bg-accent/70"
+                      }`}
+                      style={{ width: `${Math.max(2, contextPct)}%` }}
+                    />
+                  </div>
+                  <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
+                    {contextPack.reuse.reason}
+                  </p>
+                  {contextPack.reuse.invalidations.length > 0 && (
+                    <ul className="mt-2 space-y-1 border-l border-warning/40 pl-2.5">
+                      {contextPack.reuse.invalidations.map((reason, index) => (
+                        <li key={index} className="text-[9.5px] leading-relaxed text-warning/90">
+                          {reason}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 font-mono text-[8.5px] text-muted/50">
+                    <span title={contextManifest.id}>pack {contextManifest.id.slice(0, 10)}</span>
+                    <span title={contextManifest.stable_hash}>
+                      prefix {contextManifest.stable_hash.slice(0, 10)}
+                    </span>
+                    {contextManifest.head_sha && (
+                      <span title={contextManifest.head_sha}>
+                        head {contextManifest.head_sha.slice(0, 8)}
+                      </span>
+                    )}
+                    {contextPack.reuse.resume_candidate && <span>session resume ready</span>}
+                  </div>
+                </div>
+
+                <div className="mt-5">
+                  <SectionLabel>Sections</SectionLabel>
+                  <div className="mt-2 divide-y divide-border/60 border-y border-border/60">
+                    {contextManifest.sections.map((section) => (
+                      <div
+                        key={section.id}
+                        className="flex items-center justify-between gap-3 py-2 text-[10.5px]"
+                      >
+                        <span className="min-w-0 truncate text-text">
+                          {section.title}
+                          <span className="ml-1.5 font-mono text-[8.5px] uppercase text-muted/50">
+                            {section.kind}
+                          </span>
+                        </span>
+                        <span className="shrink-0 font-mono text-[9px] text-muted/70">
+                          {section.tokens.toLocaleString()} tok
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-5">
+                  <SectionLabel>Skills attached</SectionLabel>
+                  {contextManifest.skills.length === 0 ? (
+                    <p className="mt-2 text-[10px] leading-relaxed text-muted/70">
+                      No skill matched this task.
+                    </p>
+                  ) : (
+                    <div className="mt-2 space-y-2">
+                      {contextManifest.skills.map((skill) => (
+                        <div key={skill.id} className="border-l-2 border-accent/40 pl-2.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] font-medium text-text">{skill.name}</span>
+                            <span className="font-mono text-[8.5px] text-muted/55">
+                              {skill.reason}
+                            </span>
+                          </div>
+                          <div className="mt-0.5 font-mono text-[8.5px] text-muted/50">
+                            {skill.id} · {skill.source} · {skill.tokens.toLocaleString()} tok
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-5">
+                  <SectionLabel>Files in context</SectionLabel>
+                  {contextManifest.files.length === 0 ? (
+                    <p className="mt-2 text-[10px] text-muted/70">No file bodies selected.</p>
+                  ) : (
+                    <div className="mt-2 divide-y divide-border/60 border-y border-border/60">
+                      {contextManifest.files.map((file) => (
+                        <div key={file.path} className="py-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="min-w-0 truncate font-mono text-[9.5px] text-text">
+                              {file.path}
+                            </span>
+                            <span className="shrink-0 font-mono text-[8.5px] text-muted/55">
+                              {file.tokens.toLocaleString()} tok
+                            </span>
+                          </div>
+                          <div className="mt-0.5 font-mono text-[8.5px] text-muted/45">
+                            {file.reason}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {contextManifest.exclusions.length > 0 && (
+                  <div className="mt-5">
+                    <SectionLabel>Excluded</SectionLabel>
+                    <div className="mt-2 space-y-1.5">
+                      {contextManifest.exclusions.slice(0, 10).map((exclusion) => (
+                        <div
+                          key={`${exclusion.path}-${exclusion.reason}`}
+                          className="flex items-start justify-between gap-2 text-[9.5px]"
+                        >
+                          <span className="min-w-0 truncate font-mono text-muted/70">
+                            {exclusion.path}
+                          </span>
+                          <span className="shrink-0 text-muted/50">{exclusion.reason}</span>
+                        </div>
+                      ))}
+                      {contextManifest.exclusions.length > 10 && (
+                        <p className="text-[9px] text-muted/50">
+                          +{contextManifest.exclusions.length - 10} more omitted
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {latestRun && (
+              <div className="mt-5">
+                <SectionLabel>Latest run</SectionLabel>
+                <div className="mt-2 divide-y divide-border/60 border-y border-border/60">
+                  {[
+                    ["Run", latestRun.id],
+                    ["Status", latestRun.status],
+                    ["Provider", latestRun.provider],
+                    ["Branch", latestRun.branch || "—"],
+                    ["Worktree", latestRun.worktree?.split("/").slice(-2).join("/") || "—"],
+                    ["Diff", `${latestRun.diff_stats.files} files, +${latestRun.diff_stats.additions} −${latestRun.diff_stats.deletions}`],
+                    ["Tokens", `${latestRun.usage.input_tokens} in / ${latestRun.usage.output_tokens} out`],
+                  ].map(([label, value]) => (
+                    <div key={label} className="flex items-center justify-between gap-3 py-2 text-[10.5px]">
+                      <span className="text-muted">{label}</span>
+                      <span className="truncate font-mono text-[9.5px] text-text">{value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {card?.labels && card.labels.length > 0 && (
               <div className="mt-5">

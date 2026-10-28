@@ -15,6 +15,10 @@ const api = vi.hoisted(() => ({
   steerSession: vi.fn(),
   forkSession: vi.fn(),
   raceTask: vi.fn(),
+  startThreadRun: vi.fn(),
+  stopRun: vi.fn(),
+  mergeRun: vi.fn(),
+  fetchProviders: vi.fn(async () => []),
 }));
 
 vi.mock("../lib/api", () => api);

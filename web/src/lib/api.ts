@@ -17,8 +17,22 @@ import type {
   ThreadEvent,
   ThreadSummary,
   ThreadDetail,
+  RunRecord,
+  RunDiff,
+  RunGate,
+  RunContext,
+  ContextPack,
+  DiscoveredSkill,
+  ProviderStatus,
   SessionTranscript,
   TaskDiff,
+  RoleDef,
+  AgentProfile,
+  ProfileStatus,
+  OrchestraSnapshot,
+  ProductPlan,
+  DispatchReport,
+  AssignmentRecommendation,
 } from "./types";
 import { load as yamlParse, dump as yamlDump } from "js-yaml";
 import { isDemoMode, getDemoCardHistory, onDemoChange } from "./demo";
@@ -1433,8 +1447,134 @@ export async function fetchTaskDiff(taskId: string): Promise<TaskDiff | null> {
   }
 }
 
-export function streamThreadUrl(id: string): string {
-  return withToken(`/api/threads/${encodeURIComponent(id)}/stream`);
+export function streamThreadUrl(id: string, afterSeq?: number): string {
+  const base = withToken(`/api/threads/${encodeURIComponent(id)}/stream`);
+  if (afterSeq && afterSeq > 0) {
+    return `${base}${base.includes("?") ? "&" : "?"}after_seq=${afterSeq}`;
+  }
+  return base;
+}
+
+export async function fetchProviders(): Promise<ProviderStatus[]> {
+  if (isVscode) return [];
+  try {
+    const res = await fetch("/api/providers");
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function probeProvider(id: string): Promise<ProviderStatus | null> {
+  return postJson(`/api/providers/${encodeURIComponent(id)}/probe`, {});
+}
+
+export async function fetchThreadRuns(id: string): Promise<RunRecord[]> {
+  if (isVscode) return [];
+  try {
+    const res = await fetch(`/api/threads/${encodeURIComponent(id)}/runs`);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchRun(id: string): Promise<RunRecord | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(`/api/runs/${encodeURIComponent(id)}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function startThreadRun(
+  threadId: string,
+  payload: {
+    provider?: string;
+    model?: string;
+    role?: string;
+    agent_id?: string;
+    permission_mode?: string;
+    prompt?: string;
+    test_cmd?: string;
+    parent_run_id?: string;
+  }
+): Promise<RunRecord | null> {
+  return postJson(`/api/threads/${encodeURIComponent(threadId)}/runs`, payload);
+}
+
+export async function fetchRunDiff(runId: string): Promise<RunDiff | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(`/api/runs/${encodeURIComponent(runId)}/diff`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchRunGate(runId: string): Promise<RunGate | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(`/api/runs/${encodeURIComponent(runId)}/gate`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchRunContext(runId: string): Promise<RunContext | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(`/api/runs/${encodeURIComponent(runId)}/context`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function previewContext(payload: {
+  card_id: string;
+  prompt?: string;
+  role?: string;
+  provider?: string;
+  permission_mode?: string;
+  skills?: string[];
+  budget_tokens?: number;
+}): Promise<ContextPack | null> {
+  return postJson("/api/context/preview", payload);
+}
+
+export async function fetchDiscoveredSkills(): Promise<DiscoveredSkill[]> {
+  if (isVscode) return [];
+  try {
+    const res = await fetch("/api/skills/discover");
+    if (!res.ok) return [];
+    const data = (await res.json()) as { skills?: DiscoveredSkill[] };
+    return data.skills || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function importDiscoveredSkill(path: string): Promise<{ id: string; path: string } | null> {
+  return postJson("/api/skills/discover/import", { path });
+}
+
+export async function stopRun(runId: string): Promise<RunRecord | null> {
+  return postJson(`/api/runs/${encodeURIComponent(runId)}/stop`, {});
+}
+
+export async function mergeRun(runId: string, approved: boolean): Promise<any | null> {
+  return postJson(`/api/runs/${encodeURIComponent(runId)}/merge`, { approved });
 }
 
 export async function stopSession(sessionId: string): Promise<any | null> {
@@ -1460,3 +1600,148 @@ export async function evalSession(sessionId: string): Promise<any | null> {
   return postJson(`/api/sessions/${encodeURIComponent(sessionId)}/eval`, {});
 }
 
+
+// ---------------------------------------------------------------------------
+// Product team & orchestra (M3)
+// ---------------------------------------------------------------------------
+
+export async function fetchRoles(): Promise<RoleDef[]> {
+  if (isVscode) return [];
+  try {
+    const res = await fetch(withToken("/api/roles"));
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchAgentProfiles(): Promise<AgentProfile[]> {
+  if (isVscode) return [];
+  try {
+    const res = await fetch(withToken("/api/agents/profiles"));
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function saveAgentProfile(profile: AgentProfile): Promise<AgentProfile | null> {
+  return postJson("/api/agents/profiles", profile);
+}
+
+export async function hireDefaultTeam(): Promise<AgentProfile[] | null> {
+  const data = await postJson("/api/agents/profiles/default", {});
+  return data?.profiles ?? null;
+}
+
+export async function setProfileStatus(id: string, status: ProfileStatus): Promise<AgentProfile | null> {
+  return postJson(`/api/agents/profiles/${encodeURIComponent(id)}/status`, { status });
+}
+
+export async function fetchOrchestra(autoDispatch = false): Promise<OrchestraSnapshot | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(withToken(`/api/orchestra?auto_dispatch=${autoDispatch ? "true" : "false"}`));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function tickOrchestra(autoDispatch = true): Promise<OrchestraSnapshot | null> {
+  return postJson("/api/orchestra/tick", { auto_dispatch: autoDispatch });
+}
+
+export async function createOrchestraPlan(cardId: string): Promise<ProductPlan | null> {
+  return postJson("/api/orchestra/plans", { card_id: cardId });
+}
+
+export async function fetchOrchestraPlan(planId: string): Promise<ProductPlan | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(withToken(`/api/orchestra/plans/${encodeURIComponent(planId)}`));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function approveOrchestraPlan(planId: string): Promise<ProductPlan | null> {
+  return postJson(`/api/orchestra/plans/${encodeURIComponent(planId)}/approve`, {});
+}
+
+export async function dispatchOrchestraPlan(planId: string): Promise<DispatchReport | null> {
+  return postJson(`/api/orchestra/plans/${encodeURIComponent(planId)}/dispatch`, {});
+}
+
+export async function cancelOrchestraPlan(planId: string): Promise<ProductPlan | null> {
+  return postJson(`/api/orchestra/plans/${encodeURIComponent(planId)}/cancel`, {});
+}
+
+export async function assignOrchestraTask(
+  planId: string,
+  taskId: string,
+  agentId: string
+): Promise<ProductPlan | null> {
+  return postJson(
+    `/api/orchestra/plans/${encodeURIComponent(planId)}/tasks/${encodeURIComponent(taskId)}/assign`,
+    { agent_id: agentId }
+  );
+}
+
+export async function fetchOrchestraAssignments(
+  planId: string,
+  taskId: string
+): Promise<AssignmentRecommendation[]> {
+  if (isVscode) return [];
+  try {
+    const res = await fetch(
+      withToken(
+        `/api/orchestra/plans/${encodeURIComponent(planId)}/tasks/${encodeURIComponent(taskId)}/assignments`
+      )
+    );
+    if (!res.ok) return [];
+    const data = (await res.json()) as { recommendations?: AssignmentRecommendation[] };
+    return data.recommendations || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function retryOrchestraTask(
+  planId: string,
+  taskId: string
+): Promise<{ plan: ProductPlan; report: DispatchReport } | null> {
+  return postJson(
+    `/api/orchestra/plans/${encodeURIComponent(planId)}/tasks/${encodeURIComponent(taskId)}/retry`,
+    {}
+  );
+}
+
+export async function answerOrchestraQuestion(
+  planId: string,
+  questionId: string,
+  answer: string
+): Promise<ProductPlan | null> {
+  return postJson(
+    `/api/orchestra/plans/${encodeURIComponent(planId)}/questions/${encodeURIComponent(questionId)}/answer`,
+    { answer }
+  );
+}
+
+export async function approveRun(
+  runId: string,
+  approved: boolean,
+  note?: string,
+  merge = false
+): Promise<any | null> {
+  return postJson(`/api/runs/${encodeURIComponent(runId)}/approve`, { approved, note, merge });
+}
+
+export async function answerRun(runId: string, text: string): Promise<any | null> {
+  return postJson(`/api/runs/${encodeURIComponent(runId)}/answer`, { text });
+}
