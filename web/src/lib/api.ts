@@ -37,6 +37,7 @@ import type {
   ReviewComment,
   Receipt,
   ReceiptVerification,
+  QueueItem,
   RepoEntry,
   RepoFile,
   GitStatus,
@@ -1804,6 +1805,26 @@ export async function verifyReceipt(
   id: string
 ): Promise<ReceiptVerification | null> {
   return postJson(`/api/receipts/${encodeURIComponent(id)}/verify`, {});
+}
+
+export async function fetchReviewQueue(
+  boardName?: string | null,
+  all = false
+): Promise<{ items: QueueItem[] }> {
+  if (isVscode) return { items: [] };
+  try {
+    const params = new URLSearchParams();
+    if (boardName) params.set("board", boardName);
+    if (all) params.set("all", "true");
+    const query = params.toString();
+    const res = await fetch(
+      withToken(`/api/review/queue${query ? `?${query}` : ""}`)
+    );
+    if (!res.ok) return { items: [] };
+    return await res.json();
+  } catch {
+    return { items: [] };
+  }
 }
 
 export async function markReviewViewed(

@@ -837,6 +837,32 @@ export interface ReceiptVerification {
   gate?: ReceiptGate | null;
 }
 
+export type RiskTier = "must" | "should" | "skim" | "unknown";
+
+export interface RiskReason {
+  signal: string;
+  points: number;
+  detail: string;
+}
+
+export interface RiskAssessment {
+  score: number;
+  tier: RiskTier;
+  reasons: RiskReason[];
+}
+
+export interface QueueItem {
+  card_id: string;
+  title: string;
+  column: string;
+  branch: string | null;
+  receipt_id: string | null;
+  files: number;
+  additions: number;
+  deletions: number;
+  risk: RiskAssessment;
+}
+
 export interface RepoEntry {
   path: string;
   name: string;
