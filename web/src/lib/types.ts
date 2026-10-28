@@ -728,6 +728,115 @@ export interface ReviewState {
   comments: ReviewComment[];
 }
 
+// ── Trust layer (SPEC-007) ──
+
+export type ConfidenceLevel = "low" | "medium" | "high";
+export type GuardSeverity = "info" | "warn" | "error";
+
+export interface GuardFinding {
+  check: string;
+  severity: GuardSeverity;
+  path: string;
+  line?: number;
+  message: string;
+  evidence?: string;
+  suggestion?: string;
+}
+
+export interface ReceiptAgent {
+  provider: string;
+  model?: string;
+  role?: string;
+  agent_id?: string;
+}
+
+export interface ReceiptWorkspace {
+  branch?: string;
+  base_sha?: string;
+  head_sha?: string;
+  worktree?: string;
+}
+
+export interface ReceiptDiff {
+  files: number;
+  additions: number;
+  deletions: number;
+  paths: string[];
+  test_files: string[];
+  tests_changed: boolean;
+}
+
+export interface ReceiptGate {
+  command?: string;
+  passed: boolean;
+  skipped: boolean;
+  duration_ms?: number;
+  log_path?: string;
+  tail?: string;
+  finished_at?: string;
+}
+
+export interface ReceiptGuard {
+  ran: boolean;
+  passed: boolean;
+  errors: number;
+  warnings: number;
+  findings: GuardFinding[];
+}
+
+export interface ReceiptReview {
+  open_comments: number;
+  resolved_comments: number;
+  viewed_files: number;
+  total_files: number;
+}
+
+export interface ReceiptConfidence {
+  level: ConfidenceLevel;
+  reasons: string[];
+}
+
+export interface Receipt {
+  version: number;
+  id: string;
+  card_id: string;
+  task_id?: string;
+  run_id?: string;
+  thread_id?: string;
+  intent: string;
+  agent: ReceiptAgent;
+  workspace: ReceiptWorkspace;
+  diff: ReceiptDiff;
+  gate: ReceiptGate;
+  guard: ReceiptGuard;
+  tests_changed: boolean;
+  review: ReceiptReview;
+  confidence: ReceiptConfidence;
+  created_at: string;
+  content_hash: string;
+}
+
+export interface ReceiptSummary {
+  id: string;
+  card_id: string;
+  created_at: string;
+  confidence: ConfidenceLevel;
+  gate_passed: boolean;
+  files: number;
+  additions: number;
+  deletions: number;
+  guard_errors: number;
+  guard_warnings: number;
+}
+
+export interface ReceiptVerification {
+  receipt_id: string;
+  valid: boolean;
+  hash_ok: boolean;
+  branch_moved?: boolean | null;
+  gate?: ReceiptGate | null;
+}
+
 export interface RepoEntry {
   path: string;
   name: string;

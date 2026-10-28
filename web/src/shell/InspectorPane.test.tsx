@@ -12,6 +12,8 @@ const {
   createOrchestraPlan,
   dispatchOrchestraPlan,
   fetchReview,
+  fetchReceipt,
+  verifyReceipt,
   markReviewViewed,
   addReviewComment,
   resolveReviewComment,
@@ -28,6 +30,8 @@ const {
   createOrchestraPlan: vi.fn(),
   dispatchOrchestraPlan: vi.fn(),
   fetchReview: vi.fn(),
+  fetchReceipt: vi.fn(),
+  verifyReceipt: vi.fn(),
   markReviewViewed: vi.fn(),
   addReviewComment: vi.fn(),
   resolveReviewComment: vi.fn(),
@@ -46,6 +50,8 @@ vi.mock("../lib/api", () => ({
   createOrchestraPlan,
   dispatchOrchestraPlan,
   fetchReview,
+  fetchReceipt,
+  verifyReceipt,
   markReviewViewed,
   addReviewComment,
   resolveReviewComment,
@@ -75,6 +81,7 @@ const card: Card = {
 
 fetchOrchestra.mockResolvedValue(null);
 fetchReview.mockResolvedValue(null);
+fetchReceipt.mockResolvedValue(null);
 
 const events: ThreadEvent[] = [
   {
@@ -149,6 +156,22 @@ describe("InspectorPane", () => {
     expect(screen.getByText("Gate passed")).toBeInTheDocument();
     expect(screen.getByText("$ npm run test")).toBeInTheDocument();
     expect(screen.getByText("51 passed")).toBeInTheDocument();
+  });
+
+  it("shows the receipt empty state when the card has no merge receipt", async () => {
+    fetchReceipt.mockResolvedValue(null);
+    fetchTaskDiff.mockResolvedValue({
+      task_id: "task-demo-mode",
+      branch: "",
+      files: [],
+      diff: "",
+    });
+    const user = userEvent.setup();
+    render(<InspectorPane card={card} events={events} onClose={vi.fn()} />);
+
+    await user.click(screen.getByRole("tab", { name: /Receipt/ }));
+    expect(await screen.findByText(/No receipt yet/)).toBeInTheDocument();
+    expect(fetchReceipt).toHaveBeenCalledWith("demo-mode");
   });
 
   it("closes the workbench from its header", async () => {

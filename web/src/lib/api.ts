@@ -35,6 +35,8 @@ import type {
   AssignmentRecommendation,
   ReviewState,
   ReviewComment,
+  Receipt,
+  ReceiptVerification,
   RepoEntry,
   RepoFile,
   GitStatus,
@@ -1783,6 +1785,25 @@ export async function fetchReview(id: string): Promise<ReviewState | null> {
   } catch {
     return null;
   }
+}
+
+/** The newest receipt for a card (or an exact `rcpt_…` id). */
+export async function fetchReceipt(cardId: string): Promise<Receipt | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(withToken(`/api/receipts/${encodeURIComponent(cardId)}`));
+    if (!res.ok) return null;
+    const body = await res.json();
+    return body?.receipt ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function verifyReceipt(
+  id: string
+): Promise<ReceiptVerification | null> {
+  return postJson(`/api/receipts/${encodeURIComponent(id)}/verify`, {});
 }
 
 export async function markReviewViewed(
