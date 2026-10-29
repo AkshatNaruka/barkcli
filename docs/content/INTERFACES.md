@@ -119,7 +119,47 @@ The server exposes a REST API:
 
 ---
 
-## VS Code Extension
+## macOS App
+
+`Bark.app` is a native window around the same seven-surface web UI. It bundles
+the `barkcli` server and `web/dist`, starts the server on a private loopback
+port, and loads the same HTML/JS/CSS the browser gets. There is no second
+frontend.
+
+### Build
+
+```shell
+bash desktop/scripts/build-macos-app.sh
+open desktop/target/release/bundle/macos/Bark.app
+```
+
+The build rebuilds the release CLI, the web app, the sidecar, and the Tauri
+bundle, then verifies that the bundled sidecar and assets match the workspace.
+If the bundle is stale, `desktop/scripts/verify-app.sh` fails.
+
+### AI integrations
+
+The shell prepends common agent install locations (`~/.opencode/bin`,
+`~/.local/bin`, Homebrew, etc.) to `PATH` before starting the server, so
+OpenCode/Claude Code are detected when the app is launched from Finder. Provider
+status is available at `/api/providers`; sidecar logs are written to
+`~/Library/Logs/barkcli/server.log`.
+
+### Smoke test
+
+```shell
+bash desktop/scripts/smoke-app.sh
+```
+
+Exercises the server, AI routes (`/api/providers`, `/api/threads`,
+`/api/agents`, `/api/run/live`), the Trust Layer (`/api/receipts`,
+`/api/review/queue`, `/api/guard/scan`), and static assets without opening a
+window.
+
+See [desktop/README.md](../../desktop/README.md) for signing and notarization
+notes.
+
+---
 
 A custom editor for `.board` files in VS Code.
 

@@ -52,7 +52,7 @@ You decide *what* gets built. Agents propose plans, do the work, and report back
 Intent in, plans out. barkcli is the management layer for AI agents: humans write intent, agents propose plans, each agent works in an isolated git worktree, your tests are the acceptance gate, and only passing branches merge. Tasks, specs, memory, skills, and agent runs live in your repo — no cloud, no accounts, no subscriptions.
 
 - **Tasks are files.** Boards are plain YAML committed to your repo. Diff them, merge them, grep them, roll them back — exactly like code.
-- **One binary, four interfaces.** CLI, terminal UI (ratatui), web app (axum), and a VS Code Custom Editor. Same data, every surface.
+- **One binary, five interfaces.** CLI, terminal UI (ratatui), web app (axum), macOS app (Tauri), and a VS Code Custom Editor. Same data, every surface.
 - **AI agents in the loop.** 76 MCP tools let Claude Code, OpenCode, and Cursor read tasks, claim work, and update progress — with full project context.
 - **Local-first, free core.** No accounts, no subscriptions to use it. Works fully offline. MIT licensed — your data never leaves your machine. A hosted team layer (multiplayer, cloud sync, analytics) is planned at $99/month per team.
 
@@ -290,9 +290,25 @@ The 76 tools cover boards, cards, tasks, agents, memory, specs, sessions, orches
 | **CLI** | `barkcli <cmd>` | Full-featured CLI for scripts and automation |
 | **Terminal UI** | `barkcli tui` | Ratatui board with vim navigation (tabs for agents/orchestrate) |
 | **Web App** | `barkcli serve --open` | Browser UI on `:4321` — Mind, Board, Specs, Calendar, Reports, Agents, Memory, Timeline |
+| **macOS App** | `bash desktop/scripts/build-macos-app.sh` | Native window around the same web UI, with the server and assets bundled |
 | **VS Code** | `barkcli vscode-install` | Custom Editor for `.board` files |
 | **MCP** | `barkcli mcp` | JSON-RPC 2.0 server for AI coding agents |
 | **Daemon** | `barkcli serve --daemon` | Background server with live-reload WebSocket |
+
+### macOS app
+
+`Bark.app` is a thin Tauri shell around the same seven-surface web UI. It starts
+the bundled `barkcli` sidecar on a private loopback port and is built from the
+same `web/dist` the browser gets — there is no second frontend.
+
+```bash
+bash desktop/scripts/build-macos-app.sh
+open desktop/target/release/bundle/macos/Bark.app
+```
+
+The build verifies that the bundled sidecar and web assets match the workspace,
+and the smoke test exercises the Trust Layer and AI routes. See
+[desktop/README.md](desktop/README.md) for details.
 
 ---
 
@@ -350,6 +366,7 @@ barkcli/
 ├── barkcli-tui/        # Ratatui terminal board (feature-flagged)
 ├── barkcli-server/     # Axum web server + WebSocket live reload
 ├── web/                # React + Vite web frontend
+├── desktop/            # Tauri macOS app: same UI, bundled server/assets
 ├── vscode-extension/   # VS Code Custom Editor extension
 ├── landing-next/       # Next.js landing page + docs + llms.txt
 └── docs/               # Documentation
