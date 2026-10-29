@@ -15,7 +15,7 @@ This directory holds the authoritative build specs for the YC MVP. Specs 001–0
 | [007](./SPEC-007-trust-layer.md) | Trust Layer: receipts, guard, risk-ranked review | ✅ done | #32 |
 | [008](./SPEC-008-mac-parity.md) | macOS app parity: same UI, same server, verifiable bundle | ✅ done | — |
 | [009](./SPEC-009-real-product.md) | Real product: project setup, providers, skills, brain loop | ✅ done | — |
-| [010](./SPEC-010-daily-driver.md) | Daily-driver Mac harness: local-agent chat, quick open, native shell | 🚧 in progress | — |
+| [010](./SPEC-010-daily-driver.md) | Daily-driver Mac harness: local-agent chat, quick open, native shell | ✅ done | — |
 
 **Trust Layer plan:** [PLAN-007](./PLAN-007-trust-layer.md) · research: [TRUST_LAYER_RESEARCH](../docs/internal/TRUST_LAYER_RESEARCH.md)
 

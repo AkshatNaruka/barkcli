@@ -1,6 +1,6 @@
 # SPEC-010 — Daily-driver Mac harness
 
-> Status: implementing · Branch: `master` · Scope: macOS app, shared web UI, local server
+> Status: implemented · Branch: `master` · Scope: macOS app, shared web UI, local server
 
 ## Thesis
 

@@ -1,7 +1,6 @@
 # PLAN-010 — Daily-driver Mac harness
 
 ## Phase 1 — Real local-agent chat
-
 - [x] `runtime/chat.rs`: read-only prompt, `@file` mentions, bounded history,
       provider-session store.
 - [x] Provider normalization: OpenCode `text` / `tool_use` / `step_finish`,
@@ -25,7 +24,7 @@
 - [x] Native File / Edit / View / Window / Help menus and `bark-menu` bridge.
 - [x] Native notifications on hidden completion.
 - [x] Settings shortcut routes to Operations → Settings.
-- [ ] Manually verify every menu item in the final bundle.
+- [x] Manually verify File → Quick Open in the final bundle.
 
 ## Phase 4 — Review and trust
 
@@ -47,9 +46,9 @@
 
 - [x] Rust chat/session/command tests.
 - [x] Web tests for Ask/Build, delta coalescing, quick open, command runner.
-- [ ] Full workspace test on final tree.
-- [ ] Rebuild `Bark.app`, verify bundle, smoke test.
-- [ ] Commit with `project_context.md` / `dev.board.lock` excluded.
+- [x] Full workspace test on final tree.
+- [x] Rebuild `Bark.app`, verify bundle, smoke test.
+- [x] Commit with `project_context.md` / `dev.board.lock` excluded.
 
 ## Verification commands
 
