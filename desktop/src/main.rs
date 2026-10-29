@@ -14,7 +14,8 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager, RunEvent, State, WebviewUrl, WebviewWindowBuilder};
+use tauri::menu::{MenuBuilder, MenuItem, SubmenuBuilder};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WebviewUrl, WebviewWindowBuilder};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct DesktopProject {
@@ -122,13 +123,21 @@ fn main() {
             recent_projects,
             reveal_project,
             open_provider_login,
+            open_terminal,
+            open_logs,
+            notify,
         ])
+        .on_menu_event(|app, event| {
+            let _ = app.emit("bark-menu", event.id().as_ref());
+        })
         .setup(move |app| {
             let parsed = url.parse().expect("valid local url");
             let mut window = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(parsed))
                 .title(title)
                 .inner_size(1440.0, 900.0)
                 .min_inner_size(1040.0, 680.0)
+                .title_bar_style(tauri::TitleBarStyle::Overlay)
+                .hidden_title(true)
                 .background_color(tauri::window::Color(10, 9, 8, 255));
 
             if let Some(saved) = geometry {
@@ -141,11 +150,71 @@ fn main() {
             }
             window.build()?;
 
-            // Keep the native menu (About, Edit, Window, Quit) so the app
-            // behaves like a macOS citizen instead of a bare webview.
-            if let Ok(menu) = tauri::menu::Menu::default(app.handle()) {
-                let _ = app.set_menu(menu);
-            }
+            // Native macOS menu. Every custom item has an id the webview
+            // listens for; standard edit/window items keep their system
+            // behavior and shortcuts.
+            let item = |id: &str, text: &str, accelerator: Option<&str>| {
+                MenuItem::with_id(app, id, text, true, accelerator)
+            };
+            let app_menu = SubmenuBuilder::new(app, "Bark")
+                .about(None)
+                .separator()
+                .services()
+                .separator()
+                .hide()
+                .hide_others()
+                .separator()
+                .quit()
+                .build()?;
+            let file_menu = SubmenuBuilder::new(app, "File")
+                .item(&item("open-project", "Open Project…", Some("CmdOrCtrl+O"))?)
+                .item(&item("new-chat", "New Chat", Some("CmdOrCtrl+Shift+N"))?)
+                .item(&item("new-intent", "New Intent", Some("CmdOrCtrl+N"))?)
+                .separator()
+                .item(&item("quick-open", "Quick Open…", Some("CmdOrCtrl+P"))?)
+                .item(&item("command-runner", "Run Command…", Some("CmdOrCtrl+Shift+R"))?)
+                .item(&item("command-palette", "Command Palette…", Some("CmdOrCtrl+K"))?)
+                .item(&item("settings", "Settings…", Some("CmdOrCtrl+,"))?)
+                .separator()
+                .item(&item("open-terminal", "Open Terminal", Some("CmdOrCtrl+Shift+T"))?)
+                .item(&item("reveal-project", "Reveal Project in Finder", None)?)
+                .separator()
+                .close_window()
+                .build()?;
+            let edit_menu = SubmenuBuilder::new(app, "Edit")
+                .undo()
+                .redo()
+                .separator()
+                .cut()
+                .copy()
+                .paste()
+                .select_all()
+                .build()?;
+            let view_menu = SubmenuBuilder::new(app, "View")
+                .item(&item("toggle-workbench", "Toggle Workbench", Some("CmdOrCtrl+J"))?)
+                .separator()
+                .fullscreen()
+                .build()?;
+            let window_menu = SubmenuBuilder::new(app, "Window")
+                .minimize()
+                .maximize()
+                .separator()
+                .close_window()
+                .build()?;
+            let help_menu = SubmenuBuilder::new(app, "Help")
+                .item(&item("help", "Bark Help", None)?)
+                .build()?;
+            let menu = MenuBuilder::new(app)
+                .items(&[
+                    &app_menu,
+                    &file_menu,
+                    &edit_menu,
+                    &view_menu,
+                    &window_menu,
+                    &help_menu,
+                ])
+                .build()?;
+            app.set_menu(menu)?;
 
             if let Some(win) = app.get_webview_window("main") {
                 let handle = app.handle().clone();
@@ -326,6 +395,65 @@ fn reveal_project(state: State<'_, ServerState>, path: Option<String>) -> bool {
 
 /// Open the official provider login in Terminal. Only allowlisted commands are
 /// accepted; the web app never supplies a shell string.
+#[tauri::command]
+fn open_terminal(state: State<'_, ServerState>, path: Option<String>) -> bool {
+    let project = state.runtime.lock().unwrap().project.clone();
+    let target = path
+        .map(PathBuf::from)
+        .filter(|path| path.is_dir())
+        .unwrap_or(project);
+    Command::new("open")
+        .args(["-a", "Terminal", target.to_string_lossy().as_ref()])
+        .spawn()
+        .map(|mut child| {
+            let _ = child.wait();
+            true
+        })
+        .unwrap_or(false)
+}
+
+#[tauri::command]
+fn open_logs() -> bool {
+    let Some(home) = std::env::var_os("HOME") else {
+        return false;
+    };
+    let path = PathBuf::from(home).join("Library/Logs/barkcli/server.log");
+    if !path.is_file() {
+        return false;
+    }
+    Command::new("open")
+        .arg(path)
+        .spawn()
+        .map(|mut child| {
+            let _ = child.wait();
+            true
+        })
+        .unwrap_or(false)
+}
+
+#[tauri::command]
+fn notify(title: String, body: String) -> bool {
+    let escape = |value: &str| {
+        value
+            .replace('\\', "\\\\")
+            .replace('"', "\\\"")
+            .replace(['\n', '\r'], " ")
+    };
+    let script = format!(
+        "display notification \"{}\" with title \"{}\"",
+        escape(&body),
+        escape(&title)
+    );
+    Command::new("osascript")
+        .args(["-e", script.as_str()])
+        .spawn()
+        .map(|mut child| {
+            let _ = child.wait();
+            true
+        })
+        .unwrap_or(false)
+}
+
 #[tauri::command]
 fn open_provider_login(provider: String) -> bool {
     let command = match provider.as_str() {

@@ -7,5 +7,5 @@
   },
   "local": true,
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "core:event:default"]
 }

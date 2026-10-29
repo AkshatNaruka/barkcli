@@ -142,7 +142,50 @@ assert os.path.realpath(project["root"]) == os.path.realpath(sys.argv[2]), proje
 assert project["is_git"] is True, project
 assert "setup" in project and "counts" in project, project
 assert project["boards"], project
+assert any(item["command"] == "git status --short" for item in project["commands"]), project
 print(f"  ok  project: {project['name']} ({project['counts']['cards']} cards)")
+PY
+
+curl -fsS --max-time 60 -X POST \
+  -H 'Content-Type: application/json' -d '{"command":"printf bark-smoke && pwd"}' \
+  "$BASE/api/exec?token=$TOKEN" >"$TMP/exec.json"
+python3 - "$TMP/exec.json" "$TMP" <<'PY'
+import json
+import os
+import sys
+
+result = json.load(open(sys.argv[1]))
+assert result["ok"] is True, result
+assert result["exit_code"] == 0, result
+assert "bark-smoke" in result["stdout"], result
+assert os.path.realpath(result["cwd"]) == os.path.realpath(sys.argv[2]), result
+print("  ok  command runner")
+PY
+
+curl -fsS --max-time 60 -X POST \
+  -H 'Content-Type: application/json' -d '{"text":"Where is the smoke card?","backend":"opencode","mode":"chat"}' \
+  "$BASE/api/threads?token=$TOKEN" >"$TMP/chat-thread.json"
+python3 - "$TMP/chat-thread.json" <<'PY'
+import json
+import sys
+
+thread = json.load(open(sys.argv[1]))
+assert thread.get("thread_id"), thread
+assert thread.get("status") == "created", thread
+print(f"  ok  chat thread created: {thread['thread_id']}")
+PY
+
+CHAT_THREAD="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["thread_id"])' "$TMP/chat-thread.json")"
+get "/api/threads/$CHAT_THREAD" >"$TMP/chat-thread-detail.json"
+python3 - "$TMP/chat-thread-detail.json" <<'PY'
+import json
+import sys
+
+detail = json.load(open(sys.argv[1]))
+events = detail.get("events", [])
+assert len(events) == 1, events
+assert events[0]["kind"] == "user", events
+print("  ok  chat thread has one user event and no auto-plan")
 PY
 
 curl -fsS --max-time 60 -X POST \
