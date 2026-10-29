@@ -14,7 +14,11 @@ interface ThreadsShellProps {
   onOpenPalette?: () => void;
   onCustomize?: () => void;
   /** A card the user asked about from another surface; opens the composer. */
-  seed?: { text: string; nonce: number } | null;
+  seed?: {
+    text: string;
+    nonce: number;
+    mode?: "chat" | "plan_first" | "plan_and_run";
+  } | null;
 }
 
 const WORKBENCH_KEY = "barkcli:chat-workbench";
@@ -38,6 +42,9 @@ export function ThreadsShell({
   });
   const [composerOpen, setComposerOpen] = useState(false);
   const [composerInitialText, setComposerInitialText] = useState("");
+  const [composerMode, setComposerMode] = useState<
+    "chat" | "plan_first" | "plan_and_run"
+  >("plan_first");
   const [loading, setLoading] = useState(false);
   const [narrow, setNarrow] = useState(() => {
     if (typeof window === "undefined" || !window.matchMedia) return false;
@@ -54,14 +61,19 @@ export function ThreadsShell({
     return () => media.removeEventListener("change", onChange);
   }, []);
 
-  const handleOpenComposer = useCallback((text?: string) => {
-    setComposerInitialText(text || "");
-    setComposerOpen(true);
-  }, []);
+  const handleOpenComposer = useCallback(
+    (text?: string, mode: "chat" | "plan_first" | "plan_and_run" = "plan_first") => {
+      setComposerInitialText(text || "");
+      setComposerMode(mode);
+      setComposerOpen(true);
+    },
+    []
+  );
 
   useEffect(() => {
     if (!seed) return;
     setComposerInitialText(seed.text);
+    setComposerMode(seed.mode || "plan_first");
     setComposerOpen(true);
   }, [seed]);
 
@@ -130,6 +142,12 @@ export function ThreadsShell({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  useEffect(() => {
+    const toggle = () => setInspectorOpen((open) => !open);
+    window.addEventListener("bark-toggle-workbench", toggle);
+    return () => window.removeEventListener("bark-toggle-workbench", toggle);
+  }, []);
+
   const handleThreadCreated = (newId: string) => {
     setSelectedId(newId);
     loadThreads();
@@ -142,6 +160,7 @@ export function ThreadsShell({
         selectedId={selectedId}
         onSelect={setSelectedId}
         onNew={() => handleOpenComposer()}
+        onNewChat={() => handleOpenComposer(undefined, "chat")}
         loading={loading}
         boardName={boardName}
         boards={boards}
@@ -156,6 +175,7 @@ export function ThreadsShell({
         inspectorOpen={inspectorOpen}
         onSelectCard={handleSelectCard}
         onOpenInspector={() => setInspectorOpen((open) => !open)}
+        onReview={() => setInspectorOpen(true)}
         onRefreshInbox={loadThreads}
         onNewIntent={handleOpenComposer}
       />
@@ -194,6 +214,7 @@ export function ThreadsShell({
         onCreated={handleThreadCreated}
         boardName={boardName || undefined}
         initialText={composerInitialText}
+        initialMode={composerMode}
       />
     </div>
   );

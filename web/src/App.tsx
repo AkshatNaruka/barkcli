@@ -16,6 +16,7 @@ import {
   fetchCardContext,
   fetchHistory,
   fetchSessions,
+  fetchProject,
   getCardHistory,
   cardPlanAndRun,
   saveBoard,
@@ -25,7 +26,7 @@ import {
   onboardProject,
   type GitInfo,
 } from "./lib/api";
-import { isDesktop } from "./lib/desktop";
+import { isDesktop, onMenu, openProjectDialog, openTerminal, revealProject, switchProject } from "./lib/desktop";
 import { useRoute, type Route } from "./lib/hashnav";
 import { Icon } from "./components/Icon";
 import { BoardView } from "./components/BoardView";
@@ -37,6 +38,8 @@ import {
 } from "./components/ReviewQueuePanel";
 import { CardForm } from "./components/CardForm";
 import { CommandPalette } from "./components/CommandPalette";
+import { QuickOpen } from "./components/QuickOpen";
+import { CommandRunner } from "./components/CommandRunner";
 import { ServerStatus } from "./components/ServerStatus";
 import { HistoryView } from "./components/HistoryView";
 import { SkillsView } from "./components/SkillsView";
@@ -206,8 +209,15 @@ export function App() {
   const [loading, setLoading] = useState(true);
   const [route, setRoute] = useRoute();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [quickOpenOpen, setQuickOpenOpen] = useState(false);
+  const [commandRunnerOpen, setCommandRunnerOpen] = useState(false);
+  const [projectName, setProjectName] = useState<string | null>(null);
   const [customizeOpen, setCustomizeOpen] = useState(false);
-  const [composeSeed, setComposeSeed] = useState<{ text: string; nonce: number } | null>(null);
+  const [composeSeed, setComposeSeed] = useState<{
+    text: string;
+    nonce: number;
+    mode?: "chat" | "plan_first" | "plan_and_run";
+  } | null>(null);
   const { railOrder, hidden } = useTheme();
   const visibleSurfaces = useMemo(
     () => railOrder.filter((id) => !hidden.includes(id)),
@@ -324,6 +334,11 @@ export function App() {
   useEffect(() => {
     getGitInfo().then(setGitInfo).catch(() => {});
   }, []);
+  useEffect(() => {
+    fetchProject()
+      .then((project) => setProjectName(project?.name || null))
+      .catch(() => setProjectName(null));
+  }, []);
   useEffect(() => { fetchBoards().then(setBoardList).catch(() => {}); }, []);
   useEffect(() => {
     fetchSprints(boardName || undefined).then(setSprints).catch(() => {});
@@ -371,16 +386,126 @@ export function App() {
     [setRoute]
   );
 
+  const handleOpenProject = useCallback(async () => {
+    if (!isDesktop()) {
+      notify("Open a folder from the Bark desktop app, or run `barkcli serve` in another project.");
+      return;
+    }
+    const project = await openProjectDialog();
+    if (project) await switchProject(project.path);
+  }, [notify]);
+
+  const openOperationsTab = useCallback((tab: string) => {
+    try {
+      window.sessionStorage.setItem("bark:ops-tab", tab);
+    } catch {
+      /* storage is optional */
+    }
+    window.dispatchEvent(new CustomEvent("bark-operations-tab", { detail: tab }));
+    window.location.hash = "#/operations";
+  }, []);
+
+  const handleAskFile = useCallback(
+    (path: string) => {
+      setComposeSeed({ text: `@${path} `, nonce: Date.now(), mode: "chat" });
+      setRoute("chat");
+    },
+    [setRoute]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    void onMenu((id) => {
+      switch (id) {
+        case "open-project":
+          void handleOpenProject();
+          break;
+        case "new-chat":
+          setComposeSeed({ text: "", nonce: Date.now(), mode: "chat" });
+          setRoute("chat");
+          break;
+        case "new-intent":
+          setComposeSeed({ text: "", nonce: Date.now(), mode: "plan_first" });
+          setRoute("chat");
+          break;
+        case "quick-open":
+          setQuickOpenOpen(true);
+          break;
+        case "command-runner":
+          setCommandRunnerOpen(true);
+          break;
+        case "command-palette":
+          setPaletteOpen(true);
+          break;
+        case "open-terminal":
+          void openTerminal();
+          break;
+        case "reveal-project":
+          void revealProject();
+          break;
+        case "toggle-workbench":
+          window.dispatchEvent(new Event("bark-toggle-workbench"));
+          break;
+        case "settings":
+          openOperationsTab("settings");
+          break;
+        case "help":
+          setHelpOpen(true);
+          break;
+      }
+    }).then((cleanup) => {
+      if (cancelled) cleanup();
+      else unlisten = cleanup;
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [handleOpenProject, openOperationsTab, setRoute]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Ignore when typing in inputs
+      // Ignore unmodified shortcuts while typing, but keep global ⌘ commands
+      // available (⌘K, ⌘P, ⌘⇧R, ⌘O, ⌘,).
       const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      const typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+      if (typing && !(e.metaKey || e.ctrlKey)) return;
+      if (typing && (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
+        return; // let the focused field undo its own text
+      }
 
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         setPaletteOpen((p) => !p);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        setQuickOpenOpen(true);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "n") {
+        e.preventDefault();
+        setComposeSeed({ text: "", nonce: Date.now(), mode: "plan_first" });
+        setRoute("chat");
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "n") {
+        e.preventDefault();
+        setComposeSeed({ text: "", nonce: Date.now(), mode: "chat" });
+        setRoute("chat");
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "r") {
+        e.preventDefault();
+        setCommandRunnerOpen(true);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "o") {
+        e.preventDefault();
+        void handleOpenProject();
         return;
       }
       if ((e.metaKey || e.ctrlKey) && e.key === "z") {
@@ -400,7 +525,7 @@ export function App() {
       }
       if ((e.metaKey || e.ctrlKey) && e.key === ",") {
         e.preventDefault();
-        setCustomizeOpen(true);
+        openOperationsTab("settings");
         return;
       }
       if (e.key === "?") {
@@ -431,7 +556,7 @@ export function App() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [route, board, boardName, loadBoard, notify, visibleSurfaces]);
+  }, [route, board, boardName, loadBoard, notify, visibleSurfaces, handleOpenProject, openOperationsTab]);
 
   const switchBoard = useCallback((name: string) => {
     if (name === boardName) return;
@@ -593,12 +718,13 @@ export function App() {
   const boardOpen = board ? board.cards.filter((c) => c.column !== "done").length : 0;
 
   return (
-    <div className="h-screen flex bg-bg">
+    <div className={`${isDesktop() ? "bark-desktop-shell" : "h-screen"} flex bg-bg`}>
       <AppRail
         surface={route}
         onNavigate={setRoute}
         onCustomize={() => setCustomizeOpen(true)}
         counts={{ chat: 0, board: boardOpen, agents: agentsActive }}
+        projectName={projectName}
       />
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -778,8 +904,20 @@ export function App() {
           onAddCard={(colId) => { setForm({ columnId: colId }); setPaletteOpen(false); }}
           onEditCard={(card) => { setForm({ card }); setPaletteOpen(false); }}
           onCustomize={() => setCustomizeOpen(true)}
+          onQuickOpen={() => { setPaletteOpen(false); setQuickOpenOpen(true); }}
+          onCommandRunner={() => { setPaletteOpen(false); setCommandRunnerOpen(true); }}
+          onOpenProject={() => { setPaletteOpen(false); void handleOpenProject(); }}
         />
       )}
+      <QuickOpen
+        open={quickOpenOpen}
+        onClose={() => setQuickOpenOpen(false)}
+        onAskBark={handleAskFile}
+      />
+      <CommandRunner
+        open={commandRunnerOpen}
+        onClose={() => setCommandRunnerOpen(false)}
+      />
       <CustomizePanel open={customizeOpen} onClose={() => setCustomizeOpen(false)} />
 
       {/* Toasts */}
@@ -990,7 +1128,12 @@ function SurfaceEmpty({ label }: { label: string }) {
 function HelpModal({ onClose }: { onClose: () => void }) {
   const shortcuts = [
     { keys: "Cmd/Ctrl + K", desc: "Command palette" },
-    { keys: "Cmd/Ctrl + Z", desc: "Undo last change" },
+    { keys: "Cmd/Ctrl + P", desc: "Quick open file" },
+    { keys: "Cmd/Ctrl + Shift + R", desc: "Run a project command" },
+    { keys: "Cmd/Ctrl + Shift + N", desc: "New read-only chat" },
+    { keys: "Cmd/Ctrl + O", desc: "Open project folder" },
+    { keys: "Cmd/Ctrl + ,", desc: "Settings" },
+    { keys: "Cmd/Ctrl + Z", desc: "Undo last board change" },
     { keys: "1 – 7", desc: "Jump between surfaces" },
     { keys: "?", desc: "Toggle this help" },
     { keys: "N", desc: "New card (on Board)" },

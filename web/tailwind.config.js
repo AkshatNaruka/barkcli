@@ -25,8 +25,8 @@ export default {
         "danger-soft": "var(--danger-soft)",
       },
       fontFamily: {
-        sans: ["Inter Variable", "Inter", "system-ui", "-apple-system", "sans-serif"],
-        mono: ["JetBrains Mono", "SF Mono", "Fira Code", "monospace"],
+        sans: ["-apple-system", "BlinkMacSystemFont", "SF Pro Text", "Inter Variable", "Inter", "system-ui", "sans-serif"],
+        mono: ["SF Mono", "JetBrains Mono", "Fira Code", "monospace"],
       },
     },
   },

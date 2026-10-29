@@ -12,6 +12,7 @@ import {
   isDesktop,
   openProjectDialog,
   openProviderLogin,
+  openTerminal,
   recentProjects,
   revealProject,
   switchProject,
@@ -546,6 +547,15 @@ export function WorkspaceView({
                   >
                     Reveal
                   </button>
+                  {desktop && (
+                    <button
+                      type="button"
+                      onClick={() => void openTerminal(project.root)}
+                      className="rounded border border-border px-2 py-1 text-[9.5px] text-muted hover:border-border-strong hover:text-text"
+                    >
+                      Terminal
+                    </button>
+                  )}
                   {!desktop && (
                     <button type="button" onClick={() => void copyServe()} className="rounded border border-border px-2 py-1 text-[9.5px] text-muted hover:border-border-strong hover:text-text">
                       Copy serve command

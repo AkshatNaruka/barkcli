@@ -92,6 +92,7 @@ const PATHS: Record<string, React.ReactNode> = {
   branch: <path d="M6 3v12a3 3 0 003 3h9" />,
   branchDotA: <circle cx="6" cy="5" r="2" />,
   branchDotB: <circle cx="18" cy="18" r="2" />,
+  terminal: <path d="M4 5h16v14H4zM8 9l3 3-3 3M13 15h4" />,
 };
 
 // Icons composed of multiple sub-paths.
@@ -134,7 +135,7 @@ export type IconName =
   | "board" | "spark" | "layers" | "cycle" | "code" | "db" | "star"
   | "chevL" | "chevR" | "flag" | "link" | "moon" | "sun" | "monitor"
   | "x" | "users" | "inbox" | "arrowUp" | "arrowFlat" | "arrowDown"
-  | "download" | "palette" | "eye" | "eyeOff" | "plus" | "stop" | "branch";
+  | "download" | "palette" | "eye" | "eyeOff" | "plus" | "stop" | "branch" | "terminal";
 
 function partsFor(name: IconName): React.ReactNode[] {
   if (name === "blocked") return [PATHS["blocked"], PATHS["blockedBar"]];
@@ -155,6 +156,7 @@ function partsFor(name: IconName): React.ReactNode[] {
   if (name === "arrowDown") return [PATHS["arrowDown"]];
   if (name === "plus") return [PATHS["plus"]];
   if (name === "stop") return [PATHS["stop"]];
+  if (name === "terminal") return [PATHS["terminal"]];
   return (GROUPS[name] || []).map((k) => PATHS[k]);
 }
 

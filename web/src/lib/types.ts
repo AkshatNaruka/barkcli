@@ -296,6 +296,25 @@ export interface ThreadEvent {
   created_at: string;
 }
 
+export interface ChatStart {
+  ok: boolean;
+  turn_id: string;
+  provider: string;
+  board: string;
+  mode: "ask";
+}
+
+export interface ExecResult {
+  ok: boolean;
+  command: string;
+  exit_code: number | null;
+  stdout: string;
+  stderr: string;
+  duration_ms: number;
+  timed_out: boolean;
+  cwd: string;
+}
+
 export interface ThreadSummary {
   id: string;
   title: string;
@@ -449,6 +468,12 @@ export interface ProjectCounts {
   agents: number;
 }
 
+export interface RunCommand {
+  id: string;
+  label: string;
+  command: string;
+}
+
 export interface ProjectSnapshot {
   root: string;
   name: string;
@@ -461,6 +486,7 @@ export interface ProjectSnapshot {
   hooks: ProjectHooksState;
   setup: ProjectSetupState;
   counts: ProjectCounts;
+  commands?: RunCommand[];
 }
 
 export interface SetupStep {

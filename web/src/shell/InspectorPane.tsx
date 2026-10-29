@@ -217,6 +217,15 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
   const latestRun = runs.length > 0 ? runs[runs.length - 1] : undefined;
   const currentTaskId = latestRun?.id || taskEvent?.data?.task_id || card?.id;
   const currentSessionId = taskEvent?.data?.session_id;
+
+  useEffect(() => {
+    if (
+      latestRun &&
+      ["needs_review", "passed", "failed"].includes(latestRun.status)
+    ) {
+      setTab("diff");
+    }
+  }, [latestRun?.id, latestRun?.status]);
   const diffCount = diffData?.files?.length || 0;
   const reviewId = latestRun?.id || card?.id;
   const reviewFiles = review ? Object.values(review.files || {}) : [];

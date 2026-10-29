@@ -15,6 +15,7 @@ interface InboxPaneProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
   onNew: () => void;
+  onNewChat?: () => void;
   loading?: boolean;
   boardName?: string | null;
   boards?: string[];
@@ -99,6 +100,7 @@ export function InboxPane({
   selectedId,
   onSelect,
   onNew,
+  onNewChat,
   loading = false,
   boardName,
   boards = [],
@@ -163,6 +165,15 @@ export function InboxPane({
               className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-white/[0.05] hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
             >
               <Icon name="search" size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={onNewChat || onNew}
+              title="New chat (read-only)"
+              aria-label="New chat"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-white/[0.05] hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+            >
+              <Icon name="comment" size={13} />
             </button>
             <button
               type="button"

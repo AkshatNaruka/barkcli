@@ -17,6 +17,8 @@ import type {
   ThreadEvent,
   ThreadSummary,
   ThreadDetail,
+  ChatStart,
+  ExecResult,
   RunRecord,
   RunDiff,
   RunGate,
@@ -1463,6 +1465,26 @@ export async function postThreadMessage(
   });
 }
 
+/** Start a read-only local-agent chat turn. Build work uses startThreadRun. */
+export async function startThreadChat(
+  id: string,
+  body: {
+    text: string;
+    provider: string;
+    model?: string;
+    files?: string[];
+    board?: string;
+    skip_user_event?: boolean;
+  }
+): Promise<ChatStart | null> {
+  return postJson(`/api/threads/${encodeURIComponent(id)}/chat`, body);
+}
+
+export async function stopThreadChat(id: string): Promise<boolean> {
+  const result = await postJson(`/api/threads/${encodeURIComponent(id)}/chat/stop`, {});
+  return Boolean(result?.ok);
+}
+
 export async function fetchSessionTranscript(
   sessionId: string,
   lines: number = 50
@@ -1998,6 +2020,14 @@ export async function fetchRepoFile(path: string): Promise<RepoFile | null> {
   } catch {
     return null;
   }
+}
+
+/** Run a project command in the server's project root. */
+export async function runProjectCommand(
+  command: string,
+  timeoutSecs = 120
+): Promise<ExecResult | null> {
+  return postJson("/api/exec", { command, timeout_secs: timeoutSecs });
 }
 
 export async function fetchGitStatus(): Promise<GitStatus | null> {

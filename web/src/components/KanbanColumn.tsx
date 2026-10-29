@@ -26,7 +26,7 @@ export const KanbanColumn = React.memo(function KanbanColumn({ column, cards, on
 
   return (
     <div
-      className="flex flex-col bg-surface border border-border rounded-xl min-w-[300px] max-w-[340px] flex-shrink-0"
+      className="flex flex-col bg-surface border border-border rounded-xl min-w-[250px] max-w-[340px] flex-1"
     >
       <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
         <div className="flex items-center gap-2 min-w-0">

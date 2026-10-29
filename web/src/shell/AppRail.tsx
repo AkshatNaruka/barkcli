@@ -19,11 +19,13 @@ export function AppRail({
   onNavigate,
   onCustomize,
   counts,
+  projectName,
 }: {
   surface: Surface;
   onNavigate: (s: Surface) => void;
   onCustomize: () => void;
   counts: RailCounts;
+  projectName?: string | null;
 }) {
   const { railStyle, railOrder, hidden } = useTheme();
   const labels = railStyle === "labels";
@@ -54,7 +56,7 @@ export function AppRail({
     >
       <button
         onClick={() => onNavigate("chat")}
-        title="barkcli"
+        title={projectName ? `${projectName} — barkcli` : "barkcli"}
         className={`group relative rounded-[10px] bg-accent text-white flex items-center font-mono text-[15px] font-semibold shadow-[0_0_0_1px_rgba(255,255,255,0.06)_inset] ${
           labels ? "h-9 px-2.5 gap-2.5 justify-start" : "w-9 h-9 justify-center mb-2"
         }`}

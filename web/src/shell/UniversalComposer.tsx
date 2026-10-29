@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { createThread, fetchProviders } from "../lib/api";
+import { createThread, fetchProviderModels, fetchProviders, startThreadChat } from "../lib/api";
+import { preferredModel, rememberModel } from "../lib/models";
 import type { ProviderStatus } from "../lib/types";
 import { Icon } from "../components/Icon";
 import { QuietSelect } from "../components/QuietSelect";
@@ -10,6 +11,7 @@ interface UniversalComposerProps {
   onCreated: (threadId: string) => void;
   boardName?: string;
   initialText?: string;
+  initialMode?: "chat" | "plan_first" | "plan_and_run";
 }
 
 export function UniversalComposer({
@@ -18,18 +20,22 @@ export function UniversalComposer({
   onCreated,
   boardName,
   initialText = "",
+  initialMode = "plan_first",
 }: UniversalComposerProps) {
   const [text, setText] = useState(initialText);
   const [kind, setKind] = useState("feature");
   const [backend, setBackend] = useState("opencode");
-  const [mode, setMode] = useState<"plan_first" | "plan_and_run">("plan_first");
+  const [mode, setMode] = useState<"chat" | "plan_first" | "plan_and_run">(initialMode);
   const [providers, setProviders] = useState<ProviderStatus[]>([]);
+  const [model, setModel] = useState("");
+  const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (initialText) setText(initialText);
-  }, [initialText, isOpen]);
+    setMode(initialMode);
+  }, [initialText, initialMode, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -50,6 +56,23 @@ export function UniversalComposer({
       cancelled = true;
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    setModel("");
+    setModelOptions([]);
+    if (!backend || backend === "human") return;
+    fetchProviderModels(backend).then((next) => {
+      if (cancelled) return;
+      setModelOptions(next);
+      const saved = preferredModel(backend);
+      if (saved && next.includes(saved)) setModel(saved);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [backend, isOpen]);
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -87,6 +110,16 @@ export function UniversalComposer({
         board: boardName,
       });
       if (result?.thread_id) {
+        if (mode === "chat") {
+          const provider = backend === "claude" ? "claude-code" : backend;
+          void startThreadChat(result.thread_id, {
+            text: trimmed,
+            provider,
+            model: model.trim() || undefined,
+            board: boardName,
+            skip_user_event: true,
+          });
+        }
         setText("");
         onClose();
         onCreated(result.thread_id);
@@ -186,18 +219,42 @@ export function UniversalComposer({
                 ))
               )}
             </QuietSelect>
+            {modelOptions.length > 0 && (
+              <QuietSelect
+                value={model}
+                onChange={(event) => {
+                  setModel(event.target.value);
+                  rememberModel(backend, event.target.value);
+                }}
+                aria-label="Model"
+                title="Models reported by the local CLI"
+                className="max-w-[160px] rounded border border-border/60 px-1.5 py-1 text-[10px] text-muted"
+              >
+                <option value="">CLI default model</option>
+                {modelOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </QuietSelect>
+            )}
             <QuietSelect
               value={mode}
               onChange={(event) => setMode(event.target.value as "plan_first" | "plan_and_run")}
               aria-label="Execution mode"
               className="rounded border border-border/60 px-1.5 py-1 text-[10px] text-muted"
             >
+              <option value="chat">ask (read-only)</option>
               <option value="plan_first">plan first</option>
               <option value="plan_and_run">plan & run</option>
             </QuietSelect>
 
             <span className="ml-auto hidden font-mono text-[9px] text-muted/50 sm:inline">
-              {mode === "plan_first" ? "review before dispatch" : "dispatch immediately"}
+              {mode === "chat"
+                ? "conversation, no worktree"
+                : mode === "plan_first"
+                  ? "review before dispatch"
+                  : "dispatch immediately"}
             </span>
             <button
               type="button"

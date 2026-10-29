@@ -1,8 +1,11 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { Card, ThreadEvent, ThreadDetail, RunRecord, ProviderStatus, RoleDef } from "../lib/types";
 import {
   fetchThread,
   postThreadMessage,
+  startThreadChat,
+  stopThreadChat,
+  approveRun,
   approvePlan,
   rejectPlan,
   streamThreadUrl,
@@ -18,6 +21,8 @@ import {
   fetchProviderModels,
   fetchRoles,
 } from "../lib/api";
+import { notify as desktopNotify } from "../lib/desktop";
+import { preferredModel, rememberModel } from "../lib/models";
 import { Icon } from "../components/Icon";
 import { QuietSelect } from "../components/QuietSelect";
 import { relativeTime } from "../lib/threads";
@@ -29,6 +34,7 @@ interface ThreadPaneProps {
   inspectorOpen?: boolean;
   onSelectCard?: (card: Card) => void;
   onOpenInspector?: () => void;
+  onReview?: () => void;
   onRefreshInbox?: () => void;
   onNewIntent?: (suggestion?: string) => void;
 }
@@ -202,22 +208,68 @@ function runStatusTone(status: RunRecord["status"]): string {
   return "text-muted-strong";
 }
 
+/**
+ * Providers stream assistant text as many small deltas. Render one bubble per
+ * turn instead of one bubble per token, and let the final message replace the
+ * streaming bubble.
+ */
+function coalesceAssistantEvents(events: ThreadEvent[]): ThreadEvent[] {
+  const out: ThreadEvent[] = [];
+  for (const event of events) {
+    if (event.kind === "assistant_delta") {
+      const key = event.turn_id || event.run_id || "";
+      const last = out[out.length - 1];
+      if (
+        key &&
+        last?.kind === "assistant_delta" &&
+        (last.turn_id || last.run_id || "") === key
+      ) {
+        out[out.length - 1] = {
+          ...last,
+          text: `${last.text}${event.text}`,
+          created_at: event.created_at,
+        };
+        continue;
+      }
+      out.push(event);
+      continue;
+    }
+    if (event.kind === "assistant") {
+      const key = event.turn_id || event.run_id || "";
+      const last = out[out.length - 1];
+      if (
+        key &&
+        last?.kind === "assistant_delta" &&
+        (last.turn_id || last.run_id || "") === key
+      ) {
+        out[out.length - 1] = event;
+        continue;
+      }
+    }
+    out.push(event);
+  }
+  return out;
+}
+
 function RunSummaryCard({
   run,
   busy,
   onStop,
   onRetry,
   onMerge,
+  onReview,
 }: {
   run: RunRecord;
   busy: boolean;
   onStop: () => void;
   onRetry: () => void;
   onMerge: () => void;
+  onReview?: () => void;
 }) {
   const active = ["queued", "starting", "running", "waiting"].includes(run.status);
   const canMerge = run.status === "passed" && Boolean(run.gate?.passed);
   const canRetry = ["failed", "interrupted", "needs_review"].includes(run.status);
+  const canReview = ["needs_review", "passed", "failed"].includes(run.status);
   return (
     <section
       className="rounded-[10px] border border-border/80 bg-surface/25 px-3.5 py-3"
@@ -244,6 +296,16 @@ function RunSummaryCard({
             >
               <Icon name="stop" size={10} />
               Stop
+            </button>
+          )}
+          {canReview && onReview && (
+            <button
+              type="button"
+              onClick={onReview}
+              className="flex h-6 items-center gap-1 rounded px-1.5 text-[10px] text-muted transition-colors hover:bg-white/[0.06] hover:text-text"
+            >
+              <Icon name="doc" size={10} />
+              Review
             </button>
           )}
           {canRetry && (
@@ -327,6 +389,7 @@ export function ThreadPane({
   inspectorOpen,
   onSelectCard,
   onOpenInspector,
+  onReview,
   onRefreshInbox,
   onNewIntent,
 }: ThreadPaneProps) {
@@ -335,6 +398,10 @@ export function ThreadPane({
   const [loadError, setLoadError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [input, setInput] = useState("");
+  const [chatMode, setChatMode] = useState<"ask" | "build">("ask");
+  const [chatBusy, setChatBusy] = useState(false);
+  const [chatTurnId, setChatTurnId] = useState<string | null>(null);
+  const [approvalBusyId, setApprovalBusyId] = useState<string | null>(null);
   const [backend, setBackend] = useState("opencode");
   const [role, setRole] = useState("builder");
   const [roles, setRoles] = useState<RoleDef[]>([]);
@@ -387,7 +454,10 @@ export function ThreadPane({
     setModelOptions([]);
     if (!backend || backend === "human") return;
     fetchProviderModels(backend).then((next) => {
-      if (!cancelled) setModelOptions(next);
+      if (cancelled) return;
+      setModelOptions(next);
+      const saved = preferredModel(backend);
+      if (saved && next.includes(saved)) setModel(saved);
     });
     return () => {
       cancelled = true;
@@ -408,10 +478,20 @@ export function ThreadPane({
     setThread(null);
     setLoadError(false);
     setLoading(true);
+    setChatBusy(false);
+    setChatTurnId(null);
     fetchThread(threadId, boardName)
       .then((data) => {
         if (cancelled) return;
         setThread(data);
+        const last = data?.events?.[data.events.length - 1];
+        const activeChat =
+          last?.run_id?.startsWith("chat_") &&
+          last.kind !== "chat_done" &&
+          last.kind !== "run_failed" &&
+          last.kind !== "run_interrupted";
+        setChatBusy(Boolean(activeChat));
+        setChatTurnId(activeChat ? last?.run_id || null : null);
         if (data?.card) {
           selectCardRef.current?.(data.card);
           const cardRole = data.card.labels
@@ -460,7 +540,31 @@ export function ThreadPane({
               if (next) setThread(next);
             });
           }
-          refreshInboxRef.current?.();
+          if (parsed.kind === "chat_done") {
+            setChatBusy(false);
+            setChatTurnId(null);
+          }
+          if (
+            (parsed.kind === "run_completed" ||
+              parsed.kind === "run_failed" ||
+              parsed.kind === "chat_done") &&
+            typeof document !== "undefined" &&
+            document.hidden
+          ) {
+            void desktopNotify(
+              "Bark",
+              parsed.kind === "run_failed"
+                ? parsed.text || "An agent run failed."
+                : "An agent finished and is ready for review."
+            );
+          }
+          if (
+            !["assistant", "assistant_delta", "tool_call", "usage", "log"].includes(
+              parsed.kind
+            )
+          ) {
+            refreshInboxRef.current?.();
+          }
         } catch {
           // Heartbeats and non-JSON frames are not events.
         }
@@ -484,10 +588,32 @@ export function ThreadPane({
 
   const handleSendMessage = async () => {
     const text = input.trim();
-    if (!text || !threadId || submitting) return;
+    if (!text || !threadId || submitting || chatBusy) return;
     setSubmitting(true);
     setInput("");
     try {
+      if (chatMode === "ask") {
+        const provider = backend === "claude" ? "claude-code" : backend;
+        const started = await startThreadChat(threadId, {
+          text,
+          provider,
+          model: model.trim() || undefined,
+          board: boardName,
+        });
+        if (!started) {
+          setInput(text);
+          setActionStatus(
+            "The local agent did not accept the message. Check its sign-in and try again."
+          );
+          return;
+        }
+        setChatBusy(true);
+        setChatTurnId(started.turn_id);
+        const next = await fetchThread(threadId, boardName);
+        if (next) setThread(next);
+        refreshInboxRef.current?.();
+        return;
+      }
       const event = await postThreadMessage(threadId, text, {
         author: "you",
         backend,
@@ -509,6 +635,16 @@ export function ThreadPane({
     }
   };
 
+  const handleStopChat = async () => {
+    if (!threadId || !chatBusy) return;
+    setActionStatus("Stopping the reply…");
+    await stopThreadChat(threadId);
+    setChatBusy(false);
+    setChatTurnId(null);
+    setActionStatus("Reply stopped.");
+    window.setTimeout(() => setActionStatus(null), 2500);
+  };
+
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
@@ -518,6 +654,10 @@ export function ThreadPane({
 
   const runs = thread?.runs || [];
   const latestRun = runs.length > 0 ? runs[runs.length - 1] : null;
+  const displayEvents = useMemo(
+    () => coalesceAssistantEvents(thread?.events || []),
+    [thread?.events]
+  );
   const activeRun =
     [...runs].reverse().find((run) =>
       ["queued", "starting", "running", "waiting"].includes(run.status)
@@ -641,6 +781,34 @@ export function ThreadPane({
     setActionStatus(null);
   };
 
+  const handleApproval = async (event: ThreadEvent, approved: boolean) => {
+    const runId = event.data?.run_id || event.run_id;
+    if (!runId || !threadId) return;
+    const key = `${event.id}:${approved ? "yes" : "no"}`;
+    setApprovalBusyId(key);
+    setActionStatus(approved ? "Approving and merging…" : "Rejecting the merge…");
+    try {
+      const result = await approveRun(
+        runId,
+        approved,
+        approved ? "Approved from Chat" : "Rejected from Chat",
+        approved && event.data?.kind === "merge"
+      );
+      const updated = await fetchThread(threadId, boardName);
+      if (updated) setThread(updated);
+      setActionStatus(
+        result
+          ? approved
+            ? "Approved. The branch is merging."
+            : "Rejected. The run stays inspectable."
+          : "The approval could not be recorded."
+      );
+      refreshInboxRef.current?.();
+    } finally {
+      setApprovalBusyId(null);
+    }
+  };
+
   const handleViewTranscript = async (sessionId: string) => {
     setTranscriptSessionId(sessionId);
     setTranscriptLoading(true);
@@ -742,6 +910,20 @@ export function ThreadPane({
           <span className="mr-1 hidden font-mono text-[9.5px] text-muted/60 xl:inline">
             {threadId}
           </span>
+          {chatBusy && (
+            <span className="mr-1 flex items-center gap-1.5 font-mono text-[9.5px] text-success">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success" />
+              thinking
+              <button
+                type="button"
+                onClick={handleStopChat}
+                className="ml-0.5 rounded px-1 text-muted transition-colors hover:bg-danger/10 hover:text-danger"
+                title={chatTurnId ? `Stop ${chatTurnId}` : "Stop reply"}
+              >
+                stop
+              </button>
+            </span>
+          )}
           <button
             type="button"
             onClick={() => handleStartRun()}
@@ -823,13 +1005,14 @@ export function ThreadPane({
                 onStop={() => handleStopRun(latestRun)}
                 onRetry={() => handleStartRun(latestRun.id)}
                 onMerge={() => handleMergeRun(latestRun)}
+                onReview={onReview}
               />
             </div>
           )}
 
-          {!loading && thread && thread.events.length > 0 && (
+          {!loading && thread && displayEvents.length > 0 && (
             <div className="space-y-7">
-              {thread.events.map((event) => {
+              {displayEvents.map((event) => {
                 const at = new Date(event.created_at);
                 const localTime = at.toLocaleString([], {
                   month: "short",
@@ -963,6 +1146,11 @@ export function ThreadPane({
 
                 if (event.kind === "approval_requested" || event.kind === "question") {
                   const data = event.data || {};
+                  const approvalRunId = data.run_id || event.run_id;
+                  const mergeApproval =
+                    event.kind === "approval_requested" &&
+                    data.kind === "merge" &&
+                    Boolean(approvalRunId);
                   return (
                     <div
                       key={`${event.id}:${event.seq}`}
@@ -975,7 +1163,36 @@ export function ThreadPane({
                       <p className="mt-1 text-[11.5px] leading-relaxed text-muted-strong">
                         {data.title || data.text || event.text}
                       </p>
-                      {Array.isArray(data.options) && data.options.length > 0 && (
+                      {data.detail && (
+                        <p className="mt-1 font-mono text-[10px] leading-relaxed text-muted/70">
+                          {data.detail}
+                        </p>
+                      )}
+                      {mergeApproval ? (
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleApproval(event, true)}
+                            disabled={approvalBusyId !== null}
+                            className="rounded bg-accent px-2.5 py-1 text-[10.5px] font-medium text-bg transition-opacity hover:opacity-90 disabled:opacity-40"
+                          >
+                            {approvalBusyId?.endsWith(":yes") ? "Merging…" : "Approve & merge"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleApproval(event, false)}
+                            disabled={approvalBusyId !== null}
+                            className="rounded border border-border px-2.5 py-1 text-[10.5px] text-muted-strong transition-colors hover:bg-white/[0.04] hover:text-text disabled:opacity-40"
+                          >
+                            Reject
+                          </button>
+                          {data.branch && (
+                            <span className="font-mono text-[9.5px] text-muted/60">
+                              {data.branch}
+                            </span>
+                          )}
+                        </div>
+                      ) : Array.isArray(data.options) && data.options.length > 0 ? (
                         <div className="mt-2 flex flex-wrap gap-1.5">
                           {data.options.map((option: string) => (
                             <span
@@ -986,7 +1203,7 @@ export function ThreadPane({
                             </span>
                           ))}
                         </div>
-                      )}
+                      ) : null}
                     </div>
                   );
                 }
@@ -1013,6 +1230,10 @@ export function ThreadPane({
                       <EventTime iso={event.created_at} />
                     </div>
                   );
+                }
+
+                if (event.kind === "chat_done") {
+                  return null;
                 }
 
                 if (event.kind === "usage") {
@@ -1393,13 +1614,39 @@ export function ThreadPane({
               value={input}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Send an instruction, ask about this thread, or steer the agent…"
+              placeholder={
+                chatMode === "ask"
+                  ? "Ask the local agent about the code, a failure, or the plan…"
+                  : "Add a note for the next worktree run…"
+              }
               aria-label="Thread message"
               data-testid="thread-composer"
               rows={2}
               className="block max-h-48 min-h-[52px] w-full resize-none bg-transparent px-3.5 pb-1 pt-3 text-[12.5px] leading-relaxed text-text placeholder:text-muted/65 focus:outline-none"
             />
             <div className="flex items-center gap-2 px-2.5 pb-2">
+              <div className="flex shrink-0 rounded border border-border/60 p-0.5">
+                {(["ask", "build"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setChatMode(mode)}
+                    aria-pressed={chatMode === mode}
+                    title={
+                      mode === "ask"
+                        ? "Read-only conversation with the local agent"
+                        : "Write a note for a worktree run"
+                    }
+                    className={`rounded px-1.5 py-0.5 text-[10px] font-medium capitalize transition-colors ${
+                      chatMode === mode
+                        ? "bg-white/[0.07] text-text"
+                        : "text-muted hover:text-text"
+                    }`}
+                  >
+                    {mode === "ask" ? "Ask" : "Build"}
+                  </button>
+                ))}
+              </div>
               <QuietSelect
                 value={role}
                 onChange={(event) => setRole(event.target.value)}
@@ -1437,7 +1684,10 @@ export function ThreadPane({
               {modelOptions.length > 0 && (
                 <QuietSelect
                   value={model}
-                  onChange={(event) => setModel(event.target.value)}
+                  onChange={(event) => {
+                    setModel(event.target.value);
+                    rememberModel(backend, event.target.value);
+                  }}
                   aria-label="Model"
                   title="Models reported by the local CLI"
                   className="max-w-[170px] text-[10px] text-muted hover:text-text"
@@ -1468,13 +1718,17 @@ export function ThreadPane({
                     : "Provider not found on PATH"
                 }
               />
-              <span className="hidden font-mono text-[9px] text-muted/55 sm:inline">
-                {submitting ? "sending…" : "enter to send"}
+              <span className="hidden whitespace-nowrap font-mono text-[9px] text-muted/55 2xl:inline">
+                {chatBusy
+                  ? "reply in progress"
+                  : submitting
+                    ? "sending…"
+                    : "enter to send"}
               </span>
               <button
                 type="button"
                 onClick={handleSendMessage}
-                disabled={!input.trim() || submitting}
+                disabled={!input.trim() || submitting || chatBusy}
                 aria-label="Send message"
                 title="Send (Enter)"
                 className="ml-auto flex h-7 w-7 items-center justify-center rounded-md bg-accent text-bg transition-opacity hover:opacity-90 disabled:opacity-35"
@@ -1485,7 +1739,9 @@ export function ThreadPane({
           </div>
           <div className="mt-1.5 flex items-center justify-between px-0.5 font-mono text-[9px] text-muted/45">
             <span>{threadId}</span>
-            <span className="hidden sm:inline">shift + enter for a new line</span>
+            <span className="hidden whitespace-nowrap sm:inline">
+              {chatMode === "ask" ? "read-only" : "note"} · shift+enter
+            </span>
           </div>
         </div>
       </div>

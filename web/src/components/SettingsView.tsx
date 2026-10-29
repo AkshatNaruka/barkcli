@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import type { Board as BoardType, ProviderStatus } from "../lib/types";
 import { fetchConfig, fetchProviders, type BoardConfig } from "../lib/api";
-import { isDesktop, openProviderLogin } from "../lib/desktop";
+import { isDesktop, openLogs, openProviderLogin, openTerminal } from "../lib/desktop";
 import { useTheme, type Theme } from "../lib/theme";
 import { Icon } from "./Icon";
 
@@ -254,6 +254,32 @@ export function SettingsView({
               {authNote}
             </p>
           )}
+        </Section>
+
+        {/* Diagnostics */}
+        <Section title="Diagnostics">
+          <p className="mb-3 text-[11px] leading-relaxed text-muted">
+            When a provider or the local server misbehaves, the sidecar log and a
+            project terminal are the fastest way to see what happened.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void openLogs()}
+              disabled={!isDesktop()}
+              className="rounded-md border border-border px-2.5 py-1.5 text-[11px] text-text transition-colors hover:border-border-strong disabled:opacity-40"
+            >
+              Open server log
+            </button>
+            <button
+              type="button"
+              onClick={() => void openTerminal()}
+              disabled={!isDesktop()}
+              className="rounded-md border border-border px-2.5 py-1.5 text-[11px] text-text transition-colors hover:border-border-strong disabled:opacity-40"
+            >
+              Open project terminal
+            </button>
+          </div>
         </Section>
 
         {/* AI config */}

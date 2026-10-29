@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import type { Board as BoardType, Card } from "../lib/types";
 import { THEMES, useTheme } from "../lib/theme.tsx";
 import { navigate } from "../lib/hashnav";
@@ -12,10 +12,23 @@ interface Props {
   onAddCard: (colId: string) => void;
   onEditCard: (card: Card) => void;
   onCustomize: () => void;
+  onQuickOpen?: () => void;
+  onCommandRunner?: () => void;
+  onOpenProject?: () => void;
 }
 
-export function CommandPalette({ board, onClose, onAddCard, onEditCard, onCustomize }: Props) {
+export function CommandPalette({
+  board,
+  onClose,
+  onAddCard,
+  onEditCard,
+  onCustomize,
+  onQuickOpen,
+  onCommandRunner,
+  onOpenProject,
+}: Props) {
   const [query, setQuery] = useState("");
+  const [active, setActive] = useState(0);
   const { setTheme, railOrder, hidden, railStyle, setRailStyle } = useTheme();
 
   const views = useMemo(
@@ -28,8 +41,7 @@ export function CommandPalette({ board, onClose, onAddCard, onEditCard, onCustom
   );
 
   const results = useMemo(() => {
-    if (!query.trim()) return [];
-    const q = query.toLowerCase();
+    if (!query.trim()) return [];    const q = query.toLowerCase();
     const items: { label: string; icon: IconName; action: () => void }[] = [];
 
     // View navigation — only surfaces that are actually in the rail.
@@ -92,6 +104,28 @@ export function CommandPalette({ board, onClose, onAddCard, onEditCard, onCustom
       });
     }
 
+    if (onQuickOpen && "quick open file search go to file".includes(q)) {
+      items.push({
+        label: "Quick open file",
+        icon: "search",
+        action: onQuickOpen,
+      });
+    }
+    if (onCommandRunner && "run command tests build terminal shell".includes(q)) {
+      items.push({
+        label: "Run a project command",
+        icon: "terminal",
+        action: onCommandRunner,
+      });
+    }
+    if (onOpenProject && "open project folder switch workspace".includes(q)) {
+      items.push({
+        label: "Open project folder",
+        icon: "layers",
+        action: onOpenProject,
+      });
+    }
+
     // Cards
     for (const card of board.cards) {
       if (card.title.toLowerCase().includes(q)) {
@@ -138,11 +172,18 @@ export function CommandPalette({ board, onClose, onAddCard, onEditCard, onCustom
     onAddCard,
     onEditCard,
     onCustomize,
+    onQuickOpen,
+    onCommandRunner,
+    onOpenProject,
     setTheme,
     views,
     railStyle,
     setRailStyle,
   ]);
+
+  useEffect(() => {
+    setActive(0);
+  }, [query, results.length]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15%] bg-black/60" onClick={onClose}>
@@ -155,6 +196,20 @@ export function CommandPalette({ board, onClose, onAddCard, onEditCard, onCustom
           placeholder="Search cards or type a command..."
           onKeyDown={(e) => {
             if (e.key === "Escape") onClose();
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setActive((current) => (results.length ? (current + 1) % results.length : 0));
+            }
+            if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setActive((current) =>
+                results.length ? (current - 1 + results.length) % results.length : 0
+              );
+            }
+            if (e.key === "Enter" && results[active]) {
+              e.preventDefault();
+              results[active].action();
+            }
           }}
         />
         <div className="max-h-64 overflow-y-auto">
@@ -163,7 +218,10 @@ export function CommandPalette({ board, onClose, onAddCard, onEditCard, onCustom
             <button
               key={i}
               onClick={r.action}
-              className="w-full text-left px-4 py-2.5 text-sm text-text hover:bg-surface border-b border-border/50 last:border-b-0 transition-colors flex items-center gap-2.5"
+              onMouseEnter={() => setActive(i)}
+              className={`w-full text-left px-4 py-2.5 text-sm border-b border-border/50 last:border-b-0 transition-colors flex items-center gap-2.5 ${
+                i === active ? "bg-accent-soft text-text" : "text-text hover:bg-surface"
+              }`}
             >
               <span className="text-muted">
                 <Icon name={r.icon} size={14} />
@@ -186,6 +244,12 @@ export function CommandPalette({ board, onClose, onAddCard, onEditCard, onCustom
                 </li>
                 <li>
                   <code className="bg-surface px-1 rounded">add to {board.columns[0]?.name || "Todo"}</code> — add to column
+                </li>
+                <li>
+                  <code className="bg-surface px-1 rounded">quick open file</code> — jump to a file
+                </li>
+                <li>
+                  <code className="bg-surface px-1 rounded">run a project command</code> — test, build, git
                 </li>
                 <li>
                   <code className="bg-surface px-1 rounded">theme paper</code> — switch theme

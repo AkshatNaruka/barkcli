@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Icon, type IconName } from "../components/Icon";
 import { ContextView } from "../components/ContextView";
 import { CodeView } from "../components/CodeView";
@@ -46,6 +46,15 @@ const TABS: Array<{ id: OpTab; label: string; icon: IconName }> = [
 ];
 
 function initialTab(): OpTab {
+  try {
+    const saved = window.sessionStorage.getItem("bark:ops-tab");
+    if (saved && TABS.some((t) => t.id === saved)) {
+      window.sessionStorage.removeItem("bark:ops-tab");
+      return saved as OpTab;
+    }
+  } catch {
+    /* storage is optional */
+  }
   const legacy = operationsTabFromLegacy(rawHashRoute());
   if (legacy && TABS.some((t) => t.id === legacy)) return legacy as OpTab;
   return "workspace";
@@ -80,6 +89,15 @@ export function OperationsView({
   onOpenBrain: () => void;
 }) {
   const [tab, setTab] = useState<OpTab>(initialTab);
+
+  useEffect(() => {
+    const onTab = (event: Event) => {
+      const next = (event as CustomEvent<string>).detail;
+      if (TABS.some((entry) => entry.id === next)) setTab(next as OpTab);
+    };
+    window.addEventListener("bark-operations-tab", onTab);
+    return () => window.removeEventListener("bark-operations-tab", onTab);
+  }, []);
 
   return (
     <div className="h-full flex flex-col min-h-0">

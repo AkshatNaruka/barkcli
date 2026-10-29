@@ -185,7 +185,18 @@ export const KanbanCard = React.memo(function KanbanCard({ card, isOverlay, onEd
       {/* Meta — icons over words, no divider */}
       <div className="flex items-center justify-between mt-2.5">
         <div className="flex items-center gap-1.5 min-w-0">
-          {card.assignee && <Avatar name={card.assignee} />}
+          {card.assignee &&
+            (agentBackend ? (
+              <span
+                className="inline-flex items-center gap-1 rounded border border-border/60 px-1 py-0.5 font-mono text-[9px] text-muted"
+                title={`Assigned to ${agentBackend}`}
+              >
+                <Icon name="robot" size={9} />
+                {agentBackend}
+              </span>
+            ) : (
+              <Avatar name={card.assignee} />
+            ))}
           {card.due_date && (
             <span className={`text-[10px] font-mono inline-flex items-center gap-0.5 ${overdue ? "text-danger" : "text-muted"}`}>
               <Icon name={overdue ? "warn" : "calendar"} size={11} />{card.due_date.slice(5, 10)}
