@@ -33,6 +33,7 @@ pub mod overview;
 pub mod plan;
 pub mod prime;
 pub mod ready;
+pub mod rules;
 pub mod receipt;
 pub mod review;
 pub mod review_queue;

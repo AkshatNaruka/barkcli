@@ -1789,8 +1789,35 @@ impl McpServer {
                     "required": ["run_id", "verifier"]
                 }
             }),
+            serde_json::json!({
+                "name": "rules_list",
+                "description": "List the project rules in AGENTS.md. These are injected into every agent context pack.",
+                "inputSchema": {"type":"object","properties":{},"required":[]}
+            }),
+            serde_json::json!({
+                "name": "rules_get",
+                "description": "Get one project rule by title.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "title": {"type":"string","description":"Rule title"}
+                    },
+                    "required": ["title"]
+                }
+            }),
+            serde_json::json!({
+                "name": "rules_add",
+                "description": "Append a project rule to AGENTS.md so every agent sees it.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "title": {"type":"string","description":"Rule title"},
+                        "body": {"type":"string","description":"Rule body"}
+                    },
+                    "required": ["title","body"]
+                }
+            }),
         ];
-
         JsonRpcResponse {
             jsonrpc: "2.0".to_string(),
             id: request.id,
@@ -1883,6 +1910,37 @@ impl McpServer {
             "verified_by": run.verified_by,
             "independent_verifications": run.independent_verifications(),
         }))
+    }
+
+    fn tool_rules_list(&self) -> Result<Value> {
+        let rules = crate::commands::rules::read_rules()?;
+        Ok(serde_json::json!(rules
+            .into_iter()
+            .map(|rule| serde_json::json!({"title": rule.title, "body": rule.body}))
+            .collect::<Vec<_>>()))
+    }
+
+    fn tool_rules_get(&self, args: Value) -> Result<Value> {
+        let title = args
+            .get("title")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow::anyhow!("title is required"))?;
+        let rule = crate::commands::rules::find_rule(title)?
+            .ok_or_else(|| anyhow::anyhow!("rule '{title}' not found"))?;
+        Ok(serde_json::json!({"title": rule.title, "body": rule.body}))
+    }
+
+    fn tool_rules_add(&self, args: Value) -> Result<Value> {
+        let title = args
+            .get("title")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow::anyhow!("title is required"))?;
+        let body = args
+            .get("body")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow::anyhow!("body is required"))?;
+        crate::commands::rules::add_rule(title, body)?;
+        Ok(serde_json::json!({"ok": true, "title": title}))
     }
 
     /// Handle tools/call request
@@ -1985,6 +2043,9 @@ impl McpServer {
             "contribution_add" => self.tool_contribution_add(arguments),
             "contribution_link" => self.tool_contribution_link(arguments),
             "contribution_verify" => self.tool_contribution_verify(arguments),
+            "rules_list" => self.tool_rules_list(),
+            "rules_get" => self.tool_rules_get(arguments),
+            "rules_add" => self.tool_rules_add(arguments),
             _ => Err(anyhow::anyhow!("Unknown tool: {}", tool_name)),
         };
 
@@ -3938,6 +3999,9 @@ mod tests {
             "contribution_add",
             "contribution_link",
             "contribution_verify",
+            "rules_list",
+            "rules_get",
+            "rules_add",
         ] {
             assert!(names.contains(&name), "missing tool `{name}`");
         }

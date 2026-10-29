@@ -483,6 +483,11 @@ export interface RunCommand {
   command: string;
 }
 
+export interface Rule {
+  title: string;
+  body: string;
+}
+
 export interface ScheduleEntry {
   id: string;
   intent: string;

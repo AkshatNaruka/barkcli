@@ -150,6 +150,7 @@ fn dispatch(cmd: &str, cmd_args: &[String]) -> Result<()> {
         "packet" => commands::ready::run_packet(cmd_args)?,
         "prime" => commands::prime::run_prime(cmd_args)?,
         "verify" => commands::verify_cmd::run_verify(cmd_args)?,
+        "rules" => commands::rules::run_rules(cmd_args)?,
         "schedule" => commands::schedule::run_schedule(cmd_args)?,
         "verify-run" => commands::contribute::run_verify(cmd_args)?,
         "analyze" => commands::contribute::run_analyze(cmd_args)?,
@@ -853,6 +854,7 @@ fn print_usage() {
     println!("  mind sync|show      Compile + show Mind snapshot/digest");
     println!("  overview            4-panel human narrative (board/sprint/blockers/next)");
     println!("  skills list|show    BMAD skills (mvp/planning/scrum-master/test)");
+    println!("  rules list|add|show|remove  Project rules in AGENTS.md (injected into context)");
     println!("  schedule list|add|remove|run  Scheduled agent runs (--every 1h, --backend, --board)");
     println!("  analyze             Contribution graph: leading, neglected, contested (--json)");
     println!("  contribute          Publish a manual insight/hypothesis/report (--title, --kind, --parent)");

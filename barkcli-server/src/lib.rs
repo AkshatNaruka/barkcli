@@ -209,6 +209,8 @@ where
         .route("/api/repo/tree", get(repo_tree_handler))
         .route("/api/repo/file", get(repo_file_handler))
         .route("/api/exec", post(exec_handler))
+        .route("/api/rules", get(list_rules_handler).post(add_rule_handler))
+        .route("/api/rules/{title}", delete(delete_rule_handler))
         .route(
             "/api/schedules",
             get(list_schedules_handler).post(add_schedule_handler),
@@ -6885,6 +6887,43 @@ async fn run_schedules_handler() -> Result<Json<serde_json::Value>, ServerError>
     Ok(Json(serde_json::json!({"ok": true, "ran": ran})))
 }
 
+#[derive(Deserialize)]
+struct AddRuleRequest {
+    title: String,
+    body: String,
+}
+
+async fn list_rules_handler() -> Result<Json<serde_json::Value>, ServerError> {
+    let rules = barkcli_core::commands::rules::read_rules()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(serde_json::json!({
+        "rules": rules
+            .into_iter()
+            .map(|rule| serde_json::json!({"title": rule.title, "body": rule.body}))
+            .collect::<Vec<_>>()
+    })))
+}
+
+async fn add_rule_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<AddRuleRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    barkcli_core::commands::rules::add_rule(&req.title, &req.body)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({"ok": true})))
+}
+
+async fn delete_rule_handler(
+    State(state): State<Arc<AppState>>,
+    Path(title): Path<String>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    barkcli_core::commands::rules::remove_rule(&title)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({"ok": true})))
+}
+
 async fn create_thread_handler(
     State(state): State<Arc<AppState>>,
     Json(req): Json<CreateThreadRequest>,
@@ -7796,6 +7835,8 @@ cards:
             .route("/api/threads/{id}/chat/stop", post(stop_chat_handler))
             .route("/api/threads", post(create_thread_handler))
             .route("/api/exec", post(exec_handler))
+        .route("/api/rules", get(list_rules_handler).post(add_rule_handler))
+        .route("/api/rules/{title}", delete(delete_rule_handler))
         .route(
             "/api/schedules",
             get(list_schedules_handler).post(add_schedule_handler),

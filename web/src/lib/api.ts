@@ -47,6 +47,7 @@ import type {
   EditorDetection,
   WorktreeInfo,
   ProjectSnapshot,
+  Rule,
   OnboardResult,
   ProjectHooksState,
   ContributionAnalysis,
@@ -2107,6 +2108,35 @@ export async function runProjectCommand(
   timeoutSecs = 120
 ): Promise<ExecResult | null> {
   return postJson("/api/exec", { command, timeout_secs: timeoutSecs });
+}
+
+export async function fetchRules(): Promise<Rule[]> {
+  if (isVscode) return [];
+  try {
+    const res = await fetch(withToken("/api/rules"));
+    if (!res.ok) return [];
+    const data = (await res.json()) as { rules?: Rule[] };
+    return data.rules || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function createRule(title: string, body: string): Promise<boolean> {
+  const result = await postJson("/api/rules", { title, body });
+  return Boolean(result?.ok);
+}
+
+export async function deleteRule(title: string): Promise<boolean> {
+  if (isVscode) return false;
+  try {
+    const res = await fetch(withToken(`/api/rules/${encodeURIComponent(title)}`), {
+      method: "DELETE",
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 export async function fetchSchedules(): Promise<ScheduleEntry[]> {

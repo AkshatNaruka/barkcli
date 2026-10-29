@@ -12,6 +12,7 @@ import { SettingsView } from "../components/SettingsView";
 import { ShipView } from "../components/ShipView";
 import { HistoryView } from "../components/HistoryView";
 import { WorkspaceView } from "../components/WorkspaceView";
+import { RulesView } from "../components/RulesView";
 import { AutomationsView } from "../components/AutomationsView";
 import { rawHashRoute } from "../lib/hashnav";
 import { operationsTabFromLegacy } from "../lib/surfaces";
