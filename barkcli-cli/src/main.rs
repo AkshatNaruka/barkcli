@@ -9,6 +9,8 @@ mod sprint;
 mod sync;
 mod listener;
 
+use std::io::IsTerminal;
+
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const GIT_HASH: &str = env!("GIT_HASH");
 
@@ -907,7 +909,7 @@ fn main() {
             }
             "open" => {
                 let board_name = rest.get(1).map(|s| s.as_str());
-                if atty::is(atty::Stream::Stdout) {
+                if std::io::stdout().is_terminal() {
                     #[cfg(feature = "tui")]
                     { if let Err(e) = barkcli_tui::run(board_name) { eprintln!("error: {}", e); std::process::exit(1); } }
                 } else {

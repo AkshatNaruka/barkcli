@@ -1,7 +1,7 @@
 {
   "name": "barkcli-vscode",
-  "displayName": "barkcli — Project Kanban",
-  "description": "barkcli in VS Code — the management layer for AI agents. Visual editor for .board files.",
+  "displayName": "barkcli \u2014 Project Kanban",
+  "description": "barkcli in VS Code \u2014 the management layer for AI agents. Visual editor for .board files.",
   "version": "0.1.0",
   "publisher": "barkcli",
   "license": "MIT",
@@ -14,11 +14,21 @@
   "bugs": {
     "url": "https://github.com/AkshatNaruka/barkcli/issues"
   },
-  "keywords": ["kanban", "board", "task", "project-management", "yaml", "barkcli"],
+  "keywords": [
+    "kanban",
+    "board",
+    "task",
+    "project-management",
+    "yaml",
+    "barkcli"
+  ],
   "engines": {
     "vscode": "^1.92.0"
   },
-  "categories": ["Visualization", "Other"],
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
@@ -59,13 +69,18 @@
     "@types/react-dom": "^18.3.0",
     "@types/vscode": "^1.92.0",
     "concurrently": "^8.2.0",
-    "esbuild": "^0.24.0",
+    "esbuild": "^0.25.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "tailwindcss": "^3.4.0",
     "typescript": "^5.5.0"
   },
   "dependencies": {
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.3.2"
+  },
+  "overrides": {
+    "shell-quote": "1.11.0",
+    "source-map-js": "1.2.2",
+    "postcss-selector-parser": "6.1.5"
   }
 }
