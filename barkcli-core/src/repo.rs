@@ -80,6 +80,77 @@ pub struct WorktreeInfo {
     pub locked: bool,
 }
 
+/// A command Bark can offer in the project command runner. These are
+/// discovered from real project files, never invented.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RunCommand {
+    pub id: String,
+    pub label: String,
+    pub command: String,
+}
+
+pub fn detect_commands(root: &Path) -> Vec<RunCommand> {
+    let mut commands: Vec<RunCommand> = Vec::new();
+    let mut push = |id: &str, label: &str, command: &str| {
+        let command = command.trim();
+        if command.is_empty() || commands.iter().any(|item| item.command == command) {
+            return;
+        }
+        commands.push(RunCommand {
+            id: id.to_string(),
+            label: label.to_string(),
+            command: command.to_string(),
+        });
+    };
+
+    if root.join("Cargo.toml").exists() {
+        push("cargo-test", "Run Rust tests", "cargo test");
+        push("cargo-check", "Check Rust workspace", "cargo check --workspace");
+    }
+    if let Ok(package) = fs::read_to_string(root.join("package.json")) {
+        if let Ok(value) = serde_json::from_str::<serde_json::Value>(&package) {
+            if let Some(scripts) = value.get("scripts").and_then(|scripts| scripts.as_object()) {
+                let manager = if root.join("pnpm-lock.yaml").exists() {
+                    "pnpm"
+                } else if root.join("yarn.lock").exists() {
+                    "yarn"
+                } else {
+                    "npm"
+                };
+                for key in ["test", "build", "lint", "typecheck", "check", "format"] {
+                    if scripts.contains_key(key) {
+                        let command = match manager {
+                            "pnpm" => format!("pnpm {key}"),
+                            "yarn" => format!("yarn {key}"),
+                            _ => format!("npm run {key}"),
+                        };
+                        push(
+                            &format!("{manager}-{key}"),
+                            &format!("Run {}", key),
+                            &command,
+                        );
+                    }
+                }
+            }
+        }
+    }
+    if root.join("Makefile").exists() {
+        push("make-test", "Run make test", "make test");
+    }
+    if root.join("go.mod").exists() {
+        push("go-test", "Run Go tests", "go test ./...");
+        push("go-build", "Build Go packages", "go build ./...");
+    }
+    if root.join("pyproject.toml").exists() {
+        push("pytest", "Run Python tests", "pytest");
+        push("ruff", "Lint Python", "ruff check .");
+    }
+    if root.join(".git").exists() {
+        push("git-status", "Show working tree", "git status --short");
+    }
+    commands
+}
+
 /// Normalize a relative path without touching the filesystem.
 pub fn normalize_relative(relative: &str) -> Result<String> {
     let relative = relative.trim().replace('\\', "/");
@@ -550,6 +621,24 @@ mod tests {
         assert_eq!(git(&["log", "-1", "--pretty=%s"]), message);
         assert!(!root.join("SHOULD_NOT_EXIST").exists());
         assert!(git_status(&root).unwrap().clean);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn command_detection_uses_real_project_files() {
+        let root = temp_root();
+        fs::create_dir_all(root.join(".git")).unwrap();
+        fs::write(root.join("Cargo.toml"), "[package]\nname = \"x\"\n").unwrap();
+        fs::write(
+            root.join("package.json"),
+            r#"{"scripts":{"test":"vitest","build":"vite build","dev":"vite"}}"#,
+        )
+        .unwrap();
+        let commands = detect_commands(&root);
+        assert!(commands.iter().any(|item| item.command == "cargo test"));
+        assert!(commands.iter().any(|item| item.command == "npm run build"));
+        assert!(!commands.iter().any(|item| item.command.contains("dev")));
+        assert!(commands.iter().any(|item| item.command == "git status --short"));
         let _ = fs::remove_dir_all(root);
     }
 }

@@ -272,7 +272,11 @@ impl ProviderAdapter for OpencodeProvider {
         } else {
             cmd.arg("--session").arg(opencode_session_id(&req.run_id));
         }
-        if req.permission_mode == "auto" || req.permission_mode == "full" {
+        if req.permission_mode == "plan" {
+            // Read-only conversation. OpenCode's built-in plan agent has no
+            // edit permissions, which is exactly what an Ask turn needs.
+            cmd.arg("--agent").arg("plan");
+        } else if req.permission_mode == "auto" || req.permission_mode == "full" {
             cmd.arg("--auto");
         }
         cmd.arg(&req.prompt);
@@ -382,6 +386,13 @@ impl ProviderAdapter for CodexProvider {
         cmd.arg("exec").arg("--json");
         if let Some(model) = req.model.as_deref().filter(|m| !m.is_empty()) {
             cmd.arg("--model").arg(model);
+        }
+        // `codex exec` is read-only by default. Build runs need explicit
+        // workspace-write access; chat/plan turns stay read-only.
+        if req.permission_mode == "auto" || req.permission_mode == "full" {
+            cmd.arg("--sandbox").arg("workspace-write");
+        } else {
+            cmd.arg("--sandbox").arg("read-only");
         }
         cmd.arg(&req.prompt);
         spawn_cli(cmd, req, sink)
@@ -652,6 +663,7 @@ fn normalize_value(value: &Value, events: &mut Vec<RuntimeEvent>) {
             || kind.contains("thread.started")
             || kind == "system"
             || kind == "result"
+            || kind == "step_start"
             || subtype == "init"
         {
             events.push(RuntimeEvent::Session { id: session_id });
@@ -659,6 +671,9 @@ fn normalize_value(value: &Value, events: &mut Vec<RuntimeEvent>) {
     }
 
     if let Some(usage) = value.get("usage").and_then(parse_usage) {
+        events.push(usage);
+    }
+    if let Some(usage) = opencode_usage(value) {
         events.push(usage);
     }
 
@@ -694,6 +709,7 @@ fn normalize_value(value: &Value, events: &mut Vec<RuntimeEvent>) {
             if let Some(text) = value
                 .get("text")
                 .or_else(|| value.get("delta"))
+                .or_else(|| value.pointer("/part/text"))
                 .and_then(Value::as_str)
             {
                 events.push(RuntimeEvent::Assistant {
@@ -712,6 +728,7 @@ fn normalize_value(value: &Value, events: &mut Vec<RuntimeEvent>) {
                 .get("message")
                 .and_then(Value::as_str)
                 .or_else(|| value.get("error").and_then(Value::as_str))
+                .or_else(|| value.pointer("/error/message").and_then(Value::as_str))
                 .unwrap_or("provider error")
                 .to_string();
             events.push(RuntimeEvent::Failed {
@@ -803,29 +820,57 @@ fn normalize_generic(value: &Value, events: &mut Vec<RuntimeEvent>) {
 }
 
 fn parse_tool(value: &Value) -> Option<RuntimeEvent> {
+    let part = value.get("part");
     let name = value
         .get("name")
         .or_else(|| value.get("tool"))
         .or_else(|| value.get("tool_name"))
+        .or_else(|| part.and_then(|part| part.get("tool")))
+        .or_else(|| part.and_then(|part| part.get("name")))
         .and_then(Value::as_str)?;
     let input = value
         .get("input")
         .or_else(|| value.get("arguments"))
+        .or_else(|| part.and_then(|part| part.pointer("/state/input")))
         .cloned()
         .unwrap_or(Value::Null);
     let output = value
         .get("output")
         .or_else(|| value.get("result"))
+        .or_else(|| part.and_then(|part| part.pointer("/state/output")))
         .cloned();
     let status = value
         .get("status")
         .and_then(Value::as_str)
+        .or_else(|| part.and_then(|part| part.pointer("/state/status")).and_then(Value::as_str))
         .unwrap_or("completed");
     Some(RuntimeEvent::ToolCall {
         name: name.to_string(),
         input,
         output,
         status: status.to_string(),
+    })
+}
+
+/// OpenCode 2 reports usage on `step_finish.part.tokens`.
+fn opencode_usage(value: &Value) -> Option<RuntimeEvent> {
+    let part = value.get("part")?;
+    let tokens = part.get("tokens")?;
+    Some(RuntimeEvent::Usage {
+        input_tokens: tokens
+            .get("input")
+            .or_else(|| tokens.get("input_tokens"))
+            .and_then(Value::as_u64)
+            .unwrap_or(0),
+        output_tokens: tokens
+            .get("output")
+            .or_else(|| tokens.get("output_tokens"))
+            .and_then(Value::as_u64)
+            .unwrap_or(0),
+        cached_input_tokens: tokens
+            .pointer("/cache/read")
+            .and_then(Value::as_u64),
+        cost_usd: part.get("cost").and_then(Value::as_f64),
     })
 }
 
@@ -908,6 +953,48 @@ mod tests {
         assert!(matches!(
             events.first(),
             Some(RuntimeEvent::ToolCall { name, .. }) if name == "Bash"
+        ));
+    }
+
+    #[test]
+    fn normalizes_opencode_text_tool_and_usage() {
+        let text = normalize_line(
+            r#"{"type":"text","sessionID":"ses_1","part":{"text":"hello from opencode"}}"#,
+        );
+        assert!(text.iter().any(|event| matches!(
+            event,
+            RuntimeEvent::Assistant { text, partial: true } if text == "hello from opencode"
+        )));
+        let session = normalize_line(r#"{"type":"step_start","sessionID":"ses_1","part":{}}"#);
+        assert!(session
+            .iter()
+            .any(|event| matches!(event, RuntimeEvent::Session { id } if id == "ses_1")));
+
+        let tool = normalize_line(
+            r#"{"type":"tool_use","sessionID":"ses_1","part":{"tool":"read","state":{"status":"completed","input":{"path":"src"},"output":"ok"}}}"#,
+        );
+        assert!(tool.iter().any(|event| matches!(
+            event,
+            RuntimeEvent::ToolCall { name, status, .. } if name == "read" && status == "completed"
+        )));
+
+        let usage = normalize_line(
+            r#"{"type":"step_finish","part":{"tokens":{"input":10,"output":4,"cache":{"read":2}},"cost":0.01}}"#,
+        );
+        assert!(usage.iter().any(|event| matches!(
+            event,
+            RuntimeEvent::Usage { input_tokens: 10, output_tokens: 4, cached_input_tokens: Some(2), .. }
+        )));
+    }
+
+    #[test]
+    fn normalizes_nested_provider_error() {
+        let events = normalize_line(
+            r#"{"type":"error","error":{"message":"invalid x-api-key"}}"#,
+        );
+        assert!(matches!(
+            events.first(),
+            Some(RuntimeEvent::Failed { message, .. }) if message == "invalid x-api-key"
         ));
     }
 
