@@ -62,6 +62,7 @@ Intent in, plans out. barkcli is the management layer for AI agents: humans writ
 
 | | |
 |---|---|
+| 🧬 **Collective memory** | Every run is a node in a Git-backed contribution graph. Independent verification, evidence scores, neglected-branch nudging, and UCB recommendations. Agents build on verified work instead of starting from zero. |
 | 🧠 **Mind** | Compiled project snapshot — health, blockers, stale work, next actions. One command answers "what's happening?". |
 | 📋 **Board** | Columns, priorities, labels, assignees, checklists, comments, effort, due dates, reminders. Drag-and-drop in the web app. |
 | 🔗 **Spec Traceability** | Specs → requirements → code. Every card links to its spec and to the code that implements it. |
@@ -93,6 +94,25 @@ barkcli review next           # the riskiest card waiting for review
 Every merge through `barkcli run` writes a **receipt** to `.board/receipts/`: the intent, agent, branch and head SHA, diff stats, gate verdict, guard findings, review counts, a confidence level with reasons, and a content hash. `barkcli receipt verify` recomputes the hash and checks whether the branch moved — so a receipt can be audited later, on another machine, without trusting the agent that produced it. Receipts are local-first in v1; `receipt show` renders Markdown for sharing.
 
 `barkcli review queue` ranks cards in review by risk — security-sensitive paths, complexity, missing tests, churn, public API changes, and size — and `review next` picks the one to open first. The web app has the same surfaces: a **Receipt** tab in the workbench and a **Review queue** panel on the board.
+
+---
+
+## Collective memory
+
+> **Git isn't just version control for code — it's memory for autonomous agents.**
+
+Inspired by NVIDIA's *Agora* (arXiv:2609.18094), barkcli records every run as an
+immutable node in a contribution DAG:
+
+- **Parent edges** show what each claim builds on.
+- **Independent reproduction** is a first-class action; self-verification is rejected.
+- **Evidence scores** grow from reproductions and reuse by other agents.
+- **Neglected branches** and **contested claims** are surfaced automatically.
+- **UCB recommendations** balance refining the leader with exploring the long tail.
+- **MCP tools** let Claude Code, OpenCode, and Cursor publish, link, and verify contributions.
+
+The graph is always on and rebuildable from `.board/runs/`. Old runs load as flat
+result nodes.
 
 ---
 

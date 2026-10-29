@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, { Suspense, lazy, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { QuietSelect } from "./components/QuietSelect";
 import type {
   Board as BoardType,
@@ -41,12 +41,12 @@ import { CommandPalette } from "./components/CommandPalette";
 import { QuickOpen } from "./components/QuickOpen";
 import { CommandRunner } from "./components/CommandRunner";
 import { ServerStatus } from "./components/ServerStatus";
-import { HistoryView } from "./components/HistoryView";
-import { SkillsView } from "./components/SkillsView";
+const HistoryView = lazy(() => import("./components/HistoryView").then((m) => ({ default: m.HistoryView })));
+const SkillsView = lazy(() => import("./components/SkillsView").then((m) => ({ default: m.SkillsView })));
 import { ThreadsShell } from "./shell/ThreadsShell";
 import { AppRail } from "./shell/AppRail";
 import { InspectorRail } from "./shell/InspectorRail";
-import { OperationsView } from "./shell/OperationsView";
+const OperationsView = lazy(() => import("./shell/OperationsView").then((m) => ({ default: m.OperationsView })));
 import { BrainSurface } from "./shell/BrainSurface";
 import { AgentsSurface } from "./shell/AgentsSurface";
 import { CustomizePanel } from "./shell/CustomizePanel";
@@ -828,11 +828,14 @@ export function App() {
 
           {route === "skills" && (
             <div className="h-full overflow-y-auto">
-              <SkillsView />
+              <Suspense fallback={<div className="flex h-full items-center justify-center text-[12px] text-muted">Loading skills…</div>}>
+                <SkillsView />
+              </Suspense>
             </div>
           )}
 
           {route === "operations" && (
+            <Suspense fallback={<div className="flex h-full items-center justify-center text-[12px] text-muted">Loading operations…</div>}>
             <OperationsView
               board={board}
               boardName={boardName}
@@ -850,14 +853,17 @@ export function App() {
               onOpenBoard={() => setRoute("board")}
               onOpenBrain={() => setRoute("brain")}
             />
+            </Suspense>
           )}
 
           {route === "history" && (
+            <Suspense fallback={<div className="flex h-full items-center justify-center text-[12px] text-muted">Loading history…</div>}>
             <HistoryView
               boardName={boardName || boardList[0] || null}
               board={board}
               onEditCard={(card) => handleOpenForm({ card })}
             />
+            </Suspense>
           )}
         </main>
 
