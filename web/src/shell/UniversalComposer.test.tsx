@@ -3,11 +3,13 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { UniversalComposer } from "./UniversalComposer";
 
-const { createThread, fetchProviders } = vi.hoisted(() => ({
+const { createThread, fetchProviders, fetchProviderModels, startThreadChat } = vi.hoisted(() => ({
   createThread: vi.fn(),
   fetchProviders: vi.fn(async () => []),
+  fetchProviderModels: vi.fn(async () => []),
+  startThreadChat: vi.fn(),
 }));
-vi.mock("../lib/api", () => ({ createThread, fetchProviders }));
+vi.mock("../lib/api", () => ({ createThread, fetchProviders, fetchProviderModels, startThreadChat }));
 
 describe("UniversalComposer", () => {
   it("starts an intent with the selected defaults", async () => {
@@ -50,6 +52,31 @@ describe("UniversalComposer", () => {
     expect(
       await screen.findByText("Could not start the intent. Check that the server is running.")
     ).toBeInTheDocument();
+  });
+
+  it("starts a read-only conversation in chat mode", async () => {
+    createThread.mockResolvedValue({ thread_id: "thread-chat" });
+    startThreadChat.mockResolvedValue({ ok: true, turn_id: "chat_1" });
+    const user = userEvent.setup();
+    render(
+      <UniversalComposer isOpen onClose={vi.fn()} onCreated={vi.fn()} boardName="dev" />
+    );
+
+    await user.type(screen.getByLabelText("Intent"), "Where is auth?");
+    await user.selectOptions(screen.getByLabelText("Execution mode"), "chat");
+    await user.click(screen.getByRole("button", { name: /Start/ }));
+
+    await waitFor(() => expect(createThread).toHaveBeenCalled());
+    expect(createThread).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: "chat", board: "dev" })
+    );
+    expect(startThreadChat).toHaveBeenCalledWith("thread-chat", {
+      text: "Where is auth?",
+      provider: "opencode",
+      model: undefined,
+      board: "dev",
+      skip_user_event: true,
+    });
   });
 
   it("dismisses with Escape", async () => {

@@ -19,6 +19,7 @@ vi.mock("../lib/desktop", () => ({
   isDesktop: () => false,
   openProjectDialog: vi.fn(),
   openProviderLogin: vi.fn(),
+  openTerminal: vi.fn(),
   recentProjects: vi.fn(async () => []),
   revealProject: vi.fn(),
   switchProject: vi.fn(),
