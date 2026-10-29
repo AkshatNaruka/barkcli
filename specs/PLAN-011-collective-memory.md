@@ -65,11 +65,11 @@
 
 ## Verification
 
-```bash
-cargo test --workspace
-cargo check --manifest-path desktop/Cargo.toml
-npm --prefix web test -- --run
-npm --prefix web run build
-bash desktop/scripts/build-macos-app.sh
-bash desktop/scripts/smoke-app.sh
-```
+- [x] `cargo test --workspace` — all green.
+- [x] `cargo check --manifest-path desktop/Cargo.toml`.
+- [x] `npm --prefix web test -- --run` — 56 tests.
+- [x] `npm --prefix web run build`.
+- [x] `bash desktop/scripts/build-macos-app.sh` — bundle verifier passed.
+- [x] `bash desktop/scripts/smoke-app.sh` — graph + ancestry through the bundle.
+- [x] Manual: app starts while a standalone `barkcli serve` is running.
+- [x] Manual: Brain → Contributions renders real graph data and publishes an insight.
