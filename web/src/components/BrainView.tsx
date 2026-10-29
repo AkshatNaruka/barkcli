@@ -283,14 +283,14 @@ export function BrainView({ boardName }: { boardName: string | null }) {
             </div>
           ) : (
             <ReactFlow
-              key={`${showAll}-${tierFilter}-${kindFilter}`}
               nodes={rfNodes}
               edges={rfEdges}
               nodeTypes={{ brainNode: GraphNodeCard }}
               onNodeClick={onNodeClick}
               onPaneClick={() => setSelectedId(null)}
-              nodesDraggable={true}
+              nodesDraggable={false}
               nodesConnectable={false}
+              onlyRenderVisibleElements={true}
               zoomOnDoubleClick={false}
               minZoom={0.08}
               maxZoom={2.2}

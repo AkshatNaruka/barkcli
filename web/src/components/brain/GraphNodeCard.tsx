@@ -19,7 +19,7 @@ export const GraphNodeCard = memo(function GraphNodeCard({ data }: { data: Brain
   const icon = KIND_ICON[data.kind] || "layers";
   return (
     <div
-      className="bg-card rounded-xl px-3 py-2.5 transition-[opacity,box-shadow] duration-200"
+      className="bg-card rounded-xl px-3 py-2.5"
       style={{
         width: NODE_W,
         boxShadow:
