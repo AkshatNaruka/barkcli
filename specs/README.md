@@ -14,10 +14,13 @@ This directory holds the authoritative build specs for the YC MVP. Specs 001–0
 | [006](./SPEC-006-fleet.md) | Fleet: sessions, worktrees, leases | ✅ done | — |
 | [007](./SPEC-007-trust-layer.md) | Trust Layer: receipts, guard, risk-ranked review | ✅ done | #32 |
 | [008](./SPEC-008-mac-parity.md) | macOS app parity: same UI, same server, verifiable bundle | ✅ done | — |
+| [009](./SPEC-009-real-product.md) | Real product: project setup, providers, skills, brain loop | 🚧 in progress | — |
 
 **Trust Layer plan:** [PLAN-007](./PLAN-007-trust-layer.md) · research: [TRUST_LAYER_RESEARCH](../docs/internal/TRUST_LAYER_RESEARCH.md)
 
 **macOS parity plan:** [PLAN-008](./PLAN-008-mac-parity.md)
+
+**Real product plan:** [PLAN-009](./PLAN-009-real-product.md)
 
 **Branch:** `feat/mvp-all-specs` → `master` via #8. Tags `v0.3.0-mvp` + `v0.3.1-mvp` (web).
 
