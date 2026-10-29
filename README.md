@@ -150,6 +150,17 @@ brew tap AkshatNaruka/barkcli && brew install barkcli
 cargo install barkcli
 ```
 
+### Remote / mobile access
+
+Bark is local-first. To reach it from a phone or another machine on your LAN:
+
+```bash
+barkcli serve --host 0.0.0.0 --open
+```
+
+Then open the printed URL (with its token) on the other device. The web UI is
+responsive and the native notifications keep you posted when an agent finishes.
+
 ### macOS app (Bark)
 
 Bark ships as a native macOS app with the same UI and the same local server.

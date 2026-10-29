@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import type { Board as BoardType, ProviderStatus } from "../lib/types";
-import { fetchConfig, fetchHooks, fetchProject, fetchProviders, validateBoards, type BoardConfig } from "../lib/api";
+import { apiAccess, fetchConfig, fetchHooks, fetchProject, fetchProviders, validateBoards, type BoardConfig } from "../lib/api";
 import { isDesktop, openLogs, openProviderLogin, openTerminal } from "../lib/desktop";
 import { useTheme, type Theme } from "../lib/theme";
 import { Icon } from "./Icon";
@@ -290,6 +290,38 @@ export function SettingsView({
           )}
         </Section>
 
+        {/* Remote access */}
+        <Section title="Remote access">
+          <p className="mb-3 text-[11px] leading-relaxed text-muted">
+            Bark is local-first. To reach it from a phone or another machine on
+            your LAN, start the server with{" "}
+            <code className="font-mono text-text/80">barkcli serve --host 0.0.0.0</code>{" "}
+            and open the URL below. Keep the token secret.
+          </p>
+          <div className="flex gap-2">
+            <input
+              readOnly
+              value={`${apiAccess().base}${apiAccess().token ? `?token=${apiAccess().token}` : ""}`}
+              className="flex-1 rounded-md border border-border bg-bg px-2.5 py-1.5 font-mono text-[11px] text-text focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(
+                    `${apiAccess().base}${apiAccess().token ? `?token=${apiAccess().token}` : ""}`
+                  );
+                } catch {
+                  /* clipboard is optional */
+                }
+              }}
+              className="rounded-md border border-border px-2.5 py-1.5 text-[11px] text-text transition-colors hover:border-border-strong"
+            >
+              Copy URL
+            </button>
+          </div>
+        </Section>
+
         {/* Diagnostics */}
         <Section title="Diagnostics">
           <p className="mb-3 text-[11px] leading-relaxed text-muted">
@@ -312,6 +344,38 @@ export function SettingsView({
               className="rounded-md border border-border px-2.5 py-1.5 text-[11px] text-text transition-colors hover:border-border-strong disabled:opacity-40"
             >
               Open project terminal
+            </button>
+          </div>
+        </Section>
+
+        {/* Remote access */}
+        <Section title="Remote access">
+          <p className="mb-3 text-[11px] leading-relaxed text-muted">
+            Bark is local-first. To reach it from a phone or another machine on
+            your LAN, start the server with{" "}
+            <code className="font-mono text-text/80">barkcli serve --host 0.0.0.0</code>{" "}
+            and open the URL below. Keep the token secret.
+          </p>
+          <div className="flex gap-2">
+            <input
+              readOnly
+              value={`${apiAccess().base}${apiAccess().token ? `?token=${apiAccess().token}` : ""}`}
+              className="flex-1 rounded-md border border-border bg-bg px-2.5 py-1.5 font-mono text-[11px] text-text focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(
+                    `${apiAccess().base}${apiAccess().token ? `?token=${apiAccess().token}` : ""}`
+                  );
+                } catch {
+                  /* clipboard is optional */
+                }
+              }}
+              className="rounded-md border border-border px-2.5 py-1.5 text-[11px] text-text transition-colors hover:border-border-strong"
+            >
+              Copy URL
             </button>
           </div>
         </Section>
