@@ -15,6 +15,7 @@ import {
   Terminal,
   Globe,
   Code,
+  Clock,
   ChevronDown,
   Check,
   Copy,
@@ -62,6 +63,38 @@ const VIDEO_URL =
   "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260405_171521_25968ba2-b594-4b32-aab7-f6b69398a6fa.mp4";
 
 const FEATURES = [
+  {
+    icon: Brain,
+    title: "Collective memory",
+    description:
+      "Every run is a node in a Git-backed contribution graph. Independent verification, evidence scores, neglected-branch nudging, and UCB recommendations. Agents build on verified work instead of starting from zero.",
+    code: "$ barkcli analyze && barkcli contribute --title \"insight\" --kind hypothesis",
+    gradient: "from-amber-500/20 to-orange-500/20",
+  },
+  {
+    icon: Terminal,
+    title: "Real local-agent chat",
+    description:
+      "Ask or build with the same opencode, claude, or codex CLIs you already pay for. Read-only Ask turns stream text and tool calls; Build turns get an isolated worktree and a test gate.",
+    code: "$ barkcli serve --open  # then chat in the app",
+    gradient: "from-emerald-500/20 to-teal-500/20",
+  },
+  {
+    icon: Search,
+    title: "Quick open & command runner",
+    description:
+      "⌘P jumps to any file with a preview; ⌘⇧R runs real project tests, builds, and git commands without leaving Bark.",
+    code: "$ barkcli code \"auth\"  # or ⌘P / ⌘⇧R in the app",
+    gradient: "from-blue-500/20 to-cyan-500/20",
+  },
+  {
+    icon: Clock,
+    title: "Automations",
+    description:
+      "Schedule agent runs on an interval. Each due intent invokes the normal autonomy loop — worktree, gate, merge train — and reports back.",
+    code: '$ barkcli schedule add "summarize the README" --every 1h',
+    gradient: "from-rose-500/20 to-red-500/20",
+  },
   {
     icon: Brain,
     title: "Mind",
