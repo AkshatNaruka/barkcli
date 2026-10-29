@@ -4,7 +4,9 @@
 //! lifecycle: find the project, spawn `barkcli serve --app` on a private port,
 //! open the window when it is ready, and make sure the server dies with us.
 
+use std::ffi::OsString;
 use std::fs;
+use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -26,21 +28,32 @@ struct WindowGeometry {
 }
 
 fn main() {
+    let smoke = std::env::args().any(|arg| arg == "--smoke");
     let project = match resolve_project() {
         Some(p) => p,
         None => {
-            eprintln!(
-                "Bark needs a project folder (one containing .board/ or .git/).\n\
-                 Pass --project <dir> or set BARKCLI_PROJECT."
-            );
-            std::process::exit(1);
+            let message = "Bark needs a project folder (one containing .board/ or .git/).\n\
+                           Pass --project <dir> or set BARKCLI_PROJECT.";
+            if smoke {
+                eprintln!("{}", message);
+                std::process::exit(1);
+            }
+            fatal(message);
         }
     };
+
+    if smoke {
+        if let Err(e) = run_smoke(&project) {
+            eprintln!("{}", e);
+            std::process::exit(1);
+        }
+        return;
+    }
+
     remember_project(&project);
 
     let bin = barkcli_bin().unwrap_or_else(|| {
-        eprintln!("Could not find the `barkcli` binary. Build it first: cargo build -p barkcli");
-        std::process::exit(1);
+        fatal("Could not find the `barkcli` binary. Build it first: cargo build -p barkcli");
     });
 
     let port = free_port();
@@ -51,15 +64,13 @@ fn main() {
     let url = format!("http://127.0.0.1:{}/?token={}#/chat", port, token);
 
     let mut child = spawn_server(&bin, &project, port, &token).unwrap_or_else(|e| {
-        eprintln!("Failed to start barkcli: {}", e);
-        std::process::exit(1);
+        fatal(&format!("Failed to start barkcli: {}", e));
     });
 
     // Typical start is < 1s. Blocking here (before the event loop) is
     // deliberate: the first window the user sees is already the app.
     if let Err(e) = wait_for_server(&mut child, port, Duration::from_secs(20)) {
-        eprintln!("{}", e);
-        std::process::exit(1);
+        fatal(&e);
     }
 
     let title = format!(
@@ -116,20 +127,7 @@ fn main() {
                 remember_window_state(app);
                 if let Some(state) = app.try_state::<ServerState>() {
                     if let Some(mut child) = state.child.lock().unwrap().take() {
-                        // SIGTERM first so --app can remove its pid files.
-                        #[cfg(unix)]
-                        unsafe {
-                            libc_kill(child.id() as i32);
-                        }
-                        let deadline = Instant::now() + Duration::from_secs(4);
-                        while Instant::now() < deadline {
-                            if let Ok(Some(_)) = child.try_wait() {
-                                return;
-                            }
-                            std::thread::sleep(Duration::from_millis(50));
-                        }
-                        let _ = child.kill();
-                        let _ = child.wait();
+                        stop_child(&mut child);
                     }
                 }
             }
@@ -143,6 +141,176 @@ unsafe fn libc_kill(pid: i32) {
         fn kill(pid: i32, sig: i32) -> i32;
     }
     kill(pid, 15);
+}
+
+/// A double-clicked `.app` has no terminal. Surface startup failures in a
+/// native dialog, while still printing to stderr for `open`/CLI launches.
+fn fatal(message: &str) -> ! {
+    eprintln!("{}", message);
+    let _ = rfd::MessageDialog::new()
+        .set_title("Bark")
+        .set_level(rfd::MessageLevel::Error)
+        .set_description(message)
+        .show();
+    std::process::exit(1);
+}
+
+/// SIGTERM first so `serve --app` removes its pid files, then force-kill if it
+/// does not exit within four seconds.
+fn stop_child(child: &mut Child) {
+    #[cfg(unix)]
+    unsafe {
+        libc_kill(child.id() as i32);
+    }
+    let deadline = Instant::now() + Duration::from_secs(4);
+    while Instant::now() < deadline {
+        if let Ok(Some(_)) = child.try_wait() {
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
+/// Headless launch used by `desktop/scripts/smoke-app.sh`.
+///
+/// Starts the same sidecar with the same environment as a normal launch,
+/// prints one JSON line with the private port/token, then stays alive long
+/// enough for the script to probe the API before stopping the sidecar.
+fn run_smoke(project: &Path) -> Result<(), String> {
+    let bin = barkcli_bin().ok_or_else(|| {
+        "Could not find the `barkcli` binary. Build it first: cargo build -p barkcli".to_string()
+    })?;
+    let port = free_port();
+    let token = random_token();
+    let mut child = spawn_server(&bin, project, port, &token)
+        .map_err(|e| format!("Failed to start barkcli: {}", e))?;
+
+    if let Err(e) = wait_for_server(&mut child, port, Duration::from_secs(20)) {
+        stop_child(&mut child);
+        return Err(e);
+    }
+
+    println!(
+        "{}",
+        serde_json::json!({
+            "status": "ready",
+            "port": port,
+            "token": token,
+            "pid": child.id(),
+        })
+    );
+    let _ = std::io::stdout().flush();
+
+    let seconds = std::env::var("BARKCLI_SMOKE_SECS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(30);
+    std::thread::sleep(Duration::from_secs(seconds));
+    stop_child(&mut child);
+    Ok(())
+}
+
+/// Finder launches inherit launchd's minimal PATH. Agents installed in
+/// `~/.opencode/bin`, `~/.local/bin`, Homebrew, etc. must still be visible to
+/// provider probing and to AI runs.
+fn augmented_path() -> OsString {
+    let mut dirs: Vec<PathBuf> = Vec::new();
+
+    if let Some(home) = std::env::var_os("HOME") {
+        let home = PathBuf::from(home);
+        for rel in [
+            ".opencode/bin",
+            ".local/bin",
+            ".cargo/bin",
+            ".bun/bin",
+            ".volta/bin",
+            ".npm-global/bin",
+            "Library/pnpm",
+            ".local/share/mise/shims",
+        ] {
+            push_unique(&mut dirs, home.join(rel));
+        }
+    }
+
+    for dir in [
+        "/opt/homebrew/bin",
+        "/usr/local/bin",
+        "/usr/bin",
+        "/bin",
+        "/usr/sbin",
+        "/sbin",
+    ] {
+        push_unique(&mut dirs, PathBuf::from(dir));
+    }
+
+    if let Some(path) = std::env::var_os("PATH") {
+        for dir in std::env::split_paths(&path) {
+            push_unique(&mut dirs, dir);
+        }
+    }
+
+    std::env::join_paths(&dirs).unwrap_or_else(|_| std::env::var_os("PATH").unwrap_or_default())
+}
+
+fn push_unique(dirs: &mut Vec<PathBuf>, dir: PathBuf) {
+    if !dir.as_os_str().is_empty() && !dirs.contains(&dir) {
+        dirs.push(dir);
+    }
+}
+
+/// The UI the sidecar should serve. In a bundle this is
+/// `Contents/Resources/web/dist`; in development it is the repo's `web/dist`.
+/// Passing it explicitly stops a project-local `web/dist` from overriding the
+/// app the user launched.
+fn bundled_web_dist() -> Option<PathBuf> {
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(macos) = exe.parent() {
+            if let Some(contents) = macos.parent() {
+                let bundled = contents.join("Resources").join("web").join("dist");
+                if bundled.is_dir() {
+                    return Some(bundled);
+                }
+            }
+            let sibling = macos.join("..").join("web").join("dist");
+            if sibling.is_dir() {
+                return Some(sibling);
+            }
+        }
+    }
+
+    let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../web/dist");
+    if dev.is_dir() {
+        return Some(dev);
+    }
+    None
+}
+
+fn log_file() -> Option<fs::File> {
+    let home = std::env::var_os("HOME")?;
+    let dir = PathBuf::from(home)
+        .join("Library")
+        .join("Logs")
+        .join("barkcli");
+    fs::create_dir_all(&dir).ok()?;
+    fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(dir.join("server.log"))
+        .ok()
+}
+
+fn pipe_logs<R: std::io::Read + Send + 'static>(reader: R, label: &'static str) {
+    let mut log = log_file();
+    std::thread::spawn(move || {
+        for line in BufReader::new(reader).lines().map_while(Result::ok) {
+            eprintln!("[barkcli:{}] {}", label, line);
+            if let Some(file) = log.as_mut() {
+                let _ = writeln!(file, "{} {}", label, line);
+            }
+        }
+    });
 }
 
 fn spawn_server(
@@ -164,27 +332,22 @@ fn spawn_server(
         token,
     ])
     .current_dir(project)
+    .env("PATH", augmented_path())
     // Keep the pipes drained; a full stdout buffer would stall the server.
     .stdout(Stdio::piped())
     .stderr(Stdio::piped());
 
+    if let Some(dist) = bundled_web_dist() {
+        cmd.env("BARKCLI_WEB_DIST", dist);
+    }
+
     let mut child = cmd.spawn()?;
 
     if let Some(stdout) = child.stdout.take() {
-        std::thread::spawn(move || {
-            use std::io::{BufRead, BufReader};
-            for line in BufReader::new(stdout).lines().map_while(Result::ok) {
-                eprintln!("[barkcli] {}", line);
-            }
-        });
+        pipe_logs(stdout, "stdout");
     }
     if let Some(stderr) = child.stderr.take() {
-        std::thread::spawn(move || {
-            use std::io::{BufRead, BufReader};
-            for line in BufReader::new(stderr).lines().map_while(Result::ok) {
-                eprintln!("[barkcli] {}", line);
-            }
-        });
+        pipe_logs(stderr, "stderr");
     }
 
     Ok(child)
@@ -412,4 +575,44 @@ fn remember_window_state(app: &AppHandle) {
             }),
         );
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn augmented_path_prepends_agent_bins_and_keeps_existing() {
+        let parts: Vec<PathBuf> = std::env::split_paths(&augmented_path()).collect();
+
+        assert!(parts.contains(&PathBuf::from("/opt/homebrew/bin")));
+        assert!(parts.contains(&PathBuf::from("/usr/local/bin")));
+
+        if let Some(home) = std::env::var_os("HOME") {
+            assert!(parts.contains(&PathBuf::from(&home).join(".opencode/bin")));
+            assert!(parts.contains(&PathBuf::from(&home).join(".local/bin")));
+        }
+
+        if let Some(existing) = std::env::var_os("PATH") {
+            for dir in std::env::split_paths(&existing) {
+                assert!(parts.contains(&dir), "missing inherited PATH entry: {:?}", dir);
+            }
+        }
+
+        let mut deduped = parts.clone();
+        deduped.dedup();
+        assert_eq!(parts, deduped, "augmented PATH contains duplicates");
+    }
+
+    #[test]
+    fn dev_web_dist_is_the_repo_build() {
+        let expected = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../web/dist");
+        if !expected.is_dir() {
+            // `cargo test` in the desktop crate is allowed before the web
+            // build; the bundle verifier is the gate that requires it.
+            return;
+        }
+        let dist = bundled_web_dist().expect("web/dist should exist for dev builds");
+        assert!(dist.ends_with("web/dist"));
+    }
 }
