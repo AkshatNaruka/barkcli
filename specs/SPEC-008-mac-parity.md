@@ -118,17 +118,17 @@ required for distribution.
 
 ## Acceptance criteria
 
-- [ ] `desktop/scripts/build-macos-app.sh` completes and prints the app path.
-- [ ] `desktop/scripts/verify-app.sh` passes on the rebuilt app and fails when
+- [x] `desktop/scripts/build-macos-app.sh` completes and prints the app path.
+- [x] `desktop/scripts/verify-app.sh` passes on the rebuilt app and fails when
       given the old `95770a8` bundle.
-- [ ] Bundled sidecar reports the current git revision and supports
+- [x] Bundled sidecar reports the current git revision and supports
       `guard` / `receipt`.
-- [ ] Bundled `assets/index.js` is byte-identical to `web/dist/assets/index.js`.
-- [ ] A Finder-like launch (`PATH=/usr/bin:/bin`) reports `opencode` available
+- [x] Bundled `assets/index.js` is byte-identical to `web/dist/assets/index.js`.
+- [x] A Finder-like launch (`PATH=/usr/bin:/bin`) reports `opencode` available
       at `/api/providers`.
-- [ ] `smoke-app.sh` passes: trust routes, AI routes, static assets, sidecar
+- [x] `smoke-app.sh` passes: trust routes, AI routes, static assets, sidecar
       shutdown.
-- [ ] `codesign --verify --deep --strict Bark.app` passes.
-- [ ] `cargo test --workspace`, `cd web && npm test`, `swift test` still pass.
-- [ ] No new runtime dependencies in `barkcli-core` or `desktop` (build tooling
+- [x] `codesign --verify --deep --strict Bark.app` passes.
+- [x] `cargo test --workspace`, `cd web && npm test`, `swift test` still pass.
+- [x] No new runtime dependencies in `barkcli-core` or `desktop` (build tooling
       via `npx @tauri-apps/cli` is not a runtime dependency).

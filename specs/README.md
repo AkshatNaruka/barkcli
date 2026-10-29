@@ -13,7 +13,7 @@ This directory holds the authoritative build specs for the YC MVP. Specs 001–0
 | [005](./SPEC-005-polish-release.md) | Polish & Release v0.3.0 | ✅ done | #8 |
 | [006](./SPEC-006-fleet.md) | Fleet: sessions, worktrees, leases | ✅ done | — |
 | [007](./SPEC-007-trust-layer.md) | Trust Layer: receipts, guard, risk-ranked review | ✅ done | #32 |
-| [008](./SPEC-008-mac-parity.md) | macOS app parity: same UI, same server, verifiable bundle | 🚧 in progress | — |
+| [008](./SPEC-008-mac-parity.md) | macOS app parity: same UI, same server, verifiable bundle | ✅ done | — |
 
 **Trust Layer plan:** [PLAN-007](./PLAN-007-trust-layer.md) · research: [TRUST_LAYER_RESEARCH](../docs/internal/TRUST_LAYER_RESEARCH.md)
 
