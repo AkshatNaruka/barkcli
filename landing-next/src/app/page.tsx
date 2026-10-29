@@ -34,6 +34,7 @@ import {
   Plug,
   Brain,
   Layers,
+  Database,
   Play,
 } from "lucide-react";
 import {
@@ -96,11 +97,11 @@ const FEATURES = [
     gradient: "from-rose-500/20 to-red-500/20",
   },
   {
-    icon: Brain,
+    icon: Sparkles,
     title: "Mind",
     description: "A compiled snapshot of your project — health, blockers, stale work, next actions. One command answers what's happening.",
     code: "$ barkcli mind sync && barkcli overview",
-    gradient: "from-amber-500/20 to-orange-500/20",
+    gradient: "from-violet-500/20 to-purple-500/20",
   },
   {
     icon: Layers,
@@ -108,7 +109,7 @@ const FEATURES = [
     description:
       "Reusable playbooks injected into every matched agent prompt. Install from the community registry with a sha-pinned lockfile; publish yours back as a PR.",
     code: "$ barkcli skills install AkshatNaruka/barkcli-skills",
-    gradient: "from-blue-500/20 to-cyan-500/20",
+    gradient: "from-indigo-500/20 to-blue-500/20",
   },
   {
     icon: FolderOpen,
@@ -125,17 +126,10 @@ const FEATURES = [
     gradient: "from-green-500/20 to-emerald-500/20",
   },
   {
-    icon: Search,
+    icon: Database,
     title: "Memory",
     description: "Four-tier local memory with hybrid BM25 + TF-IDF search. Decisions and patterns survive across sessions — offline.",
     code: '$ barkcli memory search "auth errors"',
-    gradient: "from-rose-500/20 to-red-500/20",
-  },
-  {
-    icon: CloudOff,
-    title: "Offline & Repo-Native",
-    description: "No cloud required, no accounts, no per-seat pricing. MIT licensed, built in Rust. Your data stays in your repo.",
-    code: "$ barkcli list  # Works without internet",
     gradient: "from-teal-500/20 to-cyan-500/20",
   },
 ];
