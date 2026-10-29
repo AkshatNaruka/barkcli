@@ -483,6 +483,19 @@ export interface RunCommand {
   command: string;
 }
 
+export interface ScheduleEntry {
+  id: string;
+  intent: string;
+  board: string;
+  backend: string;
+  every_secs: number;
+  enabled: boolean;
+  next_run: string;
+  last_run?: string | null;
+  last_status?: string | null;
+  created_at: string;
+}
+
 export interface ProjectSnapshot {
   root: string;
   name: string;

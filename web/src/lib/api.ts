@@ -26,6 +26,7 @@ import type {
   ContextPack,
   DiscoveredSkill,
   ProviderStatus,
+  ScheduleEntry,
   SessionTranscript,
   TaskDiff,
   RoleDef,
@@ -2106,6 +2107,43 @@ export async function runProjectCommand(
   timeoutSecs = 120
 ): Promise<ExecResult | null> {
   return postJson("/api/exec", { command, timeout_secs: timeoutSecs });
+}
+
+export async function fetchSchedules(): Promise<ScheduleEntry[]> {
+  if (isVscode) return [];
+  try {
+    const res = await fetch(withToken("/api/schedules"));
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function createSchedule(body: {
+  intent: string;
+  every: string;
+  backend?: string;
+  board?: string;
+}): Promise<ScheduleEntry | null> {
+  return postJson("/api/schedules", body);
+}
+
+export async function deleteSchedule(id: string): Promise<boolean> {
+  if (isVscode) return false;
+  try {
+    const res = await fetch(withToken(`/api/schedules/${encodeURIComponent(id)}`), {
+      method: "DELETE",
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function runDueSchedules(): Promise<number> {
+  const result = await postJson("/api/schedules-run-due", {});
+  return result?.ran ?? 0;
 }
 
 export async function fetchGitStatus(): Promise<GitStatus | null> {

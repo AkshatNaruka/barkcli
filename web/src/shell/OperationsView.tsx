@@ -12,6 +12,7 @@ import { SettingsView } from "../components/SettingsView";
 import { ShipView } from "../components/ShipView";
 import { HistoryView } from "../components/HistoryView";
 import { WorkspaceView } from "../components/WorkspaceView";
+import { AutomationsView } from "../components/AutomationsView";
 import { rawHashRoute } from "../lib/hashnav";
 import { operationsTabFromLegacy } from "../lib/surfaces";
 import type { Board, Card, Sprint } from "../lib/types";
@@ -28,6 +29,7 @@ type OpTab =
   | "docs"
   | "settings"
   | "context"
+  | "automations"
   | "history";
 
 const TABS: Array<{ id: OpTab; label: string; icon: IconName }> = [

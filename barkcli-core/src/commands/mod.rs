@@ -37,6 +37,7 @@ pub mod receipt;
 pub mod review;
 pub mod review_queue;
 pub mod run_cmd;
+pub mod schedule;
 pub mod session;
 pub mod skills;
 pub mod spec;

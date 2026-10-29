@@ -190,10 +190,62 @@ assert events[0]["kind"] == "user", events
 print("  ok  chat thread has one user event and no auto-plan")
 PY
 
+# Contribution graph smoke
 curl -fsS --max-time 60 -X POST \
   -H 'Content-Type: application/json' \
   -d '{"title":"Smoke hypothesis","kind":"hypothesis","text":"The command runner works"}' \
   "$BASE/api/contributions?token=$TOKEN" >"$TMP/contribution-1.json"
+CONTRIBUTION_1="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$TMP/contribution-1.json")"
+curl -fsS --max-time 60 -X POST \
+  -H 'Content-Type: application/json' \
+  -d "{\"title\":\"Smoke result\",\"kind\":\"result\",\"parent\":\"$CONTRIBUTION_1\"}" \
+  "$BASE/api/contributions?token=$TOKEN" >"$TMP/contribution-2.json"
+CONTRIBUTION_2="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$TMP/contribution-2.json")"
+get /api/contributions >"$TMP/contributions.json"
+python3 - "$TMP/contributions.json" <<'PY'
+import json
+import sys
+
+analysis = json.load(open(sys.argv[1]))
+assert analysis["metrics"]["total_nodes"] >= 2, analysis["metrics"]
+assert analysis["metrics"]["edges"] >= 1, analysis["metrics"]
+assert len(analysis["nodes"]) >= 2, analysis["nodes"]
+print("  ok  contribution graph indexed")
+PY
+get "/api/runs/$CONTRIBUTION_2/ancestry" >"$TMP/ancestry.json"
+python3 - "$TMP/ancestry.json" <<'PY'
+import json
+import sys
+
+ancestry = json.load(open(sys.argv[1]))
+assert len(ancestry["lineage"]) == 2, ancestry["lineage"]
+print("  ok  contribution ancestry")
+PY
+
+# Automation smoke
+curl -fsS --max-time 60 -X POST \
+  -H 'Content-Type: application/json' \
+  -d '{"intent":"summarize the README","every":"1h","backend":"opencode"}' \
+  "$BASE/api/schedules?token=$TOKEN" >"$TMP/schedule.json"
+SCHEDULE_ID="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$TMP/schedule.json")"
+get /api/schedules >"$TMP/schedules.json"
+python3 - "$TMP/schedules.json" <<'PY'
+import json
+import sys
+
+schedules = json.load(open(sys.argv[1]))
+assert len(schedules) >= 1, schedules
+print("  ok  automation scheduled")
+PY
+curl -fsS --max-time 60 -X POST \
+  -H 'Content-Type: application/json' -d '{}' \
+  "$BASE/api/schedules-run-due?token=$TOKEN" >/dev/null
+curl -fsS --max-time 60 -X DELETE \
+  "$BASE/api/schedules/$SCHEDULE_ID?token=$TOKEN" >/dev/null
+
+curl -fsS --max-time 60 -X POST \
+  -H 'Content-Type: application/json' -d '{}' \
+  "$BASE/api/project/onboard?token=$TOKEN" >"$TMP/onboard.json"
 CONTRIBUTION_1="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$TMP/contribution-1.json")"
 curl -fsS --max-time 60 -X POST \
   -H 'Content-Type: application/json' \

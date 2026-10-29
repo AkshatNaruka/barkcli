@@ -209,6 +209,12 @@ where
         .route("/api/repo/tree", get(repo_tree_handler))
         .route("/api/repo/file", get(repo_file_handler))
         .route("/api/exec", post(exec_handler))
+        .route(
+            "/api/schedules",
+            get(list_schedules_handler).post(add_schedule_handler),
+        )
+        .route("/api/schedules/{id}", delete(delete_schedule_handler))
+        .route("/api/schedules-run-due", post(run_schedules_handler))
         .route("/api/git/status", get(git_status_handler))
         .route("/api/git/worktrees", get(git_worktrees_handler))
         .route("/api/git/commit", post(git_commit_handler))
@@ -6830,6 +6836,55 @@ async fn exec_handler(
     }
 }
 
+#[derive(Deserialize)]
+struct AddScheduleRequest {
+    intent: String,
+    every: String,
+    #[serde(default)]
+    backend: Option<String>,
+    #[serde(default)]
+    board: Option<String>,
+}
+
+async fn list_schedules_handler() -> Result<Json<serde_json::Value>, ServerError> {
+    let entries = barkcli_core::commands::schedule::read_schedules()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(serde_json::to_value(entries).unwrap_or(serde_json::json!([]))))
+}
+
+async fn add_schedule_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<AddScheduleRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, req.board.clone())?;
+    let backend = req.backend.unwrap_or_else(|| "opencode".into());
+    let entry = barkcli_core::commands::schedule::add_schedule(
+        &board_name,
+        &req.intent,
+        &req.every,
+        &backend,
+    )
+    .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::to_value(entry).unwrap_or(serde_json::json!(null))))
+}
+
+async fn delete_schedule_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    barkcli_core::commands::schedule::remove_schedule(&id)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({"ok": true})))
+}
+
+async fn run_schedules_handler() -> Result<Json<serde_json::Value>, ServerError> {
+    let ran = barkcli_core::commands::schedule::run_due_once()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(serde_json::json!({"ok": true, "ran": ran})))
+}
+
 async fn create_thread_handler(
     State(state): State<Arc<AppState>>,
     Json(req): Json<CreateThreadRequest>,
@@ -7741,6 +7796,12 @@ cards:
             .route("/api/threads/{id}/chat/stop", post(stop_chat_handler))
             .route("/api/threads", post(create_thread_handler))
             .route("/api/exec", post(exec_handler))
+        .route(
+            "/api/schedules",
+            get(list_schedules_handler).post(add_schedule_handler),
+        )
+        .route("/api/schedules/{id}", delete(delete_schedule_handler))
+        .route("/api/schedules-run-due", post(run_schedules_handler))
             .route(
                 "/api/contributions",
                 get(contributions_handler).post(create_contribution_handler),
