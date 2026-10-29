@@ -106,6 +106,7 @@ where
 {
     // Auto-init: create .board/ if it doesn't exist
     auto_init().await;
+    reconcile_runtime_runs();
 
     let (tx, _) = broadcast::channel::<String>(16);
     let (thread_tx, _) = broadcast::channel::<barkcli_core::threads::ThreadEvent>(128);
@@ -567,6 +568,30 @@ fn broadcast_contribution(
         })
         .to_string(),
     );
+}
+
+fn reconcile_runtime_runs() {
+    let Ok(store) = barkcli_core::runtime::RuntimeStore::from_project() else {
+        return;
+    };
+    for mut run in store.list_runs(None).unwrap_or_default() {
+        if run.status.is_terminal() {
+            continue;
+        }
+        let alive = run
+            .pid
+            .map(barkcli_core::agent::backend::pid_alive)
+            .unwrap_or(false);
+        if alive {
+            continue;
+        }
+        run.status = barkcli_core::runtime::RunStatus::Interrupted;
+        run.ended_at = Some(chrono::Utc::now());
+        if run.error.is_none() {
+            run.error = Some("Interrupted while the server was offline".into());
+        }
+        let _ = store.save_run(&run);
+    }
 }
 
 fn project_root_or_cwd() -> std::path::PathBuf {

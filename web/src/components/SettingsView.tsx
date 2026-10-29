@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import type { Board as BoardType, ProviderStatus } from "../lib/types";
-import { fetchConfig, fetchProviders, type BoardConfig } from "../lib/api";
+import { fetchConfig, fetchHooks, fetchProject, fetchProviders, validateBoards, type BoardConfig } from "../lib/api";
 import { isDesktop, openLogs, openProviderLogin, openTerminal } from "../lib/desktop";
 import { useTheme, type Theme } from "../lib/theme";
 import { Icon } from "./Icon";
@@ -19,6 +19,8 @@ export function SettingsView({
   const { theme, setTheme } = useTheme();
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [providers, setProviders] = useState<ProviderStatus[]>([]);
+  const [diagnostics, setDiagnostics] = useState<any | null>(null);
+  const [diagnosticsBusy, setDiagnosticsBusy] = useState(false);
   const [authBusy, setAuthBusy] = useState<string | null>(null);
   const [authNote, setAuthNote] = useState<string | null>(null);
 
@@ -106,6 +108,38 @@ export function SettingsView({
       {children}
     </div>
   );
+
+  const runDiagnostics = async () => {
+    setDiagnosticsBusy(true);
+    try {
+      const [project, hooks, validation, providerList] = await Promise.all([
+        fetchProject(),
+        fetchHooks(),
+        validateBoards().catch(() => null),
+        fetchProviders().catch(() => []),
+      ]);
+      const ping = await fetch("/api/ping").then((r) => r.json()).catch(() => null);
+      setDiagnostics({
+        project,
+        hooks,
+        validation,
+        providers: providerList,
+        ping,
+        collected_at: new Date().toISOString(),
+      });
+    } finally {
+      setDiagnosticsBusy(false);
+    }
+  };
+
+  const copyDiagnostics = async () => {
+    if (!diagnostics) return;
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(diagnostics, null, 2));
+    } catch {
+      /* clipboard is optional */
+    }
+  };
 
   return (
     <div className="h-full overflow-auto">
@@ -280,6 +314,94 @@ export function SettingsView({
               Open project terminal
             </button>
           </div>
+        </Section>
+
+        {/* Diagnostics */}
+        <Section title="Diagnostics">
+          <p className="mb-3 text-[11px] leading-relaxed text-muted">
+            Run a read-only health check before you ask an agent to work. The
+            output is safe to share when filing a bug.
+          </p>
+          <div className="flex flex-wrap gap-2 mb-3">
+            <button
+              type="button"
+              onClick={() => void runDiagnostics()}
+              disabled={diagnosticsBusy}
+              className="rounded-md border border-border px-2.5 py-1.5 text-[11px] text-text transition-colors hover:border-border-strong disabled:opacity-40"
+            >
+              {diagnosticsBusy ? "Running…" : "Run diagnostics"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void copyDiagnostics()}
+              disabled={!diagnostics}
+              className="rounded-md border border-border px-2.5 py-1.5 text-[11px] text-text transition-colors hover:border-border-strong disabled:opacity-40"
+            >
+              Copy diagnostics
+            </button>
+            {isDesktop() && (
+              <button
+                type="button"
+                onClick={() => void openLogs()}
+                className="rounded-md border border-border px-2.5 py-1.5 text-[11px] text-text transition-colors hover:border-border-strong"
+              >
+                Open server log
+              </button>
+            )}
+          </div>
+          {diagnostics && (
+            <div className="space-y-1.5 text-[11px]">
+              <div className="flex items-center gap-2">
+                <span className={diagnostics.project?.is_git ? "text-success" : "text-warning"}>
+                  {diagnostics.project?.is_git ? "✓" : "!"}
+                </span>
+                <span className="text-muted">Project</span>
+                <span className="font-mono text-text/90 truncate">
+                  {diagnostics.project?.root || "unknown"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={diagnostics.project?.setup?.complete ? "text-success" : "text-warning"}>
+                  {diagnostics.project?.setup?.complete ? "✓" : "!"}
+                </span>
+                <span className="text-muted">Setup</span>
+                <span className="text-text/90">
+                  {diagnostics.project?.setup?.complete ? "complete" : "needs setup"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={diagnostics.hooks?.installed ? "text-success" : "text-warning"}>
+                  {diagnostics.hooks?.installed ? "✓" : "!"}
+                </span>
+                <span className="text-muted">Agent hooks</span>
+                <span className="text-text/90">
+                  {diagnostics.hooks?.installed ? "installed" : "not installed"}
+                </span>
+              </div>
+              {Array.isArray(diagnostics.providers) && (
+                <div className="flex items-center gap-2">
+                  <span className="text-success">✓</span>
+                  <span className="text-muted">Providers</span>
+                  <span className="text-text/90">
+                    {diagnostics.providers.filter((p: any) => p.available).length}/
+                    {diagnostics.providers.length} available ·{" "}
+                    {diagnostics.providers.filter((p: any) => p.authenticated === true).length} signed in
+                  </span>
+                </div>
+              )}
+              {diagnostics.validation && (
+                <div className="flex items-center gap-2">
+                  <span className={diagnostics.validation.all_valid ? "text-success" : "text-warning"}>
+                    {diagnostics.validation.all_valid ? "✓" : "!"}
+                  </span>
+                  <span className="text-muted">Boards</span>
+                  <span className="text-text/90">
+                    {diagnostics.validation.all_valid ? "all valid" : "validation issues"}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </Section>
 
         {/* AI config */}
