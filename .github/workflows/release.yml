@@ -148,6 +148,61 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  build-macos-app:
+    name: Build macOS app (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            arch: arm64
+          - os: macos-13
+            arch: x64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+            desktop/target
+          key: macos-app-${{ matrix.arch }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            macos-app-${{ matrix.arch }}-cargo-
+
+      - name: Build Bark.app
+        run: bash desktop/scripts/build-macos-app.sh
+
+      - name: Package app
+        run: |
+          set -e
+          cd desktop/target/release/bundle/macos
+          ditto -c -k --sequesterRsrc --keepParent Bark.app "Bark-macos-${{ matrix.arch }}.zip"
+          shasum -a 256 "Bark-macos-${{ matrix.arch }}.zip" | tee "Bark-macos-${{ matrix.arch }}.zip.sha256"
+          ls -lh Bark-macos-*
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bark-macos-${{ matrix.arch }}
+          path: |
+            desktop/target/release/bundle/macos/Bark-macos-${{ matrix.arch }}.zip
+            desktop/target/release/bundle/macos/Bark-macos-${{ matrix.arch }}.zip.sha256
+          if-no-files-found: error
+          retention-days: 7
+
   checksums:
     name: Generate SHA256SUMS
     needs: build
@@ -185,7 +240,7 @@ jobs:
 
   release:
     name: Create GitHub Release
-    needs: [build, checksums]
+    needs: [build, checksums, build-macos-app]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -195,6 +250,12 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           pattern: barkcli-*
+          path: artifacts
+          merge-multiple: true
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: Bark-macos-*
           path: artifacts
           merge-multiple: true
 
@@ -224,6 +285,7 @@ jobs:
         run: |
           mkdir -p artifacts
           cp landing-next/public/install.sh artifacts/install.sh || true
+          cp landing-next/public/install-app.sh artifacts/install-app.sh || true
           cp landing-next/public/install.ps1 artifacts/install.ps1 || true
           ls -lh artifacts/
 
@@ -372,7 +434,7 @@ jobs:
 
   publish-vercel:
     name: Publish to barkcli.vercel.app (mirror)
-    needs: [build, checksums]
+    needs: [build, checksums, build-macos-app]
     runs-on: ubuntu-latest
     # Best-effort mirror: the canonical site is GitHub Pages (deployed by
     # pages.yml) and the canonical installer lives on GitHub Releases. A

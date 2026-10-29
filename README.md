@@ -130,7 +130,24 @@ brew tap AkshatNaruka/barkcli && brew install barkcli
 cargo install barkcli
 ```
 
-### Binary releases
+### macOS app (Bark)
+
+Bark ships as a native macOS app with the same UI and the same local server.
+
+```bash
+curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install-app.sh | sh
+```
+
+The script downloads the right `Bark-macos-arm64.zip` or `Bark-macos-x64.zip`,
+installs it to `/Applications/Bark.app`, and clears the Gatekeeper quarantine
+flag from the ad-hoc signed build. You can also grab the zip directly from the
+[Releases page](https://github.com/AkshatNaruka/barkcli/releases) and run:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Bark.app
+```
+
+### Binary releases (CLI only)
 
 Download prebuilt binaries for macOS (Intel + Apple Silicon), Linux, and Windows from the [Releases page](https://github.com/AkshatNaruka/barkcli/releases).
 

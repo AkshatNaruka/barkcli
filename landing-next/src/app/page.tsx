@@ -1312,7 +1312,8 @@ export default function Home() {
           </AnimatedSection>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {[
-              { title: "macOS / Linux", cmd: "curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh", icon: Terminal },
+              { title: "macOS app (Bark)", cmd: "curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install-app.sh | sh", icon: Download },
+              { title: "macOS / Linux CLI", cmd: "curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh", icon: Terminal },
               { title: "Homebrew", cmd: "brew tap AkshatNaruka/barkcli && brew install barkcli", icon: Shield },
               { title: "Cargo (from source)", cmd: "cargo install barkcli", icon: Code },
               { title: "GitHub Releases", cmd: "github.com/AkshatNaruka/barkcli/releases", icon: GitMerge },
