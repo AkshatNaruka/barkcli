@@ -48,6 +48,9 @@ import type {
   ProjectSnapshot,
   OnboardResult,
   ProjectHooksState,
+  ContributionAnalysis,
+  ContributionKind,
+  ContributionNode,
 } from "./types";
 import { load as yamlParse, dump as yamlDump } from "js-yaml";
 import { isDemoMode, getDemoCardHistory, onDemoChange } from "./demo";
@@ -575,6 +578,12 @@ export function connectWs(onReload: (version: number) => void): () => void {
       try {
         const msg = JSON.parse(e.data);
         if (msg?.type === "reload") onReload(Number(msg.version) || 0);
+        else if (
+          typeof msg?.type === "string" &&
+          msg.type.startsWith("contribution_")
+        ) {
+          window.dispatchEvent(new CustomEvent("bark-contribution", { detail: msg }));
+        }
       } catch {}
     };
     ws.onclose = () => setTimeout(() => connectWs(onReload), 3000);
@@ -1666,6 +1675,75 @@ export async function previewContext(payload: {
 }): Promise<ContextPack | null> {
   return postJson("/api/context/preview", payload);
 }
+
+// ── Contributions API (Agora-style contribution graph) ──
+
+export async function fetchContributions(): Promise<ContributionAnalysis | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(withToken("/api/contributions"));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function createContribution(body: {
+  title: string;
+  kind?: ContributionKind;
+  text?: string;
+  parent?: string;
+  author?: string;
+  files?: string[];
+}): Promise<RunRecord | null> {
+  return postJson("/api/contributions", body);
+}
+
+export async function fetchContributionDuplicates(): Promise<
+  Array<{ left: string; right: string; shared_files: string[] }>
+> {
+  if (isVscode) return [];
+  try {
+    const res = await fetch(withToken("/api/contributions/duplicates"));
+    if (!res.ok) return [];
+    const data = (await res.json()) as {
+      duplicates?: Array<{ left: string; right: string; shared_files: string[] }>;
+    };
+    return data.duplicates || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchRunAncestry(
+  runId: string
+): Promise<{ run_id: string; lineage: ContributionNode[]; descendants: ContributionNode[] } | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(withToken(`/api/runs/${encodeURIComponent(runId)}/ancestry`));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function linkRunToParent(runId: string, parentId: string): Promise<any | null> {
+  return postJson(`/api/runs/${encodeURIComponent(runId)}/link`, { parent_id: parentId });
+}
+
+export async function verifyContribution(
+  runId: string,
+  verifier: string,
+  note?: string
+): Promise<any | null> {
+  return postJson(`/api/runs/${encodeURIComponent(runId)}/verify`, {
+    verifier,
+    note,
+  });
+}
+
 
 export async function fetchDiscoveredSkills(): Promise<DiscoveredSkill[]> {
   if (isVscode) return [];

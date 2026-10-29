@@ -15,8 +15,10 @@ import { LabelChip } from "./LabelChip";
 import { QuietSelect } from "./QuietSelect";
 import { GraphNodeCard, type BrainNodeData } from "./brain/GraphNodeCard";
 import { layoutGraph, TIER, KIND_ICON, NODE_W, NODE_H } from "./brain/layout";
+import { ContributionsPanel } from "./ContributionsPanel";
 
 export function BrainView({ boardName }: { boardName: string | null }) {
+  const [mode, setMode] = useState<"graph" | "contributions">("graph");
   const [nodes, setNodes] = useState<BrainNode[]>([]);
   const [edges, setEdges] = useState<BrainEdge[]>([]);
   const [loading, setLoading] = useState(true);
@@ -170,10 +172,30 @@ export function BrainView({ boardName }: { boardName: string | null }) {
       <div className="flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2 text-xs text-muted">
           <span className="font-medium text-text text-sm">Brain</span>
-          <span>
-            {filteredNodeMap.size} of {nodes.length} nodes · {layouted.edges.length} links
-          </span>
+          {mode === "graph" && (
+            <span>
+              {filteredNodeMap.size} of {nodes.length} nodes · {layouted.edges.length} links
+            </span>
+          )}
         </div>
+        {/* Graph | Contributions segmented control */}
+        <div className="flex items-center rounded-md border border-border bg-surface p-0.5">
+          {(["graph", "contributions"] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={`px-2.5 py-1 rounded text-xs transition-colors ${
+                mode === m
+                  ? "bg-card text-text"
+                  : "text-muted hover:text-text"
+              }`}
+            >
+              {m === "graph" ? "Graph" : "Contributions"}
+            </button>
+          ))}
+        </div>
+        {mode === "graph" && (
+          <>
         {/* Field style shared with Mind composer — bordered only on focus */}
         <div className="flex gap-2 items-center">
           <input
@@ -216,9 +238,12 @@ export function BrainView({ boardName }: { boardName: string | null }) {
             {showAll ? "Focus" : `All ${nodes.length}`}
           </button>
         </div>
+          </>
+        )}
       </div>
 
       {/* Legend — quiet dots */}
+      {mode === "graph" && (
       <div className="flex items-center gap-4 text-[10px] text-muted shrink-0">
         {Object.entries(TIER).map(([k, v]) => (
           <button key={k} onClick={() => setTierFilter(tierFilter === k ? "" : k)} className="flex items-center gap-1 hover:text-text transition-colors" title={`Filter: ${v.label}`}>
@@ -241,8 +266,12 @@ export function BrainView({ boardName }: { boardName: string | null }) {
           </span>
         )}
       </div>
+      )}
 
       {/* Canvas + inspector */}
+      {mode === "contributions" ? (
+        <ContributionsPanel />
+      ) : (
       <div className="flex-1 flex min-h-0 gap-3">
         <div className="flex-1 bg-surface rounded-xl overflow-hidden min-h-0">
           {loading ? (
@@ -348,6 +377,7 @@ export function BrainView({ boardName }: { boardName: string | null }) {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

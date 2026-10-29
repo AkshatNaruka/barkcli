@@ -125,6 +125,26 @@ export function ThreadsShell({
     setActiveThread((current) => (current ? { ...current, card } : current));
   }, []);
 
+  // Cross-surface navigation: Brain/Contributions can ask Chat to open a
+  // specific thread without knowing the shell's internal selection state.
+  useEffect(() => {
+    const openThread = (event: Event) => {
+      const id = (event as CustomEvent<string>).detail;
+      if (id) setSelectedId(id);
+    };
+    window.addEventListener("bark-open-thread", openThread);
+    try {
+      const queued = window.sessionStorage.getItem("bark:thread");
+      if (queued) {
+        window.sessionStorage.removeItem("bark:thread");
+        setSelectedId(queued);
+      }
+    } catch {
+      /* storage is optional */
+    }
+    return () => window.removeEventListener("bark-open-thread", openThread);
+  }, []);
+
   // Keyboard: new intent, workbench toggle. The global shell owns the rest.
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

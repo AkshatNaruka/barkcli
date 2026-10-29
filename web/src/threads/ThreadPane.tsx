@@ -17,6 +17,7 @@ import {
   startThreadRun,
   stopRun,
   mergeRun,
+  verifyContribution,
   fetchProviders,
   fetchProviderModels,
   fetchRoles,
@@ -258,6 +259,9 @@ function RunSummaryCard({
   onRetry,
   onMerge,
   onReview,
+  onVerify,
+  verifying,
+  onBuildOn,
 }: {
   run: RunRecord;
   busy: boolean;
@@ -265,11 +269,16 @@ function RunSummaryCard({
   onRetry: () => void;
   onMerge: () => void;
   onReview?: () => void;
+  onVerify?: () => void;
+  verifying?: boolean;
+  onBuildOn?: () => void;
 }) {
   const active = ["queued", "starting", "running", "waiting"].includes(run.status);
   const canMerge = run.status === "passed" && Boolean(run.gate?.passed);
   const canRetry = ["failed", "interrupted", "needs_review"].includes(run.status);
   const canReview = ["needs_review", "passed", "failed"].includes(run.status);
+  const canVerify = run.status === "passed" && !run.verified_by?.length;
+  const canBuildOn = ["needs_review", "passed", "failed", "merged"].includes(run.status);
   return (
     <section
       className="rounded-[10px] border border-border/80 bg-surface/25 px-3.5 py-3"
@@ -306,6 +315,30 @@ function RunSummaryCard({
             >
               <Icon name="doc" size={10} />
               Review
+            </button>
+          )}
+          {canBuildOn && onBuildOn && (
+            <button
+              type="button"
+              onClick={onBuildOn}
+              disabled={busy}
+              title="Start a new run that builds on this contribution"
+              className="flex h-6 items-center gap-1 rounded px-1.5 text-[10px] text-muted transition-colors hover:bg-accent-soft hover:text-accent-text disabled:opacity-40"
+            >
+              <Icon name="branch" size={10} />
+              Build on
+            </button>
+          )}
+          {canVerify && onVerify && (
+            <button
+              type="button"
+              onClick={onVerify}
+              disabled={busy || verifying}
+              title="Re-run the gate as an independent verifier"
+              className="flex h-6 items-center gap-1 rounded px-1.5 text-[10px] text-muted transition-colors hover:bg-success/10 hover:text-success disabled:opacity-40"
+            >
+              <Icon name="check" size={10} />
+              {verifying ? "Verifying…" : "Verify"}
             </button>
           )}
           {canRetry && (
@@ -350,6 +383,16 @@ function RunSummaryCard({
             {run.diff_stats.files} files ·{" "}
             <span className="text-success/80">+{run.diff_stats.additions}</span>{" "}
             <span className="text-danger/80">−{run.diff_stats.deletions}</span>
+          </span>
+        )}
+        {(run.verified_by?.length || 0) > 0 && (
+          <span className="text-success/80">
+            verified by {run.verified_by!.join(", ")}
+          </span>
+        )}
+        {(run.contributes_to?.length || 0) > 0 && (
+          <span>
+            {run.contributes_to!.length} parent{run.contributes_to!.length === 1 ? "" : "s"}
           </span>
         )}
         {(run.usage.input_tokens > 0 || run.usage.output_tokens > 0) && (
@@ -760,6 +803,24 @@ export function ThreadPane({
     }
   };
 
+  const handleVerifyRun = async (run: RunRecord) => {
+    setRunBusyId(run.id);
+    setActionStatus("Re-running the gate as an independent verifier…");
+    try {
+      const result = await verifyContribution(run.id, "human", "Verified from the run summary");
+      if (result?.ok) {
+        const updated = await fetchThread(threadId!, boardName);
+        if (updated) setThread(updated);
+        setActionStatus("Independent verification recorded.");
+        refreshInboxRef.current?.();
+      } else {
+        setActionStatus("Verification failed or the run is not ready for reproduction.");
+      }
+    } finally {
+      setRunBusyId(null);
+    }
+  };
+
   const handleApprovePlan = async () => {
     if (!threadId) return;
     setActionStatus("Approving plan and dispatching workers…");
@@ -1006,6 +1067,9 @@ export function ThreadPane({
                 onRetry={() => handleStartRun(latestRun.id)}
                 onMerge={() => handleMergeRun(latestRun)}
                 onReview={onReview}
+                onVerify={() => handleVerifyRun(latestRun)}
+                verifying={runBusyId === latestRun.id}
+                onBuildOn={() => handleStartRun(latestRun.id)}
               />
             </div>
           )}
