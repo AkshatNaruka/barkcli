@@ -71,6 +71,11 @@ jobs:
       - name: Install web dependencies
         run: npm --prefix web ci
 
+      - name: Stage sidecar
+        run: |
+          cargo build --release -p barkcli
+          bash desktop/scripts/prepare-sidecar.sh release
+
       - name: Test desktop shell
         run: cargo test --manifest-path desktop/Cargo.toml
 
