@@ -387,6 +387,24 @@ fn run_daemon(port: u16, board_name: Option<&str>, open_browser: bool, host: &st
                 std::process::exit(1);
             }
             0 => {
+                // Detach stdout/stderr before setsid so the parent's pipeline
+                // can finish even though the daemon keeps running.
+                let log_path = barkcli_core::storage::board_dir::find_board_dir()
+                    .map(|dir| dir.join("server.log"))
+                    .unwrap_or_else(|_| std::path::PathBuf::from("/dev/null"));
+                if let Ok(file) = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&log_path)
+                {
+                    use std::os::unix::io::AsRawFd;
+                    unsafe {
+                        libc::dup2(file.as_raw_fd(), 1);
+                        libc::dup2(file.as_raw_fd(), 2);
+                    }
+                    std::mem::forget(file);
+                }
+
                 // Child process — become session leader
                 unsafe { libc::setsid(); }
 
