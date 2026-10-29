@@ -1,3 +1,4 @@
+use anyhow::{bail, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -118,6 +119,57 @@ pub struct RunOutcome {
 }
 
 /// One attempt by an agent, scoped to a thread and a worktree.
+/// What a contribution claims. Agora-style research graphs distinguish
+/// results from the hypotheses, verifications, reports and failures that
+/// surround them; Bark keeps the same distinction on every run node.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ContributionKind {
+    #[default]
+    Result,
+    Hypothesis,
+    Verification,
+    Report,
+    Insight,
+    Failure,
+}
+
+impl ContributionKind {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Result => "result",
+            Self::Hypothesis => "hypothesis",
+            Self::Verification => "verification",
+            Self::Report => "report",
+            Self::Insight => "insight",
+            Self::Failure => "failure",
+        }
+    }
+
+    pub fn parse(value: &str) -> Self {
+        match value.trim().to_lowercase().as_str() {
+            "hypothesis" => Self::Hypothesis,
+            "verification" | "reproduction" | "reproduce" => Self::Verification,
+            "report" => Self::Report,
+            "insight" => Self::Insight,
+            "failure" | "failed" => Self::Failure,
+            _ => Self::Result,
+        }
+    }
+}
+
+/// One independent reproduction of a contribution. `verifier` is an agent id,
+/// human handle, or provider name; self-verification is rejected at the store
+/// boundary.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Verification {
+    pub verifier: String,
+    pub passed: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+    pub at: DateTime<Utc>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RunRecord {
     pub id: String,
@@ -166,6 +218,27 @@ pub struct RunRecord {
     pub usage: RunUsage,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    /// Contribution-graph metadata. Every field is defaulted so old run files
+    /// stay readable; the graph is always on, but degrades to a flat list when
+    /// an older node has no edges.
+    #[serde(default)]
+    pub kind: ContributionKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub contributes_to: Vec<String>,
+    #[serde(default)]
+    pub verified_by: Vec<String>,
+    #[serde(default)]
+    pub verifications: Vec<Verification>,
+    #[serde(default)]
+    pub files_touched: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub author: Option<String>,
+    #[serde(default)]
+    pub evidence_score: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
 }
 
 fn default_ordinal() -> u32 {
@@ -201,7 +274,108 @@ impl RunRecord {
             gate: None,
             usage: RunUsage::default(),
             error: None,
+            kind: ContributionKind::Result,
+            title: None,
+            contributes_to: Vec::new(),
+            verified_by: Vec::new(),
+            verifications: Vec::new(),
+            files_touched: Vec::new(),
+            author: None,
+            evidence_score: 0.0,
+            summary: None,
         }
+    }
+
+    /// Identity used for independent-verification checks. Explicit author >
+    /// agent profile > provider. A verifier may never equal this value.
+    pub fn author_id(&self) -> String {
+        self.author
+            .clone()
+            .filter(|value| !value.trim().is_empty())
+            .or_else(|| self.agent_id.clone().filter(|value| !value.trim().is_empty()))
+            .unwrap_or_else(|| self.provider.clone())
+    }
+
+    /// Canonical parent set: the legacy single parent plus every explicit
+    /// contribution edge, deduplicated in insertion order.
+    pub fn effective_parents(&self) -> Vec<String> {
+        let mut parents = Vec::new();
+        if let Some(parent) = self.parent_run_id.as_deref() {
+            if !parent.trim().is_empty() {
+                parents.push(parent.to_string());
+            }
+        }
+        for parent in &self.contributes_to {
+            if !parent.trim().is_empty() && !parents.contains(parent) {
+                parents.push(parent.clone());
+            }
+        }
+        parents
+    }
+
+    pub fn add_parent(&mut self, parent: &str) -> Result<()> {
+        let parent = parent.trim();
+        if parent.is_empty() {
+            bail!("parent run id is required");
+        }
+        if parent == self.id {
+            bail!("a contribution cannot be its own parent");
+        }
+        if self.effective_parents().iter().any(|existing| existing == parent) {
+            return Ok(());
+        }
+        if self.parent_run_id.is_none() {
+            self.parent_run_id = Some(parent.to_string());
+        }
+        self.contributes_to.push(parent.to_string());
+        Ok(())
+    }
+
+    pub fn add_verification(
+        &mut self,
+        verifier: &str,
+        passed: bool,
+        note: Option<String>,
+    ) -> Result<()> {
+        let verifier = verifier.trim();
+        if verifier.is_empty() {
+            bail!("verifier is required");
+        }
+        if verifier == self.author_id() {
+            bail!("self-verification is not allowed; use a different agent or account");
+        }
+        if self
+            .verifications
+            .iter()
+            .any(|existing| existing.verifier == verifier)
+        {
+            bail!("{verifier} has already verified this contribution");
+        }
+        self.verifications.push(Verification {
+            verifier: verifier.to_string(),
+            passed,
+            note,
+            at: Utc::now(),
+        });
+        if passed && !self.verified_by.iter().any(|existing| existing == verifier) {
+            self.verified_by.push(verifier.to_string());
+        }
+        self.evidence_score =
+            (1.0 + self.verified_by.len() as f64).ln() + if passed { 0.25 } else { 0.0 };
+        Ok(())
+    }
+
+    pub fn independent_verifications(&self) -> usize {
+        let author = self.author_id();
+        let mut verifiers: Vec<&str> = self
+            .verifications
+            .iter()
+            .filter(|verification| verification.passed && verification.verifier != author)
+            .map(|verification| verification.verifier.as_str())
+            .collect();
+        verifiers.sort_unstable();
+        verifiers.dedup();
+        verifiers.len()
     }
 
     pub fn apply(&mut self, event: &RuntimeEvent) {
@@ -303,12 +477,16 @@ impl RunRecord {
                 files,
                 additions,
                 deletions,
+                paths,
             } => {
                 self.diff_stats = RunDiffStats {
                     files: *files,
                     additions: *additions,
                     deletions: *deletions,
                 };
+                if !paths.is_empty() {
+                    self.files_touched = paths.clone();
+                }
             }
             RuntimeEvent::Merged { .. } => {
                 self.status = RunStatus::Merged;
@@ -444,6 +622,8 @@ pub enum RuntimeEvent {
         additions: u32,
         #[serde(default)]
         deletions: u32,
+        #[serde(default)]
+        paths: Vec<String>,
     },
     Merged {
         branch: String,
@@ -542,6 +722,7 @@ impl RuntimeEvent {
                 files,
                 additions,
                 deletions,
+                ..
             } => format!("Diff: {files} files, +{additions} -{deletions}"),
             Self::Merged { branch, .. } => format!("Merged {branch} into main"),
             Self::Log { message, .. } => message.clone(),

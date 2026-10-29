@@ -150,6 +150,11 @@ fn dispatch(cmd: &str, cmd_args: &[String]) -> Result<()> {
         "packet" => commands::ready::run_packet(cmd_args)?,
         "prime" => commands::prime::run_prime(cmd_args)?,
         "verify" => commands::verify_cmd::run_verify(cmd_args)?,
+        "verify-run" => commands::contribute::run_verify(cmd_args)?,
+        "analyze" => commands::contribute::run_analyze(cmd_args)?,
+        "contribute" => commands::contribute::run_contribute(cmd_args)?,
+        "link-run" => commands::contribute::run_link(cmd_args)?,
+        "ancestry" => commands::contribute::run_ancestry(cmd_args)?,
         "handoff" => commands::handoff::run_handoff(cmd_args)?,
 
         // Interfaces / self-update — handled by barkcli-cli's main.rs
@@ -847,6 +852,11 @@ fn print_usage() {
     println!("  mind sync|show      Compile + show Mind snapshot/digest");
     println!("  overview            4-panel human narrative (board/sprint/blockers/next)");
     println!("  skills list|show    BMAD skills (mvp/planning/scrum-master/test)");
+    println!("  analyze             Contribution graph: leading, neglected, contested (--json)");
+    println!("  contribute          Publish a manual insight/hypothesis/report (--title, --kind, --parent)");
+    println!("  link-run            Link a run to the contribution it builds on");
+    println!("  verify-run          Independently reproduce a gate-passing run");
+    println!("  ancestry            Show a run's contribution lineage");
     println!("  dispatch            Run orchestration cycle (assign tasks to agents)");
     println!();
     println!("Multiple boards (optional):");
