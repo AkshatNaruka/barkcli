@@ -1,6 +1,7 @@
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
-use std::time::Instant;
+use std::sync::{Arc, Mutex as StdMutex};
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use axum::{
@@ -45,6 +46,13 @@ static INDEX_HTML_FALLBACK: &str = include_str!("./index.html");
 static RELOAD_VERSION: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Clone)]
+struct ChatRuntime {
+    pid: Option<u32>,
+    turn_id: String,
+    provider: String,
+}
+
+#[derive(Clone)]
 struct AppState {
     board_name: Option<String>,
     host: String,
@@ -52,6 +60,9 @@ struct AppState {
     tx: broadcast::Sender<String>,
     thread_tx: broadcast::Sender<barkcli_core::threads::ThreadEvent>,
     code_cache: Arc<Mutex<Option<CodeCache>>>,
+    /// One live read-only chat turn per thread. Chat turns run in the project
+    /// root, not a worktree, so they must be stopped explicitly.
+    chat: Arc<StdMutex<HashMap<String, ChatRuntime>>>,
     /// Monotonic process start time; feeds `uptime_seconds` on `/api/ping`.
     started_at: Instant,
 }
@@ -106,6 +117,7 @@ where
         tx: tx.clone(),
         thread_tx: thread_tx.clone(),
         code_cache: Arc::new(Mutex::new(None)),
+        chat: Arc::new(StdMutex::new(HashMap::new())),
         started_at: Instant::now(),
     });
 
@@ -120,6 +132,8 @@ where
         .route("/api/threads", get(list_threads_handler).post(create_thread_handler))
         .route("/api/threads/{id}", get(get_thread_handler))
         .route("/api/threads/{id}/messages", post(post_thread_message_handler))
+        .route("/api/threads/{id}/chat", post(chat_thread_handler))
+        .route("/api/threads/{id}/chat/stop", post(stop_chat_handler))
         .route("/api/threads/{id}/stream", get(stream_thread_handler))
         .route(
             "/api/threads/{id}/runs",
@@ -184,6 +198,7 @@ where
         .route("/api/open", post(open_file_handler))
         .route("/api/repo/tree", get(repo_tree_handler))
         .route("/api/repo/file", get(repo_file_handler))
+        .route("/api/exec", post(exec_handler))
         .route("/api/git/status", get(git_status_handler))
         .route("/api/git/worktrees", get(git_worktrees_handler))
         .route("/api/git/commit", post(git_commit_handler))
@@ -639,6 +654,7 @@ fn project_snapshot(state: &AppState) -> serde_json::Value {
             "sessions": sessions,
             "agents": profiles.len(),
         },
+        "commands": barkcli_core::repo::detect_commands(&root),
     })
 }
 
@@ -6157,6 +6173,430 @@ async fn answer_run_handler(
     ))
 }
 
+#[derive(Deserialize)]
+struct ChatThreadRequest {
+    text: String,
+    #[serde(default)]
+    provider: Option<String>,
+    #[serde(default)]
+    model: Option<String>,
+    #[serde(default)]
+    files: Vec<String>,
+    #[serde(default)]
+    skip_user_event: bool,
+    #[serde(default)]
+    board: Option<String>,
+}
+
+fn persist_chat_event(
+    card_id: &str,
+    tx: &broadcast::Sender<barkcli_core::threads::ThreadEvent>,
+    event: &barkcli_core::threads::ThreadEvent,
+) {
+    let _ = barkcli_core::threads::append_event(card_id, event);
+    let _ = tx.send(event.clone());
+}
+
+/// One read-only conversation turn with the selected local agent CLI.
+/// The provider runs in the project root with `plan` permissions; it never
+/// gets a worktree, a commit, or a merge. Build work still goes through the
+/// worktree runner.
+async fn chat_thread_handler(
+    State(state): State<Arc<AppState>>,
+    Path(card_id): Path<String>,
+    Json(req): Json<ChatThreadRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let text = req.text.trim().to_string();
+    if text.is_empty() {
+        return Err(ServerError::bad("message text required"));
+    }
+    if state
+        .chat
+        .lock()
+        .map_err(|_| ServerError::internal("chat state is poisoned"))?
+        .contains_key(&card_id)
+    {
+        return Err(ServerError::bad(
+            "this thread is already waiting for a reply; stop it or wait",
+        ));
+    }
+
+    let board_name = resolve_board_name(&state, req.board.clone())?;
+    let provider = match req.provider.as_deref().unwrap_or("opencode").to_lowercase().as_str() {
+        "claude" | "claude-code" => "claude-code".to_string(),
+        other => other.to_string(),
+    };
+    let registry = barkcli_core::runtime::ProviderRegistry::standard();
+    let adapter = registry
+        .get(&provider)
+        .ok_or_else(|| ServerError::bad(format!("unknown provider: {provider}")))?;
+    let status = adapter.probe();
+    if !status.available {
+        return Err(ServerError::bad(format!(
+            "{} is not installed. Install it or choose another local agent.",
+            status.name
+        )));
+    }
+    if status.authenticated == Some(false) {
+        return Err(ServerError::bad(
+            status
+                .auth_hint
+                .clone()
+                .unwrap_or_else(|| format!("{} is not signed in.", status.name)),
+        ));
+    }
+    let board = read_board(&board_name).map_err(|e| ServerError::internal(e.to_string()))?;
+    if !board.cards.iter().any(|card| card.id == card_id) {
+        return Err(ServerError::bad(format!("card '{card_id}' not found")));
+    }
+
+    let user_ev = barkcli_core::threads::ThreadEvent::new(
+        &card_id,
+        barkcli_core::threads::ThreadEventKind::User,
+        "you",
+        &text,
+        Some(serde_json::json!({
+            "mode": "ask",
+            "provider": provider,
+            "files": req.files,
+        })),
+    );
+    if !req.skip_user_event {
+        persist_chat_event(&card_id, &state.thread_tx, &user_ev);
+    }
+
+    let prepared = barkcli_core::runtime::chat::prepare_chat(
+        &barkcli_core::runtime::ChatRequest {
+            card_id: card_id.clone(),
+            text: text.clone(),
+            provider: provider.clone(),
+            model: req.model.clone(),
+            files: req.files.clone(),
+        },
+    )
+    .map_err(|e| ServerError::bad(e.to_string()))?;
+    let turn_id = prepared.turn_id.clone();
+    let session = Arc::new(StdMutex::new(prepared.session.clone()));
+    let session_for_sink = session.clone();
+    let buffer = Arc::new(StdMutex::new(String::new()));
+    let buffer_for_sink = buffer.clone();
+    let final_seen = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let final_for_sink = final_seen.clone();
+    let failed_seen = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let failed_for_sink = failed_seen.clone();
+    let tx_for_sink = state.thread_tx.clone();
+    let card_for_sink = card_id.clone();
+    let turn_for_sink = turn_id.clone();
+    let provider_for_sink = provider.clone();
+    let model_for_sink = prepared.start.model.clone();
+    let sink: barkcli_core::runtime::EventSink = Arc::new(move |event| {
+        match &event {
+            barkcli_core::runtime::RuntimeEvent::Assistant { text, partial } => {
+                if *partial {
+                    if let Ok(mut buffer) = buffer_for_sink.lock() {
+                        buffer.push_str(text);
+                    }
+                    let mut delta = barkcli_core::threads::ThreadEvent::new(
+                        &card_for_sink,
+                        barkcli_core::threads::ThreadEventKind::AssistantDelta,
+                        &provider_for_sink,
+                        text.clone(),
+                        None,
+                    );
+                    delta.run_id = Some(turn_for_sink.clone());
+                    delta.turn_id = Some(turn_for_sink.clone());
+                    let _ = tx_for_sink.send(delta);
+                } else {
+                    if let Ok(mut buffer) = buffer_for_sink.lock() {
+                        buffer.clear();
+                    }
+                    final_for_sink.store(true, Ordering::SeqCst);
+                    let mut event = barkcli_core::threads::ThreadEvent::new(
+                        &card_for_sink,
+                        barkcli_core::threads::ThreadEventKind::Assistant,
+                        &provider_for_sink,
+                        text.clone(),
+                        Some(serde_json::json!({ "provider": provider_for_sink, "mode": "ask" })),
+                    );
+                    event.run_id = Some(turn_for_sink.clone());
+                    event.turn_id = Some(turn_for_sink.clone());
+                    persist_chat_event(&card_for_sink, &tx_for_sink, &event);
+                }
+            }
+            barkcli_core::runtime::RuntimeEvent::ToolCall { .. } => {
+                let mut event = barkcli_core::threads::ThreadEvent::new(
+                    &card_for_sink,
+                    barkcli_core::threads::ThreadEventKind::ToolCall,
+                    &provider_for_sink,
+                    event.summary(),
+                    serde_json::to_value(&event).ok(),
+                );
+                event.run_id = Some(turn_for_sink.clone());
+                event.turn_id = Some(turn_for_sink.clone());
+                persist_chat_event(&card_for_sink, &tx_for_sink, &event);
+            }
+            barkcli_core::runtime::RuntimeEvent::ApprovalRequested { .. }
+            | barkcli_core::runtime::RuntimeEvent::Question { .. } => {
+                let mut event = barkcli_core::threads::ThreadEvent::new(
+                    &card_for_sink,
+                    event.thread_kind(),
+                    &provider_for_sink,
+                    event.summary(),
+                    serde_json::to_value(&event).ok(),
+                );
+                event.run_id = Some(turn_for_sink.clone());
+                event.turn_id = Some(turn_for_sink.clone());
+                persist_chat_event(&card_for_sink, &tx_for_sink, &event);
+            }
+            barkcli_core::runtime::RuntimeEvent::Failed { message, .. } => {
+                failed_for_sink.store(true, Ordering::SeqCst);
+                let mut event = barkcli_core::threads::ThreadEvent::new(
+                    &card_for_sink,
+                    barkcli_core::threads::ThreadEventKind::RunFailed,
+                    &provider_for_sink,
+                    message.clone(),
+                    serde_json::to_value(&event).ok(),
+                );
+                event.run_id = Some(turn_for_sink.clone());
+                event.turn_id = Some(turn_for_sink.clone());
+                persist_chat_event(&card_for_sink, &tx_for_sink, &event);
+            }
+            barkcli_core::runtime::RuntimeEvent::Interrupted => {
+                let mut event = barkcli_core::threads::ThreadEvent::new(
+                    &card_for_sink,
+                    barkcli_core::threads::ThreadEventKind::RunInterrupted,
+                    &provider_for_sink,
+                    "Reply stopped.",
+                    None,
+                );
+                event.run_id = Some(turn_for_sink.clone());
+                event.turn_id = Some(turn_for_sink.clone());
+                persist_chat_event(&card_for_sink, &tx_for_sink, &event);
+            }
+            barkcli_core::runtime::RuntimeEvent::Usage { .. } => {
+                let mut event = barkcli_core::threads::ThreadEvent::new(
+                    &card_for_sink,
+                    barkcli_core::threads::ThreadEventKind::Usage,
+                    &provider_for_sink,
+                    event.summary(),
+                    serde_json::to_value(&event).ok(),
+                );
+                event.run_id = Some(turn_for_sink.clone());
+                event.turn_id = Some(turn_for_sink.clone());
+                persist_chat_event(&card_for_sink, &tx_for_sink, &event);
+            }
+            barkcli_core::runtime::RuntimeEvent::Log { level, message } => {
+                if level == "stderr" || message.to_lowercase().contains("error") {
+                    let mut event = barkcli_core::threads::ThreadEvent::new(
+                        &card_for_sink,
+                        barkcli_core::threads::ThreadEventKind::Log,
+                        &provider_for_sink,
+                        message.clone(),
+                        Some(serde_json::json!({ "level": level })),
+                    );
+                    event.run_id = Some(turn_for_sink.clone());
+                    event.turn_id = Some(turn_for_sink.clone());
+                    persist_chat_event(&card_for_sink, &tx_for_sink, &event);
+                }
+            }
+            barkcli_core::runtime::RuntimeEvent::Session { id } => {
+                if let Ok(mut saved) = session_for_sink.lock() {
+                    saved.session_id = id.clone();
+                    saved.provider = provider_for_sink.clone();
+                    saved.model = model_for_sink.clone();
+                    let _ = barkcli_core::runtime::chat::write_session(&card_for_sink, &saved);
+                }
+            }
+            _ => {}
+        }
+    });
+
+    let handle = adapter
+        .start(prepared.start.clone(), sink)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let pid = handle.pid();
+
+    let start_ev = {
+        let mut event = barkcli_core::threads::ThreadEvent::new(
+            &card_id,
+            barkcli_core::threads::ThreadEventKind::RunStarted,
+            &provider,
+            format!("{} is reading the project…", status.name),
+            Some(serde_json::json!({ "mode": "ask" })),
+        );
+        event.run_id = Some(turn_id.clone());
+        event.turn_id = Some(turn_id.clone());
+        event
+    };
+    persist_chat_event(&card_id, &state.thread_tx, &start_ev);
+
+    state
+        .chat
+        .lock()
+        .map_err(|_| ServerError::internal("chat state is poisoned"))?
+        .insert(
+            card_id.clone(),
+            ChatRuntime {
+                pid,
+                turn_id: turn_id.clone(),
+                provider: provider.clone(),
+            },
+        );
+
+    let chat_state = state.chat.clone();
+    let tx_done = state.thread_tx.clone();
+    let card_done = card_id.clone();
+    let turn_done = turn_id.clone();
+    let provider_done = provider.clone();
+    let buffer_done = buffer.clone();
+    let final_done = final_seen.clone();
+    std::thread::spawn(move || {
+        let outcome = handle.wait();
+        if !final_done.load(Ordering::SeqCst) {
+            let text = buffer_done
+                .lock()
+                .map(|buffer| buffer.clone())
+                .unwrap_or_default();
+            if !text.trim().is_empty() {
+                let mut event = barkcli_core::threads::ThreadEvent::new(
+                    &card_done,
+                    barkcli_core::threads::ThreadEventKind::Assistant,
+                    &provider_done,
+                    text,
+                    Some(serde_json::json!({ "provider": provider_done, "mode": "ask" })),
+                );
+                event.run_id = Some(turn_done.clone());
+                event.turn_id = Some(turn_done.clone());
+                persist_chat_event(&card_done, &tx_done, &event);
+            }
+        }
+        if let Err(error) = outcome {
+            if !failed_seen.load(Ordering::SeqCst) {
+                let mut event = barkcli_core::threads::ThreadEvent::new(
+                    &card_done,
+                    barkcli_core::threads::ThreadEventKind::RunFailed,
+                    &provider_done,
+                    error.to_string(),
+                    None,
+                );
+                event.run_id = Some(turn_done.clone());
+                event.turn_id = Some(turn_done.clone());
+                persist_chat_event(&card_done, &tx_done, &event);
+            }
+        }
+        let mut done = barkcli_core::threads::ThreadEvent::new(
+            &card_done,
+            barkcli_core::threads::ThreadEventKind::Custom("chat_done".into()),
+            "barkcli",
+            "",
+            Some(serde_json::json!({ "turn_id": turn_done })),
+        );
+        done.run_id = Some(turn_done.clone());
+        done.turn_id = Some(turn_done);
+        persist_chat_event(&card_done, &tx_done, &done);
+        if let Ok(mut chat) = chat_state.lock() {
+            chat.remove(&card_done);
+        }
+    });
+
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({
+        "ok": true,
+        "turn_id": turn_id,
+        "provider": provider,
+        "board": board_name,
+        "mode": "ask",
+    })))
+}
+
+async fn stop_chat_handler(
+    State(state): State<Arc<AppState>>,
+    Path(card_id): Path<String>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let runtime = state
+        .chat
+        .lock()
+        .map_err(|_| ServerError::internal("chat state is poisoned"))?
+        .get(&card_id)
+        .cloned();
+    let Some(runtime) = runtime else {
+        return Err(ServerError::bad("no active chat on this thread"));
+    };
+    if let Some(pid) = runtime.pid {
+        let _ = std::process::Command::new("kill")
+            .args(["-INT", &pid.to_string()])
+            .status();
+    }
+    Ok(Json(serde_json::json!({
+        "ok": true,
+        "turn_id": runtime.turn_id,
+        "provider": runtime.provider,
+    })))
+}
+
+#[derive(Deserialize)]
+struct ExecRequest {
+    command: String,
+    #[serde(default)]
+    timeout_secs: Option<u64>,
+}
+
+fn cap_command_output(output: &[u8]) -> String {
+    const MAX: usize = 200_000;
+    let text = String::from_utf8_lossy(output);
+    let mut capped: String = text.chars().take(MAX).collect();
+    if text.chars().count() > MAX {
+        capped.push_str("\n… output truncated");
+    }
+    capped
+}
+
+async fn exec_handler(
+    Json(req): Json<ExecRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let command = req.command.trim();
+    if command.is_empty() {
+        return Err(ServerError::bad("command is required"));
+    }
+    if command.len() > 4096 {
+        return Err(ServerError::bad("command is too long"));
+    }
+    let root = project_root_or_cwd();
+    let timeout_secs = req.timeout_secs.unwrap_or(120).clamp(1, 600);
+    let started = Instant::now();
+    let child = tokio::process::Command::new("sh")
+        .arg("-lc")
+        .arg(command)
+        .current_dir(&root)
+        .kill_on_drop(true)
+        .output();
+    let output = tokio::time::timeout(Duration::from_secs(timeout_secs), child).await;
+    let duration_ms = started.elapsed().as_millis() as u64;
+    match output {
+        Ok(Ok(output)) => Ok(Json(serde_json::json!({
+            "ok": output.status.success(),
+            "command": command,
+            "exit_code": output.status.code(),
+            "stdout": cap_command_output(&output.stdout),
+            "stderr": cap_command_output(&output.stderr),
+            "duration_ms": duration_ms,
+            "timed_out": false,
+            "cwd": root.display().to_string(),
+        }))),
+        Ok(Err(error)) => Err(ServerError::bad(format!("command failed to start: {error}"))),
+        Err(_) => Ok(Json(serde_json::json!({
+            "ok": false,
+            "command": command,
+            "exit_code": serde_json::Value::Null,
+            "stdout": "",
+            "stderr": format!("Command timed out after {timeout_secs}s."),
+            "duration_ms": duration_ms,
+            "timed_out": true,
+            "cwd": root.display().to_string(),
+        }))),
+    }
+}
+
 async fn create_thread_handler(
     State(state): State<Arc<AppState>>,
     Json(req): Json<CreateThreadRequest>,
@@ -6197,7 +6637,10 @@ async fn create_thread_handler(
     let _ = barkcli_core::threads::append_event(&card_id, &user_event);
     let _ = state.thread_tx.send(user_event.clone());
 
-    if mode == "plan_and_run" || mode == "auto" {
+    if mode == "chat" {
+        // A read-only conversation, not an implementation intent. The first
+        // reply comes from /api/threads/:id/chat.
+    } else if mode == "plan_and_run" || mode == "auto" {
         let _ = dispatch_backend_plan(&board_name, &card_id, &b_name, text);
     } else {
         let mut st = barkcli_core::agent::autopilot::AutopilotState::load(&board_name);
@@ -6657,6 +7100,7 @@ mod tests {
             tx,
             thread_tx,
             code_cache: Arc::new(Mutex::new(None)),
+            chat: Arc::new(StdMutex::new(HashMap::new())),
             started_at: Instant::now(),
         })
     }
@@ -7060,6 +7504,10 @@ cards:
             .route("/api/hooks", get(hooks_status_handler))
             .route("/api/hooks/install", post(install_hooks_handler))
             .route("/api/providers/{id}/models", get(provider_models_handler))
+            .route("/api/threads/{id}/chat", post(chat_thread_handler))
+            .route("/api/threads/{id}/chat/stop", post(stop_chat_handler))
+            .route("/api/threads", post(create_thread_handler))
+            .route("/api/exec", post(exec_handler))
             .with_state(state)
     }
 
@@ -7167,5 +7615,112 @@ cards:
         assert_eq!(res.status(), StatusCode::BAD_REQUEST);
         let value = json_body(res).await;
         assert!(value["error"].as_str().unwrap().contains("unknown provider"));
+    }
+
+    #[tokio::test]
+    async fn project_snapshot_discovers_real_commands() {
+        let project = with_temp_project();
+        std::fs::write(
+            project.root().join("package.json"),
+            r#"{"scripts":{"test":"vitest","build":"vite build"}}"#,
+        )
+        .unwrap();
+        let app = project_router(test_state(None));
+        let res = app.oneshot(get_request("/api/project")).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let value = json_body(res).await;
+        let commands = value["commands"].as_array().unwrap();
+        assert!(commands
+            .iter()
+            .any(|item| item["command"] == "npm run test"));
+        assert!(commands
+            .iter()
+            .any(|item| item["command"] == "git status --short"));
+    }
+
+    #[tokio::test]
+    async fn exec_endpoint_runs_in_the_project_root() {
+        let project = with_temp_project();
+        let app = project_router(test_state(None));
+        let res = app
+            .oneshot(post_json_request(
+                "/api/exec",
+                serde_json::json!({ "command": "printf bark && pwd" }),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let value = json_body(res).await;
+        assert_eq!(value["ok"], true);
+        assert_eq!(value["exit_code"], 0);
+        assert!(value["stdout"].as_str().unwrap().contains("bark"));
+        assert_eq!(
+            std::fs::canonicalize(value["cwd"].as_str().unwrap()).unwrap(),
+            std::fs::canonicalize(project.root()).unwrap()
+        );
+    }
+
+    #[tokio::test]
+    async fn chat_rejects_unknown_providers_before_starting_a_process() {
+        let project = with_temp_project();
+        std::fs::write(
+            project.root().join("work.board"),
+            "title: work\ncolumns:\n- id: todo\n  name: Todo\ncards: []\n",
+        )
+        .unwrap();
+        let app = project_router(test_state(None));
+        let res = app
+            .oneshot(post_json_request(
+                "/api/threads/any-card/chat",
+                serde_json::json!({ "text": "hello", "provider": "not-a-provider" }),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+        let value = json_body(res).await;
+        assert!(value["error"].as_str().unwrap().contains("unknown provider"));
+    }
+
+    #[tokio::test]
+    async fn chat_threads_do_not_auto_propose_a_plan() {
+        let project = with_temp_project();
+        std::fs::write(
+            project.root().join("work.board"),
+            "title: work\ncolumns:\n- id: todo\n  name: Todo\ncards: []\n",
+        )
+        .unwrap();
+        let app = project_router(test_state(None));
+        let res = app
+            .oneshot(post_json_request(
+                "/api/threads",
+                serde_json::json!({
+                    "text": "Where is the auth middleware?",
+                    "backend": "opencode",
+                    "mode": "chat"
+                }),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let value = json_body(res).await;
+        let thread_id = value["thread_id"].as_str().unwrap();
+        let events = barkcli_core::threads::read_events(thread_id).unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].kind, barkcli_core::threads::ThreadEventKind::User);
+    }
+
+    #[tokio::test]
+    async fn stopping_an_idle_chat_is_an_explicit_error() {
+        let app = project_router(test_state(None));
+        let res = app
+            .oneshot(post_json_request(
+                "/api/threads/any-card/chat/stop",
+                serde_json::json!({}),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+        let value = json_body(res).await;
+        assert!(value["error"].as_str().unwrap().contains("no active chat"));
     }
 }
