@@ -71,16 +71,11 @@ jobs:
       - name: Install web dependencies
         run: npm --prefix web ci
 
-      - name: Stage sidecar
-        run: |
-          cargo build --release -p barkcli
-          bash desktop/scripts/prepare-sidecar.sh release
+      - name: Build app bundle
+        run: bash desktop/scripts/build-macos-app.sh
 
       - name: Test desktop shell
         run: cargo test --manifest-path desktop/Cargo.toml
-
-      - name: Build app bundle
-        run: bash desktop/scripts/build-macos-app.sh
 
       - name: Smoke test
         env:
