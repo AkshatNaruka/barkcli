@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Icon } from "./Icon";
+import { apiAccess, ping, type PingResponse } from "../lib/api";
 
 const AGENT_PROMPT = `# AI Agent Prompt for barkcli
 
@@ -125,7 +126,7 @@ barkcli create <board-name>
 | Command | Description |
 |---------|-------------|
 | \`barkcli tui\` | Terminal board |
-| \`barkcli serve\` | Web app on localhost:4321 |
+| \`barkcli serve\` | Web app on a private local port |
 | \`barkcli serve --open\` | Open in browser |
 
 ---
@@ -399,11 +400,41 @@ barkcli validate
 export function AgentPromptView() {
   const [copied, setCopied] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [pingState, setPingState] = useState<PingResponse | null>(null);
+  const [pingError, setPingError] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const access = apiAccess();
+
+  useEffect(() => {
+    let cancelled = false;
+    ping()
+      .then((next) => {
+        if (!cancelled) {
+          setPingState(next);
+          setPingError(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPingState(null);
+          setPingError(true);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const livePrompt = `> Live workspace: ${access.base || "unknown"}
+> Health: ${access.base || ""}/api/ping
+> Auth: ${access.tokenSet ? "this server requires the token from the Bark window URL" : "no token required"}
+> MCP: barkcli mcp
+
+${AGENT_PROMPT}`;
 
   const handleCopy = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(AGENT_PROMPT);
+      await navigator.clipboard.writeText(livePrompt);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -415,17 +446,17 @@ export function AgentPromptView() {
         setTimeout(() => setCopied(false), 2000);
       }
     }
-  }, []);
+  }, [livePrompt]);
 
   const filteredContent = searchQuery
-    ? AGENT_PROMPT.split("\n")
+    ? livePrompt.split("\n")
         .filter(
           (line) =>
             line.toLowerCase().includes(searchQuery.toLowerCase()) ||
             line.startsWith("#")
         )
         .join("\n")
-    : AGENT_PROMPT;
+    : livePrompt;
 
   return (
     <div className="h-full flex flex-col bg-bg">
@@ -436,8 +467,8 @@ export function AgentPromptView() {
             <Icon name="code" size={14} />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-text">AI Agent Prompt</h2>
-            <p className="text-xs text-muted">Copy into your AI agent's context to teach it barkcli</p>
+            <h2 className="text-sm font-semibold text-text">Agent API</h2>
+            <p className="text-xs text-muted">Live local API details and the agent contract</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -459,6 +490,43 @@ export function AgentPromptView() {
             {copied ? "Copied!" : "Copy Prompt"}
           </button>
         </div>
+      </div>
+
+      {/* Live connection */}
+      <div className="border-b border-border bg-surface/40 px-4 py-3 shrink-0">
+        <div className="mx-auto grid max-w-4xl gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-md border border-border/70 bg-bg/50 px-2.5 py-2">
+            <div className="text-[9px] uppercase tracking-[0.12em] text-muted">Base URL</div>
+            <div className="mt-0.5 truncate font-mono text-[10.5px] text-text" title={access.base}>
+              {access.base || "not in a browser"}
+            </div>
+          </div>
+          <div className="rounded-md border border-border/70 bg-bg/50 px-2.5 py-2">
+            <div className="text-[9px] uppercase tracking-[0.12em] text-muted">Server</div>
+            <div className="mt-0.5 truncate font-mono text-[10.5px] text-text">
+              {pingState
+                ? `${pingState.status} · v${pingState.version}`
+                : pingError
+                  ? "unreachable"
+                  : "checking…"}
+            </div>
+          </div>
+          <div className="rounded-md border border-border/70 bg-bg/50 px-2.5 py-2">
+            <div className="text-[9px] uppercase tracking-[0.12em] text-muted">Auth</div>
+            <div className="mt-0.5 truncate font-mono text-[10.5px] text-text">
+              {access.tokenSet ? "token required (set)" : "open local server"}
+            </div>
+          </div>
+          <div className="rounded-md border border-border/70 bg-bg/50 px-2.5 py-2">
+            <div className="text-[9px] uppercase tracking-[0.12em] text-muted">Uptime</div>
+            <div className="mt-0.5 truncate font-mono text-[10.5px] text-text">
+              {pingState ? `${Math.floor(pingState.uptime_seconds)}s` : "—"}
+            </div>
+          </div>
+        </div>
+        <p className="mx-auto mt-2 max-w-4xl font-mono text-[9.5px] text-muted">
+          GET {access.base || "http://127.0.0.1:<port>"}/api/ping · websocket /ws · REST /api/*
+        </p>
       </div>
 
       {/* Content */}

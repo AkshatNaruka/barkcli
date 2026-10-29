@@ -43,6 +43,9 @@ import type {
   GitStatus,
   EditorDetection,
   WorktreeInfo,
+  ProjectSnapshot,
+  OnboardResult,
+  ProjectHooksState,
 } from "./types";
 import { load as yamlParse, dump as yamlDump } from "js-yaml";
 import { isDemoMode, getDemoCardHistory, onDemoChange } from "./demo";
@@ -199,6 +202,17 @@ function resolveToken(): string {
 }
 
 const TOKEN = resolveToken();
+
+/** Live connection details for the local API this tab is talking to. */
+export function apiAccess(): { base: string; token: string; tokenSet: boolean } {
+  let base = "";
+  try {
+    base = window.location.origin;
+  } catch {
+    /* non-browser */
+  }
+  return { base, token: TOKEN, tokenSet: TOKEN.length > 0 };
+}
 
 function withToken(url: string): string {
   if (!TOKEN) return url;
@@ -1482,6 +1496,40 @@ export function streamThreadUrl(id: string, afterSeq?: number): string {
   return base;
 }
 
+export async function fetchProject(): Promise<ProjectSnapshot | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(withToken("/api/project"));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function onboardProject(): Promise<OnboardResult | null> {
+  return postJson("/api/project/onboard", {});
+}
+
+export async function initGit(): Promise<{ ok: boolean; already: boolean } | null> {
+  return postJson("/api/project/init-git", { confirm: true });
+}
+
+export async function fetchHooks(): Promise<ProjectHooksState | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(withToken("/api/hooks"));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function installHooks(agents?: string[]): Promise<{ ok: boolean; status: ProjectHooksState } | null> {
+  return postJson("/api/hooks/install", { agents: agents ?? [] });
+}
+
 export async function fetchProviders(): Promise<ProviderStatus[]> {
   if (isVscode) return [];
   try {
@@ -1495,6 +1543,22 @@ export async function fetchProviders(): Promise<ProviderStatus[]> {
 
 export async function probeProvider(id: string): Promise<ProviderStatus | null> {
   return postJson(`/api/providers/${encodeURIComponent(id)}/probe`, {});
+}
+
+/**
+ * Model ids the local CLI reports. An empty list means the provider accepts a
+ * free-form model id; the UI must not invent a default.
+ */
+export async function fetchProviderModels(id: string): Promise<string[]> {
+  if (isVscode) return [];
+  try {
+    const res = await fetch(`/api/providers/${encodeURIComponent(id)}/models`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data.filter((item) => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function fetchThreadRuns(id: string): Promise<RunRecord[]> {
@@ -1529,6 +1593,7 @@ export async function startThreadRun(
     permission_mode?: string;
     prompt?: string;
     test_cmd?: string;
+    skills?: string[];
     parent_run_id?: string;
   }
 ): Promise<RunRecord | null> {

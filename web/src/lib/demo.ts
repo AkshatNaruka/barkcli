@@ -42,12 +42,17 @@ const DOCS = Object.keys(DOC_GLOB).map((path) => {
   return { slug: file, title: file.replace(/_/g, " ") };
 });
 
+import { isDesktop } from "./desktop";
+
 async function readDoc(slug: string): Promise<string | null> {
   const entry = Object.entries(DOC_GLOB).find(([path]) => path.endsWith(`/${slug}.md`));
   return entry ? entry[1]() : null;
 }
 
 export function isDemoMode(): boolean {
+  // The desktop app has a real server. Never let a stale query string or a
+  // local-storage flag turn it into the static showcase.
+  if (isDesktop()) return false;
   try {
     const q = new URLSearchParams(window.location.search);
     const flag = q.get("demo");

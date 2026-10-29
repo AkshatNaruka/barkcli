@@ -12,10 +12,12 @@ import type {
   ReviewState,
   Receipt,
   ReceiptVerification,
+  AgentProfile,
 } from "../lib/types";
 import {
   fetchTaskDiff,
   evalSession,
+  fetchAgentProfiles,
   fetchThreadRuns,
   fetchRunDiff,
   fetchRunGate,
@@ -36,6 +38,7 @@ import {
   askAboutRun,
   openInEditor,
   mergeRun,
+  startThreadRun,
 } from "../lib/api";
 import { Icon } from "../components/Icon";
 import { UnifiedDiff } from "../components/UnifiedDiff";
@@ -103,7 +106,56 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
   const [changesNote, setChangesNote] = useState("");
   const [askOpen, setAskOpen] = useState(false);
   const [askText, setAskText] = useState("");
+  const [profiles, setProfiles] = useState<AgentProfile[]>([]);
+  const [delegateAgent, setDelegateAgent] = useState("");
+  const [delegatePrompt, setDelegatePrompt] = useState("");
+  const [delegating, setDelegating] = useState(false);
+  const [delegateNote, setDelegateNote] = useState<string | null>(null);
   const autoSelected = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchAgentProfiles().then((next) => {
+      if (cancelled) return;
+      const active = next.filter((profile) => profile.status === "active");
+      setProfiles(active);
+      setDelegateAgent((current) =>
+        active.some((profile) => profile.id === current) ? current : active[0]?.id || ""
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [card?.id]);
+
+  const selectedScriptAgent = profiles.find((profile) => profile.id === delegateAgent);
+
+  const delegate = async () => {
+    if (!card || !selectedScriptAgent || delegating) return;
+    setDelegating(true);
+    setDelegateNote(null);
+    try {
+      const run = await startThreadRun(card.id, {
+        agent_id: selectedScriptAgent.id,
+        provider: selectedScriptAgent.provider,
+        model: selectedScriptAgent.model,
+        role: selectedScriptAgent.role,
+        prompt: delegatePrompt.trim() || undefined,
+        skills: selectedScriptAgent.skills,
+      });
+      if (!run) {
+        setDelegateNote(
+          "Could not delegate. Check that the agent is signed in and the worktree is clean."
+        );
+        return;
+      }
+      setDelegateNote(`Delegated as ${selectedScriptAgent.name}. Run ${run.id} is starting.`);
+      setDelegatePrompt("");
+      setRuns((current) => [...current.filter((item) => item.id !== run.id), run]);
+    } finally {
+      setDelegating(false);
+    }
+  };
 
   const planEvent = useMemo(
     () =>
@@ -616,6 +668,77 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
                 {card.description}
               </p>
             )}
+
+            <div className="mt-4 rounded-md border border-border/70 bg-surface/35 p-2.5">
+              <div className="flex items-center justify-between">
+                <SectionLabel>Delegate</SectionLabel>
+                <span className="font-mono text-[8.5px] uppercase tracking-wide text-muted/60">
+                  {profiles.length} active
+                </span>
+              </div>
+              {profiles.length === 0 ? (
+                <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
+                  Hire an active agent in Operations → Agents, then delegate this card
+                  without leaving the board.
+                </p>
+              ) : (
+                <>
+                  <select
+                    value={delegateAgent}
+                    onChange={(event) => setDelegateAgent(event.target.value)}
+                    aria-label="Delegate to agent"
+                    className="mt-2 w-full rounded border border-border bg-bg px-2 py-1.5 text-[11px] text-text outline-none focus:border-accent"
+                  >
+                    {profiles.map((profile) => (
+                      <option key={profile.id} value={profile.id}>
+                        {profile.name} · {profile.role} · {profile.provider}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedScriptAgent && (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      <span className="rounded bg-white/[0.04] px-1.5 py-0.5 font-mono text-[8.5px] text-muted">
+                        {selectedScriptAgent.permission_mode}
+                      </span>
+                      {selectedScriptAgent.model && (
+                        <span className="rounded bg-white/[0.04] px-1.5 py-0.5 font-mono text-[8.5px] text-muted">
+                          {selectedScriptAgent.model}
+                        </span>
+                      )}
+                      {selectedScriptAgent.skills.slice(0, 4).map((skill) => (
+                        <span
+                          key={skill}
+                          className="rounded bg-white/[0.04] px-1.5 py-0.5 font-mono text-[8.5px] text-muted"
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <textarea
+                    value={delegatePrompt}
+                    onChange={(event) => setDelegatePrompt(event.target.value)}
+                    rows={2}
+                    placeholder="Optional instruction for this card…"
+                    className="mt-2 w-full resize-none rounded border border-border bg-bg px-2 py-1.5 text-[10.5px] leading-relaxed text-text outline-none placeholder:text-muted/60 focus:border-accent"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void delegate()}
+                    disabled={!card || !selectedScriptAgent || delegating}
+                    className="mt-2 inline-flex items-center gap-1 rounded bg-accent px-2 py-1 text-[10px] font-medium text-white hover:bg-accent-hover disabled:opacity-50"
+                  >
+                    <Icon name="branch" size={10} />
+                    {delegating ? "Delegating…" : "Delegate to agent"}
+                  </button>
+                  {delegateNote && (
+                    <p className="mt-1.5 text-[9.5px] leading-relaxed text-muted">
+                      {delegateNote}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
 
             <div className="mt-5 flex items-center justify-between">
               <SectionLabel>Plan</SectionLabel>

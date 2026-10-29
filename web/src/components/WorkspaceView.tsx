@@ -1,0 +1,562 @@
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Icon } from "../components/Icon";
+import {
+  fetchProject,
+  fetchProviders,
+  fetchSessions,
+  installHooks,
+  initGit,
+  onboardProject,
+} from "../lib/api";
+import {
+  isDesktop,
+  openProjectDialog,
+  openProviderLogin,
+  recentProjects,
+  revealProject,
+  switchProject,
+  type DesktopProject,
+} from "../lib/desktop";
+import type { ProjectSnapshot, ProviderStatus, SessionEntry, SetupStep } from "../lib/types";
+
+interface Props {
+  boardName: string | null;
+  onNewIntent: () => void;
+  onOpenBoard: () => void;
+  onOpenBrain: () => void;
+  onOpenContext: () => void;
+  onOpenHistory: () => void;
+  onOpenSettings: () => void;
+}
+
+function SetupRow({ label, ok, detail }: { label: string; ok: boolean; detail: string }) {
+  return (
+    <div className="flex items-start gap-2.5 py-2 border-b border-border/40 last:border-0">
+      <span
+        className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+          ok ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400" : "border-amber-500/40 bg-amber-500/10 text-amber-400"
+        }`}
+      >
+        <Icon name={ok ? "check" : "warn"} size={10} />
+      </span>
+      <div className="min-w-0">
+        <div className="text-[12px] text-text">{label}</div>
+        <div className="mt-0.5 text-[10.5px] text-muted">{detail}</div>
+      </div>
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div className="rounded-md border border-border/60 bg-card/40 px-3 py-2.5">
+      <div className="font-mono text-[18px] leading-none text-text">{value}</div>
+      <div className="mt-1 text-[9.5px] uppercase tracking-[0.12em] text-muted">{label}</div>
+    </div>
+  );
+}
+
+function providerState(provider: ProviderStatus): { label: string; tone: string } {
+  if (!provider.available) return { label: "Not installed", tone: "text-muted" };
+  if (provider.authenticated === false) return { label: "Sign-in needed", tone: "text-amber-400" };
+  if (provider.authenticated === true) return { label: "Ready", tone: "text-emerald-400" };
+  return { label: "Installed", tone: "text-muted" };
+}
+
+function relativeTime(value?: string | null): string {
+  if (!value) return "never";
+  const then = new Date(value).getTime();
+  if (!Number.isFinite(then)) return value;
+  const seconds = Math.max(0, Math.round((Date.now() - then) / 1000));
+  if (seconds < 60) return "just now";
+  if (seconds < 3600) return `${Math.round(seconds / 60)}m ago`;
+  if (seconds < 86_400) return `${Math.round(seconds / 3600)}h ago`;
+  return `${Math.round(seconds / 86_400)}d ago`;
+}
+
+/**
+ * Project home. This is the only Operations tab that owns project lifecycle:
+ * current root, automatic setup, provider readiness, recent sessions, and the
+ * actions that move the user into the workbench.
+ */
+export function WorkspaceView({
+  boardName,
+  onNewIntent,
+  onOpenBoard,
+  onOpenBrain,
+  onOpenContext,
+  onOpenHistory,
+  onOpenSettings,
+}: Props) {
+  const desktop = isDesktop();
+  const [project, setProject] = useState<ProjectSnapshot | null>(null);
+  const [providers, setProviders] = useState<ProviderStatus[]>([]);
+  const [sessions, setSessions] = useState<SessionEntry[]>([]);
+  const [recent, setRecent] = useState<DesktopProject[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [steps, setSteps] = useState<SetupStep[]>([]);
+
+  const refresh = useCallback(async () => {
+    const [nextProject, nextProviders, nextSessions] = await Promise.all([
+      fetchProject(),
+      fetchProviders(),
+      fetchSessions(6, undefined, undefined, undefined, boardName || undefined),
+    ]);
+    setProject(nextProject);
+    setProviders(nextProviders.filter((provider) => provider.id !== "human"));
+    setSessions(Array.isArray(nextSessions) ? nextSessions.slice(0, 6) : []);
+    setLoading(false);
+  }, [boardName]);
+
+  useEffect(() => {
+    void refresh();
+    if (desktop) void recentProjects().then(setRecent);
+  }, [desktop, refresh]);
+
+  const setup = project?.setup;
+  const readyCount = useMemo(
+    () =>
+      providers.filter(
+        (provider) => provider.available && provider.authenticated !== false
+      ).length,
+    [providers]
+  );
+
+  const runSetup = async () => {
+    setBusy("setup");
+    setError(null);
+    setMessage(null);
+    const result = await onboardProject();
+    setBusy(null);
+    if (!result) {
+      setError("Setup could not run. Check that the local server is reachable.");
+      return;
+    }
+    setSteps(result.steps);
+    setProject(result.project);
+    setMessage("Basic setup finished. Nothing was generated by an AI.");
+  };
+
+  const openFolder = async () => {
+    if (!desktop) return;
+    setError(null);
+    setBusy("open");
+    const picked = await openProjectDialog();
+    if (!picked) {
+      setBusy(null);
+      return;
+    }
+    const switched = await switchProject(picked.path);
+    if (!switched) {
+      setBusy(null);
+      setError(`Could not open ${picked.name}. The current project is still running.`);
+      return;
+    }
+    // The shell reloads the webview after the new sidecar is healthy.
+    setMessage(`Opening ${switched.name}…`);
+  };
+
+  const chooseRecent = async (entry: DesktopProject) => {
+    setBusy(`recent:${entry.path}`);
+    setError(null);
+    const switched = await switchProject(entry.path);
+    if (!switched) {
+      setBusy(null);
+      setError(`Could not open ${entry.name}. The current project is still running.`);
+    }
+  };
+
+  const makeGit = async () => {
+    setBusy("git");
+    setError(null);
+    const result = await initGit();
+    setBusy(null);
+    if (!result?.ok) {
+      setError("Git initialization failed or was refused. Nothing was changed.");
+      return;
+    }
+    setMessage(result.already ? "This folder is already a git repository." : "Git repository initialized. Add and commit when you are ready.");
+    void refresh();
+  };
+
+  const copyServe = async () => {
+    const root = project?.root || "";
+    const command = `cd ${JSON.stringify(root)} && barkcli serve --open`;
+    try {
+      await navigator.clipboard.writeText(command);
+      setMessage("Serve command copied.");
+    } catch {
+      setMessage(command);
+    }
+  };
+
+  const installSessionHooks = async () => {
+    setBusy("hooks");
+    setError(null);
+    const result = await installHooks();
+    setBusy(null);
+    if (!result?.ok) {
+      setError("Could not install session hooks.");
+      return;
+    }
+    setMessage("Session hooks installed for opencode and Claude Code.");
+    void refresh();
+  };
+
+  const authenticate = async (provider: ProviderStatus) => {
+    setError(null);
+    setMessage(null);
+    if (desktop) {
+      setBusy(`auth:${provider.id}`);
+      const opened = await openProviderLogin(provider.id);
+      setBusy(null);
+      if (!opened) {
+        setError(`Could not open a terminal for ${provider.name}.`);
+        return;
+      }
+      setMessage(`${provider.name} sign-in opened in Terminal. Finish there, then refresh this view.`);
+      return;
+    }
+    if (!provider.auth_command) {
+      setError(`${provider.name} does not expose a local sign-in command.`);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(provider.auth_command);
+      setMessage(`Copied \`${provider.auth_command}\`. Run it in this project, then refresh.`);
+    } catch {
+      setMessage(`Run \`${provider.auth_command}\` in this project, then refresh.`);
+    }
+  };
+
+  if (loading) {
+    return <div className="h-full flex items-center justify-center text-[12px] text-muted">Reading project state…</div>;
+  }
+
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto max-w-[1120px] px-5 py-5 md:px-7">
+        <div className="flex flex-wrap items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent-soft text-accent-text">
+                <Icon name="layers" size={15} />
+              </span>
+              <div className="min-w-0">
+                <h1 className="truncate text-[18px] font-semibold tracking-tight text-text">
+                  {project?.name || "No project"}
+                </h1>
+                <p className="truncate font-mono text-[10px] text-muted">{project?.root || "Server unavailable"}</p>
+              </div>
+            </div>
+            <p className="mt-2 max-w-[680px] text-[12px] leading-relaxed text-muted">
+              The project home for intent, isolated agent work, gates, and the living context file.
+              Setup is based on this folder&apos;s real files.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {desktop && (
+              <button
+                type="button"
+                onClick={() => void openFolder()}
+                disabled={busy !== null}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-[11px] text-text hover:border-border-strong disabled:opacity-50"
+              >
+                <Icon name="board" size={13} />
+                Open folder
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => void runSetup()}
+              disabled={busy !== null}
+              className="inline-flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1.5 text-[11px] font-medium text-white hover:opacity-90 disabled:opacity-50"
+            >
+              <Icon name="refresh" size={13} className={busy === "setup" ? "animate-spin" : ""} />
+              {busy === "setup" ? "Setting up…" : "Run setup"}
+            </button>
+          </div>
+        </div>
+
+        {(message || error) && (
+          <div
+            className={`mt-3 rounded-md border px-3 py-2 text-[11px] ${
+              error ? "border-amber-500/30 bg-amber-500/5 text-amber-300" : "border-emerald-500/25 bg-emerald-500/5 text-emerald-300"
+            }`}
+          >
+            <div className="flex items-start gap-2">
+              <Icon name={error ? "warn" : "check"} size={12} className="mt-0.5 shrink-0" />
+              <span className="min-w-0 flex-1">{error || message}</span>
+              <button
+                type="button"
+                aria-label="Dismiss"
+                onClick={() => {
+                  setError(null);
+                  setMessage(null);
+                }}
+                className="opacity-60 hover:opacity-100"
+              >
+                <Icon name="x" size={11} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!project ? (
+          <div className="mt-6 rounded-lg border border-border bg-card/40 p-5">
+            <div className="text-[13px] font-medium text-text">Server unavailable</div>
+            <p className="mt-1 text-[11.5px] leading-relaxed text-muted">
+              The web UI is open, but it cannot read the project snapshot. Start the local server or reopen Bark.
+            </p>
+            <button
+              type="button"
+              onClick={() => void refresh()}
+              className="mt-3 rounded-md border border-border px-2.5 py-1.5 text-[11px] text-text hover:border-border-strong"
+            >
+              Retry
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+              <Metric label="Cards" value={project.counts.cards} />
+              <Metric label="Doing" value={project.counts.doing} />
+              <Metric label="Done" value={project.counts.done} />
+              <Metric label="Specs" value={project.counts.specs} />
+              <Metric label="Agents" value={project.counts.agents} />
+              <Metric label="Sessions" value={project.counts.sessions} />
+            </div>
+
+            <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(300px,0.75fr)]">
+              <section className="rounded-lg border border-border bg-card/40 p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <h2 className="text-[13px] font-medium text-text">Project setup</h2>
+                    <p className="mt-0.5 text-[10.5px] text-muted">
+                      {setup?.complete ? "Board, context, team, and hooks are ready." : "Basic setup runs on project load and can be re-run safely."}
+                    </p>
+                  </div>
+                  <span className={`font-mono text-[10px] ${setup?.complete ? "text-emerald-400" : "text-amber-400"}`}>
+                    {setup?.complete ? "READY" : "INCOMPLETE"}
+                  </span>
+                </div>
+
+                <div className="mt-3">
+                  <SetupRow
+                    label="Board"
+                    ok={Boolean(setup?.board)}
+                    detail={setup?.board ? `${project.boards.length} board file(s) · active ${project.active_board || "default"}` : "No board file could be created."}
+                  />
+                  <SetupRow
+                    label="Git"
+                    ok={project.is_git}
+                    detail={project.is_git ? `${project.git?.branch || "detached"} · ${project.git?.clean ? "clean" : `${project.git?.changes ?? 0} change(s)`}` : "Not a git repository. Agents need isolated worktrees before they can run."}
+                  />
+                  <SetupRow
+                    label="Living context"
+                    ok={project.context.exists}
+                    detail={project.context.exists ? `${project.context.blocks ?? 0} blocks · ${project.context.tokens ?? 0} tokens · ${project.context.stale_blocks ? `${project.context.stale_blocks} stale` : "fresh"}` : "project_context.md has not been generated yet."}
+                  />
+                  <SetupRow
+                    label="Agent team"
+                    ok={Boolean(setup?.team)}
+                    detail={setup?.team ? `${project.counts.agents} profile(s) available` : "No agent profiles yet."}
+                  />
+                  <SetupRow
+                    label="Session hooks"
+                    ok={Boolean(setup?.hooks)}
+                    detail={setup?.hooks ? "External opencode / Claude Code sessions feed the brain." : "Hooks are not installed for this project."}
+                  />
+                </div>
+
+                {!project.is_git && (
+                  <button
+                    type="button"
+                    onClick={() => void makeGit()}
+                    disabled={busy !== null}
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-amber-500/30 px-2.5 py-1.5 text-[10.5px] text-amber-300 hover:bg-amber-500/5 disabled:opacity-50"
+                  >
+                    <Icon name="branch" size={12} />
+                    Initialize Git for this folder
+                  </button>
+                )}
+                {!setup?.hooks && (
+                  <button
+                    type="button"
+                    onClick={() => void installSessionHooks()}
+                    disabled={busy !== null}
+                    className="mt-3 ml-2 inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-[10.5px] text-text hover:border-border-strong disabled:opacity-50"
+                  >
+                    <Icon name="download" size={12} />
+                    {busy === "hooks" ? "Installing…" : "Install hooks"}
+                  </button>
+                )}
+                {steps.length > 0 && (
+                  <div className="mt-3 rounded-md border border-border/60 bg-bg/40 px-2.5 py-2 font-mono text-[10px] text-muted">
+                    {steps.map((step) => (
+                      <div key={step.id} className="flex gap-2 py-0.5">
+                        <span className={step.ok ? "text-emerald-400" : "text-amber-400"}>{step.ok ? "✓" : "!"}</span>
+                        <span className="min-w-0 flex-1">{step.detail}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section className="rounded-lg border border-border bg-card/40 p-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-[13px] font-medium text-text">Local agents</h2>
+                  <span className="font-mono text-[10px] text-muted">{readyCount}/{providers.length} ready</span>
+                </div>
+                <div className="mt-2">
+                  {providers.length === 0 ? (
+                    <p className="text-[11px] text-muted">No providers reported by the server.</p>
+                  ) : (
+                    providers.map((provider) => {
+                      const state = providerState(provider);
+                      return (
+                        <div key={provider.id} className="flex items-center gap-2 border-b border-border/40 py-2 last:border-0">
+                          <Icon name="robot" size={13} className="text-muted" />
+                          <span className="min-w-0 flex-1 truncate text-[11.5px] text-text">{provider.name}</span>
+                          {provider.authenticated === false && (
+                            <button
+                              type="button"
+                              onClick={() => void authenticate(provider)}
+                              disabled={busy !== null}
+                              className="rounded border border-border px-1.5 py-0.5 text-[9.5px] text-text hover:border-border-strong disabled:opacity-50"
+                              title={provider.auth_hint}
+                            >
+                              {busy === `auth:${provider.id}` ? "Opening…" : "Sign in"}
+                            </button>
+                          )}
+                          <span className={`font-mono text-[9.5px] ${state.tone}`}>{state.label}</span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={onOpenSettings}
+                  className="mt-3 inline-flex items-center gap-1.5 text-[10.5px] text-muted hover:text-text"
+                >
+                  <Icon name="gear" size={12} />
+                  Provider settings
+                </button>
+              </section>
+            </div>
+
+            <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(300px,0.75fr)]">
+              <section className="rounded-lg border border-border bg-card/40 p-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-[13px] font-medium text-text">Recent sessions</h2>
+                  <button type="button" onClick={onOpenHistory} className="text-[10.5px] text-muted hover:text-text">
+                    All history
+                  </button>
+                </div>
+                <div className="mt-2">
+                  {sessions.length === 0 ? (
+                    <div className="rounded-md border border-dashed border-border/70 px-3 py-5 text-center">
+                      <p className="text-[11.5px] text-text">No agent sessions yet.</p>
+                      <p className="mt-1 text-[10.5px] text-muted">Start an intent in Chat. Completed runs will appear here and feed the brain.</p>
+                      <button
+                        type="button"
+                        onClick={onNewIntent}
+                        className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1.5 text-[10.5px] font-medium text-white hover:opacity-90"
+                      >
+                        <Icon name="plus" size={11} />
+                        New intent
+                      </button>
+                    </div>
+                  ) : (
+                    sessions.map((session) => (
+                      <div key={session.id} className="flex items-start gap-2 border-b border-border/40 py-2 last:border-0">
+                        <Icon name="history" size={12} className="mt-0.5 text-muted" />
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-[11.5px] text-text">{session.summary || session.prompt || "Session"}</div>
+                          <div className="mt-0.5 truncate font-mono text-[9.5px] text-muted">
+                            {session.agent || "agent"} · {relativeTime(session.at)}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-border bg-card/40 p-4">
+                <h2 className="text-[13px] font-medium text-text">Move</h2>
+                <p className="mt-0.5 text-[10.5px] text-muted">The workbench is the point. These are shortcuts.</p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button type="button" onClick={onNewIntent} className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-2 text-left text-[11px] text-text hover:border-border-strong">
+                    <Icon name="comment" size={13} className="text-accent-text" /> New intent
+                  </button>
+                  <button type="button" onClick={onOpenBoard} className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-2 text-left text-[11px] text-text hover:border-border-strong">
+                    <Icon name="board" size={13} className="text-accent-text" /> Board
+                  </button>
+                  <button type="button" onClick={onOpenBrain} className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-2 text-left text-[11px] text-text hover:border-border-strong">
+                    <Icon name="spark" size={13} className="text-accent-text" /> Brain
+                  </button>
+                  <button type="button" onClick={onOpenContext} className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-2 text-left text-[11px] text-text hover:border-border-strong">
+                    <Icon name="doc" size={13} className="text-accent-text" /> Context
+                  </button>
+                </div>
+                <div className="mt-4 border-t border-border/50 pt-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10.5px] text-muted">Context freshness</span>
+                    <span className="font-mono text-[9.5px] text-muted">{relativeTime(project.context.last_run)}</span>
+                  </div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-border/60">
+                    <div
+                      className={`h-full rounded-full ${project.context.exists && !project.context.stale_blocks ? "bg-emerald-500" : "bg-amber-500"}`}
+                      style={{ width: project.context.exists ? `${Math.max(8, 100 - (project.context.stale_blocks || 0) * 12)}%` : "8%" }}
+                    />
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            {(recent.length > 0 || desktop || !project.is_git) && (
+              <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-border/50 pt-4">
+                {recent.length > 0 && (
+                  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] uppercase tracking-[0.12em] text-muted">Recent</span>
+                    {recent.map((entry) => (
+                      <button
+                        key={entry.path}
+                        type="button"
+                        onClick={() => void chooseRecent(entry)}
+                        disabled={busy !== null}
+                        className="max-w-[220px] truncate rounded border border-border px-2 py-1 font-mono text-[9.5px] text-muted hover:border-border-strong hover:text-text disabled:opacity-50"
+                        title={entry.path}
+                      >
+                        {entry.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => void revealProject(project.root)}
+                    className="rounded border border-border px-2 py-1 text-[9.5px] text-muted hover:border-border-strong hover:text-text"
+                  >
+                    Reveal
+                  </button>
+                  {!desktop && (
+                    <button type="button" onClick={() => void copyServe()} className="rounded border border-border px-2 py-1 text-[9.5px] text-muted hover:border-border-strong hover:text-text">
+                      Copy serve command
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

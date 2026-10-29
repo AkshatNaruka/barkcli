@@ -1,3 +1,5 @@
+import { isDesktop } from "./desktop";
+
 // ── Recorded-run replay ──
 // The static web app (GitHub Pages) has no `barkcli serve` backend, so the
 // Orchestrate view can't show a real in-flight `barkcli run`. This module
@@ -68,6 +70,7 @@ const LOOP_MS = 96_000;
 let epoch: number | null = null;
 
 export function isReplayMode(): boolean {
+  if (isDesktop()) return false;
   try {
     const q = new URLSearchParams(window.location.search);
     return q.get("run") === "replay" || q.get("replay") === "1";

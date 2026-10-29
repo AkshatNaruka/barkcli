@@ -10,6 +10,8 @@ import { AgentPromptView } from "../components/AgentPromptView";
 import { DocsView } from "../components/DocsView";
 import { SettingsView } from "../components/SettingsView";
 import { ShipView } from "../components/ShipView";
+import { HistoryView } from "../components/HistoryView";
+import { WorkspaceView } from "../components/WorkspaceView";
 import { rawHashRoute } from "../lib/hashnav";
 import { operationsTabFromLegacy } from "../lib/surfaces";
 import type { Board, Card, Sprint } from "../lib/types";
@@ -24,7 +26,9 @@ type OpTab =
   | "reports"
   | "agent"
   | "docs"
-  | "settings";
+  | "settings"
+  | "context"
+  | "history";
 
 const TABS: Array<{ id: OpTab; label: string; icon: IconName }> = [
   { id: "workspace", label: "Workspace", icon: "layers" },
@@ -37,6 +41,8 @@ const TABS: Array<{ id: OpTab; label: string; icon: IconName }> = [
   { id: "agent", label: "Agent API", icon: "robot" },
   { id: "docs", label: "Docs", icon: "doc" },
   { id: "settings", label: "Settings", icon: "gear" },
+  { id: "context", label: "Context", icon: "doc" },
+  { id: "history", label: "History", icon: "history" },
 ];
 
 function initialTab(): OpTab {
@@ -58,6 +64,9 @@ export function OperationsView({
   onEditCard,
   onAddCard,
   onSaveBoard,
+  onNewIntent,
+  onOpenBoard,
+  onOpenBrain,
 }: {
   board: Board | null;
   boardName: string | null;
@@ -66,6 +75,9 @@ export function OperationsView({
   onEditCard: (card: Card) => void;
   onAddCard: (date: string) => void;
   onSaveBoard: (b: Board) => void;
+  onNewIntent: () => void;
+  onOpenBoard: () => void;
+  onOpenBrain: () => void;
 }) {
   const [tab, setTab] = useState<OpTab>(initialTab);
 
@@ -93,7 +105,17 @@ export function OperationsView({
       </div>
 
       <div className="flex-1 overflow-hidden min-h-0">
-        {tab === "workspace" && <ContextView boardName={boardName} />}
+        {tab === "workspace" && (
+          <WorkspaceView
+            boardName={boardName}
+            onNewIntent={onNewIntent}
+            onOpenBoard={onOpenBoard}
+            onOpenBrain={onOpenBrain}
+            onOpenContext={() => setTab("context")}
+            onOpenHistory={() => setTab("history")}
+            onOpenSettings={() => setTab("settings")}
+          />
+        )}
         {tab === "ship" && <ShipView board={board} boardName={boardName} />}
         {tab === "code" && board && (
           <CodeView board={board} onOpenFile={onOpenFile} onEditCard={onEditCard} />
@@ -107,6 +129,14 @@ export function OperationsView({
         {tab === "agent" && <AgentPromptView />}
         {tab === "docs" && <DocsView />}
         {tab === "settings" && board && <SettingsView board={board} onSaveBoard={onSaveBoard} />}
+        {tab === "context" && <ContextView boardName={boardName} />}
+        {tab === "history" && (
+          <HistoryView
+            boardName={boardName || null}
+            board={board}
+            onEditCard={onEditCard}
+          />
+        )}
         {tab === "code" && !board && <Empty label="Board not loaded" />}
         {tab === "reports" && !board && <Empty label="Board not loaded" />}
         {tab === "calendar" && !board && <Empty label="Board not loaded" />}
