@@ -16,6 +16,7 @@ This directory holds the authoritative build specs for the YC MVP. Specs 001–0
 | [008](./SPEC-008-mac-parity.md) | macOS app parity: same UI, same server, verifiable bundle | ✅ done | — |
 | [009](./SPEC-009-real-product.md) | Real product: project setup, providers, skills, brain loop | ✅ done | — |
 | [010](./SPEC-010-daily-driver.md) | Daily-driver Mac harness: local-agent chat, quick open, native shell | ✅ done | — |
+| [011](./SPEC-011-collective-memory.md) | Collective memory: Agora-style contribution DAG, verification, analyze | ✅ done | — |
 
 **Trust Layer plan:** [PLAN-007](./PLAN-007-trust-layer.md) · research: [TRUST_LAYER_RESEARCH](../docs/internal/TRUST_LAYER_RESEARCH.md)
 
@@ -24,6 +25,8 @@ This directory holds the authoritative build specs for the YC MVP. Specs 001–0
 **Real product plan:** [PLAN-009](./PLAN-009-real-product.md)
 
 **Daily-driver plan:** [PLAN-010](./PLAN-010-daily-driver.md)
+
+**Collective-memory plan:** [PLAN-011](./PLAN-011-collective-memory.md)
 
 **Branch:** `feat/mvp-all-specs` → `master` via #8. Tags `v0.3.0-mvp` + `v0.3.1-mvp` (web).
 
