@@ -80,13 +80,17 @@ else
 fi
 
 if [[ -x "$SIDECAR" ]]; then
-  if "$SIDECAR" receipt --help 2>&1 | grep -q 'Usage: barkcli receipt'; then
+  # Capture first, then grep. `help | grep -q` can SIGPIPE the help command
+  # once grep finds a match, and `pipefail` turns that into a false failure.
+  receipt_help="$("$SIDECAR" receipt --help 2>&1 || true)"
+  if grep -q 'Usage: barkcli receipt' <<<"$receipt_help"; then
     ok "bundled sidecar supports receipt"
   else
     bad "bundled sidecar does not support receipt"
   fi
 
-  if "$SIDECAR" --help 2>&1 | grep -qE '^[[:space:]]+guard[[:space:]]'; then
+  sidecar_help="$("$SIDECAR" --help 2>&1 || true)"
+  if grep -qE '^[[:space:]]+guard[[:space:]]' <<<"$sidecar_help"; then
     ok "bundled sidecar supports guard"
   else
     bad "bundled sidecar does not support guard"
@@ -111,7 +115,8 @@ else
   bad "bundle signature is not valid/sealed"
 fi
 
-if codesign -dv "$APP" 2>&1 | grep -q 'Signature=adhoc'; then
+codesign_info="$(codesign -dv "$APP" 2>&1 || true)"
+if grep -q 'Signature=adhoc' <<<"$codesign_info"; then
   ok "ad-hoc signature present"
 fi
 
