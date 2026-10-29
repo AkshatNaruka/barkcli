@@ -39,6 +39,20 @@ export function isDesktop(): boolean {
   return Boolean(bridge());
 }
 
+/** Best-effort OS detection for the desktop shell. */
+export function platform(): "macos" | "windows" | "linux" | "web" {
+  if (typeof navigator === "undefined") return "web";
+  const value = navigator.platform.toLowerCase();
+  if (value.includes("mac")) return "macos";
+  if (value.includes("win")) return "windows";
+  if (value.includes("linux")) return "linux";
+  return "web";
+}
+
+export function isMac(): boolean {
+  return platform() === "macos";
+}
+
 async function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T | null> {
   const fn = bridge()?.core?.invoke ?? bridge()?.__TAURI_INTERNALS__?.invoke;
   if (!fn) return null;

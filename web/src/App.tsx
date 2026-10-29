@@ -26,7 +26,7 @@ import {
   onboardProject,
   type GitInfo,
 } from "./lib/api";
-import { isDesktop, onMenu, openProjectDialog, openTerminal, revealProject, switchProject } from "./lib/desktop";
+import { isDesktop, isMac, onMenu, openProjectDialog, openTerminal, revealProject, switchProject } from "./lib/desktop";
 import { useRoute, type Route } from "./lib/hashnav";
 import { Icon } from "./components/Icon";
 import { BoardView } from "./components/BoardView";
@@ -718,7 +718,7 @@ export function App() {
   const boardOpen = board ? board.cards.filter((c) => c.column !== "done").length : 0;
 
   return (
-    <div className={`${isDesktop() ? "bark-desktop-shell" : "h-screen"} flex bg-bg`}>
+    <div className={`${isDesktop() && isMac() ? "bark-desktop-shell" : "h-screen"} flex bg-bg`}>
       <AppRail
         surface={route}
         onNavigate={setRoute}
