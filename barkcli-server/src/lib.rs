@@ -143,6 +143,15 @@ where
         .route("/api/providers/{id}/probe", post(probe_provider_handler))
         .route("/api/providers/{id}/models", get(provider_models_handler))
         .route("/api/runs/{id}", get(get_run_handler))
+        .route("/api/runs/{id}/ancestry", get(run_ancestry_handler))
+        .route("/api/runs/{id}/link", post(link_run_handler))
+        .route("/api/runs/{id}/verify", post(verify_run_handler))
+        .route(
+            "/api/contributions",
+            get(contributions_handler).post(create_contribution_handler),
+        )
+        .route("/api/contributions/analyze", get(contributions_handler))
+        .route("/api/contributions/duplicates", get(contribution_duplicates_handler))
         .route("/api/runs/{id}/diff", get(run_diff_handler))
         .route("/api/runs/{id}/gate", get(run_gate_handler))
         .route("/api/runs/{id}/context", get(run_context_handler))
@@ -545,6 +554,20 @@ async fn auto_init() {
 }
 
 // ── Project lifecycle ──
+
+fn broadcast_contribution(
+    tx: &broadcast::Sender<String>,
+    event: &str,
+    run_id: &str,
+) {
+    let _ = tx.send(
+        serde_json::json!({
+            "type": event,
+            "run_id": run_id,
+        })
+        .to_string(),
+    );
+}
 
 fn project_root_or_cwd() -> std::path::PathBuf {
     barkcli_core::storage::board_dir::find_project_root()
@@ -1715,7 +1738,20 @@ async fn handle_socket(socket: WebSocket, tx: broadcast::Sender<String>) {
     let send_task = tokio::spawn(async move {
         while let Ok(msg) = rx.recv().await {
             let version = RELOAD_VERSION.load(Ordering::SeqCst);
-            let json = serde_json::json!({"type": msg, "version": version});
+            // Plain `reload` strings keep the existing protocol. Structured
+            // contribution events are already JSON objects and are forwarded
+            // with the same version field.
+            let json = if msg.trim_start().starts_with('{') {
+                match serde_json::from_str::<serde_json::Value>(&msg) {
+                    Ok(serde_json::Value::Object(mut object)) => {
+                        object.insert("version".into(), serde_json::json!(version));
+                        serde_json::Value::Object(object)
+                    }
+                    _ => serde_json::json!({"type": msg, "version": version}),
+                }
+            } else {
+                serde_json::json!({"type": msg, "version": version})
+            };
             if sender.send(Message::Text(json.to_string().into())).await.is_err() { break; }
         }
     });
@@ -4788,6 +4824,170 @@ async fn get_run_handler(
     Ok(Json(serde_json::to_value(run).unwrap_or(serde_json::json!(null))))
 }
 
+#[derive(Deserialize)]
+struct CreateContributionRequest {
+    title: String,
+    #[serde(default)]
+    kind: Option<String>,
+    #[serde(default)]
+    text: Option<String>,
+    #[serde(default)]
+    parent: Option<String>,
+    #[serde(default)]
+    author: Option<String>,
+    #[serde(default)]
+    files: Vec<String>,
+}
+
+async fn create_contribution_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<CreateContributionRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let title = req.title.trim().to_string();
+    if title.is_empty() {
+        return Err(ServerError::bad("title is required"));
+    }
+    let kind = barkcli_core::runtime::event::ContributionKind::parse(
+        req.kind.as_deref().unwrap_or("insight"),
+    );
+    let author = req
+        .author
+        .clone()
+        .or_else(|| std::env::var("USER").ok())
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| "human".into());
+    let store = barkcli_core::runtime::RuntimeStore::from_project()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let run = barkcli_core::commands::contribute::manual_contribution(
+        &store,
+        &title,
+        kind,
+        &author,
+        req.parent.as_deref(),
+        req.files.clone(),
+        req.text.as_deref(),
+    )
+    .map_err(|e| ServerError::bad(e.to_string()))?;
+    broadcast_contribution(&state.tx, "contribution_published", &run.id);
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::to_value(run).unwrap_or(serde_json::json!(null))))
+}
+
+async fn contributions_handler() -> Result<Json<serde_json::Value>, ServerError> {
+    let store = barkcli_core::runtime::RuntimeStore::from_project()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let analysis = store
+        .contribution_index()
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .analysis();
+    Ok(Json(
+        serde_json::to_value(analysis).unwrap_or(serde_json::json!({})),
+    ))
+}
+
+async fn contribution_duplicates_handler() -> Result<Json<serde_json::Value>, ServerError> {
+    let store = barkcli_core::runtime::RuntimeStore::from_project()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let index = store
+        .contribution_index()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let duplicates = index
+        .duplicate_candidates()
+        .into_iter()
+        .map(|(left, right, shared_files)| {
+            serde_json::json!({
+                "left": left,
+                "right": right,
+                "shared_files": shared_files,
+            })
+        })
+        .collect::<Vec<_>>();
+    Ok(Json(serde_json::json!({ "duplicates": duplicates })))
+}
+
+async fn run_ancestry_handler(
+    Path(run_id): Path<String>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let store = barkcli_core::runtime::RuntimeStore::from_project()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let index = store
+        .contribution_index()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let lineage = index.ancestry(&run_id);
+    if lineage.is_empty() {
+        return Err(ServerError::bad(format!("run not found: {run_id}")));
+    }
+    let descendants = index.descendants(&run_id);
+    Ok(Json(serde_json::json!({
+        "run_id": run_id,
+        "lineage": lineage,
+        "descendants": descendants,
+    })))
+}
+
+#[derive(Deserialize)]
+struct LinkRunRequest {
+    parent_id: String,
+}
+
+async fn link_run_handler(
+    State(state): State<Arc<AppState>>,
+    Path(run_id): Path<String>,
+    Json(req): Json<LinkRunRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let store = barkcli_core::runtime::RuntimeStore::from_project()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let run = store
+        .link_run(&run_id, &req.parent_id)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::to_value(run).unwrap_or(serde_json::json!(null))))
+}
+
+#[derive(Deserialize)]
+struct VerifyRunRequest {
+    verifier: String,
+    #[serde(default)]
+    note: Option<String>,
+}
+
+async fn verify_run_handler(
+    State(state): State<Arc<AppState>>,
+    Path(run_id): Path<String>,
+    Query(params): Query<BoardQuery>,
+    Json(req): Json<VerifyRunRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, params.name)?;
+    let verifier = req.verifier.trim().to_string();
+    if verifier.is_empty() {
+        return Err(ServerError::bad("verifier is required"));
+    }
+    let note = req.note.clone();
+    let run_id_for_task = run_id.clone();
+    let board_for_task = board_name.clone();
+    let run = tokio::task::spawn_blocking(move || {
+        let service = barkcli_core::runtime::RunService::from_project(&board_for_task)
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+        service.verify(&run_id_for_task, &verifier, note)
+    })
+    .await
+    .map_err(|e| ServerError::internal(format!("verification task failed: {e}")))?
+    .map_err(|e| ServerError::bad(e.to_string()))?;
+    // The store appended a Review event; forward it to connected threads so
+    // the verification is visible without a refresh.
+    if let Ok(events) = barkcli_core::threads::read_events(&run.card_id) {
+        if let Some(event) = events.last() {
+            let _ = state.thread_tx.send(event.clone());
+        }
+    }
+    broadcast_contribution(&state.tx, "contribution_verified", &run.id);
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({
+        "ok": true,
+        "run": run,
+    })))
+}
+
 async fn list_providers_handler() -> Json<serde_json::Value> {
     let providers = barkcli_core::runtime::ProviderRegistry::standard().statuses();
     Json(serde_json::to_value(providers).unwrap_or(serde_json::json!([])))
@@ -4833,6 +5033,7 @@ async fn start_thread_run_handler(
     let run = service
         .start_for_card(&card_id, req, Some(sink))
         .map_err(|e| ServerError::bad(e.to_string()))?;
+    broadcast_contribution(&state.tx, "contribution_published", &run.id);
     let _ = state.tx.send("reload".to_string());
     Ok(Json(serde_json::to_value(run).unwrap_or(serde_json::json!(null))))
 }
@@ -5023,6 +5224,7 @@ async fn merge_run_handler(
     let outcome = service
         .merge(&run_id, req.approved)
         .map_err(|e| ServerError::bad(e.to_string()))?;
+    broadcast_contribution(&state.tx, "contribution_merged", &run_id);
     let _ = state.tx.send("reload".to_string());
     Ok(Json(serde_json::to_value(outcome).unwrap_or(serde_json::json!(null))))
 }
@@ -5222,6 +5424,9 @@ async fn request_changes_handler(
                 skills: Vec::new(),
                 resume: true,
                 parent_run_id: Some(previous.id.clone()),
+                contributes_to: Vec::new(),
+                kind: None,
+                author: None,
                 skip_gate: false,
             },
             Some(sink),
@@ -5286,6 +5491,9 @@ async fn ask_about_run_handler(
                 skills: Vec::new(),
                 resume: true,
                 parent_run_id: Some(previous.id.clone()),
+                contributes_to: Vec::new(),
+                kind: None,
+                author: None,
                 skip_gate: true,
             },
             Some(sink),
@@ -7508,6 +7716,14 @@ cards:
             .route("/api/threads/{id}/chat/stop", post(stop_chat_handler))
             .route("/api/threads", post(create_thread_handler))
             .route("/api/exec", post(exec_handler))
+            .route(
+                "/api/contributions",
+                get(contributions_handler).post(create_contribution_handler),
+            )
+            .route("/api/contributions/duplicates", get(contribution_duplicates_handler))
+            .route("/api/runs/{id}/ancestry", get(run_ancestry_handler))
+            .route("/api/runs/{id}/link", post(link_run_handler))
+            .route("/api/runs/{id}/verify", post(verify_run_handler))
             .with_state(state)
     }
 
@@ -7707,6 +7923,123 @@ cards:
         let events = barkcli_core::threads::read_events(thread_id).unwrap();
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].kind, barkcli_core::threads::ThreadEventKind::User);
+    }
+
+    #[tokio::test]
+    async fn contributions_link_and_ancestry_are_real() {
+        let project = with_temp_project();
+        let store = barkcli_core::runtime::RuntimeStore::from_project().unwrap();
+        let make = |id: &str, author: &str| {
+            let mut start = sm_test_start(id);
+            start.agent_id = Some(author.into());
+            store.create_run(&start).unwrap();
+        };
+        make("run_root", "agent-a");
+        make("run_child", "agent-b");
+        let app = project_router(test_state(None));
+        let res = app
+            .clone()
+            .oneshot(post_json_request(
+                "/api/runs/run_child/link",
+                serde_json::json!({ "parent_id": "run_root" }),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+
+        let res = app
+            .oneshot(get_request("/api/runs/run_child/ancestry"))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let value = json_body(res).await;
+        assert_eq!(value["lineage"].as_array().unwrap().len(), 2);
+        let contributions = project_router(test_state(None))
+            .oneshot(get_request("/api/contributions"))
+            .await
+            .unwrap();
+        assert_eq!(contributions.status(), StatusCode::OK);
+        let value = json_body(contributions).await;
+        assert_eq!(value["metrics"]["total_nodes"], 2);
+        assert_eq!(value["metrics"]["edges"], 1);
+    }
+
+    #[tokio::test]
+    async fn manual_contributions_are_created_and_indexed() {
+        let project = with_temp_project();
+        std::fs::write(
+            project.root().join("work.board"),
+            "title: work\ncolumns:\n- id: todo\n  name: Todo\ncards: []\n",
+        )
+        .unwrap();
+        let app = project_router(test_state(None));
+        let res = app
+            .clone()
+            .oneshot(post_json_request(
+                "/api/contributions",
+                serde_json::json!({
+                    "title": "A manual insight",
+                    "kind": "hypothesis",
+                    "text": "The cache is cold"
+                }),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let value = json_body(res).await;
+        assert_eq!(value["kind"], "hypothesis");
+        assert!(value["id"].as_str().unwrap().starts_with("run_"));
+
+        let res = app.oneshot(get_request("/api/contributions")).await.unwrap();
+        let value = json_body(res).await;
+        assert_eq!(value["metrics"]["total_nodes"], 1);
+        assert_eq!(value["open_hypotheses"].as_array().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn self_verification_is_rejected_by_the_http_layer() {
+        let project = with_temp_project();
+        std::fs::write(
+            project.root().join("work.board"),
+            "title: work\ncolumns:\n- id: todo\n  name: Todo\ncards: []\n",
+        )
+        .unwrap();
+        let store = barkcli_core::runtime::RuntimeStore::from_project().unwrap();
+        let start = sm_test_start("run_self");
+        let mut run = store.create_run(&start).unwrap();
+        run.status = barkcli_core::runtime::RunStatus::Passed;
+        store.save_run(&run).unwrap();
+        let app = project_router(test_state(None));
+        let res = app
+            .oneshot(post_json_request(
+                "/api/runs/run_self/verify",
+                serde_json::json!({ "verifier": "builder-1" }),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+        let value = json_body(res).await;
+        assert!(value["error"]
+            .as_str()
+            .unwrap()
+            .contains("self-verification"));
+    }
+
+    fn sm_test_start(id: &str) -> barkcli_core::runtime::StartRun {
+        barkcli_core::runtime::StartRun {
+            run_id: id.into(),
+            thread_id: "card-1".into(),
+            card_id: "card-1".into(),
+            prompt: String::new(),
+            cwd: std::env::current_dir().unwrap().to_string_lossy().to_string(),
+            provider: "fake".into(),
+            model: None,
+            role: Some("builder".into()),
+            agent_id: Some("builder-1".into()),
+            permission_mode: "auto".into(),
+            provider_session_id: None,
+            raw_log_path: None,
+        }
     }
 
     #[tokio::test]
