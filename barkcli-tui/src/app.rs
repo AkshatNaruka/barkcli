@@ -688,7 +688,11 @@ impl App {
         write_board(&self.board_name, &self.board).context("failed to write board")
     }
 
-    pub fn run(&mut self, terminal: &mut Terminal<impl ratatui::backend::Backend>) -> Result<()> {
+    pub fn run<R>(&mut self, terminal: &mut Terminal<R>) -> Result<()>
+    where
+        R: ratatui::backend::Backend,
+        R::Error: std::error::Error + Send + Sync + 'static,
+    {
         while !self.should_quit {
             terminal.draw(|f| ui::draw(f, self))?;
             if let Event::Key(key) = event::read()? {
