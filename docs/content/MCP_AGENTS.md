@@ -535,6 +535,19 @@ review next instead of walking the board in creation order.
 Each item carries `risk.score`, `risk.tier` (`must` / `should` / `skim` /
 `unknown`), and the reasons behind the score.
 
+### Contribution Graph
+
+| Tool | Purpose |
+|---|---|
+| `contribution_analysis` | Read leading results, neglected branches, contested claims, open hypotheses, and next experiments |
+| `contribution_add` | Publish an insight/hypothesis/result/report/failure, optionally linked to a parent run |
+| `contribution_link` | Add a cycle-checked edge between two runs |
+| `contribution_verify` | Independently reproduce a gate-passing run; self-verification is rejected |
+
+Use `contribution_analysis` at the start of a task to build on verified work,
+then `contribution_add` to publish what you learned. The graph is stored in
+`.board/runs/` and is rebuildable from Git.
+
 ## Smart History Bundles
 
 Bundles are a metadata overlay on git history. They never modify, rewrite, or curate git history directly. All git operations are read-only; any history-curating export creates a new branch.

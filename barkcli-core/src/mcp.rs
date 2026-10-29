@@ -12,7 +12,7 @@
 //! - `resources/list`: List available resources
 //! - `resources/read`: Read a resource
 //!
-//! # Available Tools (76)
+//! # Available Tools (80)
 //!
 //! ## Board Management
 //! - `board_list`: List all boards
@@ -1734,6 +1734,61 @@ impl McpServer {
                     "required": ["id"]
                 }
             }),
+            serde_json::json!({
+                "name": "contribution_analysis",
+                "description": "Read the shared contribution graph: leading results, neglected branches, contested claims, open hypotheses, and next experiments. Use at the start of a task to build on verified work instead of repeating it.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            }),
+            serde_json::json!({
+                "name": "contribution_add",
+                "description": "Publish an immutable contribution (insight, hypothesis, result, report, or failure) into the shared graph. Link it to the work it builds on with `parent`.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "title": { "type": "string", "description": "Short claim or observation" },
+                        "kind": { "type": "string", "description": "result | hypothesis | verification | report | insight | failure" },
+                        "text": { "type": "string", "description": "Evidence or explanation (optional)" },
+                        "parent": { "type": "string", "description": "Run id this contribution builds on (optional)" },
+                        "author": { "type": "string", "description": "Agent identity (optional)" },
+                        "files": {
+                            "type": "array",
+                            "items": { "type": "string" },
+                            "description": "Files touched or relevant (optional)"
+                        }
+                    },
+                    "required": ["title", "kind"]
+                }
+            }),
+            serde_json::json!({
+                "name": "contribution_link",
+                "description": "Add a cycle-checked edge between two existing runs. Use when a result builds on a prior result.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "child": { "type": "string", "description": "Child run id" },
+                        "parent": { "type": "string", "description": "Parent run id" }
+                    },
+                    "required": ["child", "parent"]
+                }
+            }),
+            serde_json::json!({
+                "name": "contribution_verify",
+                "description": "Independently reproduce a gate-passing run by re-running its gate as a different verifier. Self-verification is rejected.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "run_id": { "type": "string", "description": "Run id to reproduce" },
+                        "verifier": { "type": "string", "description": "Your agent/account identity" },
+                        "note": { "type": "string", "description": "What you observed (optional)" },
+                        "board": { "type": "string", "description": "Board name (optional)" }
+                    },
+                    "required": ["run_id", "verifier"]
+                }
+            }),
         ];
 
         JsonRpcResponse {
@@ -1744,6 +1799,90 @@ impl McpServer {
             })),
             error: None,
         }
+    }
+
+    fn tool_contribution_analysis(&self, _args: Value) -> Result<Value> {
+        let store = crate::runtime::RuntimeStore::from_project()?;
+        let analysis = store.contribution_index()?.analysis();
+        Ok(serde_json::to_value(analysis)?)
+    }
+
+    fn tool_contribution_add(&self, args: Value) -> Result<Value> {
+        let title = args
+            .get("title")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow::anyhow!("title is required"))?;
+        let kind = crate::runtime::event::ContributionKind::parse(
+            args.get("kind").and_then(Value::as_str).unwrap_or("insight"),
+        );
+        let author = args
+            .get("author")
+            .and_then(Value::as_str)
+            .or(self.agent_id.as_deref())
+            .unwrap_or("agent");
+        let parent = args.get("parent").and_then(Value::as_str);
+        let text = args.get("text").and_then(Value::as_str);
+        let files = args
+            .get("files")
+            .and_then(Value::as_array)
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_default();
+        let store = crate::runtime::RuntimeStore::from_project()?;
+        let run = crate::commands::contribute::manual_contribution(
+            &store, title, kind, author, parent, files, text,
+        )?;
+        Ok(serde_json::json!({
+            "ok": true,
+            "run_id": run.id,
+            "kind": run.kind.as_str(),
+            "parents": run.effective_parents(),
+        }))
+    }
+
+    fn tool_contribution_link(&self, args: Value) -> Result<Value> {
+        let child = args
+            .get("child")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow::anyhow!("child is required"))?;
+        let parent = args
+            .get("parent")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow::anyhow!("parent is required"))?;
+        let store = crate::runtime::RuntimeStore::from_project()?;
+        let run = store.link_run(child, parent)?;
+        Ok(serde_json::json!({
+            "ok": true,
+            "child": run.id,
+            "parents": run.effective_parents(),
+        }))
+    }
+
+    fn tool_contribution_verify(&self, args: Value) -> Result<Value> {
+        let run_id = args
+            .get("run_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow::anyhow!("run_id is required"))?;
+        let verifier = args
+            .get("verifier")
+            .and_then(Value::as_str)
+            .or(self.agent_id.as_deref())
+            .ok_or_else(|| anyhow::anyhow!("verifier is required"))?;
+        let board = crate::cli::resolve_board(args.get("board").and_then(Value::as_str))?;
+        let service = crate::runtime::RunService::from_project(&board)?;
+        let note = args.get("note").and_then(Value::as_str).map(str::to_string);
+        let run = service.verify(run_id, verifier, note)?;
+        Ok(serde_json::json!({
+            "ok": true,
+            "run_id": run.id,
+            "verified_by": run.verified_by,
+            "independent_verifications": run.independent_verifications(),
+        }))
     }
 
     /// Handle tools/call request
@@ -1841,6 +1980,11 @@ impl McpServer {
             "bundle_split" => self.tool_bundle_split(arguments),
             "bundle_move_commit" => self.tool_bundle_move_commit(arguments),
             "bundle_seal" => self.tool_bundle_seal(arguments),
+            // Contribution graph (Agora-style shared memory)
+            "contribution_analysis" => self.tool_contribution_analysis(arguments),
+            "contribution_add" => self.tool_contribution_add(arguments),
+            "contribution_link" => self.tool_contribution_link(arguments),
+            "contribution_verify" => self.tool_contribution_verify(arguments),
             _ => Err(anyhow::anyhow!("Unknown tool: {}", tool_name)),
         };
 
@@ -3790,6 +3934,10 @@ mod tests {
             "receipt_get",
             "receipt_verify",
             "review_queue",
+            "contribution_analysis",
+            "contribution_add",
+            "contribution_link",
+            "contribution_verify",
         ] {
             assert!(names.contains(&name), "missing tool `{name}`");
         }

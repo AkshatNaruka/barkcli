@@ -148,13 +148,31 @@ fn serve_info_path() -> std::path::PathBuf {
     serve_pid_path().with_file_name("server.json")
 }
 
+/// The desktop app keeps its own sidecar metadata. A developer may already
+/// have a standalone `barkcli serve` running for the same project; the app
+/// must be able to start its private server without hijacking or killing it.
 #[cfg(feature = "serve")]
-fn read_pid_file() -> Option<u32> {
-    std::fs::read_to_string(serve_pid_path())
+fn serve_app_pid_path() -> std::path::PathBuf {
+    serve_pid_path().with_file_name("server-app.pid")
+}
+
+#[cfg(feature = "serve")]
+fn serve_app_info_path() -> std::path::PathBuf {
+    serve_pid_path().with_file_name("server-app.json")
+}
+
+#[cfg(feature = "serve")]
+fn read_pid_at(path: &std::path::Path) -> Option<u32> {
+    std::fs::read_to_string(path)
         .ok()?
         .trim()
         .parse::<u32>()
         .ok()
+}
+
+#[cfg(feature = "serve")]
+fn read_pid_file() -> Option<u32> {
+    read_pid_at(&serve_pid_path())
 }
 
 #[cfg(feature = "serve")]
@@ -249,6 +267,12 @@ fn wait_for_exit(pid: u32, timeout_ms: u64) -> bool {
 fn remove_serve_files() {
     let _ = std::fs::remove_file(serve_pid_path());
     let _ = std::fs::remove_file(serve_info_path());
+}
+
+#[cfg(feature = "serve")]
+fn remove_app_serve_files() {
+    let _ = std::fs::remove_file(serve_app_pid_path());
+    let _ = std::fs::remove_file(serve_app_info_path());
 }
 
 #[cfg(feature = "serve")]
@@ -422,11 +446,18 @@ fn run_daemon(port: u16, board_name: Option<&str>, open_browser: bool, host: &st
 fn run_app(mut port: u16, board_name: Option<&str>, host: &str, token: Option<String>) {
     use std::fs;
 
-    // Two servers on one board would each hold their own websocket and file
-    // watcher — the desktop must attach to the existing one instead.
-    if let Some(pid) = read_pid_file() {
+    // The app server uses its own metadata files. A standalone
+    // `barkcli serve` for the same project is allowed to keep running: the
+    // app gets a private port and token, while board writes remain protected
+    // by the existing file locks.
+    if let Some(pid) = read_pid_at(&serve_app_pid_path()) {
         if process_alive(pid) {
-            let known_port = read_info_port().unwrap_or(DEFAULT_SERVE_PORT);
+            let known_port = std::fs::read_to_string(serve_app_info_path())
+                .ok()
+                .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+                .and_then(|value| value.get("port").and_then(|port| port.as_u64()))
+                .and_then(|port| u16::try_from(port).ok())
+                .unwrap_or(DEFAULT_SERVE_PORT);
             println!(
                 "{}",
                 serde_json::json!({
@@ -438,7 +469,7 @@ fn run_app(mut port: u16, board_name: Option<&str>, host: &str, token: Option<St
             );
             std::process::exit(3);
         }
-        remove_serve_files();
+        remove_app_serve_files();
     }
 
     if port == 0 {
@@ -447,8 +478,8 @@ fn run_app(mut port: u16, board_name: Option<&str>, host: &str, token: Option<St
 
     let pid = std::process::id();
     let parent_pid = unsafe { libc::getppid() };
-    let pid_path = serve_pid_path();
-    let info_path = serve_info_path();
+    let pid_path = serve_app_pid_path();
+    let info_path = serve_app_info_path();
     if let Some(parent) = pid_path.parent() {
         let _ = fs::create_dir_all(parent);
     }
@@ -529,7 +560,7 @@ fn run_app(mut port: u16, board_name: Option<&str>, host: &str, token: Option<St
         .await
     });
 
-    remove_serve_files();
+    remove_app_serve_files();
     if let Err(e) = result {
         eprintln!("app server error: {}", e);
         std::process::exit(1);

@@ -630,6 +630,36 @@ Docs and Markdown-only changes do not score security points.
 
 ---
 
+## Contribution Graph
+
+Every run is a node in an always-on, Git-backed contribution DAG. Older runs
+without graph metadata are read as flat result nodes.
+
+```bash
+barkcli analyze [--json]          # leading, neglected, contested, open hypotheses
+barkcli contribute --title "..."  # publish an insight/hypothesis/report
+  --kind hypothesis
+  --text "evidence"
+  --parent run_abc123
+  --files src/lib.rs,README.md
+barkcli link-run <child> <parent> # append a cycle-checked contribution edge
+barkcli verify-run <run> --verifier reviewer  # reproduce a gate-passing run
+barkcli ancestry <run>            # root-first lineage + descendants
+```
+
+- **Always on, graceful degradation.** Old run files load as result nodes.
+- **Independent evidence.** A verification counts only when the verifier differs
+  from the run author; self-verification is rejected.
+- **Evidence score.** `ln(1 + independent verifications) + 0.5 * reuse + 0.25`
+  when the gate passed.
+- **Neglected branches.** Terminal nodes with no children after 24h.
+- **Contested.** Nodes with both passed and failed verifications.
+- **Recommendations.** UCB-style ranking across leading, neglected, contested,
+  and open-hypothesis lanes.
+
+MCP tools: `contribution_analysis`, `contribution_add`, `contribution_link`,
+`contribution_verify`.
+
 ## Spec Management
 
 Requirements traceability and specification management.

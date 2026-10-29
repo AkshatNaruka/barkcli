@@ -3,8 +3,9 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 
+use super::contribution::ContributionIndex;
 use super::event::{RunRecord, RuntimeEvent, StartRun};
 use crate::threads::{
     append_event_to_dir, append_event_to_dir_returning, read_events_from_dir, ThreadEvent,
@@ -94,6 +95,61 @@ impl RuntimeStore {
         }
         runs.sort_by(|a, b| a.started_at.cmp(&b.started_at));
         Ok(runs)
+    }
+
+    /// Add a contribution edge. Edges are append-only and cycle-checked.
+    pub fn link_run(&self, child_id: &str, parent_id: &str) -> Result<RunRecord> {
+        if child_id == parent_id {
+            bail!("a contribution cannot be its own parent");
+        }
+        let _parent = self.load_run(parent_id)?;
+        let mut child = self.load_run(child_id)?;
+        let index = self.contribution_index()?;
+        if index.is_ancestor(child_id, parent_id) {
+            bail!("linking {child_id} to {parent_id} would create a cycle");
+        }
+        child.add_parent(parent_id)?;
+        self.save_run(&child)?;
+        Ok(child)
+    }
+
+    /// Record an independent reproduction. Self-verification is rejected by
+    /// `RunRecord::add_verification`; the thread gets a review event as well.
+    pub fn verify_run(
+        &self,
+        run_id: &str,
+        verifier: &str,
+        passed: bool,
+        note: Option<String>,
+    ) -> Result<RunRecord> {
+        let mut run = self.load_run(run_id)?;
+        run.add_verification(verifier, passed, note.clone())?;
+        self.save_run(&run)?;
+        let mut event = ThreadEvent::new(
+            &run.card_id,
+            ThreadEventKind::Review,
+            verifier,
+            if passed {
+                format!("Independent verification passed for run {}", run.id)
+            } else {
+                format!("Independent verification failed for run {}", run.id)
+            },
+            Some(serde_json::json!({
+                "run_id": run.id,
+                "verifier": verifier,
+                "passed": passed,
+                "note": note,
+                "kind": "verification",
+            })),
+        );
+        event.thread_id = Some(run.thread_id.clone());
+        event.run_id = Some(run.id.clone());
+        let _ = append_event_to_dir(&self.thread_dir(), &run.card_id, &event);
+        Ok(run)
+    }
+
+    pub fn contribution_index(&self) -> Result<ContributionIndex> {
+        Ok(ContributionIndex::from_runs(&self.list_runs(None)?))
     }
 
     pub fn next_ordinal(&self, thread_id: &str) -> Result<u32> {
@@ -284,6 +340,37 @@ mod tests {
         assert_eq!(event.run_id.as_deref(), Some(run.id.as_str()));
         let events = store.read_thread_events("card-1").unwrap();
         assert_eq!(events.len(), 1);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn contribution_links_are_cycle_checked_and_verifiable() {
+        let dir = temp_board();
+        let store = RuntimeStore::new(&dir);
+        let mut first = start();
+        first.run_id = "run_a".into();
+        first.agent_id = Some("agent-a".into());
+        let mut second = start();
+        second.run_id = "run_b".into();
+        second.agent_id = Some("agent-b".into());
+        store.create_run(&first).unwrap();
+        store.create_run(&second).unwrap();
+
+        let linked = store.link_run("run_b", "run_a").unwrap();
+        assert_eq!(linked.effective_parents(), vec!["run_a"]);
+        assert!(store.link_run("run_a", "run_b").is_err());
+
+        assert!(store
+            .verify_run("run_a", "agent-a", true, None)
+            .is_err());
+        let verified = store
+            .verify_run("run_a", "agent-b", true, Some("reproduced".into()))
+            .unwrap();
+        assert_eq!(verified.independent_verifications(), 1);
+
+        let index = store.contribution_index().unwrap();
+        assert_eq!(index.ancestry("run_b").len(), 2);
+        assert!(index.node("run_a").unwrap().verified);
         let _ = std::fs::remove_dir_all(&dir);
     }
 

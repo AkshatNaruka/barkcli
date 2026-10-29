@@ -1,4 +1,5 @@
 pub mod chat;
+pub mod contribution;
 pub mod event;
 pub mod provider;
 pub mod providers;
@@ -13,6 +14,7 @@ pub use event::{
     GateSummary, RunDiffStats, RunOutcome, RunRecord, RunStatus, RunUsage, RuntimeEvent, StartRun,
 };
 pub use chat::{ChatRequest, ChatSession, PreparedChat};
+pub use contribution::{ContributionAnalysis, ContributionIndex, ContributionNode};
 pub use provider::{
     EventSink, FakeProvider, ProviderAdapter, ProviderCapabilities, ProviderRegistry, ProviderStatus,
     RunHandle,

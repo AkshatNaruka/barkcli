@@ -394,6 +394,15 @@ export interface RunRecord {
   gate?: GateSummary;
   usage: RunUsage;
   error?: string;
+  kind?: ContributionKind;
+  title?: string;
+  contributes_to?: string[];
+  verified_by?: string[];
+  verifications?: ContributionVerification[];
+  files_touched?: string[];
+  author?: string;
+  evidence_score?: number;
+  summary?: string;
 }
 
 export interface ProviderCapabilities {
@@ -1015,4 +1024,104 @@ export interface WorktreeInfo {
   bare: boolean;
   detached: boolean;
   locked: boolean;
+}
+
+// ── Contributions (Agora-style contribution graph) ──
+
+export type ContributionKind =
+  | "result"
+  | "hypothesis"
+  | "verification"
+  | "report"
+  | "insight"
+  | "failure";
+
+export type ContributionStatus =
+  | "queued"
+  | "starting"
+  | "running"
+  | "waiting"
+  | "needs_review"
+  | "passed"
+  | "failed"
+  | "interrupted"
+  | "cancelled"
+  | "merged";
+
+export interface ContributionVerification {
+  verifier: string;
+  passed: boolean;
+  note?: string;
+  at: string;
+}
+
+export interface ContributionNode {
+  id: string;
+  title: string;
+  summary?: string;
+  kind: ContributionKind;
+  status: ContributionStatus;
+  provider: string;
+  model?: string;
+  author: string;
+  thread_id: string;
+  card_id: string;
+  parents: string[];
+  children: string[];
+  gate_passed: boolean;
+  verified: boolean;
+  verified_by: string[];
+  verifications: ContributionVerification[];
+  evidence_score: number;
+  reuse_count: number;
+  files_touched: string[];
+  started_at: string;
+  ended_at?: string;
+}
+
+export interface ContributionEdge {
+  parent: string;
+  child: string;
+  relation: string;
+}
+
+export type ContributionLane =
+  | "leading"
+  | "neglected"
+  | "contested"
+  | "open_hypothesis"
+  | (string & {});
+
+export interface ContributionRecommendation {
+  run_id: string;
+  title: string;
+  lane: ContributionLane;
+  score: number;
+  reason: string;
+}
+
+export interface ContributionMetrics {
+  total_nodes: number;
+  edges: number;
+  verified_nodes: number;
+  verification_rate: number;
+  neglected_nodes: number;
+  contested_nodes: number;
+  open_hypotheses: number;
+  reuse_rate: number;
+  largest_lineage_share: number;
+  contributions_last_7d: number;
+  active_authors: number;
+}
+
+export interface ContributionAnalysis {
+  nodes: ContributionNode[];
+  edges: ContributionEdge[];
+  leading: ContributionNode[];
+  neglected: ContributionNode[];
+  contested: ContributionNode[];
+  open_hypotheses: ContributionNode[];
+  recommendations: ContributionRecommendation[];
+  metrics: ContributionMetrics;
+  generated_at: string;
 }

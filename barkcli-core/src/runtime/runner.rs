@@ -7,7 +7,7 @@ use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 
 use super::event::{
-    GateSummary, RunDiffStats, RunRecord, RunStatus, RuntimeEvent, StartRun,
+    ContributionKind, GateSummary, RunDiffStats, RunRecord, RunStatus, RuntimeEvent, StartRun,
 };
 use super::provider::RunHandle;
 use super::store::{RunRecorder, RuntimeStore};
@@ -51,6 +51,17 @@ pub struct CreateRunRequest {
     /// Retry the previous attempt in a new worktree.
     #[serde(default)]
     pub parent_run_id: Option<String>,
+    /// Explicit contribution edges beyond the legacy single parent.
+    #[serde(default)]
+    pub contributes_to: Vec<String>,
+    /// What this run claims: result, hypothesis, verification, report,
+    /// insight, or failure. Defaults to `result` for old callers.
+    #[serde(default)]
+    pub kind: Option<ContributionKind>,
+    /// Identity used for independent-verification checks. Falls back to the
+    /// hired agent id, then the provider.
+    #[serde(default)]
+    pub author: Option<String>,
     /// Review questions are answer-only: skip the project gate and mark the
     /// run complete without a test verdict.
     #[serde(default)]
@@ -266,6 +277,12 @@ impl RunService {
         let mut run = RunRecord::new(&start);
         run.ordinal = self.store().next_ordinal(card_id)?;
         run.parent_run_id = request.parent_run_id.clone();
+        run.kind = request.kind.unwrap_or_default();
+        run.title = Some(card.title.clone());
+        run.author = request.author.clone();
+        for parent in &request.contributes_to {
+            run.add_parent(parent)?;
+        }
         run.context_manifest_id = context_manifest_id;
         run.worktree = Some(worktree.to_string_lossy().to_string());
         run.branch = Some(branch.clone());
@@ -517,6 +534,70 @@ impl RunService {
         self.store().record(&mut run, RuntimeEvent::Interrupted)?;
         Ok(run)
     }
+
+    /// Independently reproduce a gate-passing contribution. The verifier must
+    /// differ from the run's author. When the worktree still exists the gate
+    /// runs there; after a merge it runs against the project root.
+    pub fn verify(&self, run_id: &str, verifier: &str, note: Option<String>) -> Result<RunRecord> {
+        let run = self.store().load_run(run_id)?;
+        if verifier.trim().is_empty() {
+            return Err(anyhow!("verifier is required"));
+        }
+        if run.author_id() == verifier.trim() {
+            return Err(anyhow!(
+                "self-verification is not allowed; use a different agent or account"
+            ));
+        }
+        if !matches!(run.status, RunStatus::Passed | RunStatus::Merged) {
+            return Err(anyhow!(
+                "run must pass its gate before it can be independently verified"
+            ));
+        }
+        let worktree = run
+            .worktree
+            .as_deref()
+            .map(PathBuf::from)
+            .filter(|path| path.exists());
+        let worktree = match worktree {
+            Some(path) => path,
+            None if run.status == RunStatus::Merged => {
+                find_project_root().unwrap_or_default()
+            }
+            None if run.provider == "manual" => {
+                // A textual insight has no worktree to reproduce. Independent
+                // identity is still required; record an explicit attestation.
+                return self.store().verify_run(
+                    run_id,
+                    verifier,
+                    true,
+                    note.or_else(|| Some("Manual contribution: verification is an attestation".into())),
+                );
+            }
+            None => {
+                return Err(anyhow!(
+                    "run worktree no longer exists; reproduce before merging or re-run the agent"
+                ))
+            }
+        };
+        let command = run
+            .gate
+            .as_ref()
+            .and_then(|gate| gate.command.clone())
+            .or_else(|| detect_test_cmd(&worktree));
+        let (passed, summary) = match command {
+            Some(command) => run_gate_command(&command, &worktree)?,
+            None => (
+                true,
+                "No test command detected; verification is an explicit attestation".to_string(),
+            ),
+        };
+        self.store().verify_run(
+            run_id,
+            verifier,
+            passed,
+            note.or(Some(summary)),
+        )
+    }
 }
 
 fn run_slug(card_id: &str, run_id: &str) -> String {
@@ -652,10 +733,21 @@ fn finalize_run(
     }
 
     let stats = diff_stats(&worktree, &base_sha);
+    let paths = git_out(
+        &worktree,
+        &["diff", "--name-only", &format!("{base_sha}..HEAD")],
+    )
+    .unwrap_or_default()
+    .lines()
+    .map(str::trim)
+    .filter(|path| !path.is_empty())
+    .map(str::to_string)
+    .collect::<Vec<_>>();
     recorder.record(RuntimeEvent::Diff {
         files: stats.files,
         additions: stats.additions,
         deletions: stats.deletions,
+        paths,
     })?;
 
     let gate = if skip_gate {
@@ -812,8 +904,19 @@ fn run_gate(
             log_path: None,
         });
     };
+    let (passed, combined) = run_gate_command(&command, worktree)?;
+    let log_path = store.write_gate_log(&run.id, &combined).ok();
+    Ok(GateOutcome {
+        passed,
+        command: Some(command),
+        summary: tail(&combined, 40),
+        log_path: log_path.map(|path| path.to_string_lossy().to_string()),
+    })
+}
+
+fn run_gate_command(command: &str, worktree: &Path) -> Result<(bool, String)> {
     let output = Command::new("sh")
-        .args(["-c", &command])
+        .args(["-c", command])
         .current_dir(worktree)
         .output()
         .with_context(|| format!("gate command failed to start: {command}"))?;
@@ -822,13 +925,7 @@ fn run_gate(
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    let log_path = store.write_gate_log(&run.id, &combined).ok();
-    Ok(GateOutcome {
-        passed: output.status.success(),
-        command: Some(command),
-        summary: tail(&combined, 40),
-        log_path: log_path.map(|path| path.to_string_lossy().to_string()),
-    })
+    Ok((output.status.success(), combined))
 }
 
 fn detect_test_cmd(dir: &Path) -> Option<String> {

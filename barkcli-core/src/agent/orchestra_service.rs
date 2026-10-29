@@ -449,6 +449,9 @@ impl OrchestraService {
                 skills: profile.skills.clone(),
                 resume: true,
                 parent_run_id: None,
+                contributes_to: Vec::new(),
+                kind: None,
+                author: None,
                 skip_gate: false,
             };
 
