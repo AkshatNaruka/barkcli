@@ -73,6 +73,9 @@ impl ProviderAdapter for ScriptProvider {
             version: None,
             command: self.command().into(),
             detail: None,
+            authenticated: Some(true),
+            auth_command: None,
+            auth_hint: None,
             capabilities: self.capabilities(),
         }
     }

@@ -110,9 +110,57 @@ impl RunService {
     pub fn start_for_card(
         &self,
         card_id: &str,
-        request: CreateRunRequest,
+        mut request: CreateRunRequest,
         sink: Option<ThreadSink>,
     ) -> Result<RunRecord> {
+        let profile = match request.agent_id.as_deref().filter(|id| !id.trim().is_empty()) {
+            Some(agent_id) => {
+                let profile = crate::agent::ProfileStore::from_project()
+                    .and_then(|store| store.load(agent_id))
+                    .with_context(|| format!("agent profile '{agent_id}' was not found"))?;
+                if profile.status != crate::agent::ProfileStatus::Active {
+                    return Err(anyhow!(
+                        "agent '{}' is {}; resume it before delegating work",
+                        profile.name,
+                        profile.status.as_str()
+                    ));
+                }
+                Some(profile)
+            }
+            None => None,
+        };
+
+        if let Some(profile) = profile.as_ref() {
+            if request
+                .provider
+                .as_deref()
+                .map_or(true, |value| value.trim().is_empty())
+            {
+                request.provider = Some(profile.provider.clone());
+            }
+            if request
+                .model
+                .as_deref()
+                .map_or(true, |value| value.trim().is_empty())
+            {
+                request.model = profile.model.clone();
+            }
+            if request
+                .role
+                .as_deref()
+                .map_or(true, |value| value.trim().is_empty())
+            {
+                request.role = Some(profile.role.clone());
+            }
+            if request
+                .permission_mode
+                .as_deref()
+                .map_or(true, |value| value.trim().is_empty())
+            {
+                request.permission_mode = Some(profile.permission_mode.clone());
+            }
+        }
+
         let board = read_board(&self.board_name)
             .with_context(|| format!("board '{}' could not be read", self.board_name))?;
         let card = board
@@ -146,6 +194,20 @@ impl RunService {
             .clone()
             .filter(|role| !role.trim().is_empty())
             .unwrap_or_else(|| "builder".to_string());
+
+        // Merge skills from every real source that applies to this run:
+        // explicit request, the hired agent profile, and the role contract.
+        // Duplicates are removed case-insensitively while preserving order.
+        let role_skills = crate::agent::RoleRegistry::from_project()
+            .ok()
+            .and_then(|roles| roles.get(&role).map(|role_def| role_def.default_skills.clone()))
+            .unwrap_or_default();
+        request.skills = merge_run_skills(
+            &role_skills,
+            profile.as_ref().map(|profile| profile.skills.as_slice()).unwrap_or(&[]),
+            &request.skills,
+        );
+
         let provider_session_id = if request.resume {
             self.previous_session(card_id, &provider)?
         } else {
@@ -498,6 +560,23 @@ fn build_prompt(card: &crate::models::Card, extra: Option<&str>) -> String {
     prompt
 }
 
+fn merge_run_skills(
+    role_skills: &[String],
+    profile_skills: &[String],
+    explicit: &[String],
+) -> Vec<String> {
+    let mut merged = Vec::new();
+    merged.extend(role_skills.iter().cloned());
+    merged.extend(profile_skills.iter().cloned());
+    merged.extend(explicit.iter().cloned());
+    let mut seen = std::collections::BTreeSet::new();
+    merged.retain(|skill| {
+        let key = skill.trim().to_ascii_lowercase();
+        !key.is_empty() && seen.insert(key)
+    });
+    merged
+}
+
 fn finalize_run(
     store: RuntimeStore,
     recorder: Arc<RunRecorder>,
@@ -521,6 +600,14 @@ fn finalize_run(
             message: error.to_string(),
             exit_code: None,
         })?;
+        record_terminal_session(
+            &board_name,
+            &card_id,
+            &card_title,
+            &recorder.snapshot(),
+            &worktree,
+            &base_sha,
+        );
         return Ok(());
     }
 
@@ -553,6 +640,14 @@ fn finalize_run(
             message: "agent exited without producing changes".into(),
             exit_code: run.exit_code,
         })?;
+        record_terminal_session(
+            &board_name,
+            &card_id,
+            &card_title,
+            &recorder.snapshot(),
+            &worktree,
+            &base_sha,
+        );
         return Ok(());
     }
 
@@ -591,12 +686,106 @@ fn finalize_run(
     }
     let final_run = recorder.snapshot();
     store.save_run(&final_run)?;
+    record_terminal_session(
+        &board_name,
+        &card_id,
+        &card_title,
+        &final_run,
+        &worktree,
+        &base_sha,
+    );
     eprintln!(
         "bark runtime: run {} finished ({})",
         run_id,
         final_run.status.as_str()
     );
     Ok(())
+}
+
+/// Build the canonical session for a finished run. The run id is the session
+/// id, which makes retries idempotent and ties memory back to the exact run.
+fn terminal_session_entry(
+    board_name: &str,
+    card_id: &str,
+    card_title: &str,
+    run: &RunRecord,
+    files: Vec<String>,
+) -> crate::models::SessionEntry {
+    let mut entry = crate::models::SessionEntry::new(board_name);
+    entry.id = run.id.clone();
+    entry.agent = Some(run.provider.clone());
+    entry.model = run.model.clone();
+    entry.prompt = Some(card_title.to_string());
+    entry.commit_sha = run.head_sha.clone();
+    entry.files_touched = files;
+    entry.summary = Some(format!(
+        "{} · {} · {}",
+        card_title,
+        run.status.as_str(),
+        run.gate
+            .as_ref()
+            .map(|gate| {
+                gate.summary
+                    .as_deref()
+                    .unwrap_or("gate")
+                    .lines()
+                    .next()
+                    .unwrap_or("gate")
+            })
+            .unwrap_or("no gate")
+    ));
+    entry.at = run.started_at.to_rfc3339();
+    entry.duration_ms = run.ended_at.map(|ended| {
+        let millis = (ended - run.started_at).num_milliseconds();
+        millis.max(0) as u64
+    });
+    entry.matched_card_ids = vec![card_id.to_string()];
+    entry
+}
+
+/// Persist exactly one session per terminal run, then let the brain ingest it
+/// and refresh the living context. Session ids are the run id, so a retried
+/// finalize can never double-count the same work.
+fn record_terminal_session(
+    board_name: &str,
+    card_id: &str,
+    card_title: &str,
+    run: &RunRecord,
+    worktree: &Path,
+    base_sha: &str,
+) {
+    let existing = crate::storage::sessions::read_sessions(board_name).unwrap_or_default();
+    if existing.iter().any(|session| session.id == run.id) {
+        return;
+    }
+
+    let files: Vec<String> = git_out(
+        worktree,
+        &["diff", "--name-only", &format!("{base_sha}..HEAD")],
+    )
+    .unwrap_or_default()
+    .lines()
+    .map(str::trim)
+    .filter(|line| !line.is_empty())
+    .map(str::to_string)
+    .collect();
+
+    let entry = terminal_session_entry(board_name, card_id, card_title, run, files);
+
+    if let Err(error) = crate::storage::sessions::append(&entry) {
+        eprintln!("bark runtime: could not record session for {}: {error}", run.id);
+        return;
+    }
+    if let Err(error) = crate::memory::ingest::ingest(board_name, false) {
+        eprintln!("bark runtime: memory ingest failed: {error}");
+    }
+    let opts = crate::context_file::DigestOpts {
+        quiet: true,
+        ..Default::default()
+    };
+    if let Err(error) = crate::context_file::digest::run_digest_core(board_name, &opts) {
+        eprintln!("bark runtime: context digest failed: {error}");
+    }
 }
 
 struct GateOutcome {
@@ -864,5 +1053,49 @@ mod tests {
             raw_log_path: None,
         });
         assert!(managed_worktree(&run).is_err());
+    }
+
+    #[test]
+    fn run_skills_merge_role_profile_and_explicit_without_duplicates() {
+        let merged = merge_run_skills(
+            &["implementation".into(), "testing".into()],
+            &["testing".into(), "Rust".into()],
+            &["rust".into(), " ".into(), "custom".into()],
+        );
+        assert_eq!(
+            merged,
+            vec!["implementation", "testing", "Rust", "custom"]
+        );
+    }
+
+    #[test]
+    fn terminal_session_is_one_per_run_and_keeps_evidence() {
+        let run = RunRecord::new(&StartRun {
+            run_id: "run_abc".into(),
+            thread_id: "card-1".into(),
+            card_id: "card-1".into(),
+            prompt: "p".into(),
+            cwd: "/tmp".into(),
+            provider: "opencode".into(),
+            model: Some("anthropic/claude-opus-4-5".into()),
+            role: Some("builder".into()),
+            agent_id: Some("builder-one".into()),
+            permission_mode: "auto".into(),
+            provider_session_id: None,
+            raw_log_path: None,
+        });
+        let entry = terminal_session_entry(
+            "dev",
+            "card-1",
+            "Ship the real app",
+            &run,
+            vec!["src/main.rs".into()],
+        );
+        assert_eq!(entry.id, "run_abc");
+        assert_eq!(entry.agent.as_deref(), Some("opencode"));
+        assert_eq!(entry.files_touched, vec!["src/main.rs"]);
+        assert_eq!(entry.matched_card_ids, vec!["card-1"]);
+        assert!(entry.summary.as_deref().unwrap_or("").contains("Ship the real app"));
+        assert!(entry.prompt.as_deref().unwrap_or("").contains("Ship the real app"));
     }
 }

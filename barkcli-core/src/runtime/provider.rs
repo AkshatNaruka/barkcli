@@ -45,6 +45,14 @@ pub struct ProviderStatus {
     pub command: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
+    /// Real local credential state. `None` means the CLI does not expose a
+    /// reliable status (or is not installed), not "ready".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authenticated: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth_command: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth_hint: Option<String>,
     pub capabilities: ProviderCapabilities,
 }
 
@@ -55,6 +63,11 @@ pub trait ProviderAdapter: Send + Sync {
     fn probe(&self) -> ProviderStatus;
     fn capabilities(&self) -> ProviderCapabilities;
     fn start(&self, req: StartRun, sink: EventSink) -> Result<Box<dyn RunHandle>>;
+    /// Models the local CLI advertises. Empty means "the provider accepts a
+    /// free-form model id" rather than inventing a list.
+    fn models(&self) -> Vec<String> {
+        Vec::new()
+    }
 }
 
 pub trait RunHandle: Send {
@@ -91,7 +104,6 @@ impl ProviderRegistry {
                 Arc::new(super::providers::ClaudeProvider::new()),
                 Arc::new(super::providers::CodexProvider::new()),
                 Arc::new(super::providers::HumanProvider::new()),
-                Arc::new(FakeProvider::new()),
             ],
         }
     }
@@ -105,6 +117,10 @@ impl ProviderRegistry {
 
     pub fn statuses(&self) -> Vec<ProviderStatus> {
         self.adapters.iter().map(|adapter| adapter.probe()).collect()
+    }
+
+    pub fn models(&self, id: &str) -> Option<Vec<String>> {
+        self.get(id).map(|adapter| adapter.models())
     }
 
     pub fn available(&self) -> Vec<ProviderStatus> {
@@ -151,6 +167,9 @@ impl ProviderAdapter for FakeProvider {
             version: Some(env!("CARGO_PKG_VERSION").to_string()),
             command: self.command().to_string(),
             detail: Some("Deterministic test provider".to_string()),
+            authenticated: Some(true),
+            auth_command: None,
+            auth_hint: None,
             capabilities: self.capabilities(),
         }
     }
@@ -329,8 +348,12 @@ mod tests {
     #[test]
     fn standard_registry_has_core_providers() {
         let registry = ProviderRegistry::standard();
-        for id in ["opencode", "claude-code", "codex", "human", "fake"] {
+        for id in ["opencode", "claude-code", "codex", "human"] {
             assert!(registry.get(id).is_some(), "missing provider {id}");
         }
+        assert!(
+            registry.get("fake").is_none(),
+            "the fake provider must never ship in the standard registry"
+        );
     }
 }

@@ -27,6 +27,7 @@ use barkcli_core::agent::{
     AgentIdentity, AgentRegistry, AgentRole, TaskQueue, TaskRequest, TaskStatus,
 };
 use barkcli_core::code::SymbolIndex;
+use barkcli_core::commands::hooks;
 use barkcli_core::memory::store::{MemoryEntry, MemoryStore, MemoryTier, ProjectFact};
 use barkcli_core::models::card::Comment;
 use barkcli_core::models::spec::{Requirement, RequirementStatus, Spec, SpecStatus};
@@ -109,6 +110,11 @@ where
     });
 
     let app = Router::new()
+        .route("/api/project", get(project_handler))
+        .route("/api/project/onboard", post(onboard_project_handler))
+        .route("/api/project/init-git", post(init_git_handler))
+        .route("/api/hooks", get(hooks_status_handler))
+        .route("/api/hooks/install", post(install_hooks_handler))
         .route("/api/boards", get(list_boards_handler))
         .route("/api/board", get(get_board_handler).put(save_board_handler))
         .route("/api/threads", get(list_threads_handler).post(create_thread_handler))
@@ -121,6 +127,7 @@ where
         )
         .route("/api/providers", get(list_providers_handler))
         .route("/api/providers/{id}/probe", post(probe_provider_handler))
+        .route("/api/providers/{id}/models", get(provider_models_handler))
         .route("/api/runs/{id}", get(get_run_handler))
         .route("/api/runs/{id}/diff", get(run_diff_handler))
         .route("/api/runs/{id}/gate", get(run_gate_handler))
@@ -520,6 +527,326 @@ async fn auto_init() {
             }
         }
     }
+}
+
+// ── Project lifecycle ──
+
+fn project_root_or_cwd() -> std::path::PathBuf {
+    barkcli_core::storage::board_dir::find_project_root()
+        .unwrap_or_else(|_| std::env::current_dir().unwrap_or_default())
+}
+
+/// Build the real project snapshot used by Workspace, setup, and onboarding.
+fn project_snapshot(state: &AppState) -> serde_json::Value {
+    let root = project_root_or_cwd();
+    let boards = list_board_files().unwrap_or_default();
+    let active_board = resolve_board_name(state, None).ok();
+    let is_git = root.join(".git").exists();
+    let git = barkcli_core::repo::git_status(&root).ok();
+
+    let board = active_board
+        .as_ref()
+        .and_then(|name| read_board(name).ok());
+    let cards = board.as_ref().map(|b| b.cards.len()).unwrap_or(0);
+    let done = board
+        .as_ref()
+        .map(|b| b.cards.iter().filter(|c| c.column == "done").count())
+        .unwrap_or(0);
+    let doing = board
+        .as_ref()
+        .map(|b| b.cards.iter().filter(|c| c.column == "doing").count())
+        .unwrap_or(0);
+    let specs = active_board
+        .as_ref()
+        .and_then(|name| barkcli_core::storage::specs::read_specs(name).ok())
+        .map(|s| s.len())
+        .unwrap_or(0);
+    let sessions = active_board
+        .as_ref()
+        .and_then(|name| sessions::read_sessions(name).ok())
+        .map(|s| s.len())
+        .unwrap_or(0);
+    let profiles = barkcli_core::agent::ProfileStore::from_project()
+        .and_then(|store| store.list())
+        .unwrap_or_default();
+    let hooks = hooks::status_for_root(&root);
+
+    let context_path = barkcli_core::context_file::file_path(&root);
+    let context = if context_path.exists() {
+        let content = std::fs::read_to_string(&context_path).unwrap_or_default();
+        let parsed = barkcli_core::context_file::parse(&content);
+        let stale = parsed
+            .blocks
+            .iter()
+            .filter(|b| b.meta.staleness >= 0.4)
+            .count();
+        let cf_state = active_board
+            .as_ref()
+            .and_then(|name| barkcli_core::context_file::read_state(name).ok())
+            .unwrap_or_default();
+        serde_json::json!({
+            "exists": true,
+            "file": context_path.display().to_string(),
+            "tokens": barkcli_core::context_file::estimate_tokens(&content),
+            "blocks": parsed.blocks.len(),
+            "stale_blocks": stale,
+            "last_run": cf_state.last_run,
+            "budget_tokens": cf_state.budget_tokens,
+        })
+    } else {
+        serde_json::json!({
+            "exists": false,
+            "file": context_path.display().to_string(),
+        })
+    };
+
+    let board_ready = !boards.is_empty();
+    let team_ready = !profiles.is_empty();
+    let hooks_ready = hooks.opencode || hooks.claude_code;
+    let context_ready = context_path.exists();
+    let setup_complete = board_ready && team_ready && hooks_ready && context_ready;
+
+    serde_json::json!({
+        "root": root.display().to_string(),
+        "name": root.file_name().and_then(|n| n.to_str()).unwrap_or("project"),
+        "board_dir": root.join(".board").display().to_string(),
+        "boards": boards,
+        "active_board": active_board,
+        "is_git": is_git,
+        "git": git.map(|g| serde_json::json!({
+            "branch": g.branch,
+            "head": g.head,
+            "upstream": g.upstream,
+            "ahead": g.ahead,
+            "behind": g.behind,
+            "clean": g.clean,
+            "changes": g.changes.len(),
+        })),
+        "context": context,
+        "hooks": hooks,
+        "setup": {
+            "board": board_ready,
+            "context": context_ready,
+            "team": team_ready,
+            "hooks": hooks_ready,
+            "complete": setup_complete,
+        },
+        "counts": {
+            "cards": cards,
+            "done": done,
+            "doing": doing,
+            "specs": specs,
+            "sessions": sessions,
+            "agents": profiles.len(),
+        },
+    })
+}
+
+async fn project_handler(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
+    Json(project_snapshot(&state))
+}
+
+fn setup_step(id: &str, label: &str, ok: bool, detail: String) -> serde_json::Value {
+    serde_json::json!({
+        "id": id,
+        "label": label,
+        "ok": ok,
+        "detail": detail,
+    })
+}
+
+/// Idempotent basic setup. This is intentionally deterministic: it never asks
+/// an AI to create cards or code. The desktop app calls it once per project
+/// load; the Workspace button calls it again on demand.
+async fn onboard_project_handler(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let mut steps = Vec::new();
+
+    auto_init().await;
+    let boards = list_board_files().unwrap_or_default();
+    steps.push(setup_step(
+        "board",
+        "Board",
+        !boards.is_empty(),
+        if boards.is_empty() {
+            "No board could be created".into()
+        } else {
+            format!("{} board(s) ready", boards.len())
+        },
+    ));
+
+    let active_board = resolve_board_name(&state, None).ok();
+    let root = project_root_or_cwd();
+
+    if let Some(board_name) = active_board.as_ref() {
+        let context_path = barkcli_core::context_file::file_path(&root);
+        if context_path.exists() {
+            steps.push(setup_step(
+                "context",
+                "Living context",
+                true,
+                "project_context.md already exists".into(),
+            ));
+        } else {
+            let opts = barkcli_core::context_file::DigestOpts {
+                quiet: true,
+                ..Default::default()
+            };
+            match barkcli_core::context_file::digest::run_digest_core(board_name, &opts) {
+                Ok(report) => steps.push(setup_step(
+                    "context",
+                    "Living context",
+                    true,
+                    format!("generated project_context.md ({} tokens)", report.total_tokens),
+                )),
+                Err(error) => steps.push(setup_step(
+                    "context",
+                    "Living context",
+                    false,
+                    format!("could not generate project_context.md: {error}"),
+                )),
+            }
+        }
+
+        let profiles_before = barkcli_core::agent::ProfileStore::from_project()
+            .and_then(|store| store.list())
+            .unwrap_or_default();
+        let team_result = if profiles_before.is_empty() {
+            barkcli_core::agent::ProfileStore::from_project()
+                .and_then(|store| store.ensure_default_team())
+        } else {
+            Ok(profiles_before.clone())
+        };
+        match team_result {
+            Ok(profiles) => steps.push(setup_step(
+                "team",
+                "Agent team",
+                !profiles.is_empty(),
+                format!("{} agent profile(s) ready", profiles.len()),
+            )),
+            Err(error) => steps.push(setup_step(
+                "team",
+                "Agent team",
+                false,
+                format!("could not create the default team: {error}"),
+            )),
+        }
+    } else {
+        for (id, label) in [("context", "Living context"), ("team", "Agent team")] {
+            steps.push(setup_step(
+                id,
+                label,
+                false,
+                "No board is active, so this step was skipped".into(),
+            ));
+        }
+    }
+
+    let hooks_before = hooks::status_for_root(&root);
+    let hooks_result = if hooks_before.opencode || hooks_before.claude_code {
+        Ok(())
+    } else {
+        hooks::install_default_for_root(&root)
+    };
+    let hooks_after = hooks::status_for_root(&root);
+    steps.push(setup_step(
+        "hooks",
+        "Session hooks",
+        hooks_after.opencode || hooks_after.claude_code,
+        match hooks_result {
+            Ok(()) => "opencode / Claude Code session hooks ready".into(),
+            Err(error) => format!("could not install session hooks: {error}"),
+        },
+    ));
+
+    let providers = barkcli_core::runtime::ProviderRegistry::standard().statuses();
+    let ready = providers
+        .iter()
+        .filter(|p| p.available && p.authenticated != Some(false))
+        .count();
+    steps.push(setup_step(
+        "providers",
+        "Local agents",
+        ready > 0,
+        format!("{ready} local agent(s) ready to run"),
+    ));
+
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({
+        "ok": true,
+        "steps": steps,
+        "project": project_snapshot(&state),
+    })))
+}
+
+#[derive(Deserialize, Default)]
+struct InitGitRequest {
+    #[serde(default)]
+    confirm: bool,
+}
+
+async fn init_git_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<InitGitRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    if !req.confirm {
+        return Err(ServerError::bad(
+            "git initialization requires explicit confirmation",
+        ));
+    }
+    let root = project_root_or_cwd();
+    if root.join(".git").exists() {
+        return Ok(Json(serde_json::json!({
+            "ok": true,
+            "already": true,
+            "root": root.display().to_string(),
+        })));
+    }
+    let output = std::process::Command::new("git")
+        .args(["init", "-q"])
+        .current_dir(&root)
+        .output()
+        .map_err(|e| ServerError::internal(format!("git is not available: {e}")))?;
+    if !output.status.success() {
+        return Err(ServerError::internal(format!(
+            "git init failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )));
+    }
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({
+        "ok": true,
+        "already": false,
+        "root": root.display().to_string(),
+    })))
+}
+
+async fn hooks_status_handler() -> Json<serde_json::Value> {
+    let root = project_root_or_cwd();
+    Json(serde_json::to_value(hooks::status_for_root(&root)).unwrap_or_else(|_| serde_json::json!({})))
+}
+
+#[derive(Deserialize, Default)]
+struct HooksInstallRequest {
+    #[serde(default)]
+    agents: Vec<String>,
+}
+
+async fn install_hooks_handler(
+    Json(req): Json<HooksInstallRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let root = project_root_or_cwd();
+    let agents = if req.agents.is_empty() {
+        vec!["opencode".to_string(), "claude-code".to_string()]
+    } else {
+        req.agents
+    };
+    hooks::install_for_root(&root, &agents).map_err(|e| ServerError::bad(e.to_string()))?;
+    Ok(Json(serde_json::json!({
+        "ok": true,
+        "status": hooks::status_for_root(&root),
+    })))
 }
 
 // ── Security middleware ──
@@ -4462,6 +4789,18 @@ async fn probe_provider_handler(
     ))
 }
 
+/// Models the local CLI actually reports. An empty list means the provider
+/// takes a free-form model id; it never means "use a made-up default".
+async fn provider_models_handler(
+    Path(provider_id): Path<String>,
+) -> Result<Json<Vec<String>>, ServerError> {
+    let registry = barkcli_core::runtime::ProviderRegistry::standard();
+    let models = registry
+        .models(&provider_id)
+        .ok_or_else(|| ServerError::bad(format!("unknown provider: {provider_id}")))?;
+    Ok(Json(models))
+}
+
 async fn start_thread_run_handler(
     State(state): State<Arc<AppState>>,
     Path(card_id): Path<String>,
@@ -5956,17 +6295,25 @@ async fn post_thread_message_handler(
         None
     }).await.unwrap_or(None);
 
-    let assistant_text = ai_response.unwrap_or_else(|| {
-        format!("Received your intent: {}. I am analyzing requirements and tracking progress on this task.", text)
-    });
-
-    let assist_ev = barkcli_core::threads::ThreadEvent::new(
-        &card_id,
-        barkcli_core::threads::ThreadEventKind::Assistant,
-        "barkcli",
-        assistant_text,
-        None,
-    );
+    let assist_ev = if let Some(assistant_text) = ai_response {
+        barkcli_core::threads::ThreadEvent::new(
+            &card_id,
+            barkcli_core::threads::ThreadEventKind::Assistant,
+            "barkcli",
+            assistant_text,
+            None,
+        )
+    } else {
+        // No configured model: record a truthful notice instead of fabricating
+        // an assistant reply. The local agent run is still available.
+        barkcli_core::threads::ThreadEvent::new(
+            &card_id,
+            barkcli_core::threads::ThreadEventKind::Log,
+            "barkcli",
+            "No AI planner is configured. Your message is saved. Start a local agent run from the workbench, or configure an AI provider in `barkcli agent config`.",
+            None,
+        )
+    };
     let _ = barkcli_core::threads::append_event(&card_id, &assist_ev);
     let _ = state.thread_tx.send(assist_ev);
 
@@ -6703,5 +7050,122 @@ cards:
         assert_eq!(items.len(), 1);
         assert_eq!(items[0]["card_id"], "card-1");
         assert_eq!(items[0]["column"], "review");
+    }
+
+    fn project_router(state: Arc<AppState>) -> Router {
+        Router::new()
+            .route("/api/project", get(project_handler))
+            .route("/api/project/onboard", post(onboard_project_handler))
+            .route("/api/project/init-git", post(init_git_handler))
+            .route("/api/hooks", get(hooks_status_handler))
+            .route("/api/hooks/install", post(install_hooks_handler))
+            .route("/api/providers/{id}/models", get(provider_models_handler))
+            .with_state(state)
+    }
+
+    #[tokio::test]
+    async fn project_snapshot_reports_the_real_temp_root() {
+        let project = with_temp_project();
+        let app = project_router(test_state(None));
+        let res = app.oneshot(get_request("/api/project")).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let value = json_body(res).await;
+        assert_eq!(
+            std::fs::canonicalize(value["root"].as_str().unwrap()).unwrap(),
+            std::fs::canonicalize(project.root()).unwrap()
+        );
+        assert_eq!(value["is_git"], true);
+        assert!(value["setup"]["board"].is_boolean());
+        assert!(value["counts"]["cards"].is_number());
+    }
+
+    #[tokio::test]
+    async fn onboarding_is_deterministic_and_idempotent() {
+        let project = with_temp_project();
+        let app = project_router(test_state(None));
+
+        let first = app
+            .clone()
+            .oneshot(post_json_request("/api/project/onboard", serde_json::json!({})))
+            .await
+            .unwrap();
+        assert_eq!(first.status(), StatusCode::OK);
+        let first = json_body(first).await;
+        assert_eq!(first["ok"], true);
+        let steps = first["steps"].as_array().unwrap();
+        for id in ["board", "context", "team", "hooks", "providers"] {
+            assert!(
+                steps.iter().any(|step| step["id"] == id),
+                "missing setup step {id}"
+            );
+        }
+        assert!(project.root().join("project_context.md").exists());
+        assert!(!first["project"]["boards"].as_array().unwrap().is_empty());
+
+        let boards_after_first = first["project"]["boards"].as_array().unwrap().len();
+        let agents_after_first = first["project"]["counts"]["agents"].as_u64().unwrap();
+
+        let second = app
+            .oneshot(post_json_request("/api/project/onboard", serde_json::json!({})))
+            .await
+            .unwrap();
+        assert_eq!(second.status(), StatusCode::OK);
+        let second = json_body(second).await;
+        assert_eq!(
+            second["project"]["boards"].as_array().unwrap().len(),
+            boards_after_first
+        );
+        assert_eq!(
+            second["project"]["counts"]["agents"].as_u64().unwrap(),
+            agents_after_first
+        );
+        assert_eq!(second["project"]["setup"]["complete"], true);
+    }
+
+    #[tokio::test]
+    async fn hooks_endpoints_install_and_report_real_files() {
+        let project = with_temp_project();
+        let app = project_router(test_state(None));
+        let before = app
+            .clone()
+            .oneshot(get_request("/api/hooks"))
+            .await
+            .unwrap();
+        assert_eq!(before.status(), StatusCode::OK);
+        let before = json_body(before).await;
+        assert_eq!(before["opencode"], false);
+
+        let installed = app
+            .clone()
+            .oneshot(post_json_request(
+                "/api/hooks/install",
+                serde_json::json!({ "agents": ["opencode", "claude-code"] }),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(installed.status(), StatusCode::OK);
+
+        let after = app
+            .oneshot(get_request("/api/hooks"))
+            .await
+            .unwrap();
+        assert_eq!(after.status(), StatusCode::OK);
+        let after = json_body(after).await;
+        assert_eq!(after["opencode"], true);
+        assert_eq!(after["claude_code"], true);
+        assert!(project.root().join(".opencode/plugins/barkcli.ts").exists());
+        assert!(project.root().join(".claude/settings.json").exists());
+    }
+
+    #[tokio::test]
+    async fn provider_model_endpoint_rejects_unknown_providers() {
+        let app = project_router(test_state(None));
+        let res = app
+            .oneshot(get_request("/api/providers/not-a-provider/models"))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+        let value = json_body(res).await;
+        assert!(value["error"].as_str().unwrap().contains("unknown provider"));
     }
 }

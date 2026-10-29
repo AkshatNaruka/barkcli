@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import type { Board as BoardType } from "../lib/types";
-import { fetchConfig, type BoardConfig } from "../lib/api";
+import type { Board as BoardType, ProviderStatus } from "../lib/types";
+import { fetchConfig, fetchProviders, type BoardConfig } from "../lib/api";
+import { isDesktop, openProviderLogin } from "../lib/desktop";
 import { useTheme, type Theme } from "../lib/theme";
 import { Icon } from "./Icon";
 
@@ -17,9 +18,42 @@ export function SettingsView({
   const [ai, setAi] = useState<BoardConfig["ai"] | null>(null);
   const { theme, setTheme } = useTheme();
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
+  const [providers, setProviders] = useState<ProviderStatus[]>([]);
+  const [authBusy, setAuthBusy] = useState<string | null>(null);
+  const [authNote, setAuthNote] = useState<string | null>(null);
 
   useEffect(() => { setTitle(board.title); setDescription(board.description || ""); setCols(board.columns.map((c) => ({ id: c.id, name: c.name }))); }, [board.title, board.description, board.columns]);
-  useEffect(() => { fetchConfig().then((c) => setAi(c?.ai ?? null)); }, []);
+  useEffect(() => {
+    fetchConfig().then((c) => setAi(c?.ai ?? null));
+    fetchProviders().then((next) =>
+      setProviders(next.filter((provider) => provider.id !== "human"))
+    );
+  }, []);
+
+  const authenticate = async (provider: ProviderStatus) => {
+    setAuthNote(null);
+    if (isDesktop()) {
+      setAuthBusy(provider.id);
+      const opened = await openProviderLogin(provider.id);
+      setAuthBusy(null);
+      setAuthNote(
+        opened
+          ? `${provider.name} sign-in opened in Terminal. Finish there, then reload this page.`
+          : `Could not open a terminal for ${provider.name}.`
+      );
+      return;
+    }
+    if (!provider.auth_command) {
+      setAuthNote(`${provider.name} does not expose a local sign-in command.`);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(provider.auth_command);
+      setAuthNote(`Copied \`${provider.auth_command}\`. Run it, then reload this page.`);
+    } catch {
+      setAuthNote(`Run \`${provider.auth_command}\`, then reload this page.`);
+    }
+  };
 
   const notify = (msg: string) => {
     setSavedMsg(msg);
@@ -159,6 +193,67 @@ export function SettingsView({
           <p className="mt-2 text-[10.5px] text-muted/70">
             Accent, rail labels, surface order and share links live in Appearance (⌘,).
           </p>
+        </Section>
+
+        {/* Local coding agents */}
+        <Section title="Local agents">
+          <p className="mb-3 text-[11px] text-muted">
+            Bark runs the coding CLIs installed on this machine. It never invents a
+            provider or reports one as ready when it is not.
+          </p>
+          <div className="space-y-1.5">
+            {providers.length === 0 ? (
+              <p className="text-xs text-muted">No local agents reported by the server.</p>
+            ) : (
+              providers.map((provider) => (
+                <div key={provider.id} className="flex items-center gap-2 rounded border border-border/60 px-2.5 py-2">
+                  <Icon name="robot" size={13} className="text-muted" />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[11.5px] text-text">{provider.name}</div>
+                    <div className="truncate font-mono text-[9.5px] text-muted">
+                      {provider.command}
+                      {provider.version ? ` · ${provider.version}` : ""}
+                    </div>
+                  </div>
+                  <span
+                    className={`font-mono text-[9.5px] ${
+                      !provider.available
+                        ? "text-muted"
+                        : provider.authenticated === false
+                          ? "text-amber-400"
+                          : provider.authenticated === true
+                            ? "text-emerald-400"
+                            : "text-muted"
+                    }`}
+                  >
+                    {!provider.available
+                      ? "Not installed"
+                      : provider.authenticated === false
+                        ? "Sign-in needed"
+                        : provider.authenticated === true
+                          ? "Ready"
+                          : "Installed"}
+                  </span>
+                  {provider.authenticated === false && provider.auth_command && (
+                    <button
+                      type="button"
+                      onClick={() => void authenticate(provider)}
+                      disabled={authBusy !== null}
+                      className="rounded border border-border px-2 py-1 text-[10px] text-text hover:border-border-strong disabled:opacity-50"
+                      title={provider.auth_hint}
+                    >
+                      {authBusy === provider.id ? "Opening…" : "Sign in"}
+                    </button>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+          {authNote && (
+            <p className="mt-2 rounded border border-border/60 bg-bg/50 px-2.5 py-2 text-[10.5px] text-muted">
+              {authNote}
+            </p>
+          )}
         </Section>
 
         {/* AI config */}

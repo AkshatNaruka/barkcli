@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-local",
+  "description": "Bark's own window, loaded from the local sidecar.",
+  "remote": {
+    "urls": ["http://127.0.0.1:*", "http://localhost:*"]
+  },
+  "local": true,
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

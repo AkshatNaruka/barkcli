@@ -1,24 +1,56 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
+use serde::Serialize;
 
 use crate::storage::board_dir::find_board_dir;
 use crate::util::style;
+
+/// Real on-disk state for the agent session hooks.
+#[derive(Debug, Clone, Serialize)]
+pub struct HooksStatus {
+    pub opencode: bool,
+    pub claude_code: bool,
+    pub spec_sync: bool,
+}
 
 /// `barkcli hooks install [--agent opencode|claude-code|all]` — install agent
 /// hooks that pipe session events into `barkcli session log`.
 pub fn run_install(args: &[String]) -> Result<()> {
     let agents = parse_agents(args)?;
     let root = project_root()?;
+    install_for_root(&root, &agents)
+}
 
-    for agent in &agents {
+/// Install session hooks for a known project root. Used by the CLI and the
+/// local app server; callers that need machine-readable results should follow
+/// with [`status_for_root`].
+pub fn install_for_root(root: &Path, agents: &[String]) -> Result<()> {
+    for agent in agents {
         match agent.as_str() {
-            "opencode" => install_opencode(&root)?,
-            "claude-code" => install_claude(&root)?,
+            "opencode" => install_opencode(root)?,
+            "claude-code" => install_claude(root)?,
             other => anyhow::bail!("unknown agent '{}' (opencode | claude-code)", other),
         }
     }
     Ok(())
+}
+
+/// Install the standard hook set (opencode + claude-code).
+pub fn install_default_for_root(root: &Path) -> Result<()> {
+    install_for_root(root, &["opencode".to_string(), "claude-code".to_string()])
+}
+
+/// Read back the real hook files for a project root.
+pub fn status_for_root(root: &Path) -> HooksStatus {
+    let opencode = root.join(".opencode/plugins/barkcli.ts").exists();
+    let claude = claude_hooks_installed(&root.join(".claude/settings.json"));
+    let spec_sync = git_hook_contains_spec_sync(root).unwrap_or(false);
+    HooksStatus {
+        opencode,
+        claude_code: claude,
+        spec_sync,
+    }
 }
 
 /// `barkcli hooks remove [--agent ...]` — remove installed hooks.
@@ -76,7 +108,7 @@ pub fn run_status() -> Result<()> {
 }
 
 /// Check if the post-commit hook contains spec sync logic.
-fn git_hook_contains_spec_sync(root: &PathBuf) -> Result<bool> {
+fn git_hook_contains_spec_sync(root: &Path) -> Result<bool> {
     let hook_path = root.join(".git/hooks/post-commit");
     if !hook_path.exists() {
         return Ok(false);
@@ -190,7 +222,7 @@ fn project_root() -> Result<PathBuf> {
         .context("fatal: .board is at filesystem root")
 }
 
-fn install_opencode(root: &PathBuf) -> Result<()> {
+fn install_opencode(root: &Path) -> Result<()> {
     let dir = root.join(".opencode/plugins");
     std::fs::create_dir_all(&dir).context("create .opencode/plugins")?;
     let path = dir.join("barkcli.ts");
@@ -199,7 +231,7 @@ fn install_opencode(root: &PathBuf) -> Result<()> {
     Ok(())
 }
 
-fn install_claude(root: &PathBuf) -> Result<()> {
+fn install_claude(root: &Path) -> Result<()> {
     let dir = root.join(".claude");
     std::fs::create_dir_all(&dir).context("create .claude")?;
     let path = dir.join("settings.json");
@@ -340,3 +372,51 @@ export const BarkcliPlugin: Plugin = async ({ directory }) => {
   }
 }
 "#;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_root() -> PathBuf {
+        std::env::temp_dir().join(format!("bark-hooks-{}", uuid::Uuid::new_v4()))
+    }
+
+    #[test]
+    fn install_is_real_and_idempotent() {
+        let root = temp_root();
+        std::fs::create_dir_all(&root).unwrap();
+
+        let before = status_for_root(&root);
+        assert!(!before.opencode);
+        assert!(!before.claude_code);
+
+        install_default_for_root(&root).unwrap();
+        let after = status_for_root(&root);
+        assert!(after.opencode);
+        assert!(after.claude_code);
+        assert!(root.join(".opencode/plugins/barkcli.ts").exists());
+
+        let settings: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(root.join(".claude/settings.json")).unwrap())
+                .unwrap();
+        assert!(settings.get("hooks").is_some());
+
+        // Re-running must not corrupt or duplicate the settings file.
+        install_default_for_root(&root).unwrap();
+        let settings_again: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(root.join(".claude/settings.json")).unwrap())
+                .unwrap();
+        assert_eq!(settings, settings_again);
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn unknown_agent_is_rejected() {
+        let root = temp_root();
+        std::fs::create_dir_all(&root).unwrap();
+        let error = install_for_root(&root, &["not-an-agent".into()]).unwrap_err();
+        assert!(error.to_string().contains("unknown agent"));
+        let _ = std::fs::remove_dir_all(&root);
+    }
+}

@@ -3,8 +3,11 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { UniversalComposer } from "./UniversalComposer";
 
-const { createThread } = vi.hoisted(() => ({ createThread: vi.fn() }));
-vi.mock("../lib/api", () => ({ createThread }));
+const { createThread, fetchProviders } = vi.hoisted(() => ({
+  createThread: vi.fn(),
+  fetchProviders: vi.fn(async () => []),
+}));
+vi.mock("../lib/api", () => ({ createThread, fetchProviders }));
 
 describe("UniversalComposer", () => {
   it("starts an intent with the selected defaults", async () => {

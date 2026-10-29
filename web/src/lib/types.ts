@@ -398,6 +398,82 @@ export interface ProviderStatus {
   command: string;
   detail?: string;
   capabilities: ProviderCapabilities;
+  /** Real local auth state; null when the provider cannot be queried. */
+  authenticated?: boolean | null;
+  /** Official command to sign in (for example `opencode auth login`). */
+  auth_command?: string;
+  /** Short, truthful state for the UI. */
+  auth_hint?: string;
+}
+
+export interface ProjectGitState {
+  branch: string;
+  head: string;
+  upstream?: string | null;
+  ahead: number;
+  behind: number;
+  clean: boolean;
+  changes: number;
+}
+
+export interface ProjectContextState {
+  exists: boolean;
+  file: string;
+  tokens?: number;
+  blocks?: number;
+  stale_blocks?: number;
+  last_run?: string | null;
+  budget_tokens?: number;
+}
+
+export interface ProjectHooksState {
+  opencode: boolean;
+  claude_code: boolean;
+  spec_sync: boolean;
+}
+
+export interface ProjectSetupState {
+  board: boolean;
+  context: boolean;
+  team: boolean;
+  hooks: boolean;
+  complete: boolean;
+}
+
+export interface ProjectCounts {
+  cards: number;
+  done: number;
+  doing: number;
+  specs: number;
+  sessions: number;
+  agents: number;
+}
+
+export interface ProjectSnapshot {
+  root: string;
+  name: string;
+  board_dir: string;
+  boards: string[];
+  active_board?: string | null;
+  is_git: boolean;
+  git?: ProjectGitState | null;
+  context: ProjectContextState;
+  hooks: ProjectHooksState;
+  setup: ProjectSetupState;
+  counts: ProjectCounts;
+}
+
+export interface SetupStep {
+  id: string;
+  label: string;
+  ok: boolean;
+  detail: string;
+}
+
+export interface OnboardResult {
+  ok: boolean;
+  steps: SetupStep[];
+  project: ProjectSnapshot;
 }
 
 export interface RunDiff {

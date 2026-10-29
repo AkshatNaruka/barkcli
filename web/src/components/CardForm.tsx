@@ -6,9 +6,10 @@ import type {
   Column,
   ChecklistItem,
   LinkType,
+  ProviderStatus,
   RoleDef,
 } from "../lib/types";
-import { fetchRoles } from "../lib/api";
+import { fetchProviders, fetchRoles } from "../lib/api";
 import { Icon } from "./Icon";
 import { QuietSelect } from "./QuietSelect";
 
@@ -68,6 +69,7 @@ export function CardForm({
     { id: "reviewer", name: "Reviewer" } as RoleDef,
     { id: "indie-hacker", name: "Indie Hacker" } as RoleDef,
   ]);
+  const [providers, setProviders] = useState<ProviderStatus[]>([]);
   const [role, setRole] = useState(
     card?.labels?.find((label) => label.startsWith("role:"))?.slice(5) || "builder"
   );
@@ -94,6 +96,11 @@ export function CardForm({
     let cancelled = false;
     fetchRoles().then((next) => {
       if (!cancelled && next.length > 0) setRoles(next);
+    });
+    fetchProviders().then((next) => {
+      if (!cancelled) {
+        setProviders(next.filter((provider) => provider.id !== "human"));
+      }
     });
     return () => {
       cancelled = true;
@@ -308,10 +315,16 @@ export function CardForm({
                 }}
                 className="w-full bg-surface px-2.5 py-1.5 text-xs text-text font-mono"
               >
-                <option value="opencode">OpenCode</option>
-                <option value="claude-code">Claude Code</option>
-                <option value="codex">Codex</option>
-                <option value="human">Human</option>
+                {providers.length === 0 ? (
+                  <option value={backend}>{backend}</option>
+                ) : (
+                  providers.map((provider) => (
+                    <option key={provider.id} value={provider.id}>
+                      {provider.name}
+                      {!provider.available ? " · not installed" : ""}
+                    </option>
+                  ))
+                )}
                 <option value="board">Board Runner Pool</option>
               </QuietSelect>
             </div>

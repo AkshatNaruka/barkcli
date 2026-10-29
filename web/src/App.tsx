@@ -22,8 +22,10 @@ import {
   connectWs,
   getGitInfo,
   openFileInEditor,
+  onboardProject,
   type GitInfo,
 } from "./lib/api";
+import { isDesktop } from "./lib/desktop";
 import { useRoute, type Route } from "./lib/hashnav";
 import { Icon } from "./components/Icon";
 import { BoardView } from "./components/BoardView";
@@ -302,6 +304,22 @@ export function App() {
     });
     return cleanWs;
   }, [boardName, loadBoard]);
+
+  // Opening a folder is setup, not a checklist the user has to remember. The
+  // server runs the deterministic, idempotent steps; no AI writes cards here.
+  const onboardedRef = useRef(false);
+  useEffect(() => {
+    if (!isDesktop() || onboardedRef.current) return;
+    onboardedRef.current = true;
+    onboardProject().then((result) => {
+      if (!result) return;
+      fetchBoards().then((list) => {
+        setBoardList(list);
+        if (!boardNameRef.current && list[0]) setBoardName(list[0]);
+        else void loadBoard(boardNameRef.current, false);
+      }).catch(() => {});
+    }).catch(() => {});
+  }, [loadBoard]);
 
   useEffect(() => {
     getGitInfo().then(setGitInfo).catch(() => {});
@@ -699,6 +717,12 @@ export function App() {
                 board && handleOpenForm({ columnId: board.columns[0]?.id || "todo", dueDate: date })
               }
               onSaveBoard={doSave}
+              onNewIntent={() => {
+                setComposeSeed({ text: "", nonce: Date.now() });
+                setRoute("chat");
+              }}
+              onOpenBoard={() => setRoute("board")}
+              onOpenBrain={() => setRoute("brain")}
             />
           )}
 

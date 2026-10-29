@@ -15,6 +15,7 @@ import {
   stopRun,
   mergeRun,
   fetchProviders,
+  fetchProviderModels,
   fetchRoles,
 } from "../lib/api";
 import { Icon } from "../components/Icon";
@@ -338,6 +339,8 @@ export function ThreadPane({
   const [role, setRole] = useState("builder");
   const [roles, setRoles] = useState<RoleDef[]>([]);
   const [providers, setProviders] = useState<ProviderStatus[]>([]);
+  const [model, setModel] = useState("");
+  const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [transcriptSessionId, setTranscriptSessionId] = useState<string | null>(null);
   const [transcriptLines, setTranscriptLines] = useState<string[]>([]);
@@ -361,18 +364,35 @@ export function ThreadPane({
     fetchRoles().then((next) => setRoles(next));
     fetchProviders().then((next) => {
       if (cancelled) return;
-      const visible = next.filter((provider) => provider.id !== "fake");
+      const visible = next.filter(
+        (provider) => provider.id !== "fake" && provider.id !== "human"
+      );
       setProviders(visible);
       setBackend((current) => {
-        const installed = visible.filter((provider) => provider.available);
-        if (installed.some((provider) => provider.id === current)) return current;
-        return installed[0]?.id || current;
+        const ready = visible.filter(
+          (provider) => provider.available && provider.authenticated !== false
+        );
+        if (ready.some((provider) => provider.id === current)) return current;
+        return ready[0]?.id || visible.find((provider) => provider.available)?.id || current;
       });
     });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setModel("");
+    setModelOptions([]);
+    if (!backend || backend === "human") return;
+    fetchProviderModels(backend).then((next) => {
+      if (!cancelled) setModelOptions(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [backend]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -505,23 +525,31 @@ export function ThreadPane({
   const latestUserText = [...(thread?.events || [])]
     .reverse()
     .find((event) => event.kind === "user")?.text;
-  const providerChoices: Array<Pick<ProviderStatus, "id" | "name" | "available">> =
-    providers.length > 0
-      ? providers
-      : [
-          { id: "opencode", name: "opencode", available: true },
-          { id: "claude-code", name: "claude", available: true },
-          { id: "codex", name: "codex", available: true },
-        ];
+  const providerChoices: Array<
+    Pick<ProviderStatus, "id" | "name" | "available" | "authenticated" | "auth_hint">
+  > = providers;
 
   const handleStartRun = async (parentRunId?: string) => {
     if (!threadId || startingRun) return;
+    const selected = providerChoices.find((provider) => provider.id === backend);
+    if (!selected?.available) {
+      setActionStatus("That local agent is not installed. Install it or choose another provider in Settings.");
+      return;
+    }
+    if (selected.authenticated === false) {
+      setActionStatus(
+        selected.auth_hint ||
+          "That local agent is not signed in. Open Settings, authenticate it, then try again."
+      );
+      return;
+    }
     setStartingRun(true);
     setActionStatus("Creating an isolated worktree and starting the agent…");
     try {
       const provider = backend === "claude" ? "claude-code" : backend;
       const run = await startThreadRun(threadId, {
         provider,
+        model: model.trim() || undefined,
         role,
         prompt: latestUserText,
         parent_run_id: parentRunId,
@@ -1396,19 +1424,36 @@ export function ThreadPane({
                 className="text-[10px] text-muted hover:text-text"
               >
                 {providerChoices.map((provider) => (
-                  <option
-                    key={provider.id}
-                    value={provider.id}
-                    disabled={!provider.available}
-                  >
+                  <option key={provider.id} value={provider.id}>
                     {provider.name}
-                    {!provider.available ? " · not found" : ""}
+                    {!provider.available
+                      ? " · not installed"
+                      : provider.authenticated === false
+                        ? " · sign in"
+                        : ""}
                   </option>
                 ))}
               </QuietSelect>
+              {modelOptions.length > 0 && (
+                <QuietSelect
+                  value={model}
+                  onChange={(event) => setModel(event.target.value)}
+                  aria-label="Model"
+                  title="Models reported by the local CLI"
+                  className="max-w-[170px] text-[10px] text-muted hover:text-text"
+                >
+                  <option value="">CLI default model</option>
+                  {modelOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </QuietSelect>
+              )}
               <span
                 className={`h-1.5 w-1.5 rounded-full ${
-                  providers.find((provider) => provider.id === backend)?.available
+                  providers.find((provider) => provider.id === backend)?.available &&
+                  providers.find((provider) => provider.id === backend)?.authenticated !== false
                     ? "bg-success"
                     : providers.length > 0
                       ? "bg-danger"
@@ -1416,7 +1461,10 @@ export function ThreadPane({
                 }`}
                 title={
                   providers.find((provider) => provider.id === backend)?.available
-                    ? "Provider installed"
+                    ? providers.find((provider) => provider.id === backend)?.authenticated === false
+                      ? providers.find((provider) => provider.id === backend)?.auth_hint ||
+                        "Provider installed but not signed in"
+                      : "Provider ready"
                     : "Provider not found on PATH"
                 }
               />

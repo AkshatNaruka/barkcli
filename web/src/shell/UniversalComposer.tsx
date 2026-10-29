@@ -1,5 +1,6 @@
-import React, { useState } from "react";
-import { createThread } from "../lib/api";
+import React, { useEffect, useState } from "react";
+import { createThread, fetchProviders } from "../lib/api";
+import type { ProviderStatus } from "../lib/types";
 import { Icon } from "../components/Icon";
 import { QuietSelect } from "../components/QuietSelect";
 
@@ -22,12 +23,33 @@ export function UniversalComposer({
   const [kind, setKind] = useState("feature");
   const [backend, setBackend] = useState("opencode");
   const [mode, setMode] = useState<"plan_first" | "plan_and_run">("plan_first");
+  const [providers, setProviders] = useState<ProviderStatus[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (initialText) setText(initialText);
   }, [initialText, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    fetchProviders().then((all) => {
+      if (cancelled) return;
+      const next = all.filter((provider) => provider.id !== "human");
+      setProviders(next);
+      setBackend((current) => {
+        const ready = next.filter(
+          (provider) => provider.available && provider.authenticated !== false
+        );
+        if (ready.some((provider) => provider.id === current)) return current;
+        return ready[0]?.id || next.find((provider) => provider.available)?.id || current;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -44,6 +66,15 @@ export function UniversalComposer({
     event?.preventDefault();
     const trimmed = text.trim();
     if (!trimmed || submitting) return;
+    const selected = providers.find((provider) => provider.id === backend);
+    if (selected && !selected.available) {
+      setError("That local agent is not installed. Choose another provider or install it first.");
+      return;
+    }
+    if (selected?.authenticated === false) {
+      setError(selected.auth_hint || "That local agent is not signed in yet.");
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
@@ -140,10 +171,20 @@ export function UniversalComposer({
               aria-label="Agent backend"
               className="rounded border border-border/60 px-1.5 py-1 text-[10px] text-muted"
             >
-              <option value="opencode">opencode</option>
-              <option value="claude-code">claude code</option>
-              <option value="codex">codex</option>
-              <option value="human">human</option>
+              {providers.length === 0 ? (
+                <option value={backend}>{backend}</option>
+              ) : (
+                providers.map((provider) => (
+                  <option key={provider.id} value={provider.id}>
+                    {provider.name}
+                    {!provider.available
+                      ? " · not installed"
+                      : provider.authenticated === false
+                        ? " · sign in"
+                        : ""}
+                  </option>
+                ))
+              )}
             </QuietSelect>
             <QuietSelect
               value={mode}

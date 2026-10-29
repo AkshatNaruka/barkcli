@@ -131,6 +131,47 @@ else:
     print("  ok  opencode registered (availability check skipped)")
 PY
 
+get /api/project >"$TMP/project.json"
+python3 - "$TMP/project.json" "$TMP" <<'PY'
+import json
+import os
+import sys
+
+project = json.load(open(sys.argv[1]))
+assert os.path.realpath(project["root"]) == os.path.realpath(sys.argv[2]), project
+assert project["is_git"] is True, project
+assert "setup" in project and "counts" in project, project
+assert project["boards"], project
+print(f"  ok  project: {project['name']} ({project['counts']['cards']} cards)")
+PY
+
+curl -fsS --max-time 60 -X POST \
+  -H 'Content-Type: application/json' -d '{}' \
+  "$BASE/api/project/onboard?token=$TOKEN" >"$TMP/onboard.json"
+python3 - "$TMP/onboard.json" <<'PY'
+import json
+import sys
+
+result = json.load(open(sys.argv[1]))
+assert result.get("ok") is True, result
+ids = {step["id"] for step in result.get("steps", [])}
+for required in ("board", "context", "team", "hooks", "providers"):
+    assert required in ids, (required, ids)
+assert result["project"]["setup"]["complete"] is True, result["project"]["setup"]
+print("  ok  project onboarding: " + ", ".join(sorted(ids)))
+PY
+
+get /api/hooks >"$TMP/hooks.json"
+python3 - "$TMP/hooks.json" <<'PY'
+import json
+import sys
+
+hooks = json.load(open(sys.argv[1]))
+assert hooks.get("opencode") is True, hooks
+assert hooks.get("claude_code") is True, hooks
+print("  ok  agent hooks installed")
+PY
+
 get /api/boards | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("boards"), d; print("  ok  boards:", ", ".join(d["boards"]))'
 
 curl -fsS --max-time 10 -X POST \

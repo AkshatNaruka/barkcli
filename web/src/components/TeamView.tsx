@@ -4,18 +4,28 @@ import type {
   AgentProfile,
   OrchestraSnapshot,
   ProfileStatus,
+  ProviderStatus,
   RoleDef,
 } from "../lib/types";
 import {
   fetchAgentProfiles,
   fetchOrchestra,
+  fetchProviderModels,
+  fetchProviders,
   fetchRoles,
+  fetchSkills,
   hireDefaultTeam,
   saveAgentProfile,
   setProfileStatus,
 } from "../lib/api";
 
-const PROVIDERS = ["opencode", "claude-code", "codex", "human"];
+interface SkillOption {
+  id: string;
+  name: string;
+  description?: string;
+  enabled?: boolean;
+}
+
 const PERMISSION_MODES = ["supervised", "auto", "read-only"];
 
 function statusClass(status: ProfileStatus) {
@@ -43,46 +53,76 @@ function roleLabel(roles: RoleDef[], id: string) {
   return roles.find((role) => role.id === id)?.name || id;
 }
 
-function emptyProfile(role: string): AgentProfile {
+function emptyProfile(role: RoleDef | undefined, providers: ProviderStatus[]): AgentProfile {
+  const ready = providers.find(
+    (provider) => provider.available && provider.authenticated !== false
+  );
   return {
     id: "",
     name: "",
-    role,
-    provider: "opencode",
+    role: role?.id || "builder",
+    provider: ready?.id || "opencode",
     capacity: 1,
     permission_mode: "supervised",
-    skills: [],
+    skills: role ? [...role.default_skills] : [],
     memory_scope: "project",
     status: "active",
     prompt: "",
   };
 }
 
+function profileFromRole(role: RoleDef, providers: ProviderStatus[]): AgentProfile {
+  return {
+    ...emptyProfile(role, providers),
+    name: role.name,
+    prompt: role.mission,
+  };
+}
+
 export function TeamView({ boardName }: { boardName: string | null }) {
   const [profiles, setProfiles] = useState<AgentProfile[]>([]);
   const [roles, setRoles] = useState<RoleDef[]>([]);
+  const [providers, setProviders] = useState<ProviderStatus[]>([]);
+  const [skills, setSkills] = useState<SkillOption[]>([]);
   const [snapshot, setSnapshot] = useState<OrchestraSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<AgentProfile | null>(null);
   const [saving, setSaving] = useState(false);
+  const [models, setModels] = useState<string[]>([]);
 
   const load = useCallback(async (initial = false) => {
     if (initial) setLoading(true);
-    const [nextProfiles, nextRoles, nextSnapshot] = await Promise.all([
+    const [nextProfiles, nextRoles, nextSnapshot, nextProviders, nextSkills] = await Promise.all([
       fetchAgentProfiles(),
       fetchRoles(),
       fetchOrchestra(false),
+      fetchProviders(),
+      fetchSkills(),
     ]);
     setProfiles(nextProfiles);
     setRoles(nextRoles);
     setSnapshot(nextSnapshot);
+    setProviders(nextProviders.filter((provider) => provider.id !== "human"));
+    setSkills(Array.isArray(nextSkills) ? nextSkills : []);
     setLoading(false);
   }, []);
 
   useEffect(() => {
     void load(true);
   }, [load, boardName]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setModels([]);
+    if (!editing?.provider) return;
+    fetchProviderModels(editing.provider).then((next) => {
+      if (!cancelled) setModels(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [editing?.provider]);
 
   const members = useMemo(() => {
     const byId = new Map(
@@ -166,7 +206,7 @@ export function TeamView({ boardName }: { boardName: string | null }) {
             </p>
           </div>
           <button
-            onClick={() => setEditing(emptyProfile(roles[0]?.id || "builder"))}
+            onClick={() => setEditing(emptyProfile(roles[0], providers))}
             className="inline-flex items-center gap-1.5 rounded-md border border-border-strong bg-card px-2.5 py-1.5 text-[11.5px] text-text hover:bg-white/[0.04]"
           >
             <Icon name="plus" size={13} />
@@ -345,6 +385,22 @@ export function TeamView({ boardName }: { boardName: string | null }) {
                 <div className="mt-1.5 text-[9.5px] text-muted">
                   Stops: {role.stop_condition || "—"}
                 </div>
+                {role.default_skills.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {role.default_skills.map((skill) => (
+                      <span key={skill} className="rounded bg-white/[0.04] px-1.5 py-0.5 font-mono text-[9px] text-muted-strong">
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <button
+                  onClick={() => setEditing(profileFromRole(role, providers))}
+                  className="mt-2 inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[10px] text-text hover:border-border-strong"
+                >
+                  <Icon name="plus" size={10} />
+                  Hire this role
+                </button>
               </div>
             ))}
           </div>
@@ -387,7 +443,14 @@ export function TeamView({ boardName }: { boardName: string | null }) {
                   <span className="text-[10px] uppercase tracking-wide text-muted">Role</span>
                   <select
                     value={editing.role}
-                    onChange={(e) => setEditing({ ...editing, role: e.target.value })}
+                    onChange={(e) => {
+                      const role = roles.find((item) => item.id === e.target.value);
+                      setEditing({
+                        ...editing,
+                        role: e.target.value,
+                        skills: role ? [...role.default_skills] : editing.skills,
+                      });
+                    }}
                     className="mt-1 w-full rounded border border-border bg-surface px-2 py-1.5 text-[12px] text-text outline-none focus:border-accent"
                   >
                     {roles.map((role) => (
@@ -404,21 +467,49 @@ export function TeamView({ boardName }: { boardName: string | null }) {
                     onChange={(e) => setEditing({ ...editing, provider: e.target.value })}
                     className="mt-1 w-full rounded border border-border bg-surface px-2 py-1.5 text-[12px] text-text outline-none focus:border-accent"
                   >
-                    {PROVIDERS.map((provider) => (
-                      <option key={provider} value={provider}>
-                        {provider}
-                      </option>
-                    ))}
+                    {providers.length === 0 ? (
+                      <option value={editing.provider}>{editing.provider}</option>
+                    ) : (
+                      providers.map((provider) => (
+                        <option key={provider.id} value={provider.id}>
+                          {provider.name}
+                          {!provider.available
+                            ? " · not installed"
+                            : provider.authenticated === false
+                              ? " · sign in"
+                              : ""}
+                        </option>
+                      ))
+                    )}
                   </select>
                 </label>
                 <label className="block">
                   <span className="text-[10px] uppercase tracking-wide text-muted">Model</span>
-                  <input
-                    value={editing.model || ""}
-                    onChange={(e) => setEditing({ ...editing, model: e.target.value || undefined })}
-                    className="mt-1 w-full rounded border border-border bg-surface px-2 py-1.5 text-[12px] text-text outline-none focus:border-accent"
-                    placeholder="provider default"
-                  />
+                  {models.length > 0 ? (
+                    <select
+                      value={editing.model || ""}
+                      onChange={(e) =>
+                        setEditing({ ...editing, model: e.target.value || undefined })
+                      }
+                      className="mt-1 w-full rounded border border-border bg-surface px-2 py-1.5 text-[12px] text-text outline-none focus:border-accent"
+                    >
+                      <option value="">Provider default</option>
+                      {models.map((model) => (
+                        <option key={model} value={model}>
+                          {model}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      value={editing.model || ""}
+                      onChange={(e) =>
+                        setEditing({ ...editing, model: e.target.value || undefined })
+                      }
+                      className="mt-1 w-full rounded border border-border bg-surface px-2 py-1.5 text-[12px] text-text outline-none focus:border-accent"
+                      placeholder="provider default"
+                    />
+                  )}
                 </label>
                 <label className="block">
                   <span className="text-[10px] uppercase tracking-wide text-muted">Capacity</span>
@@ -449,25 +540,64 @@ export function TeamView({ boardName }: { boardName: string | null }) {
                     ))}
                   </select>
                 </label>
-                <label className="block sm:col-span-2">
+                <div className="block sm:col-span-2">
                   <span className="text-[10px] uppercase tracking-wide text-muted">
-                    Skills (comma separated)
+                    Attached skills
                   </span>
-                  <input
-                    value={editing.skills.join(", ")}
-                    onChange={(e) =>
-                      setEditing({
-                        ...editing,
-                        skills: e.target.value
-                          .split(",")
-                          .map((value) => value.trim())
-                          .filter(Boolean),
-                      })
-                    }
-                    className="mt-1 w-full rounded border border-border bg-surface px-2 py-1.5 text-[12px] text-text outline-none focus:border-accent"
-                    placeholder="implementation, testing"
-                  />
-                </label>
+                  <p className="mt-0.5 text-[9.5px] text-muted">
+                    Enabled skills are attached explicitly; matching triggers may add more at run time.
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {editing.skills
+                      .filter((id) => !skills.some((skill) => skill.id === id))
+                      .map((id) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() =>
+                            setEditing({
+                              ...editing,
+                              skills: editing.skills.filter((skill) => skill !== id),
+                            })
+                          }
+                          className="rounded border border-accent/40 bg-accent-soft px-1.5 py-0.5 font-mono text-[9.5px] text-accent-text"
+                          title="Remove this skill id"
+                        >
+                          {id} ×
+                        </button>
+                      ))}
+                    {skills.filter((skill) => skill.enabled !== false).map((skill) => {
+                      const attached = editing.skills.includes(skill.id);
+                      return (
+                        <button
+                          key={skill.id}
+                          type="button"
+                          title={skill.description}
+                          onClick={() =>
+                            setEditing({
+                              ...editing,
+                              skills: attached
+                                ? editing.skills.filter((id) => id !== skill.id)
+                                : [...editing.skills, skill.id],
+                            })
+                          }
+                          className={`rounded border px-1.5 py-0.5 text-[9.5px] ${
+                            attached
+                              ? "border-accent/40 bg-accent-soft text-accent-text"
+                              : "border-border text-muted hover:border-border-strong hover:text-text"
+                          }`}
+                        >
+                          {skill.name || skill.id}
+                        </button>
+                      );
+                    })}
+                    {skills.length === 0 && (
+                      <span className="text-[10px] text-muted">
+                        No enabled skills. Add them in Operations → Skills.
+                      </span>
+                    )}
+                  </div>
+                </div>
                 <label className="block sm:col-span-2">
                   <span className="text-[10px] uppercase tracking-wide text-muted">
                     System prompt

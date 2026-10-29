@@ -39,6 +39,83 @@ fn version_of(command: &str) -> Option<String> {
     }
 }
 
+fn json_command(command: &str, args: &[&str]) -> Option<Value> {
+    let output = Command::new(command).args(args).output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    serde_json::from_slice(&output.stdout).ok()
+}
+
+/// Reads the real local credential state. `None` means we genuinely cannot
+/// tell (command missing, older CLI, malformed output) rather than "ready".
+fn auth_state(id: &str) -> Option<bool> {
+    match id {
+        "opencode" => {
+            if let Some(value) = json_command("opencode", &["auth", "list", "--format", "json"]) {
+                if let Some(authenticated) = parse_opencode_auth(&value) {
+                    if authenticated {
+                        return Some(true);
+                    }
+                }
+            }
+            // `auth list` can fail when the local service cannot bind a port.
+            // Fall back to the credential store and environment the CLI uses.
+            let home = std::env::var_os("HOME")
+                .or_else(|| std::env::var_os("USERPROFILE"));
+            if let Some(home) = home {
+                let path = Path::new(&home)
+                    .join(".local")
+                    .join("share")
+                    .join("opencode")
+                    .join("auth.json");
+                if let Ok(data) = std::fs::read(&path) {
+                    if let Ok(value) = serde_json::from_slice::<Value>(&data) {
+                        if value.as_object().is_some_and(|entries| !entries.is_empty()) {
+                            return Some(true);
+                        }
+                    }
+                }
+            }
+            let has_env = ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY"]
+                .iter()
+                .any(|key| std::env::var_os(key).is_some_and(|value| !value.is_empty()));
+            Some(has_env)
+        }
+        "claude-code" => {
+            let value = json_command("claude", &["auth", "status"])?;
+            parse_claude_auth(&value)
+        }
+        "codex" => {
+            let home = std::env::var_os("HOME")
+                .or_else(|| std::env::var_os("USERPROFILE"))?;
+            let path = Path::new(&home).join(".codex").join("auth.json");
+            let size = std::fs::metadata(&path).ok().map(|meta| meta.len())?;
+            Some(size > 2)
+        }
+        "human" => Some(true),
+        _ => None,
+    }
+}
+
+fn auth_metadata(id: &str) -> (Option<String>, Option<String>) {
+    match id {
+        "opencode" => (
+            Some("opencode auth login".into()),
+            Some("Run `opencode auth login` and choose a provider.".into()),
+        ),
+        "claude-code" => (
+            Some("claude auth login".into()),
+            Some("Run `claude auth login`, or set ANTHROPIC_API_KEY.".into()),
+        ),
+        "codex" => (
+            Some("codex login".into()),
+            Some("Run `codex login` to create ~/.codex/auth.json.".into()),
+        ),
+        _ => (None, None),
+    }
+}
+
 fn status_for(
     id: &'static str,
     name: &'static str,
@@ -47,6 +124,7 @@ fn status_for(
     detail: Option<String>,
 ) -> ProviderStatus {
     let available = is_installed(command);
+    let (auth_command, auth_hint) = auth_metadata(id);
     ProviderStatus {
         id: id.to_string(),
         name: name.to_string(),
@@ -54,8 +132,45 @@ fn status_for(
         version: if available { version_of(command) } else { None },
         command: command.to_string(),
         detail,
+        authenticated: if available { auth_state(id) } else { None },
+        auth_command,
+        auth_hint,
         capabilities,
     }
+}
+
+fn opencode_models() -> Vec<String> {
+    let output = match Command::new("opencode").arg("models").output() {
+        Ok(output) if output.status.success() => output,
+        _ => return Vec::new(),
+    };
+    parse_model_lines(&String::from_utf8_lossy(&output.stdout))
+}
+
+/// Parse the newline-delimited model ids a CLI prints. Blank lines, comments,
+/// and duplicates are ignored; an empty result means free-form models.
+fn parse_model_lines(stdout: &str) -> Vec<String> {
+    let mut seen = std::collections::BTreeSet::new();
+    for line in stdout.lines() {
+        let line = line.trim();
+        if !line.is_empty() && !line.starts_with('#') {
+            seen.insert(line.to_string());
+        }
+    }
+    seen.into_iter().collect()
+}
+
+fn parse_opencode_auth(value: &Value) -> Option<bool> {
+    value
+        .as_array()
+        .map(|entries| !entries.is_empty())
+}
+
+fn parse_claude_auth(value: &Value) -> Option<bool> {
+    value
+        .get("loggedIn")
+        .or_else(|| value.get("logged_in"))
+        .and_then(Value::as_bool)
 }
 
 fn opencode_capabilities() -> ProviderCapabilities {
@@ -142,6 +257,9 @@ impl ProviderAdapter for OpencodeProvider {
     }
     fn capabilities(&self) -> ProviderCapabilities {
         opencode_capabilities()
+    }
+    fn models(&self) -> Vec<String> {
+        opencode_models()
     }
     fn start(&self, req: StartRun, sink: EventSink) -> Result<Box<dyn RunHandle>> {
         let mut cmd = Command::new("opencode");
@@ -301,6 +419,9 @@ impl ProviderAdapter for HumanProvider {
             version: None,
             command: self.command().to_string(),
             detail: Some("Manual handoff: Bark writes the prompt and waits for a human.".into()),
+            authenticated: Some(true),
+            auth_command: None,
+            auth_hint: None,
             capabilities: self.capabilities(),
         }
     }
@@ -816,5 +937,37 @@ mod tests {
         assert!(events
             .iter()
             .any(|event| matches!(event, RuntimeEvent::Session { id } if id == "ses_opencode")));
+    }
+
+    #[test]
+    fn model_lines_are_trimmed_deduped_and_sorted() {
+        let models = parse_model_lines("openai/gpt-5\n\n anthropic/claude-opus-4-5 \nopenai/gpt-5\n# comment\n");
+        assert_eq!(
+            models,
+            vec!["anthropic/claude-opus-4-5", "openai/gpt-5"]
+        );
+    }
+
+    #[test]
+    fn model_lines_empty_means_free_form() {
+        assert!(parse_model_lines("").is_empty());
+        assert!(parse_model_lines("\n# only comments\n").is_empty());
+    }
+
+    #[test]
+    fn auth_parsers_do_not_invent_credentials() {
+        assert_eq!(parse_opencode_auth(&serde_json::json!([])), Some(false));
+        assert_eq!(
+            parse_opencode_auth(&serde_json::json!([{"provider": "anthropic"}])),
+            Some(true)
+        );
+        assert_eq!(parse_opencode_auth(&serde_json::json!({})), None);
+
+        assert_eq!(parse_claude_auth(&serde_json::json!({"loggedIn": true})), Some(true));
+        assert_eq!(
+            parse_claude_auth(&serde_json::json!({"loggedIn": false})),
+            Some(false)
+        );
+        assert_eq!(parse_claude_auth(&serde_json::json!({"status": "ok"})), None);
     }
 }
