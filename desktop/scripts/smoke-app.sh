@@ -26,9 +26,11 @@ cleanup() {
     kill "$APP_PID" 2>/dev/null || true
     wait "$APP_PID" 2>/dev/null || true
   fi
-  if [[ -f "$TMP/.board/server.json" ]]; then
+  local info="$TMP/.board/server-app.json"
+  [[ -f "$info" ]] || info="$TMP/.board/server.json"
+  if [[ -f "$info" ]]; then
     local pid
-    pid="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("pid", ""))' "$TMP/.board/server.json" 2>/dev/null || true)"
+    pid="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("pid", ""))' "$info" 2>/dev/null || true)"
     if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
       kill "$pid" 2>/dev/null || true
     fi
@@ -189,6 +191,39 @@ print("  ok  chat thread has one user event and no auto-plan")
 PY
 
 curl -fsS --max-time 60 -X POST \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"Smoke hypothesis","kind":"hypothesis","text":"The command runner works"}' \
+  "$BASE/api/contributions?token=$TOKEN" >"$TMP/contribution-1.json"
+CONTRIBUTION_1="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$TMP/contribution-1.json")"
+curl -fsS --max-time 60 -X POST \
+  -H 'Content-Type: application/json' \
+  -d "{\"title\":\"Smoke result\",\"kind\":\"result\",\"parent\":\"$CONTRIBUTION_1\"}" \
+  "$BASE/api/contributions?token=$TOKEN" >"$TMP/contribution-2.json"
+CONTRIBUTION_2="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$TMP/contribution-2.json")"
+
+get /api/contributions >"$TMP/contributions.json"
+python3 - "$TMP/contributions.json" <<'PY'
+import json
+import sys
+
+analysis = json.load(open(sys.argv[1]))
+assert analysis["metrics"]["total_nodes"] >= 2, analysis["metrics"]
+assert analysis["metrics"]["edges"] >= 1, analysis["metrics"]
+assert len(analysis["nodes"]) >= 2, analysis["nodes"]
+print("  ok  contribution graph indexed")
+PY
+
+get "/api/runs/$CONTRIBUTION_2/ancestry" >"$TMP/ancestry.json"
+python3 - "$TMP/ancestry.json" <<'PY'
+import json
+import sys
+
+ancestry = json.load(open(sys.argv[1]))
+assert len(ancestry["lineage"]) == 2, ancestry["lineage"]
+print("  ok  contribution ancestry")
+PY
+
+curl -fsS --max-time 60 -X POST \
   -H 'Content-Type: application/json' -d '{}' \
   "$BASE/api/project/onboard?token=$TOKEN" >"$TMP/onboard.json"
 python3 - "$TMP/onboard.json" <<'PY'
@@ -239,7 +274,9 @@ grep -q 'review/queue' "$TMP/index.js" \
   || die "served JS is missing the trust-layer review queue"
 ok "serves the trust-layer UI"
 
-SIDECAR_PID="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["pid"])' "$TMP/.board/server.json")"
+SIDECAR_INFO="$TMP/.board/server-app.json"
+[[ -f "$SIDECAR_INFO" ]] || SIDECAR_INFO="$TMP/.board/server.json"
+SIDECAR_PID="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["pid"])' "$SIDECAR_INFO")"
 ok "sidecar pid $SIDECAR_PID"
 
 echo "  … waiting for the smoke window to close"
