@@ -44,6 +44,18 @@ pub fn run_analyze(args: &[String]) -> Result<()> {
     print_nodes("Contested", &analysis.contested);
     print_nodes("Open hypotheses", &analysis.open_hypotheses);
 
+    if !analysis.duplicates.is_empty() {
+        println!("\n{}", style::warn("Potential duplicates:"));
+        for duplicate in &analysis.duplicates {
+            println!(
+                "  {} ↔ {} · {}",
+                style::strong(&duplicate.left),
+                duplicate.right,
+                duplicate.shared_files.join(", ")
+            );
+        }
+    }
+
     if analysis.recommendations.is_empty() {
         println!("\n{} no recommendations yet — run an agent or publish a contribution.", style::muted("Next:"));
     } else {
@@ -135,6 +147,13 @@ pub fn run_contribute(args: &[String]) -> Result<()> {
     run.author = Some(author.clone());
     run.files_touched = files;
     run.summary = Some(text.clone()).filter(|value| !value.trim().is_empty());
+    run.gate = Some(crate::runtime::event::GateSummary {
+        passed: true,
+        command: None,
+        summary: Some("Manual contribution (no gate)".into()),
+        log_path: None,
+        finished_at: Utc::now(),
+    });
     if let Some(parent) = parent.as_deref() {
         run.add_parent(parent)?;
     }

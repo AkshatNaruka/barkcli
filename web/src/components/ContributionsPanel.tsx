@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   createContribution,
-  fetchContributionDuplicates,
   fetchContributions,
 } from "../lib/api";
 import type {
@@ -526,16 +525,13 @@ export function ContributionsPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
-  const [duplicates, setDuplicates] = useState<
-    Array<{ left: string; right: string; shared_files: string[] }>
-  >([]);
+  const duplicates = data?.duplicates || [];
 
   const load = useCallback((silent = false) => {
     if (!silent) setLoading(true);
     setError(false);
-    Promise.all([fetchContributions(), fetchContributionDuplicates()])
-      .then(([result, duplicateRows]) => {
-        setDuplicates(duplicateRows);
+    fetchContributions()
+      .then((result) => {
         if (result) {
           setData(result);
         } else if (!silent) {

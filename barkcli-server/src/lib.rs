@@ -4925,11 +4925,11 @@ async fn contribution_duplicates_handler() -> Result<Json<serde_json::Value>, Se
     let duplicates = index
         .duplicate_candidates()
         .into_iter()
-        .map(|(left, right, shared_files)| {
+        .map(|candidate| {
             serde_json::json!({
-                "left": left,
-                "right": right,
-                "shared_files": shared_files,
+                "left": candidate.left,
+                "right": candidate.right,
+                "shared_files": candidate.shared_files,
             })
         })
         .collect::<Vec<_>>();

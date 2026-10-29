@@ -1130,6 +1130,7 @@ export interface ContributionMetrics {
 export interface ContributionAnalysis {
   nodes: ContributionNode[];
   edges: ContributionEdge[];
+  duplicates: Array<{ left: string; right: string; shared_files: string[] }>;
   leading: ContributionNode[];
   neglected: ContributionNode[];
   contested: ContributionNode[];

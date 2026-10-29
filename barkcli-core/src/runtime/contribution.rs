@@ -52,6 +52,13 @@ pub struct ContributionEdge {
     pub relation: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DuplicateCandidate {
+    pub left: String,
+    pub right: String,
+    pub shared_files: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Recommendation {
     pub run_id: String,
@@ -80,6 +87,7 @@ pub struct ContributionMetrics {
 pub struct ContributionAnalysis {
     pub nodes: Vec<ContributionNode>,
     pub edges: Vec<ContributionEdge>,
+    pub duplicates: Vec<DuplicateCandidate>,
     pub leading: Vec<ContributionNode>,
     pub neglected: Vec<ContributionNode>,
     pub contested: Vec<ContributionNode>,
@@ -221,7 +229,7 @@ impl ContributionIndex {
         result
     }
 
-    pub fn duplicate_candidates(&self) -> Vec<(String, String, Vec<String>)> {
+    pub fn duplicate_candidates(&self) -> Vec<DuplicateCandidate> {
         let mut candidates = Vec::new();
         for (index, left) in self.nodes.iter().enumerate() {
             for right in self.nodes.iter().skip(index + 1) {
@@ -239,7 +247,11 @@ impl ContributionIndex {
                     .cloned()
                     .collect();
                 if !shared.is_empty() {
-                    candidates.push((left.id.clone(), right.id.clone(), shared));
+                    candidates.push(DuplicateCandidate {
+                left: left.id.clone(),
+                right: right.id.clone(),
+                shared_files: shared,
+            });
                 }
             }
         }
@@ -319,10 +331,12 @@ impl ContributionIndex {
 
         let metrics = self.metrics(&neglected, &contested, &open_hypotheses, now);
         let recommendations = recommendations(&leading, &neglected, &contested, &open_hypotheses, &metrics);
+        let duplicates = self.duplicate_candidates();
 
         ContributionAnalysis {
             nodes: self.nodes.clone(),
             edges: self.edges.clone(),
+            duplicates,
             leading,
             neglected,
             contested,
@@ -605,6 +619,6 @@ mod tests {
         let index = ContributionIndex::from_runs(&[a, b]);
         let duplicates = index.duplicate_candidates();
         assert_eq!(duplicates.len(), 1);
-        assert_eq!(duplicates[0].2, vec!["src/lib.rs"]);
+        assert_eq!(duplicates[0].shared_files, vec!["src/lib.rs"]);
     }
 }
