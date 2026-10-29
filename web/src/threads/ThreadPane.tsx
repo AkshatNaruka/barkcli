@@ -1745,25 +1745,23 @@ export function ThreadPane({
                   </option>
                 ))}
               </QuietSelect>
-              {modelOptions.length > 0 && (
-                <QuietSelect
-                  value={model}
-                  onChange={(event) => {
-                    setModel(event.target.value);
-                    rememberModel(backend, event.target.value);
-                  }}
-                  aria-label="Model"
-                  title="Models reported by the local CLI"
-                  className="max-w-[170px] text-[10px] text-muted hover:text-text"
-                >
-                  <option value="">CLI default model</option>
-                  {modelOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </QuietSelect>
-              )}
+              <input
+                list={`thread-models-${backend}`}
+                value={model}
+                onChange={(event) => {
+                  setModel(event.target.value);
+                  rememberModel(backend, event.target.value);
+                }}
+                placeholder="CLI default model"
+                aria-label="Model"
+                title="Models reported by the local CLI for this provider; type any model id"
+                className="max-w-[190px] rounded border border-border/60 bg-surface px-1.5 py-0.5 text-[10px] text-muted focus:border-accent focus:outline-none hover:text-text"
+              />
+              <datalist id={`thread-models-${backend}`}>
+                {modelOptions.map((option) => (
+                  <option key={option} value={option} />
+                ))}
+              </datalist>
               <span
                 className={`h-1.5 w-1.5 rounded-full ${
                   providers.find((provider) => provider.id === backend)?.available &&

@@ -188,6 +188,36 @@ fn opencode_capabilities() -> ProviderCapabilities {
     }
 }
 
+fn claude_models() -> Vec<String> {
+    // Claude Code does not expose a machine-readable model list, so this is a
+    // curated set of aliases and full names the CLI accepts. Keep it short;
+    // the UI still accepts free-form model ids.
+    vec![
+        "opus".into(),
+        "sonnet".into(),
+        "haiku".into(),
+        "fable".into(),
+        "claude-opus-4-6".into(),
+        "claude-sonnet-4-6".into(),
+        "claude-haiku-4-5".into(),
+        "claude-opus-4-5".into(),
+        "claude-sonnet-4-5".into(),
+        "claude-opus-4-1".into(),
+    ]
+}
+
+fn codex_models() -> Vec<String> {
+    vec![
+        "gpt-5".into(),
+        "gpt-5-mini".into(),
+        "gpt-4.1".into(),
+        "gpt-4.1-mini".into(),
+        "o3".into(),
+        "o4-mini".into(),
+        "codex-mini-latest".into(),
+    ]
+}
+
 fn claude_capabilities() -> ProviderCapabilities {
     ProviderCapabilities {
         resume: true,
@@ -319,6 +349,9 @@ impl ProviderAdapter for ClaudeProvider {
     fn capabilities(&self) -> ProviderCapabilities {
         claude_capabilities()
     }
+    fn models(&self) -> Vec<String> {
+        claude_models()
+    }
     fn start(&self, req: StartRun, sink: EventSink) -> Result<Box<dyn RunHandle>> {
         let mut cmd = Command::new("claude");
         cmd.arg("--print")
@@ -380,6 +413,9 @@ impl ProviderAdapter for CodexProvider {
     }
     fn capabilities(&self) -> ProviderCapabilities {
         codex_capabilities()
+    }
+    fn models(&self) -> Vec<String> {
+        codex_models()
     }
     fn start(&self, req: StartRun, sink: EventSink) -> Result<Box<dyn RunHandle>> {
         let mut cmd = Command::new("codex");

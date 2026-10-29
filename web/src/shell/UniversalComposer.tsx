@@ -219,25 +219,23 @@ export function UniversalComposer({
                 ))
               )}
             </QuietSelect>
-            {modelOptions.length > 0 && (
-              <QuietSelect
-                value={model}
-                onChange={(event) => {
-                  setModel(event.target.value);
-                  rememberModel(backend, event.target.value);
-                }}
-                aria-label="Model"
-                title="Models reported by the local CLI"
-                className="max-w-[160px] rounded border border-border/60 px-1.5 py-1 text-[10px] text-muted"
-              >
-                <option value="">CLI default model</option>
-                {modelOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </QuietSelect>
-            )}
+            <input
+              list={`composer-models-${backend}`}
+              value={model}
+              onChange={(event) => {
+                setModel(event.target.value);
+                rememberModel(backend, event.target.value);
+              }}
+              placeholder="CLI default model"
+              aria-label="Model"
+              title="Models reported by the local CLI for this provider; type any model id"
+              className="max-w-[190px] rounded border border-border/60 bg-surface px-1.5 py-1 text-[10px] text-muted focus:border-accent focus:outline-none"
+            />
+            <datalist id={`composer-models-${backend}`}>
+              {modelOptions.map((option) => (
+                <option key={option} value={option} />
+              ))}
+            </datalist>
             <QuietSelect
               value={mode}
               onChange={(event) => setMode(event.target.value as "plan_first" | "plan_and_run")}
