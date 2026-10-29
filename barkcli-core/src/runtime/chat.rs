@@ -51,6 +51,10 @@ pub struct ChatRequest {
     pub provider: String,
     pub model: Option<String>,
     pub files: Vec<String>,
+    /// Board used to compile the same context pack as a build run. When it is
+    /// missing or compilation fails, chat falls back to a compact hand-built
+    /// prompt instead of blocking the reply.
+    pub board_name: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -85,7 +89,7 @@ fn prepare_chat_at(
             files.push(mention);
         }
     }
-    let prompt = build_prompt(root, request, &files)?;
+    let prompt = compile_prompt(root, request, &files)?;
     let turn_id = format!("chat_{}", uuid::Uuid::new_v4().simple());
     let start = StartRun {
         run_id: turn_id.clone(),
@@ -140,6 +144,50 @@ fn extract_file_mentions(text: &str) -> Vec<String> {
         }
     }
     files
+}
+
+fn compile_prompt(root: &Path, request: &ChatRequest, files: &[String]) -> Result<String> {
+    if let Some(board_name) = request.board_name.as_deref().filter(|name| !name.trim().is_empty()) {
+        let card = crate::models::card::Card::new("chat", request.text.trim(), "todo");
+        let mut extra = String::new();
+        let history = history_prompt(&request.card_id, &request.text);
+        if !history.is_empty() {
+            extra.push_str("## Conversation so far\n\n");
+            extra.push_str(&history);
+            extra.push_str("\n\n");
+        }
+        let attachments = attachments_prompt(root, files)?;
+        if !attachments.is_empty() {
+            extra.push_str("## Attached files\n\n");
+            extra.push_str(&attachments);
+            extra.push_str("\n\n");
+        }
+        extra.push_str("## Current request\n\n");
+        extra.push_str(request.text.trim());
+        extra.push('\n');
+
+        if let Ok(engine) = crate::context::ContextEngine::from_project(board_name) {
+            let pack = engine.compile(&crate::context::CompileRequest {
+                thread_id: request.card_id.clone(),
+                card_id: request.card_id.clone(),
+                card,
+                run_id: None,
+                role: Some("assistant".to_string()),
+                provider: request.provider.clone(),
+                permission_mode: CHAT_PERMISSION_MODE.to_string(),
+                extra_prompt: Some(extra),
+                explicit_skills: files.to_vec(),
+                budget_tokens: Some(4_000),
+            });
+            if let Ok(pack) = pack {
+                if !pack.prompt.trim().is_empty() {
+                    return Ok(pack.prompt);
+                }
+            }
+        }
+    }
+
+    build_prompt(root, request, files)
 }
 
 fn build_prompt(root: &Path, request: &ChatRequest, files: &[String]) -> Result<String> {
@@ -309,8 +357,9 @@ mod tests {
             provider: "opencode".into(),
             model: None,
             files: vec![],
+            board_name: None,
         };
-        let prompt = build_prompt(&dir, &request, &[]).unwrap();
+        let prompt = compile_prompt(&dir, &request, &[]).unwrap();
         assert!(prompt.contains("read-only coding assistant"));
         assert!(prompt.contains("Never edit files"));
         assert!(prompt.contains("Where is the auth middleware?"));

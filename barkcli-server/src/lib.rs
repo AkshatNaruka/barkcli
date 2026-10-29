@@ -6513,6 +6513,7 @@ async fn chat_thread_handler(
             provider: provider.clone(),
             model: req.model.clone(),
             files: req.files.clone(),
+            board_name: Some(board_name.clone()),
         },
     )
     .map_err(|e| ServerError::bad(e.to_string()))?;
