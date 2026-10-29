@@ -22,6 +22,8 @@ const {
   askAboutRun,
   openInEditor,
   mergeRun,
+  fetchAgentProfiles,
+  startThreadRun,
 } = vi.hoisted(() => ({
   fetchTaskDiff: vi.fn(),
   evalSession: vi.fn(),
@@ -40,6 +42,8 @@ const {
   askAboutRun: vi.fn(),
   openInEditor: vi.fn(),
   mergeRun: vi.fn(),
+  fetchAgentProfiles: vi.fn(async () => [] as any[]),
+  startThreadRun: vi.fn(),
 }));
 
 vi.mock("../lib/api", () => ({
@@ -60,6 +64,8 @@ vi.mock("../lib/api", () => ({
   askAboutRun,
   openInEditor,
   mergeRun,
+  fetchAgentProfiles,
+  startThreadRun,
 }));
 
 const card: Card = {
@@ -187,5 +193,54 @@ describe("InspectorPane", () => {
 
     await user.click(screen.getByRole("button", { name: "Close workbench" }));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("delegates a board card to a real agent profile with its skills", async () => {
+    fetchTaskDiff.mockResolvedValue({
+      task_id: "task-demo-mode",
+      branch: "",
+      files: [],
+      diff: "",
+    });
+    fetchAgentProfiles.mockResolvedValue([
+      {
+        id: "builder-one",
+        name: "Builder One",
+        role: "builder",
+        provider: "opencode",
+        model: "anthropic/claude-opus-4-5",
+        capacity: 1,
+        permission_mode: "auto",
+        skills: ["implementation", "testing"],
+        memory_scope: "project",
+        status: "active",
+      },
+    ]);
+    startThreadRun.mockResolvedValue({
+      id: "run_new",
+      thread_id: card.id,
+      card_id: card.id,
+      provider: "opencode",
+      status: "running",
+    });
+    const user = userEvent.setup();
+    render(<InspectorPane card={card} events={events} onClose={vi.fn()} />);
+
+    await user.click(screen.getByRole("tab", { name: /Plan/ }));
+    await waitFor(() => expect(screen.getByLabelText("Delegate to agent")).toBeTruthy());
+    await user.type(screen.getByPlaceholderText(/Optional instruction for this card/), "Keep the diff small");
+    await user.click(screen.getByRole("button", { name: /Delegate to agent/i }));
+
+    await waitFor(() =>
+      expect(startThreadRun).toHaveBeenCalledWith(card.id, {
+        agent_id: "builder-one",
+        provider: "opencode",
+        model: "anthropic/claude-opus-4-5",
+        role: "builder",
+        prompt: "Keep the diff small",
+        skills: ["implementation", "testing"],
+      })
+    );
+    expect(await screen.findByText(/Delegated as Builder One/)).toBeInTheDocument();
   });
 });
