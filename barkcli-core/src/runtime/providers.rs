@@ -112,6 +112,26 @@ fn auth_metadata(id: &str) -> (Option<String>, Option<String>) {
             Some("codex login".into()),
             Some("Run `codex login` to create ~/.codex/auth.json.".into()),
         ),
+        "cursor" => (
+            Some("cursor-agent login".into()),
+            Some("Install Cursor and sign in; Bark detects `cursor-agent`.".into()),
+        ),
+        "grok-build" => (
+            Some("grok auth login".into()),
+            Some("Install the Grok Build CLI and sign in.".into()),
+        ),
+        "antigravity" => (
+            Some("antigravity auth login".into()),
+            Some("Install the Antigravity CLI and sign in.".into()),
+        ),
+        "kimi" => (
+            Some("kimi auth login".into()),
+            Some("Install Kimi Code and sign in.".into()),
+        ),
+        "muse-code" => (
+            Some("muse auth login".into()),
+            Some("Install Muse Code and sign in.".into()),
+        ),
         _ => (None, None),
     }
 }
@@ -957,6 +977,74 @@ fn session_id_of(value: &Value) -> Option<String> {
         .map(str::trim)
         .filter(|id| !id.is_empty())
         .map(str::to_string)
+}
+
+
+/// A provider Bark can detect and list models for, but cannot yet drive
+/// headlessly. Reporting it honestly keeps the Settings/Team views accurate
+/// without pretending to support a run we cannot verify.
+pub struct ProbeOnlyProvider {
+    id: &'static str,
+    name: &'static str,
+    command: &'static str,
+    auth_command: Option<&'static str>,
+    auth_hint: Option<&'static str>,
+    models: Vec<String>,
+}
+
+impl ProbeOnlyProvider {
+    pub fn new(
+        id: &'static str,
+        name: &'static str,
+        command: &'static str,
+        auth_command: Option<&'static str>,
+        auth_hint: Option<&'static str>,
+        models: Vec<String>,
+    ) -> Self {
+        Self {
+            id,
+            name,
+            command,
+            auth_command,
+            auth_hint,
+            models,
+        }
+    }
+}
+
+impl ProviderAdapter for ProbeOnlyProvider {
+    fn id(&self) -> &'static str {
+        self.id
+    }
+    fn name(&self) -> &'static str {
+        self.name
+    }
+    fn command(&self) -> &'static str {
+        self.command
+    }
+    fn probe(&self) -> ProviderStatus {
+        status_for(
+            self.id,
+            self.name,
+            self.command,
+            self.capabilities(),
+            Some("Probe-only provider: detected when installed, but runs are not yet automated.".into()),
+        )
+    }
+    fn capabilities(&self) -> ProviderCapabilities {
+        ProviderCapabilities {
+            ..ProviderCapabilities::default()
+        }
+    }
+    fn models(&self) -> Vec<String> {
+        self.models.clone()
+    }
+    fn start(&self, _req: StartRun, _sink: EventSink) -> Result<Box<dyn RunHandle>> {
+        Err(anyhow!(
+            "{} is detected but not yet runnable through Bark. Use its CLI directly or contribute an adapter.",
+            self.name
+        ))
+    }
 }
 
 #[cfg(test)]
