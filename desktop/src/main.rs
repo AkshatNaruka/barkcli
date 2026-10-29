@@ -13,10 +13,38 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use tauri::{AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
+use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Manager, RunEvent, State, WebviewUrl, WebviewWindowBuilder};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct DesktopProject {
+    path: String,
+    name: String,
+}
+
+impl From<&Path> for DesktopProject {
+    fn from(path: &Path) -> Self {
+        Self {
+            path: path.display().to_string(),
+            name: path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("project")
+                .to_string(),
+        }
+    }
+}
+
+struct ServerRuntime {
+    child: Option<Child>,
+    project: PathBuf,
+    port: u16,
+    token: String,
+}
 
 struct ServerState {
-    child: Mutex<Option<Child>>,
+    runtime: Mutex<ServerRuntime>,
+    bin: PathBuf,
 }
 
 #[derive(Clone, Copy)]
@@ -73,19 +101,28 @@ fn main() {
         fatal(&e);
     }
 
-    let title = format!(
-        "Bark — {}",
-        project
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or("project")
-    );
+    let title = format!("Bark — {}", DesktopProject::from(project.as_path()).name);
     let geometry = load_window_geometry();
+    let app_bin = bin.clone();
 
     tauri::Builder::default()
         .manage(ServerState {
-            child: Mutex::new(Some(child)),
+            runtime: Mutex::new(ServerRuntime {
+                child: Some(child),
+                project: project.clone(),
+                port,
+                token: token.clone(),
+            }),
+            bin: app_bin,
         })
+        .invoke_handler(tauri::generate_handler![
+            current_project,
+            open_project_dialog,
+            switch_project,
+            recent_projects,
+            reveal_project,
+            open_provider_login,
+        ])
         .setup(move |app| {
             let parsed = url.parse().expect("valid local url");
             let mut window = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(parsed))
@@ -126,12 +163,189 @@ fn main() {
             if let RunEvent::Exit = event {
                 remember_window_state(app);
                 if let Some(state) = app.try_state::<ServerState>() {
-                    if let Some(mut child) = state.child.lock().unwrap().take() {
+                    if let Some(mut child) = state.runtime.lock().unwrap().child.take() {
                         stop_child(&mut child);
                     }
                 }
             }
         });
+}
+
+#[tauri::command]
+fn current_project(state: State<'_, ServerState>) -> DesktopProject {
+    let runtime = state.runtime.lock().unwrap();
+    DesktopProject::from(runtime.project.as_path())
+}
+
+#[tauri::command]
+fn open_project_dialog(state: State<'_, ServerState>) -> Option<DesktopProject> {
+    let current = {
+        let runtime = state.runtime.lock().unwrap();
+        runtime.project.clone()
+    };
+    rfd::FileDialog::new()
+        .set_title("Open a project in Bark")
+        .set_directory(&current)
+        .pick_folder()
+        .map(|path| DesktopProject::from(path.as_path()))
+}
+
+#[tauri::command]
+async fn switch_project(
+    app: AppHandle,
+    state: State<'_, ServerState>,
+    path: String,
+) -> Result<DesktopProject, String> {
+    let bin = state.bin.clone();
+    tauri::async_runtime::spawn_blocking(move || switch_project_blocking(&app, &bin, path))
+        .await
+        .map_err(|error| format!("project switch task failed: {error}"))?
+}
+
+fn switch_project_blocking(
+    app: &AppHandle,
+    bin: &Path,
+    path: String,
+) -> Result<DesktopProject, String> {
+    let target = PathBuf::from(path)
+        .canonicalize()
+        .map_err(|error| format!("could not open that folder: {error}"))?;
+    if !target.is_dir() {
+        return Err("the selected path is not a folder".to_string());
+    }
+
+    let state = app.state::<ServerState>();
+    let mut runtime = state
+        .runtime
+        .lock()
+        .map_err(|_| "server state is locked".to_string())?;
+    if runtime.project == target {
+        return Ok(DesktopProject::from(target.as_path()));
+    }
+
+    let old_project = runtime.project.clone();
+    let old_name = DesktopProject::from(old_project.as_path()).name;
+    if let Some(mut child) = runtime.child.take() {
+        stop_child(&mut child);
+    }
+
+    let new_port = free_port();
+    let new_token = random_token();
+    let mut child = match spawn_server(bin, &target, new_port, &new_token) {
+        Ok(child) => child,
+        Err(error) => {
+            restart_old_project(&mut runtime, bin, &old_project);
+            return Err(format!("could not start the new project: {error}"));
+        }
+    };
+    if let Err(error) = wait_for_server(&mut child, new_port, Duration::from_secs(20)) {
+        stop_child(&mut child);
+        restart_old_project(&mut runtime, bin, &old_project);
+        return Err(format!(
+            "the new project did not start: {error}. Reopened {old_name}."
+        ));
+    }
+
+    runtime.project = target.clone();
+    runtime.port = new_port;
+    runtime.token = new_token.clone();
+    runtime.child = Some(child);
+    drop(runtime);
+
+    remember_project(&target);
+    let opened = DesktopProject::from(target.as_path());
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.set_title(&format!("Bark — {}", opened.name));
+    }
+
+    // Let the command return before the webview leaves the old origin.
+    let url = format!(
+        "http://127.0.0.1:{}/?token={}#/workspace",
+        new_port, new_token
+    );
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(180));
+        if let Some(window) = handle.get_webview_window("main") {
+            if let Ok(parsed) = url.parse() {
+                let _ = window.navigate(parsed);
+            }
+        }
+    });
+
+    Ok(opened)
+}
+
+fn restart_old_project(runtime: &mut ServerRuntime, bin: &Path, old_project: &Path) {
+    let port = free_port();
+    let token = random_token();
+    let Ok(mut child) = spawn_server(bin, old_project, port, &token) else {
+        return;
+    };
+    if wait_for_server(&mut child, port, Duration::from_secs(20)).is_ok() {
+        runtime.project = old_project.to_path_buf();
+        runtime.port = port;
+        runtime.token = token;
+        runtime.child = Some(child);
+    } else {
+        stop_child(&mut child);
+    }
+}
+
+#[tauri::command]
+fn recent_projects(state: State<'_, ServerState>) -> Vec<DesktopProject> {
+    let current = {
+        let runtime = state.runtime.lock().unwrap();
+        DesktopProject::from(runtime.project.as_path())
+    };
+    let mut projects = load_state()
+        .and_then(|state| state.get("recent").cloned())
+        .and_then(|value| serde_json::from_value::<Vec<DesktopProject>>(value).ok())
+        .unwrap_or_default();
+    projects.retain(|project| project.path != current.path);
+    projects.insert(0, current);
+    projects.truncate(8);
+    projects
+}
+
+#[tauri::command]
+fn reveal_project(state: State<'_, ServerState>, path: Option<String>) -> bool {
+    let target = path.unwrap_or_else(|| {
+        let runtime = state.runtime.lock().unwrap();
+        runtime.project.display().to_string()
+    });
+    Command::new("open")
+        .arg(target)
+        .spawn()
+        .map(|mut child| {
+            let _ = child.wait();
+            true
+        })
+        .unwrap_or(false)
+}
+
+/// Open the official provider login in Terminal. Only allowlisted commands are
+/// accepted; the web app never supplies a shell string.
+#[tauri::command]
+fn open_provider_login(provider: String) -> bool {
+    let command = match provider.as_str() {
+        "opencode" => "opencode auth login",
+        "claude-code" | "claude" => "claude auth login",
+        "codex" => "codex login",
+        _ => return false,
+    };
+    let script = format!(
+        "tell application \"Terminal\" to do script \"{}\"",
+        command.replace('\\', "\\\\").replace('"', "\\\"")
+    );
+    Command::new("osascript")
+        .args(["-e", script.as_str()])
+        .spawn()
+        .map(|mut child| {
+            let _ = child.wait();
+            true
+        })
+        .unwrap_or(false)
 }
 
 #[cfg(unix)]
@@ -548,9 +762,20 @@ fn update_state(update: impl FnOnce(&mut serde_json::Map<String, serde_json::Val
 }
 
 fn remember_project(project: &Path) {
-    let project = project.display().to_string();
+    let entry = DesktopProject::from(project);
+    let path = entry.path.clone();
+    let value = serde_json::to_value(&entry).unwrap_or_else(|_| serde_json::json!({}));
     update_state(|state| {
-        state.insert("project".into(), serde_json::Value::String(project));
+        state.insert("project".into(), serde_json::Value::String(path.clone()));
+        let mut recent = state
+            .get("recent")
+            .and_then(|value| value.as_array())
+            .cloned()
+            .unwrap_or_default();
+        recent.retain(|item| item.get("path").and_then(|path| path.as_str()) != Some(path.as_str()));
+        recent.insert(0, value);
+        recent.truncate(8);
+        state.insert("recent".into(), serde_json::Value::Array(recent));
     });
 }
 
