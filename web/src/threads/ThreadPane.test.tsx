@@ -21,7 +21,9 @@ const api = vi.hoisted(() => ({
   startThreadRun: vi.fn(),
   stopRun: vi.fn(),
   mergeRun: vi.fn(),
-  fetchProviders: vi.fn(async () => []),
+  fetchProviders: vi.fn(async () => [
+    { id: "opencode", name: "OpenCode", available: true, authenticated: true },
+  ]),
   fetchProviderModels: vi.fn(async () => []),
   fetchRoles: vi.fn(async () => [
     { id: "builder", name: "Builder" },
@@ -99,15 +101,22 @@ describe("ThreadPane", () => {
     expect(screen.getByText("Implemented it.")).toBeInTheDocument();
     expect(onSelectCard).toHaveBeenCalled();
 
-    const composer = screen.getByLabelText("Thread message");
+    const composer = screen.getByTestId("thread-composer");
     await user.click(screen.getByRole("button", { name: "Build" }));
-    await user.type(composer, "Please add a regression test.{enter}");
+    await user.type(composer, "Please add a regression test.");
+    await user.keyboard("{Meta>}{Enter}{/Meta}");
 
     await waitFor(() =>
       expect(api.postThreadMessage).toHaveBeenCalledWith(
         "demo-mode",
         "Please add a regression test.",
-        { author: "you", backend: "opencode", board: "dev" }
+        {
+          author: "you",
+          backend: "opencode",
+          model: undefined,
+          mode: "plan_first",
+          board: "dev",
+        }
       )
     );
     expect(await screen.findByText("Please add a regression test.")).toBeInTheDocument();
@@ -128,8 +137,9 @@ describe("ThreadPane", () => {
     render(<ThreadPane threadId="demo-mode" boardName="dev" />);
     await screen.findByText("Static demo hosting");
 
-    const composer = screen.getByLabelText("Thread message");
-    await user.type(composer, "Where is the auth middleware?{enter}");
+    const composer = screen.getByTestId("thread-composer");
+    await user.type(composer, "Where is the auth middleware?");
+    await user.keyboard("{Meta>}{Enter}{/Meta}");
 
     await waitFor(() =>
       expect(api.startThreadChat).toHaveBeenCalledWith("demo-mode", {
@@ -191,22 +201,16 @@ describe("ThreadPane", () => {
     expect(api.fetchThread).toHaveBeenCalledTimes(2);
   });
 
-  it("toggles the workbench and starts a new intent from the empty state", async () => {
+  it("toggles the workbench from the thread header", async () => {
     api.fetchThread.mockResolvedValue(detail);
     const onOpenInspector = vi.fn();
-    const onNewIntent = vi.fn();
     const user = userEvent.setup();
 
-    const { rerender } = render(
+    render(
       <ThreadPane threadId="demo-mode" inspectorOpen onOpenInspector={onOpenInspector} />
     );
     expect(await screen.findByText("Static demo hosting")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Hide workbench" }));
+    await user.click(screen.getByRole("button", { name: "Hide surfaces" }));
     expect(onOpenInspector).toHaveBeenCalled();
-
-    rerender(<ThreadPane threadId={null} onNewIntent={onNewIntent} />);
-    expect(screen.getByText("What should we ship?")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /Add a health check endpoint/ }));
-    expect(onNewIntent).toHaveBeenCalledWith("Add a health check endpoint");
   });
 });

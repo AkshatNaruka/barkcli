@@ -3,6 +3,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
 } from "react";
@@ -132,7 +133,7 @@ export const THEMES: Array<{
     id: "light",
     label: "Paper",
     hint: "Warm light, ink",
-    preview: ["#fbfaf8", "#ffffff", "#b06434"],
+    preview: ["#fbfaf8", "#ffffff", "#a95d2e"],
   },
   {
     id: "system",
@@ -144,10 +145,10 @@ export const THEMES: Array<{
 ];
 
 const ACCENTS: Record<AccentId, { label: string; dark: string; light: string }> = {
-  copper: { label: "Copper", dark: "#c2703d", light: "#b06434" },
-  amber: { label: "Amber", dark: "#d9a03c", light: "#a86a10" },
+  copper: { label: "Copper", dark: "#c2703d", light: "#a95d2e" },
+  amber: { label: "Amber", dark: "#d9a03c", light: "#9f640d" },
   moss: { label: "Moss", dark: "#8fae5e", light: "#5c7a2e" },
-  sky: { label: "Sky", dark: "#5aa7cf", light: "#2f7fa8" },
+  sky: { label: "Sky", dark: "#5aa7cf", light: "#2b7aa2" },
   iris: { label: "Iris", dark: "#9484e0", light: "#6b58c9" },
   rose: { label: "Rose", dark: "#d87a90", light: "#b04a64" },
   steel: { label: "Steel", dark: "#9aa3ad", light: "#59626c" },
@@ -172,7 +173,7 @@ const DEFAULT_ACCENT: Record<Theme, AccentId> = {
 };
 
 export const DEFAULT_APPEARANCE: Appearance = {
-  theme: "black",
+  theme: "system",
   accent: "copper",
   railStyle: "icons",
   railOrder: SURFACES.map((s) => s.id),
@@ -369,6 +370,16 @@ function applyAppearance(app: Appearance) {
   vars["--accent-text"] = accentText;
   vars["--accent-text-rgb"] = rgbTriplet(accentText);
 
+  const semantic = mode === "light"
+    ? { success: "#06724e", warning: "#8a5500", danger: "#ba2d24" }
+    : { success: "#62c99b", warning: "#d99a2b", danger: "#f47a67" };
+  for (const [name, value] of Object.entries(semantic)) {
+    vars[`--${name}`] = value;
+    vars[`--${name}-rgb`] = rgbTriplet(value);
+    vars[`--${name}-soft`] = `rgba(${rgbTriplet(value).replace(/ /g, ", ")}, 0.12)`;
+  }
+  vars["--on-accent"] = mode === "light" ? "#ffffff" : "#0a0908";
+  vars["--on-danger"] = mode === "light" ? "#ffffff" : "#1b0c08";
   for (const [key, value] of Object.entries(vars)) {
     root.style.setProperty(key, value);
   }
@@ -398,7 +409,7 @@ const AppearanceContext = createContext<AppearanceContextValue>({
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [app, setApp] = useState<Appearance>(loadAppearance);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     applyAppearance(app);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(app));

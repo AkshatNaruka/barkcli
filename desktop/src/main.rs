@@ -168,8 +168,8 @@ fn main() {
                 .build()?;
             let file_menu = SubmenuBuilder::new(app, "File")
                 .item(&item("open-project", "Open Project…", Some("CmdOrCtrl+O"))?)
-                .item(&item("new-chat", "New Chat", Some("CmdOrCtrl+Shift+N"))?)
-                .item(&item("new-intent", "New Intent", Some("CmdOrCtrl+N"))?)
+                .item(&item("new-chat", "New Read-Only Question", Some("CmdOrCtrl+Shift+N"))?)
+                .item(&item("new-intent", "New Thread", Some("CmdOrCtrl+N"))?)
                 .separator()
                 .item(&item("quick-open", "Quick Open…", Some("CmdOrCtrl+P"))?)
                 .item(&item("command-runner", "Run Command…", Some("CmdOrCtrl+Shift+R"))?)
@@ -191,6 +191,7 @@ fn main() {
                 .select_all()
                 .build()?;
             let view_menu = SubmenuBuilder::new(app, "View")
+                .item(&item("toggle-sidebar", "Toggle Sidebar", Some("CmdOrCtrl+Shift+B"))?)
                 .item(&item("toggle-workbench", "Toggle Workbench", Some("CmdOrCtrl+J"))?)
                 .separator()
                 .fullscreen()

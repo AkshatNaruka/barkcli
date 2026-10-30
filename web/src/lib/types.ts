@@ -326,6 +326,8 @@ export interface ThreadSummary {
   backend?: string;
   /** Newest agent heartbeat / lease / note for this card. */
   last_seen?: string;
+  /** Kept at the top of the navigator until unpinned. */
+  pinned?: boolean;
 }
 
 export interface ThreadDetail {
@@ -342,6 +344,7 @@ export type RunStatus =
   | "waiting"
   | "needs_review"
   | "passed"
+  | "not_verified"
   | "failed"
   | "interrupted"
   | "cancelled"
@@ -366,6 +369,12 @@ export interface GateSummary {
   summary?: string;
   log_path?: string;
   finished_at: string;
+  verification?: {
+    outcome: "not_run" | "skipped" | "running" | "passed" | "failed" | "error" | "stale";
+    tested_head: string;
+    target_head: string;
+    exit_code?: number;
+  };
 }
 
 export interface RunRecord {
@@ -514,6 +523,7 @@ export interface ProjectSnapshot {
   setup: ProjectSetupState;
   counts: ProjectCounts;
   commands?: RunCommand[];
+  verification_command?: string;
 }
 
 export interface SetupStep {
@@ -545,6 +555,7 @@ export interface RunGate {
   run: RunRecord;
   gate?: GateSummary;
   log: string;
+  eligibility?: { eligible: boolean; reason?: string };
 }
 
 export interface ContextManifestSection {

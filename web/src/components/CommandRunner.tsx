@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { AccessibleDialog } from "./AccessibleDialog";
 import type { ExecResult, ProjectSnapshot, RunCommand } from "../lib/types";
 import { fetchProject, runProjectCommand } from "../lib/api";
 import { isDesktop, openTerminal } from "../lib/desktop";
@@ -86,16 +87,8 @@ export function CommandRunner({ open, onClose }: CommandRunnerProps) {
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/65 p-4 backdrop-blur-[2px]"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Command runner"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <div className="flex h-[min(680px,84vh)] w-full max-w-[920px] overflow-hidden rounded-[14px] border border-border bg-bg shadow-2xl">
+    <AccessibleDialog label="Command runner" onClose={onClose} className="command-runner-dialog">
+      <div className="command-runner-body flex h-[min(680px,84vh)] w-full max-w-[920px] overflow-hidden bg-bg">
         <div className="flex w-[250px] shrink-0 flex-col border-r border-border/80">
           <div className="flex h-12 items-center gap-2 border-b border-border/70 px-3">
             <Icon name="code" size={14} className="text-accent-text" />
@@ -249,6 +242,6 @@ export function CommandRunner({ open, onClose }: CommandRunnerProps) {
           )}
         </div>
       </div>
-    </div>
+    </AccessibleDialog>
   );
 }

@@ -565,6 +565,7 @@ mod tests {
             summary: None,
             log_path: None,
             finished_at: Utc::now(),
+            verification: None,
         });
         let mut child = run("run_child", "agent-b");
         child.add_parent("run_root").unwrap();
@@ -574,6 +575,7 @@ mod tests {
             summary: None,
             log_path: None,
             finished_at: Utc::now(),
+            verification: None,
         });
         root.add_verification("agent-b", true, None).unwrap();
         let index = ContributionIndex::from_runs(&[root, child]);
@@ -595,6 +597,7 @@ mod tests {
             summary: None,
             log_path: None,
             finished_at: Utc::now(),
+            verification: None,
         });
         result.ended_at = Some(Utc::now() - Duration::days(3));
         result.status = RunStatus::Passed;

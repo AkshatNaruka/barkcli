@@ -43,6 +43,8 @@ const PATHS: Record<string, React.ReactNode> = {
   chartBars: <path d="M9 20v-6M14 20V9M19 20v-9" />,
   board: <rect x="3" y="4" width="18" height="16" rx="2" />,
   boardCols: <path d="M9 4v16M15 4v16" />,
+  panel: <rect x="3" y="4" width="18" height="16" rx="2" />,
+  panelDivider: <path d="M9 4v16" />,
   spark: <path d="M12 2l2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4L12 2z" />,
   layers: <path d="M12 3l9 5-9 5-9-5 9-5z" />,
   layersUnder: <path d="M3 13l9 5 9-5" />,
@@ -89,6 +91,9 @@ const PATHS: Record<string, React.ReactNode> = {
   eyeOff: <path d="M3.5 3.5l17 17M10.3 6.2A10.6 10.6 0 0112 6c6 0 9.5 6 9.5 6a18 18 0 01-3.2 3.8M6.6 6.7C4 8.6 2.5 12 2.5 12s3.5 6 9.5 6c1.5 0 2.9-.3 4-.9" />,
   plus: <path d="M12 5v14M5 12h14" />,
   stop: <rect x="6" y="6" width="12" height="12" rx="2" />,
+  dots: <path d="M5 12h.01M12 12h.01M19 12h.01" />,
+  folder: <path d="M3 6a2 2 0 012-2h4l2 2h8a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V6z" />,
+  grid: <g><rect x="4" y="4" width="6.5" height="6.5" rx="1.2" /><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.2" /><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.2" /><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.2" /></g>,
   branch: <path d="M6 3v12a3 3 0 003 3h9" />,
   branchDotA: <circle cx="6" cy="5" r="2" />,
   branchDotB: <circle cx="18" cy="18" r="2" />,
@@ -112,6 +117,7 @@ const GROUPS: Record<string, string[]> = {
   doc: ["doc", "docFold"],
   chart: ["chart", "chartBars"],
   board: ["board", "boardCols"],
+  panel: ["panel", "panelDivider"],
   layers: ["layers", "layersUnder"],
   cycle: ["cycle", "cycleArrow"],
   db: ["db", "dbBody", "dbMid"],
@@ -132,10 +138,10 @@ export type IconName =
   | "search" | "pin" | "pencil" | "copy" | "history" | "pulse" | "trash"
   | "comment" | "blocked" | "clock" | "calendar" | "warn" | "subtasks"
   | "check" | "refresh" | "bell" | "gear" | "robot" | "doc" | "chart"
-  | "board" | "spark" | "layers" | "cycle" | "code" | "db" | "star"
+  | "board" | "panel" | "spark" | "layers" | "cycle" | "code" | "db" | "star"
   | "chevL" | "chevR" | "flag" | "link" | "moon" | "sun" | "monitor"
   | "x" | "users" | "inbox" | "arrowUp" | "arrowFlat" | "arrowDown"
-  | "download" | "palette" | "eye" | "eyeOff" | "plus" | "stop" | "branch" | "terminal";
+  | "download" | "palette" | "eye" | "eyeOff" | "plus" | "stop" | "dots" | "grid" | "folder" | "branch" | "terminal";
 
 function partsFor(name: IconName): React.ReactNode[] {
   if (name === "blocked") return [PATHS["blocked"], PATHS["blockedBar"]];
@@ -156,6 +162,9 @@ function partsFor(name: IconName): React.ReactNode[] {
   if (name === "arrowDown") return [PATHS["arrowDown"]];
   if (name === "plus") return [PATHS["plus"]];
   if (name === "stop") return [PATHS["stop"]];
+  if (name === "dots") return [PATHS["dots"]];
+  if (name === "grid") return [PATHS["grid"]];
+  if (name === "folder") return [PATHS["folder"]];
   if (name === "terminal") return [PATHS["terminal"]];
   return (GROUPS[name] || []).map((k) => PATHS[k]);
 }

@@ -1,17 +1,18 @@
 import type { IconName } from "../components/Icon";
 
 /**
- * The seven surfaces of the app. Everything else lives inside one of them —
- * the rail never grows a "More" drawer again.
+ * Route availability is independent of default navigation prominence.
  */
 export type Surface =
   | "chat"
+  | "review"
   | "board"
   | "agents"
   | "brain"
   | "skills"
   | "operations"
-  | "history";
+  | "history"
+  | "hub";
 
 export interface SurfaceDef {
   id: Surface;
@@ -23,13 +24,15 @@ export interface SurfaceDef {
 }
 
 export const SURFACES: SurfaceDef[] = [
-  { id: "chat", label: "Chat", icon: "comment", hint: "Intent → plan → run", key: "1" },
+  { id: "chat", label: "Build", icon: "comment", hint: "Describe, plan, and build", key: "1" },
+  { id: "review", label: "Review", icon: "eye", hint: "Changes and verification", key: "2" },
   { id: "board", label: "Board", icon: "board", hint: "Cards and gates", key: "2" },
   { id: "agents", label: "Agents", icon: "users", hint: "Orchestra and subagents", key: "3" },
   { id: "brain", label: "Brain", icon: "spark", hint: "Memory, context, graph", key: "4" },
   { id: "skills", label: "Skills", icon: "star", hint: "Enabled capabilities", key: "5" },
   { id: "operations", label: "Operations", icon: "code", hint: "Files, code, timeline", key: "6" },
   { id: "history", label: "History", icon: "history", hint: "Runs, gates, diffs", key: "7" },
+  { id: "hub", label: "Project tools", icon: "grid", hint: "All project tools", key: "8" },
 ];
 
 export function isSurface(value: string): value is Surface {

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import type { Card, ThreadEvent, ThreadDetail, RunRecord, ProviderStatus, RoleDef } from "../lib/types";
+import type { Card, ThreadEvent, ThreadDetail, RunRecord, ProviderStatus, RoleDef, ProjectSnapshot } from "../lib/types";
 import {
   fetchThread,
   postThreadMessage,
@@ -28,8 +28,16 @@ import { Icon } from "../components/Icon";
 import { QuietSelect } from "../components/QuietSelect";
 import { relativeTime } from "../lib/threads";
 import { isDemoMode } from "../lib/demo";
+import { ThreadComposer } from "./ThreadComposer";
+import { useAgentSelection } from "../lib/useAgentSelection";
+import { useDraft } from "../lib/drafts";
+import { runLabel, checkState, checksPassed, isActiveRun } from "../lib/run-state";
+import type { ThreadActionTarget } from "../shell/ThreadActionsMenu";
 
 interface ThreadPaneProps {
+  scope?: string;
+  project?: ProjectSnapshot | null;
+  onThreadChange?: (thread: ThreadDetail | null) => void;
   threadId: string | null;
   boardName?: string;
   inspectorOpen?: boolean;
@@ -37,7 +45,7 @@ interface ThreadPaneProps {
   onOpenInspector?: () => void;
   onReview?: () => void;
   onRefreshInbox?: () => void;
-  onNewIntent?: (suggestion?: string) => void;
+  onThreadMenu?: (target: ThreadActionTarget, x: number, y: number) => void;
 }
 
 function columnTone(column?: string): string {
@@ -120,62 +128,6 @@ function EventTime({ iso }: { iso: string }) {
   );
 }
 
-function EmptyThread({ onNewIntent }: { onNewIntent?: (suggestion?: string) => void }) {
-  const starters = [
-    "Add a health check endpoint",
-    "Fix the flaky retry test",
-    "Review the open worktrees",
-    "Draft the release notes",
-  ];
-  return (
-    <div className="flex h-full flex-1 items-center justify-center overflow-y-auto bg-bg px-8 py-12">
-      <div className="w-full max-w-[540px]">
-        <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted/70">
-          Chat
-        </div>
-        <h1 className="mt-2 text-[22px] font-semibold tracking-[-0.02em] text-text">
-          What should we ship?
-        </h1>
-        <p className="mt-2 max-w-[440px] text-[13px] leading-relaxed text-muted">
-          Describe an outcome. Bark will turn it into a plan, give each slice an isolated worktree,
-          and only merge what passes its gate.
-        </p>
-
-        <div className="mt-7 border-y border-border/80">
-          {starters.map((starter) => (
-            <button
-              key={starter}
-              type="button"
-              onClick={() => onNewIntent?.(starter)}
-              className="group flex w-full items-center gap-3 border-b border-border/60 py-3 text-left text-[12.5px] text-muted-strong transition-colors last:border-b-0 hover:text-text"
-            >
-              <Icon
-                name="plus"
-                size={12}
-                className="text-muted/50 transition-colors group-hover:text-accent-text"
-              />
-              <span className="flex-1">{starter}</span>
-              <span className="font-mono text-[9px] text-muted/0 transition-colors group-hover:text-muted/70">
-                start
-              </span>
-            </button>
-          ))}
-        </div>
-
-        <button
-          type="button"
-          onClick={() => onNewIntent?.()}
-          className="mt-5 inline-flex h-8 items-center gap-2 rounded-md bg-accent px-3 text-[12px] font-medium text-bg transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
-        >
-          <Icon name="plus" size={13} />
-          New intent
-          <kbd className="rounded border border-bg/20 px-1 font-mono text-[9px] text-bg/70">⌘N</kbd>
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function runStatusLabel(status: RunRecord["status"]): string {
   switch (status) {
     case "queued":
@@ -252,181 +204,28 @@ function coalesceAssistantEvents(events: ThreadEvent[]): ThreadEvent[] {
   return out;
 }
 
-function RunSummaryCard({
-  run,
-  busy,
-  onStop,
-  onRetry,
-  onMerge,
-  onReview,
-  onVerify,
-  verifying,
-  onBuildOn,
-}: {
-  run: RunRecord;
-  busy: boolean;
-  onStop: () => void;
-  onRetry: () => void;
-  onMerge: () => void;
-  onReview?: () => void;
-  onVerify?: () => void;
-  verifying?: boolean;
-  onBuildOn?: () => void;
+function RunSummaryCard({ run, busy, onStop, onRetry, onReview, onVerify, onBuildOn }: {
+  run: RunRecord; busy: boolean; onStop: () => void; onRetry: () => void; onMerge: () => void;
+  onReview?: () => void; onVerify?: () => void; verifying?: boolean; onBuildOn?: () => void;
 }) {
-  const active = ["queued", "starting", "running", "waiting"].includes(run.status);
-  const canMerge = run.status === "passed" && Boolean(run.gate?.passed);
-  const canRetry = ["failed", "interrupted", "needs_review"].includes(run.status);
-  const canReview = ["needs_review", "passed", "failed"].includes(run.status);
-  const canVerify = run.status === "passed" && !run.verified_by?.length;
-  const canBuildOn = ["needs_review", "passed", "failed", "merged"].includes(run.status);
-  return (
-    <section
-      className="rounded-[10px] border border-border/80 bg-surface/25 px-3.5 py-3"
-      aria-label={`Run ${run.ordinal}`}
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-muted/70">
-          Run {run.ordinal}
-        </span>
-        <span className={`text-[11px] font-medium ${runStatusTone(run.status)}`}>
-          {runStatusLabel(run.status)}
-        </span>
-        <span className="font-mono text-[9.5px] text-muted/65">{run.provider}</span>
-        {run.model && (
-          <span className="truncate font-mono text-[9px] text-muted/50">{run.model}</span>
-        )}
-        <span className="ml-auto flex items-center gap-1">
-          {active && (
-            <button
-              type="button"
-              onClick={onStop}
-              disabled={busy}
-              className="flex h-6 items-center gap-1 rounded px-1.5 text-[10px] text-muted transition-colors hover:bg-danger/10 hover:text-danger disabled:opacity-40"
-            >
-              <Icon name="stop" size={10} />
-              Stop
-            </button>
-          )}
-          {canReview && onReview && (
-            <button
-              type="button"
-              onClick={onReview}
-              className="flex h-6 items-center gap-1 rounded px-1.5 text-[10px] text-muted transition-colors hover:bg-white/[0.06] hover:text-text"
-            >
-              <Icon name="doc" size={10} />
-              Review
-            </button>
-          )}
-          {canBuildOn && onBuildOn && (
-            <button
-              type="button"
-              onClick={onBuildOn}
-              disabled={busy}
-              title="Start a new run that builds on this contribution"
-              className="flex h-6 items-center gap-1 rounded px-1.5 text-[10px] text-muted transition-colors hover:bg-accent-soft hover:text-accent-text disabled:opacity-40"
-            >
-              <Icon name="branch" size={10} />
-              Build on
-            </button>
-          )}
-          {canVerify && onVerify && (
-            <button
-              type="button"
-              onClick={onVerify}
-              disabled={busy || verifying}
-              title="Re-run the gate as an independent verifier"
-              className="flex h-6 items-center gap-1 rounded px-1.5 text-[10px] text-muted transition-colors hover:bg-success/10 hover:text-success disabled:opacity-40"
-            >
-              <Icon name="check" size={10} />
-              {verifying ? "Verifying…" : "Verify"}
-            </button>
-          )}
-          {canRetry && (
-            <button
-              type="button"
-              onClick={onRetry}
-              disabled={busy}
-              className="flex h-6 items-center gap-1 rounded px-1.5 text-[10px] text-muted transition-colors hover:bg-white/[0.06] hover:text-text disabled:opacity-40"
-            >
-              <Icon name="refresh" size={10} />
-              Retry
-            </button>
-          )}
-          {canMerge && (
-            <button
-              type="button"
-              onClick={onMerge}
-              disabled={busy}
-              className="flex h-6 items-center gap-1 rounded bg-accent px-2 text-[10px] font-medium text-bg transition-opacity hover:opacity-90 disabled:opacity-40"
-            >
-              <Icon name="branch" size={10} />
-              Merge
-            </button>
-          )}
-        </span>
-      </div>
-
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[9px] text-muted/60">
-        {run.branch && (
-          <span className="inline-flex items-center gap-1">
-            <Icon name="branch" size={9} />
-            {run.branch}
-          </span>
-        )}
-        {run.worktree && (
-          <span className="max-w-[300px] truncate" title={run.worktree}>
-            {run.worktree.split("/").slice(-2).join("/")}
-          </span>
-        )}
-        {run.diff_stats.files > 0 && (
-          <span>
-            {run.diff_stats.files} files ·{" "}
-            <span className="text-success/80">+{run.diff_stats.additions}</span>{" "}
-            <span className="text-danger/80">−{run.diff_stats.deletions}</span>
-          </span>
-        )}
-        {(run.verified_by?.length || 0) > 0 && (
-          <span className="text-success/80">
-            verified by {run.verified_by!.join(", ")}
-          </span>
-        )}
-        {(run.contributes_to?.length || 0) > 0 && (
-          <span>
-            {run.contributes_to!.length} parent{run.contributes_to!.length === 1 ? "" : "s"}
-          </span>
-        )}
-        {(run.usage.input_tokens > 0 || run.usage.output_tokens > 0) && (
-          <span>
-            {run.usage.input_tokens.toLocaleString()} in /{" "}
-            {run.usage.output_tokens.toLocaleString()} out
-          </span>
-        )}
-      </div>
-
-      {run.gate && (
-        <div
-          className={`mt-2 flex flex-wrap items-center gap-2 border-l-2 py-0.5 pl-2.5 text-[10.5px] ${
-            run.gate.passed ? "border-success/70 text-success" : "border-danger/70 text-danger"
-          }`}
-        >
-          <span className="font-medium">
-            {run.gate.passed ? "Gate passed" : "Gate failed"}
-          </span>
-          {run.gate.command && (
-            <code className="truncate font-mono text-[9px] text-muted/65">
-              {run.gate.command}
-            </code>
-          )}
-        </div>
-      )}
-      {run.error && (
-        <p className="mt-1.5 text-[10.5px] leading-relaxed text-danger/90">{run.error}</p>
-      )}
-    </section>
-  );
+  const active = isActiveRun(run);
+  const state = checkState(run.gate);
+  return <section className="run-summary" aria-label={`Run ${run.ordinal}`}>
+    <div className="run-summary-top"><span className={`run-state ${run.status === "merged" || checksPassed(run.gate) ? "text-success" : run.status === "failed" ? "text-danger" : "text-muted-strong"}`}>{runLabel(run)}</span><span className="text-muted">{run.provider}</span>
+      <div className="ml-auto flex gap-2">{active ? <button className="bark-button" onClick={onStop} disabled={busy}>Stop build</button> : <>{onReview && run.worktree && <button className="bark-button" onClick={onReview}>Review changes</button>}{["failed", "interrupted", "cancelled"].includes(run.status) && <button className="bark-button" onClick={onRetry} disabled={busy}>Retry build</button>}</>}</div>
+    </div>
+    <p>{run.diff_stats.files} files changed{run.branch ? ` in ${run.branch}` : ""}</p>
+    {run.error && <p className="text-danger" role="alert">{run.error}</p>}
+    <details><summary>Run details</summary><dl><dt>Attempt</dt><dd>{run.ordinal}</dd><dt>Agent / model</dt><dd>{run.provider} / {run.model || "CLI default"}</dd><dt>Worktree</dt><dd>{run.worktree || "Not created"}</dd><dt>Checks</dt><dd>{state.label}</dd></dl>
+      <div className="flex flex-wrap gap-2 mt-3">{checksPassed(run.gate) && onVerify && <button className="bark-button" onClick={onVerify} disabled={busy}>Independently verify</button>}{!active && onBuildOn && <button className="bark-button" onClick={onBuildOn} disabled={busy}>Build on this run</button>}</div>
+    </details>
+  </section>;
 }
 
 export function ThreadPane({
+  scope = "current-project",
+  project,
+  onThreadChange,
   threadId,
   boardName,
   inspectorOpen,
@@ -434,23 +233,26 @@ export function ThreadPane({
   onOpenInspector,
   onReview,
   onRefreshInbox,
-  onNewIntent,
+  onThreadMenu,
 }: ThreadPaneProps) {
   const [thread, setThread] = useState<ThreadDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useDraft(scope, threadId || "new");
+  const agent = useAgentSelection(scope);
+  const { backend, setBackend, role, setRole, providers, model, setModel, modelOptions, roles } = agent;
+  const [connectionError, setConnectionError] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
+  const [newOutput, setNewOutput] = useState(false);
+  const stickToBottom = useRef(true);
+  const sendLock = useRef(false);
+  const runLock = useRef(false);
+  const selectionRestored = useRef(false);
   const [chatMode, setChatMode] = useState<"ask" | "build">("ask");
   const [chatBusy, setChatBusy] = useState(false);
   const [chatTurnId, setChatTurnId] = useState<string | null>(null);
   const [approvalBusyId, setApprovalBusyId] = useState<string | null>(null);
-  const [backend, setBackend] = useState("opencode");
-  const [role, setRole] = useState("builder");
-  const [roles, setRoles] = useState<RoleDef[]>([]);
-  const [providers, setProviders] = useState<ProviderStatus[]>([]);
-  const [model, setModel] = useState("");
-  const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [transcriptSessionId, setTranscriptSessionId] = useState<string | null>(null);
   const [transcriptLines, setTranscriptLines] = useState<string[]>([]);
@@ -469,46 +271,11 @@ export function ThreadPane({
     refreshInboxRef.current = onRefreshInbox;
   }, [onSelectCard, onRefreshInbox]);
 
-  useEffect(() => {
-    let cancelled = false;
-    fetchRoles().then((next) => setRoles(next));
-    fetchProviders().then((next) => {
-      if (cancelled) return;
-      const visible = next.filter(
-        (provider) => provider.id !== "fake" && provider.id !== "human"
-      );
-      setProviders(visible);
-      setBackend((current) => {
-        const ready = visible.filter(
-          (provider) => provider.available && provider.authenticated !== false
-        );
-        if (ready.some((provider) => provider.id === current)) return current;
-        return ready[0]?.id || visible.find((provider) => provider.available)?.id || current;
-      });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  useEffect(() => { onThreadChange?.(thread); }, [thread, onThreadChange]);
 
   useEffect(() => {
-    let cancelled = false;
-    setModel("");
-    setModelOptions([]);
-    if (!backend || backend === "human") return;
-    fetchProviderModels(backend).then((next) => {
-      if (cancelled) return;
-      setModelOptions(next);
-      const saved = preferredModel(backend);
-      if (saved && next.includes(saved)) setModel(saved);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [backend]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (stickToBottom.current) messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+    else setNewOutput(true);
   }, [thread?.events]);
 
   useEffect(() => {
@@ -527,6 +294,11 @@ export function ThreadPane({
       .then((data) => {
         if (cancelled) return;
         setThread(data);
+        if (!selectionRestored.current && data) {
+          const choice = [...data.events].reverse().find((event) => event.kind === "user" && event.data?.backend && event.data.backend !== "board");
+          if (choice) agent.restoreChoice(choice.data!.backend, choice.data!.model || "");
+          selectionRestored.current = true;
+        }
         const last = data?.events?.[data.events.length - 1];
         const activeChat =
           last?.run_id?.startsWith("chat_") &&
@@ -559,9 +331,13 @@ export function ThreadPane({
     if (!threadId || isDemoMode()) return;
     const url = streamThreadUrl(threadId);
     let eventSource: EventSource | null = null;
+    let disposed = false;
     try {
       eventSource = new EventSource(url);
+      eventSource.onopen = () => setConnectionError(false);
+      eventSource.onerror = () => setConnectionError(true);
       eventSource.onmessage = (event) => {
+        if (disposed) return;
         try {
           const parsed: ThreadEvent = JSON.parse(event.data);
           if (!parsed?.id) return;
@@ -580,7 +356,7 @@ export function ThreadPane({
             parsed.kind === "merge"
           ) {
             fetchThread(threadId, boardName).then((next) => {
-              if (next) setThread(next);
+              if (!disposed && next) setThread(next);
             });
           }
           if (parsed.kind === "chat_done") {
@@ -615,8 +391,8 @@ export function ThreadPane({
     } catch {
       // EventSource is an enhancement; the REST snapshot still works.
     }
-    return () => eventSource?.close();
-  }, [threadId]);
+    return () => { disposed = true; eventSource?.close(); };
+  }, [threadId, boardName]);
 
   useEffect(() => {
     if (!transcriptSessionId && !steerSessionId) return;
@@ -631,9 +407,9 @@ export function ThreadPane({
 
   const handleSendMessage = async () => {
     const text = input.trim();
-    if (!text || !threadId || submitting || chatBusy) return;
+    if (!text || !threadId || submitting || chatBusy || sendLock.current) return;
+    sendLock.current = true;
     setSubmitting(true);
-    setInput("");
     try {
       if (chatMode === "ask") {
         const provider = backend === "claude" ? "claude-code" : backend;
@@ -650,6 +426,8 @@ export function ThreadPane({
           );
           return;
         }
+        setInput("");
+        stickToBottom.current = true;
         setChatBusy(true);
         setChatTurnId(started.turn_id);
         const next = await fetchThread(threadId, boardName);
@@ -659,9 +437,13 @@ export function ThreadPane({
       }
       const event = await postThreadMessage(threadId, text, {
         author: "you",
-        backend,
+        backend, model: model.trim() || undefined, mode: "plan_first",
         board: boardName,
       });
+      if (!event) { setActionStatus("Could not prepare the plan. Your draft is saved; check the server and retry."); return; }
+      setInput("");
+      const refreshed = await fetchThread(threadId, boardName);
+      if (refreshed) setThread(refreshed);
       if (event) {
         setThread((prev) => {
           if (!prev) return prev;
@@ -674,6 +456,7 @@ export function ThreadPane({
       setInput(text);
       setActionStatus("Message did not send. Check the server, then try again.");
     } finally {
+      sendLock.current = false;
       setSubmitting(false);
     }
   };
@@ -688,23 +471,16 @@ export function ThreadPane({
     window.setTimeout(() => setActionStatus(null), 2500);
   };
 
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      handleSendMessage();
-    }
-  };
-
   const runs = thread?.runs || [];
   const latestRun = runs.length > 0 ? runs[runs.length - 1] : null;
+  const activityKinds = new Set(["tool_call", "file_change", "run_status", "run_started", "log", "usage", "diff", "context_compiled", "gate"]);
+  const activityEvents = (thread?.events || []).filter((event) => activityKinds.has(event.kind));
   const displayEvents = useMemo(
-    () => coalesceAssistantEvents(thread?.events || []),
+    () => coalesceAssistantEvents(thread?.events || []).filter((event) => !["tool_call", "file_change", "run_status", "run_started", "log", "usage", "diff", "context_compiled", "gate"].includes(event.kind)),
     [thread?.events]
   );
   const activeRun =
-    [...runs].reverse().find((run) =>
-      ["queued", "starting", "running", "waiting"].includes(run.status)
-    ) || null;
+    [...runs].reverse().find(isActiveRun) || null;
   const latestUserText = [...(thread?.events || [])]
     .reverse()
     .find((event) => event.kind === "user")?.text;
@@ -712,8 +488,8 @@ export function ThreadPane({
     Pick<ProviderStatus, "id" | "name" | "available" | "authenticated" | "auth_hint">
   > = providers;
 
-  const handleStartRun = async (parentRunId?: string) => {
-    if (!threadId || startingRun) return;
+  const handleStartRun = async (parentRunId?: string, planEventId?: string) => {
+    if (!threadId || startingRun || runLock.current) return;
     const selected = providerChoices.find((provider) => provider.id === backend);
     if (!selected?.available) {
       setActionStatus("That local agent is not installed. Install it or choose another provider in Settings.");
@@ -726,6 +502,7 @@ export function ThreadPane({
       );
       return;
     }
+    runLock.current = true;
     setStartingRun(true);
     setActionStatus("Creating an isolated worktree and starting the agent…");
     try {
@@ -736,6 +513,8 @@ export function ThreadPane({
         role,
         prompt: latestUserText,
         parent_run_id: parentRunId,
+        plan_event_id: planEventId,
+        test_cmd: agent.testCommand.trim() || undefined,
       });
       if (!run) {
         setActionStatus(
@@ -751,9 +530,12 @@ export function ThreadPane({
             }
           : prev
       );
-      setActionStatus(`Run ${run.ordinal} started in ${run.branch || "a worktree"}.`);
+      setActionStatus(`Build started in ${run.branch || "an isolated worktree"}.`);
+      const refreshed = await fetchThread(threadId, boardName);
+      if (refreshed) setThread(refreshed);
       refreshInboxRef.current?.();
     } finally {
+      runLock.current = false;
       setStartingRun(false);
     }
   };
@@ -782,7 +564,7 @@ export function ThreadPane({
   };
 
   const handleMergeRun = async (run: RunRecord) => {
-    if (!run.gate?.passed) return;
+    if (!checksPassed(run.gate)) return;
     const ok = window.confirm(
       `Merge ${run.branch || "this run"} into the current branch?\n\nThis merges the reviewed, gate-passing work into main.`
     );
@@ -822,24 +604,14 @@ export function ThreadPane({
   };
 
   const handleApprovePlan = async () => {
-    if (!threadId) return;
-    setActionStatus("Approving plan and dispatching workers…");
-    const approved = await approvePlan(threadId, boardName);
-    const updated = await fetchThread(threadId, boardName);
-    if (updated) setThread(updated);
-    onRefreshInbox?.();
-    setActionStatus(null);
-    if (approved) await handleStartRun();
+    const plan = [...(thread?.events || [])].reverse().find((event) => event.kind === "plan_proposed");
+    if (plan) await handleStartRun(undefined, plan.id);
   };
 
   const handleRejectPlan = async () => {
-    if (!threadId) return;
-    setActionStatus("Sending the plan back for revision…");
-    await rejectPlan(threadId, "User requested revision", boardName);
-    const updated = await fetchThread(threadId, boardName);
-    if (updated) setThread(updated);
-    onRefreshInbox?.();
-    setActionStatus(null);
+    setChatMode("build");
+    if (!input.trim()) setInput("Revise the plan: ");
+    document.querySelector<HTMLTextAreaElement>('[data-testid="thread-composer"]')?.focus();
   };
 
   const handleApproval = async (event: ThreadEvent, approved: boolean) => {
@@ -913,7 +685,7 @@ export function ThreadPane({
     window.setTimeout(() => setActionStatus(null), 3000);
   };
 
-  if (!threadId) return <EmptyThread onNewIntent={onNewIntent} />;
+  if (!threadId) return null;
 
   const card = thread?.card;
   const approvedPlans = new Set(
@@ -925,7 +697,7 @@ export function ThreadPane({
   return (
     <section className="flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-bg">
       {actionStatus && (
-        <div className="flex shrink-0 items-center justify-between border-b border-border/70 bg-accent-soft px-4 py-1.5 text-[10.5px] text-accent-text">
+        <div role="status" aria-live="polite" className="flex shrink-0 items-center justify-between border-b border-border/70 bg-accent-soft px-4 py-1.5 text-[10.5px] text-accent-text">
           <span>{actionStatus}</span>
           <button
             type="button"
@@ -938,7 +710,8 @@ export function ThreadPane({
         </div>
       )}
 
-      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border/80 px-4">
+      <header className="thread-header">
+        <button className="bark-icon-button" onClick={() => window.dispatchEvent(new CustomEvent("bark-command", { detail: "toggle-sidebar" }))} aria-label="Toggle sidebar"><Icon name="panel" size={16} /></button>
         <div className="flex min-w-0 items-center gap-2">
           {boardName && (
             <>
@@ -968,9 +741,6 @@ export function ThreadPane({
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-1">
-          <span className="mr-1 hidden font-mono text-[9.5px] text-muted/60 xl:inline">
-            {threadId}
-          </span>
           {chatBusy && (
             <span className="mr-1 flex items-center gap-1.5 font-mono text-[9.5px] text-success">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success" />
@@ -985,44 +755,50 @@ export function ThreadPane({
               </button>
             </span>
           )}
-          <button
-            type="button"
-            onClick={() => handleStartRun()}
-            disabled={startingRun || Boolean(activeRun)}
-            title={
-              activeRun
-                ? "A run is already active"
-                : "Run this card in an isolated worktree with the selected provider"
-            }
-            className="flex h-7 items-center gap-1.5 rounded-md border border-border px-2 text-[10.5px] text-muted-strong transition-colors hover:border-border-strong hover:text-text disabled:opacity-40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-          >
-            <Icon
-              name={activeRun ? "pulse" : "arrowUp"}
-              size={12}
-              className={activeRun ? "animate-pulse text-success" : undefined}
-            />
-            <span className="hidden sm:inline">{activeRun ? "running" : startingRun ? "starting" : "run"}</span>
-          </button>
+          {onThreadMenu && (
+            <button
+              type="button"
+              onClick={(event) => {
+                const rect = event.currentTarget.getBoundingClientRect();
+                onThreadMenu(
+                  {
+                    id: threadId,
+                    title: card?.title || threadId,
+                    pinned: Boolean(card?.pinned),
+                    settled: card?.column === "done",
+                  },
+                  rect.right - 220,
+                  rect.bottom + 6
+                );
+              }}
+              aria-label="Thread actions"
+              title="Thread actions"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-white/[0.05] hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+            >
+              <Icon name="dots" size={15} />
+            </button>
+          )}
           {onOpenInspector && (
             <button
               type="button"
               onClick={onOpenInspector}
-              aria-label={inspectorOpen ? "Hide workbench" : "Show workbench"}
+              aria-label={inspectorOpen ? "Hide surfaces" : "Show surfaces"}
               aria-pressed={inspectorOpen}
-              title={inspectorOpen ? "Hide workbench (⌘J)" : "Show workbench (⌘J)"}
+              title={inspectorOpen ? "Hide surfaces (⌘J)" : "Show surfaces (⌘J)"}
               className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
                 inspectorOpen
                   ? "bg-surface text-text"
                   : "text-muted hover:bg-white/[0.05] hover:text-text"
               }`}
             >
-              <Icon name="layers" size={14} />
+              <Icon name="panel" size={15} />
             </button>
           )}
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto">
+      {connectionError && <div className="connection-notice" role="status">Connection interrupted. Reconnecting… Your draft is saved.</div>}
+      <div className="flex-1 overflow-y-auto min-h-0 thread-events" onScroll={(event) => { const node = event.currentTarget; stickToBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 100; if (stickToBottom.current) setNewOutput(false); }}>
         <div className="mx-auto w-full max-w-[780px] px-5 py-6 sm:px-7">
           {loading && (
             <div className="space-y-6" aria-label="Loading thread">
@@ -1074,6 +850,10 @@ export function ThreadPane({
             </div>
           )}
 
+          {activityEvents.length > 0 && <details className="thread-activity" open={activityOpen} onToggle={(event) => setActivityOpen(event.currentTarget.open)}>
+            <summary>Activity <span>{activityEvents.length} operations</span></summary>
+            {activityOpen && <div>{activityEvents.map((event) => <details key={event.id}><summary>{event.kind === "gate" ? checkState(event.data as any).label : event.data?.name || event.text.slice(0, 120)} <EventTime iso={event.created_at} /></summary><pre>{event.text}{event.data ? `\n${JSON.stringify(event.data, null, 2)}` : ""}</pre></details>)}</div>}
+          </details>}
           {!loading && thread && displayEvents.length > 0 && (
             <div className="space-y-7">
               {displayEvents.map((event) => {
@@ -1327,7 +1107,8 @@ export function ThreadPane({
                 if (event.kind === "plan_proposed") {
                   const proposal = event.data || {};
                   const children: any[] = Array.isArray(proposal.children) ? proposal.children : [];
-                  const isApproved = [...approvedPlans].some(
+                  const latestProposal = [...(thread?.events || [])].reverse().find((item) => item.kind === "plan_proposed");
+                  const isApproved = latestProposal?.id !== event.id || [...approvedPlans].some(
                     (approvedAt) => approvedAt >= Date.parse(event.created_at)
                   );
                   return (
@@ -1343,10 +1124,10 @@ export function ThreadPane({
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                             <h3 className="text-[12.5px] font-medium text-text">
-                              Plan · {children.length || 0} {children.length === 1 ? "task" : "tasks"}
+                              Plan · {children.length || 0} steps
                             </h3>
                             <span className="font-mono text-[9.5px] text-muted/65">
-                              risk {proposal.risk_level || "low"}
+                              Bark plan · offline
                             </span>
                             <span className="ml-auto font-mono text-[9.5px] text-muted/55">
                               {isApproved ? "approved" : "waiting"}
@@ -1400,6 +1181,7 @@ export function ThreadPane({
                         </ol>
                       )}
 
+                      {!isApproved && <dl className="execution-summary"><dt>Build with</dt><dd>{agent.selected?.name || agent.backend || "Choose an agent below"} / {model || "CLI default"}</dd><dt>Workspace</dt><dd>Isolated worktree{project?.git?.branch ? ` from ${project.git.branch}` : ""}</dd><dt>Checks</dt><dd>{agent.testCommand || project?.verification_command || "Not configured — choose a verification command in Build options"}</dd></dl>}
                       {!isApproved && (
                         <div className="mt-3 flex items-center justify-end gap-2">
                           <button
@@ -1407,14 +1189,15 @@ export function ThreadPane({
                             onClick={handleRejectPlan}
                             className="h-7 rounded-md px-2.5 text-[11px] text-muted transition-colors hover:bg-white/[0.04] hover:text-text"
                           >
-                            Discard
+                            Request plan changes
                           </button>
                           <button
                             type="button"
                             onClick={handleApprovePlan}
+                            disabled={startingRun || !agent.ready || Boolean(activeRun)}
                             className="h-7 rounded-md bg-accent px-3 text-[11px] font-medium text-bg transition-opacity hover:opacity-90"
                           >
-                            Approve & run
+                            {startingRun ? "Starting…" : "Approve plan & build"}
                           </button>
                         </div>
                       )}
@@ -1537,7 +1320,7 @@ export function ThreadPane({
                 }
 
                 if (event.kind === "gate") {
-                  const passed = Boolean(event.data?.passed);
+                  const passed = checksPassed(event.data as any);
                   return (
                     <div
                       key={`${event.id}:${event.seq}`}
@@ -1546,7 +1329,7 @@ export function ThreadPane({
                       }`}
                     >
                       <span className={`font-medium ${passed ? "text-success" : "text-danger"}`}>
-                        {passed ? "Gate passed" : "Gate failed"}
+                        {checkState(event.data as any).label}
                       </span>
                       <span className="text-muted">{event.text}</span>
                       {event.data?.command && (
@@ -1671,141 +1454,10 @@ export function ThreadPane({
         </div>
       )}
 
-      <div className="shrink-0 border-t border-border/70 bg-bg px-4 pb-3 pt-3">
-        <div className="mx-auto w-full max-w-[780px]">
-          <div className="rounded-[9px] border border-border bg-card/70 shadow-[0_1px_0_rgba(255,255,255,0.025)_inset,0_8px_24px_rgba(0,0,0,0.08)] transition-colors focus-within:border-border-strong">
-            <textarea
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={
-                chatMode === "ask"
-                  ? "Ask the local agent about the code, a failure, or the plan…"
-                  : "Add a note for the next worktree run…"
-              }
-              aria-label="Thread message"
-              data-testid="thread-composer"
-              rows={2}
-              className="block max-h-48 min-h-[52px] w-full resize-none bg-transparent px-3.5 pb-1 pt-3 text-[12.5px] leading-relaxed text-text placeholder:text-muted/65 focus:outline-none"
-            />
-            <div className="flex items-center gap-2 px-2.5 pb-2">
-              <div className="flex shrink-0 rounded border border-border/60 p-0.5">
-                {(["ask", "build"] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => setChatMode(mode)}
-                    aria-pressed={chatMode === mode}
-                    title={
-                      mode === "ask"
-                        ? "Read-only conversation with the local agent"
-                        : "Write a note for a worktree run"
-                    }
-                    className={`rounded px-1.5 py-0.5 text-[10px] font-medium capitalize transition-colors ${
-                      chatMode === mode
-                        ? "bg-white/[0.07] text-text"
-                        : "text-muted hover:text-text"
-                    }`}
-                  >
-                    {mode === "ask" ? "Ask" : "Build"}
-                  </button>
-                ))}
-              </div>
-              <QuietSelect
-                value={role}
-                onChange={(event) => setRole(event.target.value)}
-                aria-label="Run role"
-                title="Role policy for this run"
-                className="text-[10px] text-muted hover:text-text"
-              >
-                {(roles.length > 0
-                  ? roles
-                  : [{ id: "builder", name: "Builder" } as RoleDef]
-                ).map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.name}
-                  </option>
-                ))}
-              </QuietSelect>
-              <QuietSelect
-                value={backend}
-                onChange={(event) => setBackend(event.target.value)}
-                aria-label="Agent backend"
-                title={providers.find((provider) => provider.id === backend)?.detail || "Agent backend"}
-                className="text-[10px] text-muted hover:text-text"
-              >
-                {providerChoices.map((provider) => (
-                  <option key={provider.id} value={provider.id}>
-                    {provider.name}
-                    {!provider.available
-                      ? " · not installed"
-                      : provider.authenticated === false
-                        ? " · sign in"
-                        : ""}
-                  </option>
-                ))}
-              </QuietSelect>
-              <input
-                list={`thread-models-${backend}`}
-                value={model}
-                onChange={(event) => {
-                  setModel(event.target.value);
-                  rememberModel(backend, event.target.value);
-                }}
-                placeholder="CLI default model"
-                aria-label="Model"
-                title="Models reported by the local CLI for this provider; type any model id"
-                className="max-w-[190px] rounded border border-border/60 bg-surface px-1.5 py-0.5 text-[10px] text-muted focus:border-accent focus:outline-none hover:text-text"
-              />
-              <datalist id={`thread-models-${backend}`}>
-                {modelOptions.map((option) => (
-                  <option key={option} value={option} />
-                ))}
-              </datalist>
-              <span
-                className={`h-1.5 w-1.5 rounded-full ${
-                  providers.find((provider) => provider.id === backend)?.available &&
-                  providers.find((provider) => provider.id === backend)?.authenticated !== false
-                    ? "bg-success"
-                    : providers.length > 0
-                      ? "bg-danger"
-                      : "bg-muted"
-                }`}
-                title={
-                  providers.find((provider) => provider.id === backend)?.available
-                    ? providers.find((provider) => provider.id === backend)?.authenticated === false
-                      ? providers.find((provider) => provider.id === backend)?.auth_hint ||
-                        "Provider installed but not signed in"
-                      : "Provider ready"
-                    : "Provider not found on PATH"
-                }
-              />
-              <span className="hidden whitespace-nowrap font-mono text-[9px] text-muted/55 2xl:inline">
-                {chatBusy
-                  ? "reply in progress"
-                  : submitting
-                    ? "sending…"
-                    : "enter to send"}
-              </span>
-              <button
-                type="button"
-                onClick={handleSendMessage}
-                disabled={!input.trim() || submitting || chatBusy}
-                aria-label="Send message"
-                title="Send (Enter)"
-                className="ml-auto flex h-7 w-7 items-center justify-center rounded-md bg-accent text-bg transition-opacity hover:opacity-90 disabled:opacity-35"
-              >
-                <Icon name="arrowUp" size={14} />
-              </button>
-            </div>
-          </div>
-          <div className="mt-1.5 flex items-center justify-between px-0.5 font-mono text-[9px] text-muted/45">
-            <span>{threadId}</span>
-            <span className="hidden whitespace-nowrap sm:inline">
-              {chatMode === "ask" ? "read-only" : "note"} · shift+enter
-            </span>
-          </div>
-        </div>
+      <div className="thread-composer-dock">
+        {newOutput && <button className="jump-to-latest" onClick={() => { stickToBottom.current = true; setNewOutput(false); messagesEndRef.current?.scrollIntoView({ behavior: "auto" }); }}>Jump to latest</button>}
+        <ThreadComposer value={input} onChange={setInput} mode={chatMode} onModeChange={setChatMode} agent={agent} onSubmit={handleSendMessage}
+          busy={submitting || startingRun} active={chatBusy || Boolean(activeRun)} onStop={chatBusy ? handleStopChat : activeRun ? () => void handleStopRun(activeRun) : undefined} />
       </div>
     </section>
   );

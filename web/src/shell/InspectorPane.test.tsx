@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Card, ThreadEvent } from "../lib/types";
 import { InspectorPane } from "./InspectorPane";
@@ -24,6 +24,8 @@ const {
   mergeRun,
   fetchAgentProfiles,
   startThreadRun,
+  fetchProject,
+  runChecks,
 } = vi.hoisted(() => ({
   fetchTaskDiff: vi.fn(),
   evalSession: vi.fn(),
@@ -44,6 +46,8 @@ const {
   mergeRun: vi.fn(),
   fetchAgentProfiles: vi.fn(async () => [] as any[]),
   startThreadRun: vi.fn(),
+  fetchProject: vi.fn(async () => null),
+  runChecks: vi.fn(),
 }));
 
 vi.mock("../lib/api", () => ({
@@ -66,6 +70,8 @@ vi.mock("../lib/api", () => ({
   mergeRun,
   fetchAgentProfiles,
   startThreadRun,
+  fetchProject,
+  runChecks,
 }));
 
 const card: Card = {
@@ -126,24 +132,34 @@ const events: ThreadEvent[] = [
 ];
 
 describe("InspectorPane", () => {
-  it("opens on the diff, loads it for the current task, and renders a unified diff", async () => {
+  beforeEach(() => {
+    window.history.replaceState({}, "", "/");
+  });
+
+  it("opens on the plan, then loads the diff for the current task", async () => {
     fetchTaskDiff.mockResolvedValue({
       task_id: "task-demo-mode",
       branch: "bark/static-demo-host",
       files: ["web/src/demo.ts"],
       diff: "diff --git a/web/src/demo.ts b/web/src/demo.ts\n--- a/web/src/demo.ts\n+++ b/web/src/demo.ts\n@@ -1 +1,2 @@\n-old\n+new\n+line\n",
     });
+    const user = userEvent.setup();
 
     render(<InspectorPane card={card} events={events} onClose={vi.fn()} />);
 
+    expect(screen.getByRole("tab", { name: /Plan/ })).toHaveAttribute("aria-selected", "true");
+    await user.click(screen.getByRole("tab", { name: /Changes/ }));
+
     expect(await screen.findByText("bark/static-demo-host")).toBeInTheDocument();
     await waitFor(() => expect(fetchTaskDiff).toHaveBeenCalledWith("task-demo-mode"));
-    expect(screen.getByText("web/src/demo.ts")).toBeInTheDocument();
+    expect(
+      screen.getByRole("navigation", { name: "Changed files" })
+    ).toHaveTextContent("web/src/demo.ts");
     expect(screen.getByText("+2")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /Diff/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: /Changes/ })).toHaveAttribute("aria-selected", "true");
   });
 
-  it("switches to the plan and gate artifacts without leaving the thread", async () => {
+  it("keeps the plan in the thread and reports truthful check state", async () => {
     fetchTaskDiff.mockResolvedValue({
       task_id: "task-demo-mode",
       branch: "bark/static-demo-host",
@@ -153,15 +169,21 @@ describe("InspectorPane", () => {
     const user = userEvent.setup();
     render(<InspectorPane card={card} events={events} onClose={vi.fn()} />);
 
-    await user.click(screen.getByRole("tab", { name: /Plan/ }));
+    expect(
+      screen.getByText(/Review and approve the current plan in the thread/)
+    ).toBeInTheDocument();
+    await user.click(screen.getByText("Team & advanced planning"));
     expect(screen.getByText("Three slices keep the local write path honest.")).toBeInTheDocument();
     expect(screen.getByText("Demo store")).toBeInTheDocument();
     expect(screen.getByText("A refresh keeps board edits")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("tab", { name: /Gate/ }));
-    expect(screen.getByText("Gate passed")).toBeInTheDocument();
-    expect(screen.getByText("$ npm run test")).toBeInTheDocument();
-    expect(screen.getByText("51 passed")).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: /Checks/ }));
+    expect(
+      within(screen.getByRole("tabpanel")).getByText("Not verified")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/No build has run yet. Checks become available/)
+    ).toBeInTheDocument();
   });
 
   it("shows the receipt empty state when the card has no merge receipt", async () => {
@@ -175,7 +197,8 @@ describe("InspectorPane", () => {
     const user = userEvent.setup();
     render(<InspectorPane card={card} events={events} onClose={vi.fn()} />);
 
-    await user.click(screen.getByRole("tab", { name: /Receipt/ }));
+    await user.click(screen.getByText("Evidence & tools"));
+    await user.click(screen.getByRole("button", { name: "Evidence" }));
     expect(await screen.findByText(/No receipt yet/)).toBeInTheDocument();
     expect(fetchReceipt).toHaveBeenCalledWith("demo-mode");
   });
@@ -191,7 +214,7 @@ describe("InspectorPane", () => {
     const user = userEvent.setup();
     render(<InspectorPane card={card} events={events} onClose={onClose} />);
 
-    await user.click(screen.getByRole("button", { name: "Close workbench" }));
+    await user.click(screen.getByRole("button", { name: "Close surfaces" }));
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -226,7 +249,7 @@ describe("InspectorPane", () => {
     const user = userEvent.setup();
     render(<InspectorPane card={card} events={events} onClose={vi.fn()} />);
 
-    await user.click(screen.getByRole("tab", { name: /Plan/ }));
+    await user.click(screen.getByText("Team & advanced planning"));
     await waitFor(() => expect(screen.getByLabelText("Delegate to agent")).toBeTruthy());
     await user.type(screen.getByPlaceholderText(/Optional instruction for this card/), "Keep the diff small");
     await user.click(screen.getByRole("button", { name: /Delegate to agent/i }));

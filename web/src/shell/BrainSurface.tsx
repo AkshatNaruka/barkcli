@@ -1,4 +1,5 @@
 import React, { Suspense, lazy, useState } from "react";
+import { useRouteState, updateRouteState } from "../lib/hashnav";
 import { Icon, type IconName } from "../components/Icon";
 import { MemoryView } from "../components/MemoryView";
 import { ContextView } from "../components/ContextView";
@@ -21,7 +22,9 @@ const TABS: Array<{ id: BrainTab; label: string; icon: IconName }> = [
  * surface — no more "Mind", "Memory", "Context", and "Brain" as separate pages.
  */
 export function BrainSurface({ boardName }: { boardName: string | null }) {
-  const [tab, setTab] = useState<BrainTab>("graph");
+  const location = useRouteState();
+  const tab: BrainTab = TABS.some((item) => item.id === location.tool) ? location.tool as BrainTab : "graph";
+  const setTab = (next: BrainTab) => updateRouteState({ tool: next });
 
   return (
     <div className="h-full flex flex-col min-h-0">

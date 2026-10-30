@@ -186,6 +186,7 @@ function CommentComposer({
 
 export function UnifiedDiff({
   diff,
+  onlyPath,
   emptyLabel = "No changes in this worktree yet.",
   className = "",
   review,
@@ -196,6 +197,7 @@ export function UnifiedDiff({
   onOpenLine,
 }: {
   diff: string;
+  onlyPath?: string;
   /** Optional guidance when the backend has no diff text. */
   emptyLabel?: string;
   className?: string;
@@ -253,7 +255,8 @@ export function UnifiedDiff({
 
   return (
     <div className={`space-y-5 ${className}`} aria-label="Unified diff">
-      {files.map((file, fileIndex) => {
+      {onlyPath && !files.some((file) => file.path === onlyPath) && <p role="alert" className="p-4 text-warning">That file is not in this revision. Choose All files to continue.</p>}
+      {files.filter((file) => !onlyPath || file.path === onlyPath).map((file, fileIndex) => {
         const viewed = Boolean(review?.files?.[file.path]?.viewed);
         const comments = (review?.comments || []).filter(
           (comment) => comment.path === file.path

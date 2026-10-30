@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Icon } from "../components/Icon";
+import { AccessibleDialog } from "../components/AccessibleDialog";
 import { SURFACES } from "../lib/surfaces";
 import {
   ACCENT_IDS,
@@ -101,14 +102,9 @@ export function CustomizePanel({ open, onClose }: { open: boolean; onClose: () =
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[60] flex justify-end bg-black/55 backdrop-blur-[2px]"
-      onMouseDown={onClose}
-      role="dialog"
-      aria-label="Appearance"
-    >
+    <AccessibleDialog label="Appearance" onClose={onClose} className="appearance-dialog">
       <aside
-        className="h-full w-[392px] max-w-[94vw] bg-surface border-l border-border shadow-2xl flex flex-col"
+        className="h-full w-full bg-surface flex flex-col"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <header className="h-12 px-4 flex items-center gap-2.5 border-b border-border shrink-0">
@@ -129,7 +125,7 @@ export function CustomizePanel({ open, onClose }: { open: boolean; onClose: () =
           <div className="px-5 pt-4">
             <div className="rounded-xl border border-border overflow-hidden bg-bg">
               <div className="h-[86px] flex">
-                <div className={`${app.railStyle === "labels" ? "w-16" : "w-8"} border-r border-border flex flex-col items-center gap-1.5 py-2.5`}>
+                <div className={`w-20 border-r border-border flex flex-col items-center gap-1.5 py-2.5`}>
                   <span className="w-4 h-4 rounded-[5px]" style={{ background: "var(--accent)" }} />
                   <span className="w-4 h-4 rounded-[5px]" style={{ background: "var(--accent-soft)" }} />
                   <span className="w-3 h-3 rounded-[4px] bg-white/[0.08]" />
@@ -211,21 +207,7 @@ export function CustomizePanel({ open, onClose }: { open: boolean; onClose: () =
             </div>
           </Section>
 
-          <Section title="Rail" hint={app.railStyle === "icons" ? "Icons only" : "With labels"}>
-            <div className="grid grid-cols-2 gap-1 rounded-lg bg-card p-1 border border-border">
-              {(["icons", "labels"] as const).map((style) => (
-                <button
-                  key={style}
-                  onClick={() => app.setRailStyle(style)}
-                  className={`h-7 rounded-md text-[11.5px] transition-colors ${
-                    app.railStyle === style ? "bg-accent-soft text-accent-text" : "text-muted hover:text-text"
-                  }`}
-                >
-                  {style === "icons" ? "Icons" : "Labels"}
-                </button>
-              ))}
-            </div>
-          </Section>
+
 
           <Section title="Surfaces" hint="Reorder · hide">
             <div className="space-y-0.5">
@@ -355,6 +337,6 @@ export function CustomizePanel({ open, onClose }: { open: boolean; onClose: () =
           <span className="font-mono">{app.theme} · {app.accent}</span>
         </footer>
       </aside>
-    </div>
+    </AccessibleDialog>
   );
 }

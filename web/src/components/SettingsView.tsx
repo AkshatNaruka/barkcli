@@ -206,7 +206,7 @@ export function SettingsView({
         </Section>
 
         {/* Theme */}
-        <Section title="Theme">
+        <Section title="Appearance">
           <div className="flex flex-wrap bg-surface rounded-md p-0.5 w-fit border border-border">
             {(["black", "slate", "neon", "light", "system"] as Theme[]).map((t) => {
               const label =
@@ -224,8 +224,9 @@ export function SettingsView({
               );
             })}
           </div>
+          <button className="bark-button mt-3" onClick={() => window.dispatchEvent(new CustomEvent("bark-command", { detail: "appearance" }))}>Customize appearance</button>
           <p className="mt-2 text-[10.5px] text-muted/70">
-            Accent, rail labels, surface order and share links live in Appearance (⌘,).
+            Colors and shareable presets are available in Appearance.
           </p>
         </Section>
 

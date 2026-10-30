@@ -43,24 +43,20 @@ import {
 import { Icon } from "../components/Icon";
 import { UnifiedDiff } from "../components/UnifiedDiff";
 import { ReceiptPanel } from "../components/ReceiptPanel";
+import { checkState, checksPassed, canReviewMerge } from "../lib/run-state";
+import { useRouteState, updateRouteState } from "../lib/hashnav";
+import { PANEL_TO_TAB, TAB_TO_PANEL, WORKBENCH_SURFACES, type WorkbenchTab } from "../lib/workbench";
+import { ChecksPanel } from "./ChecksPanel";
 
 interface InspectorPaneProps {
   card?: Card;
   events: ThreadEvent[];
   threadId?: string;
   onClose?: () => void;
+  onBack?: () => void;
 }
 
-type WorkbenchTab = "plan" | "diff" | "gate" | "receipt" | "eval" | "context";
-
-const TABS: Array<{ id: WorkbenchTab; label: string }> = [
-  { id: "plan", label: "Plan" },
-  { id: "diff", label: "Diff" },
-  { id: "gate", label: "Gate" },
-  { id: "receipt", label: "Receipt" },
-  { id: "eval", label: "Eval" },
-  { id: "context", label: "Context" },
-];
+const TABS: Array<{ id: WorkbenchTab; label: string }> = WORKBENCH_SURFACES;
 
 function Empty({ children }: { children: React.ReactNode }) {
   return <div className="px-4 py-12 text-center text-[11px] leading-relaxed text-muted">{children}</div>;
@@ -74,8 +70,10 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function InspectorPane({ card, events, threadId, onClose }: InspectorPaneProps) {
-  const [tab, setTab] = useState<WorkbenchTab>("plan");
+export function InspectorPane({ card, events, threadId, onClose, onBack }: InspectorPaneProps) {
+  const location = useRouteState();
+  const tab: WorkbenchTab = PANEL_TO_TAB[location.panel || "plan"] || "plan";
+  const setTab = (next: WorkbenchTab) => updateRouteState({ panel: TAB_TO_PANEL[next] });
   const [diffData, setDiffData] = useState<TaskDiff | RunDiff | null>(null);
   const [loadingDiff, setLoadingDiff] = useState(false);
   const [diffError, setDiffError] = useState(false);
@@ -202,8 +200,8 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
     }
   };
   const gateEvent = useMemo(
-    () => [...events].reverse().find((event) => event.kind === "gate"),
-    [events]
+    () => [...events].reverse().find((event) => event.kind === "gate" && (!location.run || event.run_id === location.run)),
+    [events, location.run]
   );
   const gateData = gateEvent?.data;
   const taskEvent = useMemo(
@@ -214,18 +212,10 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
     () => [...events].reverse().find((event) => event.kind === "merge"),
     [events]
   );
-  const latestRun = runs.length > 0 ? runs[runs.length - 1] : undefined;
-  const currentTaskId = latestRun?.id || taskEvent?.data?.task_id || card?.id;
+  const latestRun = location.run ? runs.find((run) => run.id === location.run) : runs.length > 0 ? runs[runs.length - 1] : undefined;
+  const currentTaskId = latestRun?.id || (!location.run ? taskEvent?.data?.task_id || card?.id : undefined);
   const currentSessionId = taskEvent?.data?.session_id;
 
-  useEffect(() => {
-    if (
-      latestRun &&
-      ["needs_review", "passed", "failed"].includes(latestRun.status)
-    ) {
-      setTab("diff");
-    }
-  }, [latestRun?.id, latestRun?.status]);
   const diffCount = diffData?.files?.length || 0;
   const reviewId = latestRun?.id || card?.id;
   const reviewFiles = review ? Object.values(review.files || {}) : [];
@@ -259,6 +249,7 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
   const gateOutput = runGate?.log || gateData?.output || "";
   const gateTime =
     latestRun?.gate?.finished_at || gateEvent?.created_at || latestRun?.ended_at;
+  const visibleTabs = TABS.filter((item) => item.id === tab || (item.id === "gate" && Boolean(latestRun || gateVerdict)) || (item.id === "diff" && Boolean(latestRun || taskEvent)) || (item.id === "plan" && Boolean(proposal)));
 
   useEffect(() => {
     setPreviewPack(null);
@@ -323,7 +314,7 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
   };
 
   useEffect(() => {
-    if (tab !== "gate" || !latestRun) {
+    if (!["gate", "diff"].includes(tab) || !latestRun) {
       setRunGate(null);
       return;
     }
@@ -333,6 +324,7 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
       .then((next) => {
         if (!cancelled) setRunGate(next);
       })
+      .catch(() => { if (!cancelled) setRunGate(null); })
       .finally(() => {
         if (!cancelled) setLoadingRunGate(false);
       });
@@ -362,17 +354,6 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
 
   // Match the reference: the artifact is the default panel once a worker exists.
   useEffect(() => {
-    if (!taskEvent) {
-      setTab("plan");
-      autoSelected.current = false;
-      return;
-    }
-    if (autoSelected.current || events.length === 0) return;
-    setTab("diff");
-    autoSelected.current = true;
-  }, [taskEvent, events.length]);
-
-  useEffect(() => {
     if (tab !== "diff") return;
     let cancelled = false;
     setDiffData(null);
@@ -381,6 +362,7 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
     setLoadingDiff(true);
     const request = latestRun
       ? fetchRunDiff(latestRun.id).then((res) => {
+          if (!res) throw new Error("Could not read the selected diff");
           if (!cancelled) {
             setRunDiff(res);
             setDiffData(res);
@@ -555,6 +537,7 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
 
   const mergeReviewedRun = async () => {
     if (!latestRun) return;
+    if (!canReviewMerge(latestRun) || !runGate?.eligibility?.eligible) { setReviewNotice("Run current checks and review the updated revision before merging."); return; }
     const confirmed = window.confirm(
       `Merge ${latestRun.branch || latestRun.id} into the current branch?\n\nThe gate has passed. This releases the worktree after a successful merge.`
     );
@@ -568,6 +551,8 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
         return;
       }
       setReviewNotice(`Merged ${result.branch || latestRun.branch || "run"}.`);
+      setRuns((current) => current.map((run) => run.id === latestRun.id ? result.run : run));
+      window.dispatchEvent(new Event("bark-threads-changed"));
     } finally {
       setReviewBusy(false);
     }
@@ -575,45 +560,54 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
 
   return (
     <aside
-      className="flex h-full w-[420px] shrink-0 flex-col overflow-hidden border-l border-border/80 bg-bg xl:w-[460px]"
+      className="workbench-pane flex h-full w-full min-w-0 flex-col overflow-hidden bg-bg"
       aria-label="Workbench"
     >
       <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border/80 px-3.5">
-        <span className="text-[12.5px] font-medium text-text">Workbench</span>
-        {currentTaskId && (
-          <span className="truncate font-mono text-[9.5px] text-muted/65">{currentTaskId}</span>
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="All surfaces"
+            title="All surfaces"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-white/[0.05] hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+          >
+            <Icon name="grid" size={15} />
+          </button>
         )}
+        <span className="text-[12.5px] font-medium text-text">{tab === "diff" ? "Review changes" : TABS.find((item) => item.id === tab)?.label || "Workbench"}</span>
         <div className="ml-auto flex items-center gap-1">
           {gateVerdict && (
             <span
               className={`hidden items-center gap-1 font-mono text-[9px] sm:flex ${
-                gateVerdict.passed ? "text-success" : "text-danger"
+                checksPassed(gateVerdict) ? "text-success" : "text-warning"
               }`}
             >
-              <span className={`h-1 w-1 rounded-full ${gateVerdict.passed ? "bg-success" : "bg-danger"}`} />
-              {gateVerdict.passed ? "gate passed" : "gate failed"}
+              <span className={`h-1 w-1 rounded-full ${checksPassed(gateVerdict) ? "bg-success" : "bg-warning"}`} />
+              {checkState(gateVerdict).label}
             </span>
           )}
           {onClose && (
             <button
               type="button"
               onClick={onClose}
-              title="Close workbench (⌘J)"
-              aria-label="Close workbench"
+              title="Close surfaces (⌘J)"
+              aria-label="Close surfaces"
               className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-white/[0.05] hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
             >
-              <Icon name="x" size={13} />
+              <Icon name="x" size={15} />
             </button>
           )}
         </div>
       </div>
 
-      <div
-        role="tablist"
-        aria-label="Workbench tabs"
-        className="flex h-9 shrink-0 items-stretch gap-0 border-b border-border/70 px-2"
-      >
-        {TABS.map((item) => {
+      {visibleTabs.length > 1 && (
+        <div
+          role="tablist"
+          aria-label="Workbench tabs"
+          className="flex h-9 shrink-0 items-stretch gap-0 border-b border-border/70 px-2"
+        >
+          {visibleTabs.map((item) => {
           const active = tab === item.id;
           const count =
             item.id === "plan"
@@ -627,6 +621,17 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
               type="button"
               role="tab"
               aria-selected={active}
+              tabIndex={active ? 0 : -1}
+              id={`workbench-tab-${item.id}`}
+              aria-controls="workbench-panel"
+              onKeyDown={(event) => {
+                if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+                event.preventDefault();
+                const buttons = Array.from(event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]') || []);
+                const index = buttons.indexOf(event.currentTarget);
+                const next = event.key === "Home" ? buttons[0] : event.key === "End" ? buttons[buttons.length - 1] : buttons[(index + (event.key === "ArrowRight" ? 1 : buttons.length - 1)) % buttons.length];
+                next?.click(); next?.focus();
+              }}
               onClick={() => setTab(item.id)}
               className={`relative flex items-center gap-1 px-2.5 text-[10.5px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
                 active ? "text-text" : "text-muted hover:text-text"
@@ -638,7 +643,7 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
               )}
               {item.id === "gate" && gateVerdict && (
                 <span
-                  className={`h-1 w-1 rounded-full ${gateVerdict.passed ? "bg-success" : "bg-danger"}`}
+                  className={`h-1 w-1 rounded-full ${checksPassed(gateVerdict) ? "bg-success" : "bg-warning"}`}
                 />
               )}
               {active && (
@@ -647,11 +652,15 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
             </button>
           );
         })}
-      </div>
+        </div>
+      )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <details className="workbench-more"><summary>Evidence & tools</summary><div>{TABS.filter((item) => ["receipt", "eval", "context"].includes(item.id)).map((item) => <button key={item.id} onClick={() => setTab(item.id)}>{item.label}</button>)}{runs.length > 1 && <label>Attempt<select value={latestRun?.id || ""} onChange={(event) => updateRouteState({ run: event.target.value, file: undefined })}>{runs.map((run) => <option key={run.id} value={run.id}>Attempt {run.ordinal} · {run.status}</option>)}</select></label>}</div></details>
+      <div id="workbench-panel" {...(visibleTabs.length > 1 ? { role: "tabpanel", "aria-labelledby": `workbench-tab-${tab}` } : {})} className="min-h-0 flex-1 overflow-y-auto">
+        {location.run && !latestRun && !runs.length && <p role="status" className="p-4 text-muted">Loading the selected run…</p>}
+        {location.run && runs.length > 0 && !latestRun && <p role="alert" className="p-4 text-warning">That run is unavailable. Return to the thread to choose another attempt.</p>}
         {tab === "plan" && (
-          <div className="p-4">
+          <div className="p-4"><p className="text-sm text-muted">Review and approve the current plan in the thread. Bark’s offline plan is a proposal, not execution evidence.</p><button className="bark-button mt-3" onClick={onClose}>Back to the plan</button><details className="mt-5"><summary className="text-xs text-muted cursor-pointer">Team & advanced planning</summary>
             <div className="flex items-start gap-2">
               <div className="min-w-0 flex-1">
                 <SectionLabel>Card</SectionLabel>
@@ -922,12 +931,12 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
                 </ul>
               </div>
             )}
-          </div>
+          </details></div>
         )}
 
         {tab === "diff" && (
           <div>
-            <div className="border-b border-border/60 px-4 py-2.5">
+            {(latestRun || diffCount > 0 || reviewFiles.length > 0) && <div className="border-b border-border/60 px-4 py-2.5">
               <div className="flex items-start gap-2">
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-mono text-[10px] text-text">
@@ -990,11 +999,12 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
                 >
                   <Icon name="refresh" size={9} /> Request changes
                 </button>
-                {latestRun?.status === "passed" && (
+                {canReviewMerge(latestRun) && (
                   <button
                     type="button"
                     onClick={() => void mergeReviewedRun()}
-                    disabled={reviewBusy}
+                    disabled={reviewBusy || loadingRunGate || !runGate?.eligibility?.eligible || openReviewComments > 0}
+                    title={openReviewComments > 0 ? "Resolve open review comments first" : runGate?.eligibility?.reason || "Approve and merge the reviewed revision"}
                     className="ml-auto inline-flex items-center gap-1 rounded bg-accent px-2 py-1 text-[10px] font-medium text-white hover:bg-accent-hover disabled:opacity-50"
                   >
                     <Icon name="check" size={9} /> Approve & merge
@@ -1002,6 +1012,7 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
                 )}
               </div>
 
+              {latestRun && <div className="review-check-summary"><span>{checkState(latestRun.gate).label}</span><button onClick={() => setTab("gate")}>View checks</button>{runGate?.eligibility?.reason && <p>{runGate.eligibility.reason}</p>}{latestRun.gate?.command && <code>{latestRun.gate.command}</code>}</div>}
               {reviewNotice && (
                 <div className="mt-2 flex items-start gap-2 rounded border border-accent/25 bg-accent-soft px-2 py-1.5 text-[10px] text-accent-text">
                   <span className="min-w-0 flex-1">{reviewNotice}</span>
@@ -1093,8 +1104,9 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
                   </div>
                 </div>
               )}
-            </div>
+            </div>}
 
+            {diffData?.files?.length ? <nav aria-label="Changed files" className="changed-files"><button aria-pressed={!location.file} onClick={() => updateRouteState({ file: undefined })}>All files</button>{diffData.files.map((path) => <button key={path} title={path} aria-pressed={location.file === path} onClick={() => updateRouteState({ file: path })}>{path}</button>)}</nav> : null}
             {loadingDiff ? (
               <div className="p-3">
                 <div className="space-y-2">
@@ -1112,6 +1124,7 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
             ) : diffData?.diff ? (
               <UnifiedDiff
                 diff={diffData.diff}
+                onlyPath={location.file}
                 review={review}
                 onToggleViewed={reviewId ? handleToggleViewed : undefined}
                 onAddComment={reviewId ? handleAddComment : undefined}
@@ -1129,74 +1142,8 @@ export function InspectorPane({ card, events, threadId, onClose }: InspectorPane
           </div>
         )}
 
-        {tab === "gate" && (
-          <div className="p-4">
-            <div className="flex items-center justify-between gap-2">
-              <SectionLabel>Acceptance gate</SectionLabel>
-              {loadingRunGate && (
-                <Icon name="refresh" size={11} className="animate-spin text-muted/60" />
-              )}
-            </div>
-            {gateVerdict ? (
-              <>
-                <div className="mt-3 flex items-center gap-2">
-                  <span
-                    className={`flex h-7 w-7 items-center justify-center rounded-full ${
-                      gateVerdict.passed ? "bg-success/15 text-success" : "bg-danger/15 text-danger"
-                    }`}
-                  >
-                    <Icon name={gateVerdict.passed ? "check" : "x"} size={14} />
-                  </span>
-                  <div>
-                    <div
-                      className={`text-[13px] font-medium ${
-                        gateVerdict.passed ? "text-success" : "text-danger"
-                      }`}
-                    >
-                      {gateVerdict.passed ? "Gate passed" : "Gate failed"}
-                    </div>
-                    <div className="font-mono text-[9px] text-muted/65">
-                      {gateTime ? new Date(gateTime).toLocaleString() : ""}
-                    </div>
-                  </div>
-                </div>
-                {gateVerdict.summary && (
-                  <p className="mt-3 whitespace-pre-wrap text-[10.5px] leading-relaxed text-muted">
-                    {gateVerdict.summary}
-                  </p>
-                )}
-                {gateCommand && (
-                  <div className="mt-4 border-y border-border/60 py-2.5">
-                    <SectionLabel>Command</SectionLabel>
-                    <code className="mt-1 block break-all font-mono text-[10px] text-accent-text">
-                      $ {gateCommand}
-                    </code>
-                  </div>
-                )}
-                {gateOutput && (
-                  <div className="mt-4">
-                    <SectionLabel>Log</SectionLabel>
-                    <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap rounded border border-border/70 bg-surface/40 p-2.5 font-mono text-[9.5px] leading-relaxed text-muted-strong">
-                      {gateOutput}
-                    </pre>
-                  </div>
-                )}
-                {latestRun?.status === "passed" && (
-                  <p className="mt-4 border-t border-border/60 pt-3 text-[10px] leading-relaxed text-muted/70">
-                    This run passed the gate. Merge is available from the run card in the
-                    conversation and always requires human approval.
-                  </p>
-                )}
-              </>
-            ) : (
-              <Empty>
-                No gate has run for this thread yet.
-                <br />
-                Gates run after the agent commits its worktree changes.
-              </Empty>
-            )}
-          </div>
-        )}
+        {tab === "gate" && <ChecksPanel run={latestRun} data={runGate} loading={loadingRunGate} onEvidence={() => setTab("receipt")}
+          onResult={(updated) => { setRuns((current) => current.map((run) => run.id === updated.id ? updated : run)); void fetchRunGate(updated.id).then(setRunGate); }} />}
 
         {tab === "receipt" && (
           <ReceiptPanel

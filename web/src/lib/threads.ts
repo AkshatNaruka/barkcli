@@ -1,6 +1,6 @@
 import type { ThreadSummary } from "./types";
 
-export type ThreadGroupKey = "needs_you" | "running" | "drafts" | "settled";
+export type ThreadGroupKey = "pinned" | "needs_you" | "running" | "drafts" | "settled";
 
 export interface ThreadGroup {
   key: ThreadGroupKey;
@@ -9,14 +9,14 @@ export interface ThreadGroup {
 }
 
 export const THREAD_GROUPS: Array<{ key: ThreadGroupKey; label: string }> = [
+  { key: "pinned", label: "Pinned" },
   { key: "needs_you", label: "Needs you" },
   { key: "running", label: "Running" },
   { key: "drafts", label: "Drafts" },
   { key: "settled", label: "Settled" },
 ];
 
-/** One status model for every thread surface: route, list, header. */
-export function threadGroup(thread: ThreadSummary): ThreadGroupKey {
+function statusGroup(thread: ThreadSummary): Exclude<ThreadGroupKey, "pinned"> {
   const status = (thread.status_group || "").toLowerCase();
   if (status === "needs_you" || status === "blocked" || status === "stalled") {
     return "needs_you";
@@ -31,11 +31,17 @@ export function threadGroup(thread: ThreadSummary): ThreadGroupKey {
   return "drafts";
 }
 
+/** One status model for every thread surface: route, list, header. */
+export function threadGroup(thread: ThreadSummary): ThreadGroupKey {
+  if (thread.pinned) return "pinned";
+  return statusGroup(thread);
+}
+
 export function threadStatus(thread: ThreadSummary): {
   tone: "warning" | "success" | "accent" | "muted";
   label: string;
 } {
-  const group = threadGroup(thread);
+  const group = statusGroup(thread);
   if (group === "needs_you") {
     return {
       tone: thread.status_group === "stalled" ? "warning" : "accent",

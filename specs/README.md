@@ -26,6 +26,8 @@ This directory holds the authoritative build specs for the YC MVP. Specs 001–0
 
 **Daily-driver plan:** [PLAN-010](./PLAN-010-daily-driver.md)
 
+**Mac UI enhancement proposal:** [Minimal building flow and phased roadmap](../docs/design/mac-ui-enhancement-plan.md) · [Interactive concept](../docs/design/mac-ui-concept.html) (2026-10-29; planning complete, implementation proposed)
+
 **Collective-memory plan:** [PLAN-011](./PLAN-011-collective-memory.md)
 
 **Branch:** `feat/mvp-all-specs` → `master` via #8. Tags `v0.3.0-mvp` + `v0.3.1-mvp` (web).

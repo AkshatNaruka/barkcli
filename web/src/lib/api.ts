@@ -1457,21 +1457,92 @@ export async function createThread(payload: {
   text: string;
   kind?: string;
   backend?: string;
+  model?: string;
   mode?: string;
   board?: string;
 }): Promise<any | null> {
   return postJson("/api/threads", payload);
 }
 
+export interface ThreadMutationResult {
+  ok: boolean;
+  error?: string;
+  threadId?: string;
+  card?: any;
+}
+
+async function mutateJson(
+  url: string,
+  method: "PATCH" | "POST" | "DELETE",
+  body?: unknown
+): Promise<{ ok: boolean; data?: any; error?: string }> {
+  if (isVscode) return { ok: false, error: "Thread actions are available in the app and browser." };
+  try {
+    const res = await fetch(withToken(url), {
+      method,
+      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const payload = await res.json().catch(() => null);
+    if (!res.ok) {
+      return { ok: false, error: payload?.error || `Request failed (${res.status})` };
+    }
+    return { ok: true, data: payload };
+  } catch {
+    return { ok: false, error: "Could not reach the local server." };
+  }
+}
+
+/** Rename, pin, settle, or reopen a thread. */
+export async function updateThread(
+  id: string,
+  update: { board?: string; title?: string; pinned?: boolean; settled?: boolean }
+): Promise<ThreadMutationResult> {
+  const result = await mutateJson(`/api/threads/${encodeURIComponent(id)}`, "PATCH", update);
+  return { ok: result.ok, error: result.error, card: result.data?.card };
+}
+
+/** Copy a thread (or its prefix up to a message) into a new draft. */
+export async function forkThread(
+  id: string,
+  opts?: { board?: string; eventId?: string; title?: string }
+): Promise<ThreadMutationResult> {
+  const result = await mutateJson(`/api/threads/${encodeURIComponent(id)}/fork`, "POST", {
+    board: opts?.board,
+    event_id: opts?.eventId,
+    title: opts?.title,
+  });
+  return {
+    ok: result.ok,
+    error: result.error,
+    threadId: result.data?.thread_id,
+  };
+}
+
+/** Delete the board card and conversation. Run history remains on disk. */
+export async function deleteThread(
+  id: string,
+  board?: string
+): Promise<ThreadMutationResult> {
+  const params = board ? `?name=${encodeURIComponent(board)}` : "";
+  const result = await mutateJson(
+    `/api/threads/${encodeURIComponent(id)}${params}`,
+    "DELETE"
+  );
+  return { ok: result.ok, error: result.error };
+}
+
 export async function postThreadMessage(
   id: string,
   text: string,
-  opts?: { author?: string; backend?: string; board?: string }
+  opts?: { author?: string; backend?: string; model?: string; mode?: "plan_first"; board?: string }
 ): Promise<ThreadEvent | null> {
   return postJson(`/api/threads/${encodeURIComponent(id)}/messages`, {
     text,
     author: opts?.author,
     backend: opts?.backend,
+    model: opts?.model,
+    mode: opts?.mode,
     board: opts?.board,
   });
 }
@@ -1628,6 +1699,7 @@ export async function startThreadRun(
     test_cmd?: string;
     skills?: string[];
     parent_run_id?: string;
+    plan_event_id?: string;
   }
 ): Promise<RunRecord | null> {
   return postJson(`/api/threads/${encodeURIComponent(threadId)}/runs`, payload);
@@ -1653,6 +1725,19 @@ export async function fetchRunGate(runId: string): Promise<RunGate | null> {
   } catch {
     return null;
   }
+}
+
+/** Explicit, user-requested checks in the isolated worktree. */
+export async function runChecks(runId: string, command?: string): Promise<RunRecord> {
+  const response = await fetch(withToken(`/api/runs/${encodeURIComponent(runId)}/gate`), {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ command: command?.trim() || undefined }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || "Checks could not run. Inspect the worktree and try again.");
+  }
+  return response.json();
 }
 
 export async function fetchRunContext(runId: string): Promise<RunContext | null> {
@@ -1976,7 +2061,8 @@ export async function verifyReceipt(
 
 export async function fetchReviewQueue(
   boardName?: string | null,
-  all = false
+  all = false,
+  strict = false
 ): Promise<{ items: QueueItem[] }> {
   if (isVscode) return { items: [] };
   try {
@@ -1987,9 +2073,10 @@ export async function fetchReviewQueue(
     const res = await fetch(
       withToken(`/api/review/queue${query ? `?${query}` : ""}`)
     );
-    if (!res.ok) return { items: [] };
+    if (!res.ok) { if (strict) throw new Error("Could not load review queue"); return { items: [] }; }
     return await res.json();
-  } catch {
+  } catch (error) {
+    if (strict) throw error;
     return { items: [] };
   }
 }

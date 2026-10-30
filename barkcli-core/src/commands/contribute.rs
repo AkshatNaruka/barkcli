@@ -153,6 +153,7 @@ pub fn run_contribute(args: &[String]) -> Result<()> {
         summary: Some("Manual contribution (no gate)".into()),
         log_path: None,
         finished_at: Utc::now(),
+        verification: None,
     });
     if let Some(parent) = parent.as_deref() {
         run.add_parent(parent)?;

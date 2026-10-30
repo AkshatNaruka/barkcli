@@ -4,6 +4,8 @@ import { THEMES, useTheme } from "../lib/theme.tsx";
 import { navigate } from "../lib/hashnav";
 import { SURFACES } from "../lib/surfaces";
 import { Icon, type IconName } from "./Icon";
+import { APP_COMMANDS, PROJECT_TOOLS, openProjectTool } from "../lib/commands";
+import { AccessibleDialog } from "./AccessibleDialog";
 
 interface Props {
   board: BoardType;
@@ -12,6 +14,7 @@ interface Props {
   onAddCard: (colId: string) => void;
   onEditCard: (card: Card) => void;
   onCustomize: () => void;
+  onCommand?: (id: string) => void;
   onQuickOpen?: () => void;
   onCommandRunner?: () => void;
   onOpenProject?: () => void;
@@ -23,6 +26,7 @@ export function CommandPalette({
   onAddCard,
   onEditCard,
   onCustomize,
+  onCommand,
   onQuickOpen,
   onCommandRunner,
   onOpenProject,
@@ -31,20 +35,20 @@ export function CommandPalette({
   const [active, setActive] = useState(0);
   const { setTheme, railOrder, hidden, railStyle, setRailStyle } = useTheme();
 
-  const views = useMemo(
-    () =>
-      railOrder
-        .filter((id) => !hidden.includes(id))
-        .map((id) => SURFACES.find((s) => s.id === id))
-        .filter((s): s is (typeof SURFACES)[number] => Boolean(s)),
-    [railOrder, hidden]
-  );
+  const views = SURFACES;
 
   const results = useMemo(() => {
-    if (!query.trim()) return [];    const q = query.toLowerCase();
+    const q = query.trim().toLowerCase();
     const items: { label: string; icon: IconName; action: () => void }[] = [];
 
-    // View navigation — only surfaces that are actually in the rail.
+    for (const command of APP_COMMANDS) {
+      if (onCommand && (!q || command.label.toLowerCase().includes(q))) items.push({ label: command.label, icon: command.icon, action: () => { onClose(); onCommand(command.id); } });
+    }
+    for (const tool of PROJECT_TOOLS) {
+      if (q && `${tool.label} ${tool.keywords || ""} ${tool.id}`.toLowerCase().includes(q)) items.push({ label: tool.label, icon: tool.icon, action: () => { openProjectTool(tool); onClose(); } });
+    }
+    if (!q) return items.slice(0, 7);
+    // Every supported tool remains searchable regardless of navigation visibility.
     for (const v of views) {
       if (`go to ${v.label}`.toLowerCase().includes(q) || v.id.includes(q)) {
         items.push({
@@ -68,17 +72,6 @@ export function CommandPalette({
         },
       });
     }
-    if ("rail labels icons".includes(q)) {
-      items.push({
-        label: railStyle === "labels" ? "Rail: icons only" : "Rail: show labels",
-        icon: "layers",
-        action: () => {
-          setRailStyle(railStyle === "labels" ? "icons" : "labels");
-          onClose();
-        },
-      });
-    }
-
     for (const t of THEMES) {
       if (`theme ${t.label}`.toLowerCase().includes(q) || `theme ${t.id}`.includes(q)) {
         items.push({
@@ -167,6 +160,7 @@ export function CommandPalette({
     return items.slice(0, 12);
   }, [
     query,
+    onCommand,
     board,
     onClose,
     onAddCard,
@@ -186,14 +180,15 @@ export function CommandPalette({
   }, [query, results.length]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15%] bg-black/60" onClick={onClose}>
-      <div className="bg-card rounded-xl dialog-elevated w-full max-w-lg overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <AccessibleDialog label="Search or command" onClose={onClose} className="command-palette">
+      <div>
         <input
           autoFocus
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="w-full px-4 py-3 bg-transparent text-text text-sm outline-none placeholder:text-muted border-b border-border"
-          placeholder="Search cards or type a command..."
+          placeholder="Search threads, tools, or commands…"
+          aria-label="Search or command"
           onKeyDown={(e) => {
             if (e.key === "Escape") onClose();
             if (e.key === "ArrowDown") {
@@ -229,36 +224,9 @@ export function CommandPalette({
               {r.label}
             </button>
           ))}
-          {!query.trim() && (
-            <div className="p-3 text-sm text-muted">
-              <p>Search for cards, or type:</p>
-              <ul className="mt-1 space-y-1 text-xs">
-                <li>
-                  <code className="bg-surface px-1 rounded">go to board</code> — any surface
-                </li>
-                <li>
-                  <code className="bg-surface px-1 rounded">customize appearance</code> — themes, accent, rail
-                </li>
-                <li>
-                  <code className="bg-surface px-1 rounded">new card</code> — create a card
-                </li>
-                <li>
-                  <code className="bg-surface px-1 rounded">add to {board.columns[0]?.name || "Todo"}</code> — add to column
-                </li>
-                <li>
-                  <code className="bg-surface px-1 rounded">quick open file</code> — jump to a file
-                </li>
-                <li>
-                  <code className="bg-surface px-1 rounded">run a project command</code> — test, build, git
-                </li>
-                <li>
-                  <code className="bg-surface px-1 rounded">theme paper</code> — switch theme
-                </li>
-              </ul>
-            </div>
-          )}
+
         </div>
       </div>
-    </div>
+    </AccessibleDialog>
   );
 }

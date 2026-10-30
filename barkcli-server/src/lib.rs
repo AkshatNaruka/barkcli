@@ -131,7 +131,8 @@ where
         .route("/api/boards", get(list_boards_handler))
         .route("/api/board", get(get_board_handler).put(save_board_handler))
         .route("/api/threads", get(list_threads_handler).post(create_thread_handler))
-        .route("/api/threads/{id}", get(get_thread_handler))
+        .route("/api/threads/{id}", get(get_thread_handler).patch(update_thread_handler).delete(delete_thread_handler))
+        .route("/api/threads/{id}/fork", post(fork_thread_handler))
         .route("/api/threads/{id}/messages", post(post_thread_message_handler))
         .route("/api/threads/{id}/chat", post(chat_thread_handler))
         .route("/api/threads/{id}/chat/stop", post(stop_chat_handler))
@@ -154,7 +155,7 @@ where
         .route("/api/contributions/analyze", get(contributions_handler))
         .route("/api/contributions/duplicates", get(contribution_duplicates_handler))
         .route("/api/runs/{id}/diff", get(run_diff_handler))
-        .route("/api/runs/{id}/gate", get(run_gate_handler))
+        .route("/api/runs/{id}/gate", get(run_gate_handler).post(check_run_handler))
         .route("/api/runs/{id}/context", get(run_context_handler))
         .route("/api/runs/{id}/stop", post(stop_run_handler))
         .route("/api/runs/{id}/merge", post(merge_run_handler))
@@ -711,6 +712,7 @@ fn project_snapshot(state: &AppState) -> serde_json::Value {
             "agents": profiles.len(),
         },
         "commands": barkcli_core::repo::detect_commands(&root),
+        "verification_command": barkcli_core::runtime::runner::detect_test_cmd(&root),
     })
 }
 
@@ -1136,6 +1138,18 @@ async fn save_board_handler(
         .map_err(|e| ServerError::bad(format!("invalid board YAML: {}", e)))?;
     if board.columns.is_empty() {
         return Err(ServerError::bad("invalid board YAML: at least one column required"));
+    }
+    // A stale client must never be able to erase a populated board with an
+    // empty card list. Deleting the final card (existing len == 1) stays legal.
+    if board.cards.is_empty() {
+        if let Ok(existing) = read_board(&name) {
+            if existing.cards.len() > 1 {
+                return Err(ServerError::bad(format!(
+                    "refusing to overwrite {} cards with an empty board",
+                    existing.cards.len()
+                )));
+            }
+        }
     }
 
     let path = board_file::board_path(&name).map_err(|e| ServerError::internal(format!("path: {}", e)))?;
@@ -4797,6 +4811,7 @@ struct CreateThreadRequest {
     text: String,
     kind: Option<String>,
     backend: Option<String>,
+    model: Option<String>,
     mode: Option<String>,
     board: Option<String>,
 }
@@ -4835,6 +4850,185 @@ async fn get_thread_handler(
         "events": events,
         "runs": runs,
     })))
+}
+
+#[derive(Deserialize)]
+struct UpdateThreadRequest {
+    #[serde(default)]
+    board: Option<String>,
+    #[serde(default)]
+    title: Option<String>,
+    #[serde(default)]
+    pinned: Option<bool>,
+    #[serde(default)]
+    settled: Option<bool>,
+}
+
+/// Rename, pin, settle, or reopen a thread. Every action mutates the card so
+/// the board and the navigator stay in sync.
+async fn update_thread_handler(
+    State(state): State<Arc<AppState>>,
+    Path(card_id): Path<String>,
+    Json(req): Json<UpdateThreadRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    if req.title.is_none() && req.pinned.is_none() && req.settled.is_none() {
+        return Err(ServerError::bad("no thread change requested"));
+    }
+    let board_name = resolve_board_name(&state, req.board)?;
+    let mut updated = None;
+    barkcli_core::storage::board_file::update_board(&board_name, |board| {
+        let card = board
+            .cards
+            .iter_mut()
+            .find(|card| card.id == card_id)
+            .ok_or_else(|| anyhow::anyhow!("thread not found"))?;
+        let mut changed = false;
+        if let Some(title) = req.title.as_ref() {
+            let title = title.trim();
+            if title.is_empty() {
+                anyhow::bail!("title required");
+            }
+            card.title = title.to_string();
+            changed = true;
+        }
+        if let Some(pinned) = req.pinned {
+            card.pinned = pinned;
+        }
+        if let Some(settled) = req.settled {
+            if settled && card.column != "done" {
+                card.column = "done".to_string();
+                changed = true;
+            } else if !settled && card.column == "done" {
+                card.column = "todo".to_string();
+                changed = true;
+            }
+        }
+        card.version += 1;
+        if changed {
+            card.updated_at = Utc::now();
+        }
+        updated = Some(card.clone());
+        Ok(())
+    })
+    .map_err(|e| ServerError::bad(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({
+        "ok": true,
+        "card": updated,
+    })))
+}
+
+#[derive(Deserialize)]
+struct ForkThreadRequest {
+    #[serde(default)]
+    board: Option<String>,
+    #[serde(default)]
+    event_id: Option<String>,
+    #[serde(default)]
+    title: Option<String>,
+}
+
+/// Copy a thread (or its prefix up to `event_id`) into a fresh card. The fork
+/// starts in `todo` with no inherited pin or run identity.
+async fn fork_thread_handler(
+    State(state): State<Arc<AppState>>,
+    Path(card_id): Path<String>,
+    Json(req): Json<ForkThreadRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, req.board)?;
+    let board = read_board(&board_name).map_err(|e| ServerError::internal(e.to_string()))?;
+    let original = board
+        .cards
+        .iter()
+        .find(|card| card.id == card_id)
+        .cloned()
+        .ok_or_else(|| ServerError::bad("thread not found"))?;
+
+    let mut events = barkcli_core::threads::read_events(&card_id)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    if let Some(event_id) = req.event_id.as_deref() {
+        let index = events
+            .iter()
+            .position(|event| event.id == event_id)
+            .ok_or_else(|| ServerError::bad("fork point not found in this thread"))?;
+        events.truncate(index + 1);
+    }
+
+    let title = req
+        .title
+        .as_deref()
+        .map(str::trim)
+        .filter(|title| !title.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("{} (fork)", original.title));
+    let mut new_id = String::new();
+    barkcli_core::storage::board_file::update_board(&board_name, |board| {
+        let existing: Vec<String> = board.cards.iter().map(|card| card.id.clone()).collect();
+        new_id = barkcli_core::util::slug::unique_slug(&title, &existing);
+        let mut card = original.clone();
+        card.id = new_id.clone();
+        card.title = title.clone();
+        card.column = "todo".to_string();
+        card.pinned = false;
+        card.version = 1;
+        card.created_at = Utc::now();
+        card.updated_at = Utc::now();
+        board.cards.push(card);
+        Ok(())
+    })
+    .map_err(|e| ServerError::internal(e.to_string()))?;
+
+    for (index, event) in events.iter().enumerate() {
+        let mut copy = barkcli_core::threads::ThreadEvent::new(
+            &new_id,
+            event.kind.clone(),
+            &event.author,
+            &event.text,
+            event.data.clone(),
+        );
+        copy.seq = index as u64 + 1;
+        copy.created_at = event.created_at.clone();
+        barkcli_core::threads::append_event(&new_id, &copy)
+            .map_err(|e| ServerError::internal(e.to_string()))?;
+    }
+
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({
+        "ok": true,
+        "thread_id": new_id,
+        "card_id": new_id,
+    })))
+}
+
+async fn delete_thread_handler(
+    State(state): State<Arc<AppState>>,
+    Path(card_id): Path<String>,
+    Query(params): Query<BoardQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, params.name)?;
+    if state.chat.lock().map(|chats| chats.contains_key(&card_id)).unwrap_or(false) {
+        return Err(ServerError::bad("Stop the active reply before deleting this thread."));
+    }
+    let runs = barkcli_core::runtime::RuntimeStore::from_project()
+        .and_then(|store| store.list_runs(Some(&card_id)))
+        .unwrap_or_default();
+    if runs.iter().any(|run| {
+        matches!(run.status.as_str(), "queued" | "starting" | "running" | "waiting")
+    }) {
+        return Err(ServerError::bad("Stop the active build before deleting this thread."));
+    }
+    let board = read_board(&board_name).map_err(|e| ServerError::internal(e.to_string()))?;
+    if !board.cards.iter().any(|card| card.id == card_id) {
+        return Err(ServerError::bad("thread not found"));
+    }
+    barkcli_core::storage::board_file::update_board(&board_name, |board| {
+        board.cards.retain(|card| card.id != card_id);
+        Ok(())
+    })
+    .map_err(|e| ServerError::internal(e.to_string()))?;
+    let _ = barkcli_core::threads::delete_thread_file(&card_id);
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({"ok": true})))
 }
 
 async fn list_thread_runs_handler(
@@ -5050,13 +5244,28 @@ async fn provider_models_handler(
     Ok(Json(models))
 }
 
+#[derive(Deserialize)]
+struct StartThreadRunRequest {
+    #[serde(flatten)]
+    run: barkcli_core::runtime::CreateRunRequest,
+    plan_event_id: Option<String>,
+}
+
 async fn start_thread_run_handler(
     State(state): State<Arc<AppState>>,
     Path(card_id): Path<String>,
     Query(params): Query<BoardQuery>,
-    Json(req): Json<barkcli_core::runtime::CreateRunRequest>,
+    Json(req): Json<StartThreadRunRequest>,
 ) -> Result<Json<serde_json::Value>, ServerError> {
     let board_name = resolve_board_name(&state, params.name)?;
+    if let Some(expected) = req.plan_event_id.as_deref() {
+        let events = barkcli_core::threads::read_events(&card_id).unwrap_or_default();
+        let latest = events.iter().rev().find(|event| matches!(event.kind,
+            barkcli_core::threads::ThreadEventKind::PlanProposed | barkcli_core::threads::ThreadEventKind::PlanApproved));
+        if !latest.is_some_and(|event| event.id == expected && event.kind == barkcli_core::threads::ThreadEventKind::PlanProposed) {
+            return Err(ServerError::bad("This plan changed or was already approved. Reload it before building."));
+        }
+    }
     let tx = state.thread_tx.clone();
     let sink: barkcli_core::runtime::ThreadSink = Arc::new(move |event| {
         let _ = tx.send(event);
@@ -5064,8 +5273,19 @@ async fn start_thread_run_handler(
     let service = barkcli_core::runtime::RunService::from_project(&board_name)
         .map_err(|e| ServerError::internal(e.to_string()))?;
     let run = service
-        .start_for_card(&card_id, req, Some(sink))
+        .start_for_card(&card_id, req.run, Some(sink))
         .map_err(|e| ServerError::bad(e.to_string()))?;
+    if let Some(plan_id) = req.plan_event_id {
+        let event = barkcli_core::threads::ThreadEvent::new(&card_id,
+            barkcli_core::threads::ThreadEventKind::PlanApproved, "you", "Plan approved; build started",
+            Some(serde_json::json!({ "plan_event_id": plan_id, "run_id": run.id })));
+        let _ = barkcli_core::threads::append_event(&card_id, &event);
+        let _ = state.thread_tx.send(event);
+        let mut planner = barkcli_core::agent::autopilot::AutopilotState::load(&board_name);
+        planner.proposals.remove(&card_id);
+        if !planner.approved.contains(&card_id) { planner.approved.push(card_id.clone()); }
+        let _ = planner.save();
+    }
     broadcast_contribution(&state.tx, "contribution_published", &run.id);
     let _ = state.tx.send("reload".to_string());
     Ok(Json(serde_json::to_value(run).unwrap_or(serde_json::json!(null))))
@@ -5104,11 +5324,37 @@ async fn run_gate_handler(
         .and_then(|path| std::fs::read_to_string(path).ok())
         .unwrap_or_default();
     let gate = run.gate.clone();
+    let eligibility = service.merge_eligibility(&run);
     Ok(Json(serde_json::json!({
         "run": run,
         "gate": gate,
         "log": log,
+        "eligibility": eligibility,
     })))
+}
+
+#[derive(Deserialize)]
+struct CheckRunRequest {
+    command: Option<String>,
+}
+
+async fn check_run_handler(
+    State(state): State<Arc<AppState>>,
+    Path(run_id): Path<String>,
+    Query(params): Query<BoardQuery>,
+    Json(req): Json<CheckRunRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board = resolve_board_name(&state, params.name)?;
+    let command = req.command.clone();
+    let run = tokio::task::spawn_blocking(move || {
+        barkcli_core::runtime::RunService::from_project(&board)?.check(&run_id, command.as_deref())
+    }).await.map_err(|error| ServerError::internal(error.to_string()))?
+        .map_err(|error| ServerError::bad(error.to_string()))?;
+    if let Ok(events) = barkcli_core::threads::read_events(&run.card_id) {
+        if let Some(event) = events.last() { let _ = state.thread_tx.send(event.clone()); }
+    }
+    let _ = state.tx.send("reload".into());
+    Ok(Json(serde_json::to_value(run).unwrap_or_default()))
 }
 
 async fn run_context_handler(
@@ -6958,6 +7204,7 @@ async fn create_thread_handler(
         text,
         Some(serde_json::json!({
             "backend": b_name,
+            "model": req.model,
             "kind": k_name,
             "mode": mode,
         })),
@@ -6969,7 +7216,13 @@ async fn create_thread_handler(
         // A read-only conversation, not an implementation intent. The first
         // reply comes from /api/threads/:id/chat.
     } else if mode == "plan_and_run" || mode == "auto" {
-        let _ = dispatch_backend_plan(&board_name, &card_id, &b_name, text);
+        let tx = state.thread_tx.clone();
+        let sink: barkcli_core::runtime::ThreadSink = Arc::new(move |event| { let _ = tx.send(event); });
+        barkcli_core::runtime::RunService::from_project(&board_name)
+            .and_then(|service| service.start_for_card(&card_id, barkcli_core::runtime::CreateRunRequest {
+                provider: Some(b_name.clone()), model: req.model.clone(), ..Default::default()
+            }, Some(sink)))
+            .map_err(|error| ServerError::bad(error.to_string()))?;
     } else {
         let mut st = barkcli_core::agent::autopilot::AutopilotState::load(&board_name);
         if let Ok(proposal) = st.propose(&board_name, &card_id, "planner") {
@@ -7002,6 +7255,10 @@ struct PostMessageRequest {
     author: Option<String>,
     board: Option<String>,
     backend: Option<String>,
+    #[serde(default)]
+    mode: Option<String>,
+    #[serde(default)]
+    model: Option<String>,
 }
 
 async fn post_thread_message_handler(
@@ -7019,98 +7276,35 @@ async fn post_thread_message_handler(
         barkcli_core::threads::ThreadEventKind::User,
         &author,
         text,
-        None,
+        Some(serde_json::json!({ "backend": req.backend, "model": req.model, "mode": req.mode })),
     );
     barkcli_core::threads::append_event(&card_id, &user_ev)
         .map_err(|e| ServerError::internal(e.to_string()))?;
     let _ = state.thread_tx.send(user_ev.clone());
 
     let board_name = resolve_board_name(&state, req.board)?;
-    let target_backend = req.backend.unwrap_or_else(|| "opencode".to_string());
-
-    let existing_events = barkcli_core::threads::read_events(&card_id).unwrap_or_default();
-    let txt_clone = text.to_string();
-    let ai_response = tokio::task::spawn_blocking(move || {
-        if let Ok(cfg) = barkcli_core::ai::provider::resolve_config() {
-            if cfg.api_key.is_some() {
-                let mut msgs = vec![
-                    barkcli_core::ai::provider::ChatMessage {
-                        role: "system".into(),
-                        content: "You are the barkcli planner. barkcli is the management layer for AI agents: intent in, plans out, isolated worktrees, tests as the gate, and a merge train for whatever passes. Answer concisely and clarify requirements.".into(),
-                    },
-                ];
-                for ev in existing_events.iter().take(12) {
-                    match ev.kind {
-                        barkcli_core::threads::ThreadEventKind::User => {
-                            msgs.push(barkcli_core::ai::provider::ChatMessage {
-                                role: "user".into(),
-                                content: ev.text.clone(),
-                            });
-                        }
-                        barkcli_core::threads::ThreadEventKind::Assistant => {
-                            msgs.push(barkcli_core::ai::provider::ChatMessage {
-                                role: "assistant".into(),
-                                content: ev.text.clone(),
-                            });
-                        }
-                        _ => {}
-                    }
-                }
-                msgs.push(barkcli_core::ai::provider::ChatMessage {
-                    role: "user".into(),
-                    content: txt_clone,
-                });
-                return barkcli_core::ai::provider::chat(&cfg, &msgs).ok();
-            }
-        }
-        None
-    }).await.unwrap_or(None);
-
-    let assist_ev = if let Some(assistant_text) = ai_response {
-        barkcli_core::threads::ThreadEvent::new(
-            &card_id,
-            barkcli_core::threads::ThreadEventKind::Assistant,
-            "barkcli",
-            assistant_text,
-            None,
-        )
-    } else {
-        // No configured model: record a truthful notice instead of fabricating
-        // an assistant reply. The local agent run is still available.
-        barkcli_core::threads::ThreadEvent::new(
-            &card_id,
-            barkcli_core::threads::ThreadEventKind::Log,
-            "barkcli",
-            "No AI planner is configured. Your message is saved. Start a local agent run from the workbench, or configure an AI provider in `barkcli agent config`.",
-            None,
-        )
-    };
-    let _ = barkcli_core::threads::append_event(&card_id, &assist_ev);
-    let _ = state.thread_tx.send(assist_ev);
-
-    let lower = text.to_lowercase();
-    if lower.contains("approve") || lower == "yes" || lower == "run" || lower.contains("proceed") {
-        let st = barkcli_core::agent::autopilot::AutopilotState::load(&board_name);
-        if st.proposals.contains_key(&card_id) {
-            let _ = dispatch_backend_plan(&board_name, &card_id, &target_backend, text);
-        }
-    } else if lower.contains("plan") || lower.contains("break down") || lower.contains("decompose") {
-        let mut st = barkcli_core::agent::autopilot::AutopilotState::load(&board_name);
-        if let Ok(proposal) = st.propose(&board_name, &card_id, "planner") {
-            let plan_ev = barkcli_core::threads::ThreadEvent::new(
-                &card_id,
-                barkcli_core::threads::ThreadEventKind::PlanProposed,
-                "barkcli",
-                format!("Proposed plan with {} child tasks", proposal.children.len()),
-                Some(serde_json::to_value(&proposal).unwrap_or_default()),
-            );
-            let _ = barkcli_core::threads::append_event(&card_id, &plan_ev);
-            let _ = state.thread_tx.send(plan_ev);
-        }
+    // Planning is explicit and offline. Ordinary messages never infer execution
+    // approval from words such as "yes" or "proceed".
+    if req.mode.as_deref() == Some("plan_first") {
+        barkcli_core::storage::board_file::update_board(&board_name, |board| {
+            let card = board.cards.iter_mut().find(|card| card.id == card_id)
+                .ok_or_else(|| anyhow::anyhow!("thread card not found"))?;
+            let previous = card.description.clone().unwrap_or_default();
+            card.description = Some(format!("{previous}\n\nChange request:\n{text}"));
+            card.touch();
+            Ok(())
+        }).map_err(|error| ServerError::bad(error.to_string()))?;
+        let mut planner = barkcli_core::agent::autopilot::AutopilotState::load(&board_name);
+        let proposal = planner.propose(&board_name, &card_id, "barkcli (offline)")
+            .map_err(|error| ServerError::bad(error.to_string()))?;
+        let event = barkcli_core::threads::ThreadEvent::new(&card_id,
+            barkcli_core::threads::ThreadEventKind::PlanProposed, "barkcli", "Plan ready for review",
+            serde_json::to_value(proposal).ok());
+        barkcli_core::threads::append_event(&card_id, &event).map_err(|error| ServerError::internal(error.to_string()))?;
+        let _ = state.thread_tx.send(event);
     }
-
-    let _ = state.tx.send("reload".to_string());
-    Ok(Json(serde_json::to_value(&user_ev).unwrap_or_default()))
+    let _ = state.tx.send("reload".into());
+    return Ok(Json(serde_json::to_value(&user_ev).unwrap_or_default()));
 }
 
 #[derive(Deserialize)]

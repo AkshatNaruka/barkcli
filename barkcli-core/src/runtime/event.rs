@@ -16,6 +16,7 @@ pub enum RunStatus {
     Waiting,
     NeedsReview,
     Passed,
+    NotVerified,
     Failed,
     Interrupted,
     Cancelled,
@@ -31,6 +32,7 @@ impl RunStatus {
             Self::Waiting => "waiting",
             Self::NeedsReview => "needs_review",
             Self::Passed => "passed",
+            Self::NotVerified => "not_verified",
             Self::Failed => "failed",
             Self::Interrupted => "interrupted",
             Self::Cancelled => "cancelled",
@@ -41,7 +43,7 @@ impl RunStatus {
     pub fn is_terminal(&self) -> bool {
         matches!(
             self,
-            Self::Passed | Self::Failed | Self::Interrupted | Self::Cancelled | Self::Merged
+            Self::Passed | Self::NotVerified | Self::Failed | Self::Interrupted | Self::Cancelled | Self::Merged
         )
     }
 }
@@ -78,6 +80,43 @@ pub struct GateSummary {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub log_path: Option<String>,
     pub finished_at: DateTime<Utc>,
+    /// Missing on legacy records. A historical boolean alone never authorizes a merge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification: Option<CheckVerification>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CheckOutcome {
+    NotRun,
+    Skipped,
+    Running,
+    Passed,
+    Failed,
+    Error,
+    Stale,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckVerification {
+    pub outcome: CheckOutcome,
+    pub tested_head: String,
+    pub target_head: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exit_code: Option<i32>,
+}
+
+impl GateSummary {
+    pub fn verified(&self) -> bool {
+        self.passed
+            && self.command.as_deref().is_some_and(|value| !value.trim().is_empty())
+            && self.verification.as_ref().is_some_and(|proof| {
+                proof.outcome == CheckOutcome::Passed
+                    && proof.exit_code == Some(0)
+                    && !proof.tested_head.is_empty()
+                    && !proof.target_head.is_empty()
+            })
+    }
 }
 
 /// Everything needed to start one provider attempt.
@@ -398,6 +437,7 @@ impl RunRecord {
                     "waiting" => RunStatus::Waiting,
                     "needs_review" => RunStatus::NeedsReview,
                     "passed" => RunStatus::Passed,
+                    "not_verified" => RunStatus::NotVerified,
                     "failed" => RunStatus::Failed,
                     "interrupted" => RunStatus::Interrupted,
                     "cancelled" => RunStatus::Cancelled,
@@ -458,6 +498,7 @@ impl RunRecord {
                 command,
                 summary,
                 log_path,
+                verification,
             } => {
                 self.gate = Some(GateSummary {
                     passed: *passed,
@@ -465,13 +506,19 @@ impl RunRecord {
                     summary: Some(summary.clone()),
                     log_path: log_path.clone(),
                     finished_at: Utc::now(),
+                    verification: verification.clone(),
                 });
-                self.status = if *passed {
-                    RunStatus::Passed
-                } else {
-                    RunStatus::Failed
+                self.status = match verification.as_ref().map(|proof| proof.outcome) {
+                    Some(CheckOutcome::Passed) if self.gate.as_ref().is_some_and(GateSummary::verified) => RunStatus::Passed,
+                    Some(CheckOutcome::Failed | CheckOutcome::Error) => RunStatus::Failed,
+                    Some(CheckOutcome::Running) => RunStatus::Running,
+                    _ => RunStatus::NotVerified,
                 };
-                self.ended_at = Some(Utc::now());
+                self.ended_at = if matches!(verification.as_ref().map(|proof| proof.outcome), Some(CheckOutcome::Running)) {
+                    None
+                } else {
+                    Some(Utc::now())
+                };
             }
             RuntimeEvent::Diff {
                 files,
@@ -614,6 +661,8 @@ pub enum RuntimeEvent {
         summary: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         log_path: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        verification: Option<CheckVerification>,
     },
     Diff {
         #[serde(default)]
@@ -715,8 +764,17 @@ impl RuntimeEvent {
             Self::Completed { exit_code, .. } => format!("Run completed (exit {exit_code})"),
             Self::Failed { message, .. } => format!("Run failed: {message}"),
             Self::Interrupted => "Run interrupted".to_string(),
-            Self::Gate { passed, summary, .. } => {
-                format!("Gate {}: {summary}", if *passed { "passed" } else { "failed" })
+            Self::Gate { passed, command, summary, verification, .. } => {
+                let label = match verification.as_ref().map(|proof| proof.outcome) {
+                    Some(CheckOutcome::Passed) if *passed => "passed",
+                    Some(CheckOutcome::Failed) => "failed",
+                    Some(CheckOutcome::Error) => "could not run",
+                    Some(CheckOutcome::Running) => "running",
+                    Some(CheckOutcome::Stale) => "stale",
+                    _ if command.is_none() => "not verified",
+                    _ => "not verified",
+                };
+                format!("Checks {label}: {summary}")
             }
             Self::Diff {
                 files,

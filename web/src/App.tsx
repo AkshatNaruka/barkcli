@@ -8,6 +8,7 @@ import type {
   SessionEntry,
   ViewMode,
   Sprint,
+  ProjectSnapshot,
 } from "./lib/types";
 import {
   fetchBoard,
@@ -27,7 +28,11 @@ import {
   type GitInfo,
 } from "./lib/api";
 import { isDesktop, isMac, onMenu, openProjectDialog, openTerminal, revealProject, switchProject } from "./lib/desktop";
-import { useRoute, type Route } from "./lib/hashnav";
+import { useRoute, useRouteState, navigate, updateRouteState, parseRouteState, type Route } from "./lib/hashnav";
+import { APP_COMMANDS, PROJECT_TOOLS, commandForKey, openProjectTool } from "./lib/commands";
+import { SurfacesPanel } from "./shell/SurfacesPanel";
+import { ProjectHub } from "./shell/ProjectHub";
+import { ProjectRequired } from "./shell/ProjectRequired";
 import { Icon } from "./components/Icon";
 import { BoardView } from "./components/BoardView";
 import { TableView } from "./components/TableView";
@@ -44,7 +49,9 @@ import { ServerStatus } from "./components/ServerStatus";
 const HistoryView = lazy(() => import("./components/HistoryView").then((m) => ({ default: m.HistoryView })));
 const SkillsView = lazy(() => import("./components/SkillsView").then((m) => ({ default: m.SkillsView })));
 import { ThreadsShell } from "./shell/ThreadsShell";
-import { AppRail } from "./shell/AppRail";
+import { AccessibleDialog } from "./components/AccessibleDialog";
+import { WorkspaceSidebar } from "./shell/WorkspaceSidebar";
+const ReviewSurface = lazy(() => import("./shell/ReviewSurface").then((module) => ({ default: module.ReviewSurface })));
 import { InspectorRail } from "./shell/InspectorRail";
 const OperationsView = lazy(() => import("./shell/OperationsView").then((m) => ({ default: m.OperationsView })));
 import { BrainSurface } from "./shell/BrainSurface";
@@ -208,6 +215,18 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [route, setRoute] = useRoute();
+  const location = useRouteState();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => window.localStorage.getItem("bark:sidebar-collapsed") === "1");
+  const [projectRoot, setProjectRoot] = useState<string | null>(null);
+  const [projectInfo, setProjectInfo] = useState<ProjectSnapshot | null>(null);
+  const [projectLoading, setProjectLoading] = useState(true);
+  const projectReady = !projectLoading && Boolean(projectInfo?.root);
+  useEffect(() => {
+    const apply = () => { const main = document.getElementById("workspace-main"); if (main) main.inert = sidebarOpen && window.innerWidth < 900; };
+    apply(); window.addEventListener("resize", apply);
+    return () => { window.removeEventListener("resize", apply); const main = document.getElementById("workspace-main"); if (main) main.inert = false; };
+  }, [sidebarOpen]);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [quickOpenOpen, setQuickOpenOpen] = useState(false);
   const [commandRunnerOpen, setCommandRunnerOpen] = useState(false);
@@ -226,15 +245,26 @@ export function App() {
   const [form, setForm] = useState<{ card?: Card; columnId?: string; dueDate?: string } | null>(null);
   const [toast, setToast] = useState<{ message: string; action?: { label: string; onClick: () => void } } | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
-  const [inspectorOpen, setInspectorOpen] = useState(
-    () => window.localStorage.getItem("barkcli:inspector") !== "0"
-  );
+  const [inspectorOpen, setInspectorOpen] = useState(() => {
+    const saved = window.localStorage.getItem("barkcli:inspector");
+    if (parseRouteState(window.location.hash).route !== "chat") return false;
+    if (saved !== null) return saved !== "0";
+    return window.innerWidth >= 1280;
+  });
   const toggleInspector = useCallback(() => {
     setInspectorOpen((open) => {
       window.localStorage.setItem("barkcli:inspector", open ? "0" : "1");
       return !open;
     });
   }, []);
+  useEffect(() => {
+    if (route !== "chat") {
+      setInspectorOpen(false);
+      return;
+    }
+    const saved = window.localStorage.getItem("barkcli:inspector");
+    setInspectorOpen(saved === null ? window.innerWidth >= 1280 : saved !== "0");
+  }, [route]);
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const boardRef = useRef(board);
   boardRef.current = board;
@@ -245,19 +275,14 @@ export function App() {
     document.title = `barkcli · ${label}`;
   }, [route]);
 
-  // A shared look may hide the surface this tab is currently on.
-  useEffect(() => {
-    if (!hidden.includes(route)) return;
-    const next = visibleSurfaces[0];
-    if (next) setRoute(next);
-  }, [hidden, route, visibleSurfaces, setRoute]);
-
   const [gitInfo, setGitInfo] = useState<GitInfo | null>(null);
   const [historyCard, setHistoryCard] = useState<{ id: string; entries: any[] } | null>(null);
   const [activityCard, setActivityCard] = useState<{ id: string; history: HistoryEntry[]; sessions: SessionEntry[] } | null>(null);
   const [cardContexts, setCardContexts] = useState<Record<string, CardContext | null>>({});
   const [boardList, setBoardList] = useState<string[]>([]);
-  const [boardName, setBoardName] = useState<string | null>(null);
+  const [boardName, setBoardName] = useState<string | null>(() => parseRouteState(window.location.hash).board || null);
+  useEffect(() => { if (location.board) setBoardName(location.board); }, [location.board]);
+  useEffect(() => { if (composeSeed) navigate("chat", { board: boardName || undefined, draft: "1" }); }, [composeSeed?.nonce]);
   const [agentsActive, setAgentsActive] = useState(0);
   const boardNameRef = useRef<string | null>(null);
   boardNameRef.current = boardName;
@@ -335,9 +360,19 @@ export function App() {
     getGitInfo().then(setGitInfo).catch(() => {});
   }, []);
   useEffect(() => {
+    setProjectLoading(true);
     fetchProject()
-      .then((project) => setProjectName(project?.name || null))
-      .catch(() => setProjectName(null));
+      .then((project) => {
+        setProjectName(project?.name || null);
+        setProjectInfo(project);
+        setProjectRoot(project?.root || null);
+      })
+      .catch(() => {
+        setProjectName(null);
+        setProjectInfo(null);
+        setProjectRoot(null);
+      })
+      .finally(() => setProjectLoading(false));
   }, []);
   useEffect(() => { fetchBoards().then(setBoardList).catch(() => {}); }, []);
   useEffect(() => {
@@ -402,7 +437,7 @@ export function App() {
       /* storage is optional */
     }
     window.dispatchEvent(new CustomEvent("bark-operations-tab", { detail: tab }));
-    window.location.hash = "#/operations";
+    navigate("operations", { tool: tab });
   }, []);
 
   const handleAskFile = useCallback(
@@ -413,56 +448,34 @@ export function App() {
     [setRoute]
   );
 
+  const executeCommand = useCallback((id: string) => {
+    switch (id) {
+      case "open-project": void handleOpenProject(); break;
+      case "new-chat": setComposeSeed({ text: "", nonce: Date.now(), mode: "chat" }); navigate("chat", { draft: "1" }); break;
+      case "new-intent": setComposeSeed({ text: "", nonce: Date.now(), mode: "plan_first" }); navigate("chat", { draft: "1" }); break;
+      case "quick-open": setQuickOpenOpen(true); break;
+      case "command-runner": setCommandRunnerOpen(true); break;
+      case "command-palette": setPaletteOpen((open) => !open); break;
+      case "open-terminal": void openTerminal(); break;
+      case "reveal-project": void revealProject(); break;
+      case "toggle-workbench": toggleInspector(); break;
+      case "toggle-sidebar":
+        if (window.innerWidth < 900) setSidebarOpen((open) => !open);
+        else setSidebarCollapsed((collapsed) => { window.localStorage.setItem("bark:sidebar-collapsed", collapsed ? "0" : "1"); return !collapsed; });
+        break;
+      case "settings": openOperationsTab("settings"); break;
+      case "appearance": setCustomizeOpen(true); break;
+      case "help": setHelpOpen(true); break;
+    }
+  }, [handleOpenProject, openOperationsTab, toggleInspector]);
   useEffect(() => {
-    let cancelled = false;
-    let unlisten: (() => void) | undefined;
-    void onMenu((id) => {
-      switch (id) {
-        case "open-project":
-          void handleOpenProject();
-          break;
-        case "new-chat":
-          setComposeSeed({ text: "", nonce: Date.now(), mode: "chat" });
-          setRoute("chat");
-          break;
-        case "new-intent":
-          setComposeSeed({ text: "", nonce: Date.now(), mode: "plan_first" });
-          setRoute("chat");
-          break;
-        case "quick-open":
-          setQuickOpenOpen(true);
-          break;
-        case "command-runner":
-          setCommandRunnerOpen(true);
-          break;
-        case "command-palette":
-          setPaletteOpen(true);
-          break;
-        case "open-terminal":
-          void openTerminal();
-          break;
-        case "reveal-project":
-          void revealProject();
-          break;
-        case "toggle-workbench":
-          window.dispatchEvent(new Event("bark-toggle-workbench"));
-          break;
-        case "settings":
-          openOperationsTab("settings");
-          break;
-        case "help":
-          setHelpOpen(true);
-          break;
-      }
-    }).then((cleanup) => {
-      if (cancelled) cleanup();
-      else unlisten = cleanup;
-    });
-    return () => {
-      cancelled = true;
-      unlisten?.();
-    };
-  }, [handleOpenProject, openOperationsTab, setRoute]);
+    let disposed = false;
+    let cleanup: (() => void) | undefined;
+    void onMenu(executeCommand).then((unlisten) => { if (disposed) unlisten(); else cleanup = unlisten; });
+    const command = (event: Event) => executeCommand((event as CustomEvent<string>).detail);
+    window.addEventListener("bark-command", command);
+    return () => { disposed = true; cleanup?.(); window.removeEventListener("bark-command", command); };
+  }, [executeCommand]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -470,44 +483,16 @@ export function App() {
       // Ignore unmodified shortcuts while typing, but keep global ⌘ commands
       // available (⌘K, ⌘P, ⌘⇧R, ⌘O, ⌘,).
       const tag = (e.target as HTMLElement).tagName;
-      const typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+      const typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (e.target as HTMLElement).isContentEditable;
+      if (e.isComposing) return;
+      if ((e.metaKey || e.ctrlKey) && ["1", "2"].includes(e.key)) { e.preventDefault(); navigate(e.key === "1" ? "chat" : "review"); return; }
       if (typing && !(e.metaKey || e.ctrlKey)) return;
       if (typing && (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
         return; // let the focused field undo its own text
       }
 
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        setPaletteOpen((p) => !p);
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "p") {
-        e.preventDefault();
-        setQuickOpenOpen(true);
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "n") {
-        e.preventDefault();
-        setComposeSeed({ text: "", nonce: Date.now(), mode: "plan_first" });
-        setRoute("chat");
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "n") {
-        e.preventDefault();
-        setComposeSeed({ text: "", nonce: Date.now(), mode: "chat" });
-        setRoute("chat");
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "r") {
-        e.preventDefault();
-        setCommandRunnerOpen(true);
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "o") {
-        e.preventDefault();
-        void handleOpenProject();
-        return;
-      }
+      const command = commandForKey(e);
+      if (command) { e.preventDefault(); executeCommand(command); return; }
       if ((e.metaKey || e.ctrlKey) && e.key === "z") {
         e.preventDefault();
         // Undo
@@ -521,11 +506,6 @@ export function App() {
             }
           });
         });
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
-        e.preventDefault();
-        openOperationsTab("settings");
         return;
       }
       if (e.key === "?") {
@@ -556,11 +536,12 @@ export function App() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [route, board, boardName, loadBoard, notify, visibleSurfaces, handleOpenProject, openOperationsTab]);
+  }, [route, board, boardName, loadBoard, notify, visibleSurfaces, executeCommand]);
 
   const switchBoard = useCallback((name: string) => {
     if (name === boardName) return;
     setBoardName(name);
+    updateRouteState({ board: name, thread: undefined, run: undefined, panel: undefined, file: undefined });
     setCardContexts({});
   }, [boardName]);
 
@@ -690,7 +671,7 @@ export function App() {
       <div className="flex items-center justify-center h-screen bg-bg">
         <div className="text-danger bg-danger-soft p-6 rounded-lg max-w-md text-center">
           <h2 className="font-bold text-lg mb-2">Error</h2>
-          <p>{error}</p>
+          <p>{error}</p><button className="bark-button mt-4" onClick={() => { updateRouteState({ board: undefined, thread: undefined, run: undefined, panel: undefined }); setBoardName(null); void loadBoard(null, true); }}>Open default board</button><button className="bark-button mt-4 ml-2" onClick={() => void loadBoard(boardName, true)}>Retry</button>
         </div>
       </div>
     );
@@ -719,81 +700,45 @@ export function App() {
 
   return (
     <div className={`${isDesktop() && isMac() ? "bark-desktop-shell" : "h-screen"} flex bg-bg`}>
-      <AppRail
-        surface={route}
-        onNavigate={setRoute}
-        onCustomize={() => setCustomizeOpen(true)}
-        counts={{ chat: 0, board: boardOpen, agents: agentsActive }}
-        projectName={projectName}
-      />
-
-      <div className="flex-1 flex flex-col min-w-0">
-      {/* Chat owns the full three-pane workspace; other surfaces keep a slim
-          context bar for the board switcher and global actions. */}
-      {route !== "chat" && (
-      <header className="flex items-center justify-between px-3 h-11 border-b border-border/80 shrink-0 gap-3">
-        <div className="flex items-center gap-2.5 min-w-0">
-          {boardList.length > 0 && (
-            <QuietSelect
-              value={boardName || boardList[0] || ""}
-              onChange={(e) => switchBoard(e.target.value)}
-              title="Switch board"
-              className="bg-surface border border-border rounded-md px-2 py-1 max-w-[160px] text-[12px] hover:border-border-strong focus:border-accent"
-            >
-              {boardList.map((n) => (
-                <option key={n} value={n}>{n}.board</option>
-              ))}
-            </QuietSelect>
-          )}
-          <div className="flex items-center gap-2 min-w-0">
-            <h1 className="text-[13px] font-medium text-text truncate">{board?.title || "Board"}</h1>
-            <span className="text-[10px] text-muted/80 font-mono shrink-0">
-              {board?.cards.length || 0}
-            </span>
-          </div>
+      <a href="#main-content" className="skip-link">Skip to content</a>
+      <div className={`sidebar-slot ${sidebarCollapsed ? "is-collapsed" : ""}`}>
+        <WorkspaceSidebar projectName={projectName} projectRoot={projectInfo?.root || ""} projectReady={projectReady}
+          boardName={boardName} boards={boardList} onSwitchBoard={switchBoard} onCommand={executeCommand}
+          onNew={() => executeCommand("new-intent")} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      </div>
+      <div id="workspace-main" className="flex-1 flex flex-col min-w-0">
+      {route !== "chat" && <header className="workspace-topbar">
+        <button className="bark-icon-button" onClick={() => executeCommand("toggle-sidebar")} aria-label="Toggle sidebar" title="Toggle sidebar"><Icon name="panel" size={16} /></button>
+        <h1>{PROJECT_TOOLS.find((tool) => tool.destination.route === route && tool.destination.tool === location.tool)?.label || (location.tool === "settings" ? "Settings" : location.tool === "docs" ? "Help" : SURFACES.find((surface) => surface.id === route)?.label)}</h1>
+        <div className="ml-auto flex items-center gap-1">
+          <button className="bark-icon-button" onClick={toggleInspector} aria-label="Toggle surfaces" aria-pressed={inspectorOpen} title="Toggle surfaces (⌘J)"><Icon name="panel" size={16} /></button>
+          <button className="bark-icon-button" onClick={() => executeCommand("quick-open")} aria-label="Quick open file" title="Quick open file (⌘P)"><Icon name="doc" size={16} /></button>
+          <button className="bark-icon-button" onClick={() => executeCommand("command-palette")} aria-label="Search or command" title="Search or command (⌘K)"><Icon name="search" size={16} /></button>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => setPaletteOpen(true)}
-            className="hidden sm:flex items-center gap-2 text-[11px] text-muted hover:text-text px-2.5 py-1 rounded-md border border-border hover:border-border-strong transition-colors min-w-[170px]"
-            title="Command palette (⌘K)"
-          >
-            <Icon name="search" size={12} />
-            <span className="flex-1 text-left">Search or command…</span>
-            <kbd className="text-[9px] font-mono bg-surface border border-border rounded px-1">⌘K</kbd>
-          </button>
-          {gitInfo && (
-            <span className="hidden lg:inline text-[9.5px] text-muted font-mono truncate max-w-[200px]">
-              {gitInfo.branch} · {gitInfo.lastCommit}
-            </span>
-          )}
-          <ServerStatus />
-          <InstallButton />
-          <button
-            onClick={() => setCustomizeOpen(true)}
-            title="Appearance (⌘,)"
-            aria-label="Appearance"
-            className="w-7 h-7 rounded-md flex items-center justify-center text-muted hover:text-text hover:bg-white/[0.05] border border-transparent hover:border-border transition-colors"
-          >
-            <Icon name="palette" size={15} />
-          </button>
-        </div>
-      </header>
-      )}
-
+      </header>}
       <div className="flex-1 flex min-h-0">
-        <main className="flex-1 overflow-hidden min-w-0">
-          {route === "chat" && (
+        <main id="main-content" tabIndex={-1} className="flex-1 overflow-hidden min-w-0">
+          {route === "chat" && projectReady && (
             <ThreadsShell
               boardName={boardName}
+              projectRoot={projectInfo?.root || ""}
+              project={projectInfo}
+              onConsumeSeed={() => setComposeSeed(null)}
               boards={boardList}
               onSwitchBoard={switchBoard}
               onOpenPalette={() => setPaletteOpen(true)}
               onCustomize={() => setCustomizeOpen(true)}
               seed={composeSeed}
               onOpenCardForm={(card) => handleOpenForm({ card })}
+              surfacesOpen={inspectorOpen}
+              onToggleSurfaces={toggleInspector}
             />
           )}
+
+          {route === "chat" && projectLoading && <div className="surface-loading" role="status">Opening project…</div>}
+          {route === "chat" && !projectLoading && !projectReady && <ProjectRequired onOpen={() => void handleOpenProject()} />}
+          {route === "review" && <Suspense fallback={<div className="surface-loading">Loading review…</div>}><ReviewSurface boardName={boardName} /></Suspense>}
+          {route === "hub" && <ProjectHub projectName={projectName} projectRoot={projectInfo?.root || projectRoot} boardName={boardName || boardList[0] || null} />}
 
           {route === "board" && board && (
             <BoardPage
@@ -866,17 +811,25 @@ export function App() {
             </Suspense>
           )}
         </main>
-
-        {/* The thread view owns its own card inspector; elsewhere the app
-            keeps one persistent "what is alive" rail. */}
-        {route !== "chat" && (
-          <InspectorRail
-            boardName={boardName}
-            collapsed={!inspectorOpen}
-            onToggle={toggleInspector}
-            onNavigate={setRoute}
-          />
+        {route !== "chat" && inspectorOpen && (
+          <div className="surfaces-drawer">
+            <SurfacesPanel
+              boardName={boardName || boardList[0] || null}
+              showThread={false}
+              onSelectThread={() => {}}
+              onOpenProjectTool={(tool) => {
+                openProjectTool(tool);
+                toggleInspector();
+              }}
+              onOpenProjectHub={() => {
+                navigate("hub");
+                toggleInspector();
+              }}
+              onClose={toggleInspector}
+            />
+          </div>
         )}
+
       </div>
 
       {/* Modals */}
@@ -910,6 +863,7 @@ export function App() {
           onAddCard={(colId) => { setForm({ columnId: colId }); setPaletteOpen(false); }}
           onEditCard={(card) => { setForm({ card }); setPaletteOpen(false); }}
           onCustomize={() => setCustomizeOpen(true)}
+          onCommand={executeCommand}
           onQuickOpen={() => { setPaletteOpen(false); setQuickOpenOpen(true); }}
           onCommandRunner={() => { setPaletteOpen(false); setCommandRunnerOpen(true); }}
           onOpenProject={() => { setPaletteOpen(false); void handleOpenProject(); }}
@@ -1132,34 +1086,8 @@ function SurfaceEmpty({ label }: { label: string }) {
 }
 
 function HelpModal({ onClose }: { onClose: () => void }) {
-  const shortcuts = [
-    { keys: "Cmd/Ctrl + K", desc: "Command palette" },
-    { keys: "Cmd/Ctrl + P", desc: "Quick open file" },
-    { keys: "Cmd/Ctrl + Shift + R", desc: "Run a project command" },
-    { keys: "Cmd/Ctrl + Shift + N", desc: "New read-only chat" },
-    { keys: "Cmd/Ctrl + O", desc: "Open project folder" },
-    { keys: "Cmd/Ctrl + ,", desc: "Settings" },
-    { keys: "Cmd/Ctrl + Z", desc: "Undo last board change" },
-    { keys: "1 – 7", desc: "Jump between surfaces" },
-    { keys: "?", desc: "Toggle this help" },
-    { keys: "N", desc: "New card (on Board)" },
-  ];
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
-      <div className="bg-card rounded-xl border border-border shadow-2xl max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <h3 className="font-semibold text-text text-sm">Keyboard Shortcuts</h3>
-          <button onClick={onClose} className="text-muted hover:text-text">x</button>
-        </div>
-        <div className="p-4 space-y-3">
-          {shortcuts.map((s) => (
-            <div key={s.keys} className="flex items-center justify-between">
-              <span className="text-xs text-text">{s.desc}</span>
-              <kbd className="text-[10px] text-muted bg-surface border border-border rounded px-1.5 py-0.5 font-mono">{s.keys}</kbd>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
+  return <AccessibleDialog label="Keyboard shortcuts" onClose={onClose}>
+    <div className="flex items-center justify-between mb-4"><h2 className="font-medium">Keyboard shortcuts</h2><button className="bark-icon-button" onClick={onClose} aria-label="Close help"><Icon name="x" size={15} /></button></div>
+    <div className="space-y-3">{APP_COMMANDS.map((command) => <div className="flex justify-between gap-5 text-sm" key={command.id}><span>{command.label}</span><kbd className="text-muted text-xs whitespace-nowrap">⌘{command.modifiers.includes("shift") ? "⇧" : ""}{command.shortcut.toUpperCase()}</kbd></div>)}<div className="flex justify-between gap-5 text-sm"><span>Submit prompt</span><kbd className="text-muted text-xs">⌘Return</kbd></div><div className="flex justify-between gap-5 text-sm"><span>Build / Review</span><kbd className="text-muted text-xs">⌘1 / ⌘2</kbd></div></div>
+  </AccessibleDialog>;
 }

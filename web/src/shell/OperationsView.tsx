@@ -14,7 +14,7 @@ import { HistoryView } from "../components/HistoryView";
 import { WorkspaceView } from "../components/WorkspaceView";
 import { RulesView } from "../components/RulesView";
 import { AutomationsView } from "../components/AutomationsView";
-import { rawHashRoute } from "../lib/hashnav";
+import { rawHashRoute, useRouteState, updateRouteState } from "../lib/hashnav";
 import { operationsTabFromLegacy } from "../lib/surfaces";
 import type { Board, Card, Sprint } from "../lib/types";
 
@@ -31,7 +31,8 @@ type OpTab =
   | "settings"
   | "context"
   | "automations"
-  | "history";
+  | "history"
+  | "rules";
 
 const TABS: Array<{ id: OpTab; label: string; icon: IconName }> = [
   { id: "workspace", label: "Workspace", icon: "layers" },
@@ -46,6 +47,8 @@ const TABS: Array<{ id: OpTab; label: string; icon: IconName }> = [
   { id: "settings", label: "Settings", icon: "gear" },
   { id: "context", label: "Context", icon: "doc" },
   { id: "history", label: "History", icon: "history" },
+  { id: "rules", label: "Rules", icon: "doc" },
+  { id: "automations", label: "Automations", icon: "clock" },
 ];
 
 function initialTab(): OpTab {
@@ -91,7 +94,10 @@ export function OperationsView({
   onOpenBoard: () => void;
   onOpenBrain: () => void;
 }) {
-  const [tab, setTab] = useState<OpTab>(initialTab);
+  const location = useRouteState();
+  const [fallbackTab, setFallbackTab] = useState<OpTab>(initialTab);
+  const tab: OpTab = TABS.some((item) => item.id === location.tool) ? location.tool as OpTab : fallbackTab;
+  const setTab = (next: OpTab) => { setFallbackTab(next); updateRouteState({ tool: next }); };
 
   useEffect(() => {
     const onTab = (event: Event) => {
@@ -104,28 +110,9 @@ export function OperationsView({
 
   return (
     <div className="h-full flex flex-col min-h-0">
-      <div className="flex items-center gap-1 px-3 h-10 border-b border-border/70 shrink-0 overflow-x-auto">
-        {TABS.map((t) => {
-          const active = tab === t.id;
-          return (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`relative shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11.5px] transition-colors ${
-                active
-                  ? "text-text bg-white/[0.05]"
-                  : "text-muted hover:text-text hover:bg-white/[0.03]"
-              }`}
-            >
-              <Icon name={t.icon} size={13} className={active ? "text-accent-text" : ""} />
-              {t.label}
-              {active && <span className="absolute left-2 right-2 -bottom-[7px] h-[2px] rounded-full bg-accent" />}
-            </button>
-          );
-        })}
-      </div>
-
       <div className="flex-1 overflow-hidden min-h-0">
+        {tab === "rules" && <RulesView />}
+        {tab === "automations" && <AutomationsView boardName={boardName} />}
         {tab === "workspace" && (
           <WorkspaceView
             boardName={boardName}

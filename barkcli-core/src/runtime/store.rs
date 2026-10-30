@@ -180,7 +180,16 @@ impl RuntimeStore {
     }
 
     /// Append a normalized runtime event and update the run projection.
-    pub fn record(&self, run: &mut RunRecord, event: RuntimeEvent) -> Result<ThreadEvent> {
+    pub fn record(&self, run: &mut RunRecord, mut event: RuntimeEvent) -> Result<ThreadEvent> {
+        let _projection = crate::util::lock::FileLock::acquire(&self.run_path(&run.id).with_extension("projection"))?;
+        if let Ok(current) = self.load_run(&run.id) {
+            if matches!(current.status, super::event::RunStatus::Interrupted | super::event::RunStatus::Cancelled) {
+                *run = current;
+                if matches!(event, RuntimeEvent::Completed { .. } | RuntimeEvent::Failed { .. } | RuntimeEvent::Gate { .. } | RuntimeEvent::Status { .. } | RuntimeEvent::Started { .. }) {
+                    event = RuntimeEvent::Log { level: "info".into(), message: format!("After stop: {}", event.summary()) };
+                }
+            }
+        }
         run.apply(&event);
         let author = run
             .agent_id

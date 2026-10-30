@@ -161,6 +161,9 @@ pub struct ThreadSummary {
     /// Newest evidence of agent life for this card (heartbeat, lease, note).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_seen: Option<String>,
+    /// Kept at the top of the navigator until unpinned.
+    #[serde(default)]
+    pub pinned: bool,
 }
 
 pub fn threads_dir() -> Result<PathBuf> {
@@ -176,6 +179,19 @@ pub fn thread_path(card_id: &str) -> Result<PathBuf> {
     let dir = threads_dir()?;
     let safe_name = crate::util::slug::to_slug(card_id);
     Ok(dir.join(format!("{}.jsonl", safe_name)))
+}
+
+/// Remove a thread's conversation file and its lock sidecar. Run records are
+/// intentionally retained as audit evidence; this only deletes the transcript.
+pub fn delete_thread_file(card_id: &str) -> Result<bool> {
+    let path = thread_path(card_id)?;
+    let existed = path.exists();
+    if existed {
+        std::fs::remove_file(&path)
+            .with_context(|| format!("failed to delete thread file {:?}", path))?;
+    }
+    let _ = std::fs::remove_file(path.with_extension("jsonl.lock"));
+    Ok(existed)
 }
 
 pub fn append_event_to_dir(dir: &std::path::Path, card_id: &str, event: &ThreadEvent) -> Result<()> {
@@ -357,6 +373,7 @@ pub fn list_threads(board_name: &str) -> Result<Vec<ThreadSummary>> {
                 .card_last_seen(&card.id)
                 .map(|t| t.to_rfc3339())
                 .or_else(|| Some(card.updated_at.to_rfc3339())),
+            pinned: card.pinned,
         });
     }
 
@@ -369,8 +386,9 @@ pub fn list_threads(board_name: &str) -> Result<Vec<ThreadSummary>> {
             "settled" => 4,
             _ => 5,
         };
-        prio(&a.status_group)
-            .cmp(&prio(&b.status_group))
+        b.pinned
+            .cmp(&a.pinned)
+            .then_with(|| prio(&a.status_group).cmp(&prio(&b.status_group)))
             .then_with(|| b.updated_at.cmp(&a.updated_at))
     });
 

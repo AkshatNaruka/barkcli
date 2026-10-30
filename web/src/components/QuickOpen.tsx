@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { AccessibleDialog } from "./AccessibleDialog";
 import type { RepoEntry, RepoFile } from "../lib/types";
 import { fetchRepoFile, fetchRepoTree, openInEditor } from "../lib/api";
 import { Icon } from "./Icon";
@@ -47,7 +48,6 @@ export function QuickOpen({ open, onClose, onAskBark }: QuickOpenProps) {
       setEntries((result?.entries || []).filter((entry) => entry.kind === "file"));
       setLoading(false);
     });
-    window.setTimeout(() => inputRef.current?.focus(), 20);
   }, [open]);
 
   const results = useMemo(() => {
@@ -110,16 +110,8 @@ export function QuickOpen({ open, onClose, onAskBark }: QuickOpenProps) {
   const longFile = lines.length > 800;
 
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/65 p-4 backdrop-blur-[2px]"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Quick open"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <div className="flex h-[min(720px,86vh)] w-full max-w-[1080px] overflow-hidden rounded-[14px] border border-border bg-bg shadow-2xl">
+    <AccessibleDialog label="Quick open" onClose={onClose} className="quick-open-dialog">
+      <div className="quick-open-body flex h-[min(720px,86vh)] w-full max-w-[1080px] overflow-hidden bg-bg">
         <div className="flex w-[360px] shrink-0 flex-col border-r border-border/80">
           <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border/70 px-3">
             <Icon name="search" size={14} className="text-muted" />
@@ -277,6 +269,6 @@ export function QuickOpen({ open, onClose, onAskBark }: QuickOpenProps) {
           )}
         </div>
       </div>
-    </div>
+    </AccessibleDialog>
   );
 }

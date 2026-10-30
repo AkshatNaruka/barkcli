@@ -20,7 +20,7 @@ function thread(partial: Partial<ThreadSummary> & { id: string }): ThreadSummary
 }
 
 describe("thread grouping", () => {
-  it("maps server status and board columns into four navigator groups", () => {
+  it("maps server status and board columns into navigator groups", () => {
     expect(threadGroup(thread({ id: "a", status_group: "needs_you" }))).toBe("needs_you");
     expect(threadGroup(thread({ id: "b", status_group: "stalled" }))).toBe("needs_you");
     expect(threadGroup(thread({ id: "c", status_group: "running" }))).toBe("running");
@@ -31,6 +31,9 @@ describe("thread grouping", () => {
     );
     expect(threadGroup(thread({ id: "g", status_group: "", column: "doing" }))).toBe("running");
     expect(threadGroup(thread({ id: "h", status_group: "", column: "done" }))).toBe("settled");
+    expect(threadGroup(thread({ id: "i", status_group: "needs_you", pinned: true }))).toBe(
+      "pinned"
+    );
   });
 
   it("sorts newest activity first inside each group and keeps empty groups", () => {
@@ -41,14 +44,15 @@ describe("thread grouping", () => {
     ]);
 
     expect(groups.map((group) => group.key)).toEqual([
+      "pinned",
       "needs_you",
       "running",
       "drafts",
       "settled",
     ]);
-    expect(groups[1].items.map((item) => item.id)).toEqual(["new", "old"]);
-    expect(groups[2].items).toEqual([]);
+    expect(groups[2].items.map((item) => item.id)).toEqual(["new", "old"]);
     expect(groups[3].items).toEqual([]);
+    expect(groups[4].items).toEqual([]);
   });
 
   it("filters by title, id, backend, and column without mutating the list", () => {

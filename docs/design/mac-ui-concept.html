@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Bark — proposed building flow</title>
+  <style>
+    :root {
+      font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+      color: var(--foreground, #242220);
+      --line: var(--border, #ded9d3);
+      --quiet: var(--muted-foreground, #6a625a);
+      --pane: var(--card, #ffffff);
+      --sidebar: var(--secondary, #f5f2ed);
+      --action: var(--primary, #9d532a);
+      --action-text: var(--primary-foreground, #ffffff);
+      --selected: var(--accent-surface, var(--secondary, #f5f2ed));
+      --good: var(--success, #23744f);
+      --bad: var(--destructive, #ad3426);
+      --warn: var(--warning, #8a5b13);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: transparent; }
+    body { font-size: 13px; line-height: 1.5; }
+    button, select, textarea, input { font: inherit; color: inherit; }
+    button { cursor: pointer; border: 0; background: transparent; border-radius: 6px; }
+    button:hover { background: var(--selected); }
+    button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-visible, summary:focus-visible {
+      outline: 2px solid var(--ring, var(--action)); outline-offset: 3px;
+    }
+    button[aria-pressed="true"] { background: var(--selected); font-weight: 600; }
+    button:disabled { cursor: default; opacity: .55; }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 12px; }
+    .controls label { font-weight: 600; }
+    select { padding: 6px 24px 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--pane); }
+    .explanation { color: var(--quiet); font-size: 12px; margin: 0 0 16px; max-width: 75ch; }
+    .app { display: grid; grid-template-columns: 248px minmax(0, 1fr); gap: 1px; background: transparent; }
+    .sidebar { background: var(--sidebar); border-radius: var(--radius, 12px); padding: 16px; display: flex; flex-direction: column; gap: 14px; min-height: 560px; }
+    .project { display: block; font-size: 15px; font-weight: 600; }
+    .project small { display: block; color: var(--quiet); font-size: 12px; font-weight: 400; margin-top: 2px; }
+    .new { border: 1px solid var(--line); min-height: 34px; text-align: left; padding: 6px 10px; display: flex; justify-content: space-between; align-items: center; }
+    kbd { font-family: var(--font-mono, ui-monospace, monospace); font-size: 11px; font-weight: 400; color: var(--quiet); }
+    nav { display: grid; gap: 3px; }
+    nav button { display: flex; justify-content: space-between; text-align: left; padding: 7px 10px; min-height: 34px; }
+    .count { border: 1px solid var(--line); border-radius: 4px; font-size: 11px; padding: 0 5px; font-variant-numeric: tabular-nums; }
+    .search { width: 100%; background: var(--pane); border: 1px solid var(--line); border-radius: 6px; min-height: 32px; padding: 5px 9px; }
+    h2, h3, p { margin: 0; }
+    .group-label { color: var(--quiet); font-size: 12px; font-weight: 500; margin-bottom: 5px; }
+    .thread { padding: 8px 10px; text-align: left; width: 100%; min-width: 0; }
+    .thread strong { display: block; font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
+    .thread small { display: block; font-size: 12px; color: var(--quiet); margin-top: 2px; }
+    .sidebar-footer { margin-top: auto; display: flex; flex-wrap: wrap; gap: 10px; padding-top: 16px; }
+    .sidebar-footer button { min-height: 28px; text-align: left; color: var(--quiet); }
+    details { font-size: 12px; }
+    summary { cursor: pointer; padding: 5px 0; }
+    .tools { display: grid; gap: 12px; padding-top: 10px; }
+    .tools p { color: var(--quiet); margin-bottom: 3px; }
+    .tools button { display: block; min-height: 28px; text-align: left; width: 100%; }
+    .workspace { background: var(--pane); border-radius: var(--radius, 12px); padding: 16px; min-width: 0; display: flex; flex-direction: column; min-height: 560px; }
+    .workspace-header { display: flex; align-items: center; gap: 12px; min-height: 32px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+    .workspace-header h2 { font-size: 14px; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+    .workspace-header button { margin-left: auto; min-height: 28px; white-space: nowrap; font-size: 12px; }
+    .mobile-nav { display: none; }
+    .reading { max-width: 74ch; padding: 24px 8px; }
+    .reading h3 { font-size: 18px; font-weight: 600; margin: 8px 0 10px; letter-spacing: -.015em; }
+    .reading p { color: var(--quiet); margin-top: 10px; }
+    .state-label { display: inline-flex; gap: 7px; align-items: center; font-size: 12px; font-weight: 500; }
+    .state-label::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .good { color: var(--good); }
+    .warning { color: var(--warn); }
+    .error { color: var(--bad); }
+    .steps { list-style: decimal; padding-left: 20px; margin: 20px 0; }
+    .steps li { margin: 9px 0; }
+    .primary { background: var(--action); color: var(--action-text); font-weight: 500; min-height: 34px; padding: 6px 12px; }
+    .primary:hover { background: var(--action); filter: brightness(1.08); }
+    .secondary { border: 1px solid var(--line); min-height: 34px; padding: 6px 10px; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 20px; }
+    .activity { border-block: 1px solid var(--line); margin-top: 24px; padding: 12px 0; }
+    .activity p { margin-top: 6px; }
+    .composer { margin-top: auto; border: 1px solid var(--line); border-radius: 9px; padding: 12px; }
+    textarea { width: 100%; border: 0; resize: vertical; min-height: 66px; background: transparent; }
+    textarea::placeholder, input::placeholder { color: var(--quiet); opacity: 1; }
+    .composer-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 8px; }
+    .mode { display: flex; gap: 2px; }
+    .mode button { min-height: 30px; padding: 4px 8px; }
+    .agent { color: var(--quiet); font-size: 12px; }
+    .composer-footer .primary { margin-left: auto; }
+    .hint { color: var(--quiet); font-size: 12px; margin: 8px 0 0; }
+    .workbench { display: none; background: var(--pane); border-radius: var(--radius, 12px); padding: 16px; min-width: 0; }
+    .workbench header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); padding-bottom: 12px; }
+    .workbench h3 { font-size: 14px; }
+    .workbench header button { min-height: 28px; padding: 3px 7px; }
+    .tabs { display: flex; gap: 8px; margin: 12px 0; }
+    .tabs button { min-height: 30px; padding: 4px 8px; }
+    .files { display: grid; gap: 2px; margin-block: 16px; }
+    .files button { text-align: left; min-height: 32px; padding: 5px 8px; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; }
+    pre { margin: 0; overflow: auto; font-size: 12px; line-height: 1.8; font-family: var(--font-mono, ui-monospace, monospace); background: var(--code-background, var(--sidebar)); padding: 12px; border-radius: 6px; }
+    .added { color: var(--good); }
+    .deleted { color: var(--bad); }
+    .check-row { display: grid; gap: 4px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+    .check-row small { color: var(--quiet); }
+    .compact-artifact { display: none; }
+    .notice { margin-top: 12px; color: var(--quiet); font-size: 12px; min-height: 18px; }
+    .chart { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line); }
+    .chart-title { font-size: 13px; font-weight: 600; }
+    .chart-row { display: grid; grid-template-columns: 82px 1fr 26px; align-items: center; gap: 12px; margin-top: 10px; font-size: 12px; }
+    .bar { height: 8px; background: var(--muted-foreground, #8d8378); border-radius: 2px; }
+    .bar.proposed { width: 28.5714%; background: var(--primary, #9d532a); }
+    .chart p { font-size: 12px; color: var(--quiet); margin-top: 10px; }
+    [hidden] { display: none !important; }
+    @media (min-width: 1280px) {
+      .app.artifact-open { grid-template-columns: 248px minmax(600px, 1fr) 420px; }
+      .app.artifact-open .workbench { display: block; }
+    }
+    @media (max-width: 1279px) {
+      .compact-artifact { display: inline-block; }
+      .app.focus-artifact .workspace { display: none; }
+      .app.focus-artifact .workbench { display: block; }
+    }
+    @media (max-width: 899px) {
+      .app { grid-template-columns: minmax(0, 1fr); }
+      .sidebar { display: none; min-height: auto; }
+      .app.nav-open .sidebar { display: flex; }
+      .app.nav-open .workspace, .app.nav-open .workbench { display: none; }
+      .mobile-nav { display: inline-block; }
+      .workspace-header { flex-wrap: wrap; }
+      .workspace-header .mobile-nav { margin-left: 0; }
+      .workspace { min-height: 530px; }
+      .reading { padding: 20px 0; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <label for="scene">Explore the proposed flow</label>
+    <select id="scene">
+      <option value="start">New thread</option>
+      <option value="plan">Plan ready</option>
+      <option value="building">Building</option>
+      <option value="review">Ready to review</option>
+      <option value="unverified">Not verified</option>
+      <option value="setup">Agent setup</option>
+    </select>
+  </div>
+  <p class="explanation">Design concept with illustrative content. Controls simulate the proposed flow; no agent runs, checks, file changes, or merges occur.</p>
+  <div class="app" id="app">
+    <aside class="sidebar" aria-label="Proposed navigation">
+      <div class="project">barkcli<small>Local project</small></div>
+      <button class="new" data-scene="start">New thread <kbd>⌘N</kbd></button>
+      <nav aria-label="Main destinations">
+        <button id="nav-build" data-scene="start" aria-pressed="true">Build</button>
+        <button id="nav-review" data-scene="review" aria-pressed="false">Review <span class="count">1</span></button>
+      </nav>
+      <input class="search" id="thread-search" type="search" aria-label="Search example threads" placeholder="Search threads…" autocomplete="off">
+      <section id="thread-list" aria-label="Example threads">
+        <p class="group-label">Needs you</p>
+        <button class="thread" data-scene="review"><strong>Clarify the build action</strong><small>Ready to review</small></button>
+        <p class="group-label" style="margin-top:16px">Recent</p>
+        <button class="thread" data-scene="plan"><strong>Simplify project navigation</strong><small>Plan ready</small></button>
+      </section>
+      <details>
+        <summary>Project tools</summary>
+        <div class="tools">
+          <div><p>Planning</p><button data-tool="Board">Board</button><button data-tool="Specs">Specs</button><button data-tool="Calendar, Reports & Sprints">Calendar, Reports & Sprints</button></div>
+          <div><p>Agent setup</p><button data-scene="setup">Agents</button><button data-tool="Skills & Rules">Skills & Rules</button><button data-tool="Context & memory">Context & memory</button></div>
+          <div><p>History & maintenance</p><button data-tool="History & Checkpoints">History & Checkpoints</button><button data-tool="Ship">Ship</button></div>
+        </div>
+      </details>
+      <div class="sidebar-footer"><button data-tool="Settings">Settings <kbd>⌘,</kbd></button><button data-tool="Help">Help</button><button class="mobile-nav" id="back-from-nav">Back to thread</button></div>
+    </aside>
+    <main class="workspace">
+      <header class="workspace-header">
+        <button class="mobile-nav secondary" id="show-nav">Sidebar</button>
+        <h2 id="thread-title">New thread</h2>
+        <button id="open-artifact" hidden>Review changes</button>
+      </header>
+      <div class="reading" id="reading"></div>
+      <form class="composer" id="composer">
+        <textarea id="prompt" aria-label="What do you want to build?" placeholder="What do you want to build?" rows="2"></textarea>
+        <div class="composer-footer">
+          <div class="mode" role="group" aria-label="Composer mode">
+            <button type="button" id="mode-ask" aria-pressed="false">Ask</button>
+            <button type="button" id="mode-build" aria-pressed="true">Build</button>
+          </div>
+          <span class="agent">Local agent · CLI default</span>
+          <button class="primary" type="submit" id="send">Plan changes</button>
+        </div>
+      </form>
+      <p class="hint" id="composer-hint">Review the plan before building. ⌘Return to submit.</p>
+    </main>
+    <aside class="workbench" aria-label="Example workbench">
+      <header><h3>Review changes</h3><button class="secondary" id="close-artifact">Back to thread</button></header>
+      <div class="tabs" aria-label="Evidence views">
+        <button id="changes-tab" aria-pressed="true">Changes</button>
+        <button id="checks-tab" aria-pressed="false">Checks</button>
+      </div>
+      <div id="artifact-content"></div>
+    </aside>
+  </div>
+  <p class="notice" id="notice" role="status" aria-live="polite">Use the screen selector to compare the main states.</p>
+  <figure class="chart" aria-label="Persistent product destinations: current 7, proposed 2" style="margin-inline:0">
+    <figcaption class="chart-title">Persistent product destinations</figcaption>
+    <div class="chart-row"><span>Current</span><span class="bar"></span><span>7</span></div>
+    <div class="chart-row"><span>Proposed</span><span class="bar proposed"></span><span>2</span></div>
+    <p>Project tools, Settings, and Help stay reachable. This counts navigation links, not task speed or feature count.</p>
+  </figure>
+  <script>
+    const app = document.getElementById('app');
+    const sceneSelect = document.getElementById('scene');
+    const reading = document.getElementById('reading');
+    const title = document.getElementById('thread-title');
+    const composer = document.getElementById('composer');
+    const prompt = document.getElementById('prompt');
+    const notice = document.getElementById('notice');
+    const openArtifact = document.getElementById('open-artifact');
+    let scene = 'start';
+    let mode = 'build';
+    let artifactTab = 'changes';
+    let file = 'composer';
+    const screens = {
+      start: ['New thread', '<span class="state-label">Ready</span><h3>What do you want to build?</h3><p>Describe the outcome. Bark prepares a plan, then builds in an isolated worktree after approval.</p>'],
+      plan: ['Simplify project navigation', '<span class="state-label warning">Plan ready</span><h3>One sidebar for the building flow</h3><ol class="steps"><li>Combine navigation and threads.</li><li>Keep Build and Review in the default view.</li><li>Keep every existing tool reachable from Project tools.</li></ol><p>Acceptance: legacy links still open, keyboard navigation works, and drafts survive switching views.</p><div class="actions"><button class="primary" data-scene="building">Approve plan & build</button><button class="secondary" data-feedback="plan">Request plan changes</button></div>'],
+      building: ['Simplify project navigation', '<span class="state-label">Building</span><h3>Updating the workspace sidebar</h3><p>Working in an isolated worktree. Your main checkout stays available.</p><details class="activity"><summary>Example activity · 3 operations</summary><p>Read the current navigation.</p><p>Update the sidebar and command registry.</p><p>Prepare the route compatibility checks.</p></details><div class="actions"><button class="secondary" id="stop-build">Stop build</button></div>'],
+      review: ['Clarify the build action', '<span class="state-label good">Ready to review</span><h3>One clear action for each step</h3><p>Illustrative result: the composer prepares the plan and starts one approved run. Two files changed.</p><div class="activity"><strong class="good">Example checks passed</strong><p>See the command, tested revision, and result before merging.</p></div><div class="actions"><button class="primary" data-open-artifact>Review changes</button><button class="secondary" data-feedback="changes">Request changes</button></div>'],
+      unverified: ['Clarify the build action', '<span class="state-label warning">Not verified</span><h3>Choose how to verify this project</h3><p>No verification command was configured. The build remains available for inspection; merge waits for real checks.</p><div class="actions"><button class="primary" id="choose-checks">Choose checks</button><button class="secondary" data-open-artifact>Inspect changes</button></div>'],
+      setup: ['Connect a local agent', '<span class="state-label warning">Setup needed</span><h3>Choose an installed coding agent</h3><p>Bark uses your local agent. Install or sign in with your preferred provider, then recheck readiness.</p><div class="actions"><button class="primary" id="recheck-agent">Recheck agents</button></div><p>Your draft stays here while you finish setup.</p>']
+    };
+    function showScene(next) {
+      scene = next;
+      sceneSelect.value = next;
+      app.classList.remove('nav-open', 'focus-artifact');
+      app.classList.toggle('artifact-open', next === 'review' || next === 'unverified');
+      title.textContent = screens[next][0];
+      reading.innerHTML = screens[next][1];
+      composer.hidden = next === 'building' || next === 'review' || next === 'unverified';
+      document.getElementById('composer-hint').hidden = composer.hidden;
+      openArtifact.hidden = next !== 'review' && next !== 'unverified';
+      document.getElementById('nav-build').setAttribute('aria-pressed', String(next !== 'review' && next !== 'unverified'));
+      document.getElementById('nav-review').setAttribute('aria-pressed', String(next === 'review' || next === 'unverified'));
+      renderArtifact();
+    }
+    function renderArtifact() {
+      const content = document.getElementById('artifact-content');
+      document.getElementById('changes-tab').setAttribute('aria-pressed', String(artifactTab === 'changes'));
+      document.getElementById('checks-tab').setAttribute('aria-pressed', String(artifactTab === 'checks'));
+      if (artifactTab === 'checks') {
+        content.innerHTML = scene === 'unverified'
+          ? '<div class="check-row"><strong class="warning">Not verified</strong><small>No command configured. Merge is unavailable.</small></div><p class="hint">A skipped gate never appears as checks passed.</p>'
+          : '<div class="check-row"><strong class="good">Example check passed</strong><code>npm --prefix web test</code><small>Illustrative exit 0 · sample revision</small></div><p class="hint">This is design content, not a test result from this repository.</p><details style="margin-top:16px"><summary>Evidence & provenance</summary><p>Implementation will show the real run, tested head, command output, and receipt.</p></details>';
+        return;
+      }
+      const code = file === 'composer'
+        ? '<span class="deleted">− saveNote(prompt)</span>\n<span class="added">+ preparePlan(prompt)</span>\n<span class="added">+ await approveAndStart(plan)</span>'
+        : '<span class="deleted">− showAllSurfaceButtons()</span>\n<span class="added">+ showBuildAndReview()</span>\n<span class="added">+ keepProjectToolsReachable()</span>';
+      content.innerHTML = '<p class="hint">Illustrative pseudocode · 2 files</p><div class="files"><button data-file="composer">ThreadComposer.tsx</button><button data-file="sidebar">WorkspaceSidebar.tsx</button></div><pre aria-label="Example changes"><code>' + code + '</code></pre>'
+        + (scene === 'unverified' ? '<p class="hint warning">Not verified. Choose checks before merge.</p>' : '<p class="hint good">Example checks passed · review still required</p><div class="actions"><button class="primary" id="merge-example">Approve & merge</button></div>');
+    }
+    function setMode(next) {
+      mode = next;
+      document.getElementById('mode-ask').setAttribute('aria-pressed', String(next === 'ask'));
+      document.getElementById('mode-build').setAttribute('aria-pressed', String(next === 'build'));
+      document.getElementById('send').textContent = next === 'ask' ? 'Ask' : 'Plan changes';
+      document.getElementById('composer-hint').textContent = next === 'ask' ? 'Read-only. ⌘Return to submit.' : 'Review the plan before building. ⌘Return to submit.';
+      prompt.placeholder = next === 'ask' ? 'Ask about the code or the plan…' : 'What do you want to build?';
+    }
+    document.addEventListener('click', (event) => {
+      const button = event.target.closest('button');
+      if (!button) return;
+      if (button.dataset.scene) showScene(button.dataset.scene);
+      if (button.dataset.tool) notice.textContent = 'Proposed destination: ' + button.dataset.tool + '. Existing functionality stays reachable; it is not reproduced in this concept.';
+      if (button.dataset.feedback) { showScene('plan'); prompt.focus(); notice.textContent = 'Concept: write feedback in the same thread; the next plan or attempt remains linked to the reviewed work.'; }
+      if (button.hasAttribute('data-open-artifact') || button.id === 'open-artifact') { app.classList.add('focus-artifact'); notice.textContent = 'On narrower windows, the artifact uses the content area. Back to thread restores the conversation.'; }
+      if (button.id === 'close-artifact') { app.classList.remove('focus-artifact'); openArtifact.focus(); }
+      if (button.id === 'show-nav') { app.classList.add('nav-open'); document.querySelector('.new').focus(); }
+      if (button.id === 'back-from-nav') { app.classList.remove('nav-open'); document.getElementById('show-nav').focus(); }
+      if (button.id === 'mode-ask') setMode('ask');
+      if (button.id === 'mode-build') setMode('build');
+      if (button.id === 'stop-build') { showScene('start'); title.textContent = 'Build stopped'; reading.innerHTML = '<span class="state-label warning">Stopped</span><h3>Your partial work stays available</h3><p>The proposed stop action preserves the worktree and output for review or retry.</p>'; }
+      if (button.id === 'choose-checks') notice.textContent = 'Proposed control: choose a real discovered verification command or enter a custom command. This concept does not execute it.';
+      if (button.id === 'recheck-agent') notice.textContent = 'Concept only: implementation rechecks installed provider readiness and keeps your draft; no provider probe runs here.';
+      if (button.dataset.file) { file = button.dataset.file; renderArtifact(); }
+      if (button.id === 'changes-tab' || button.id === 'checks-tab') { artifactTab = button.id === 'changes-tab' ? 'changes' : 'checks'; renderArtifact(); }
+      if (button.id === 'merge-example') { showScene('start'); title.textContent = 'Illustrative merge result'; reading.innerHTML = '<span class="state-label good">Merged · example only</span><h3>The next outcome starts here</h3><p>In the app, this state appears only after a server-confirmed merge with current verification evidence.</p>'; notice.textContent = 'No merge occurred. This is the proposed completion state.'; }
+    });
+    sceneSelect.addEventListener('change', () => showScene(sceneSelect.value));
+    composer.addEventListener('submit', (event) => {
+      event.preventDefault();
+      if (!prompt.value.trim()) { prompt.focus(); notice.textContent = 'Add an outcome or question first, or choose a sample screen above.'; return; }
+      if (mode === 'build') showScene('plan');
+      else { notice.textContent = 'Concept: Ask starts a read-only local-agent reply. This concept has no agent connection.'; }
+    });
+    prompt.addEventListener('keydown', (event) => {
+      if (!event.isComposing && event.key === 'Enter' && (event.metaKey || event.ctrlKey)) { event.preventDefault(); composer.requestSubmit(); }
+    });
+    document.getElementById('thread-search').addEventListener('input', (event) => {
+      const query = event.target.value.toLowerCase();
+      document.querySelectorAll('.thread').forEach((row) => { row.hidden = !row.textContent.toLowerCase().includes(query); });
+    });
+    showScene('start');
+  </script>
+</body>
+</html>

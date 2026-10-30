@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useRouteState, updateRouteState } from "../lib/hashnav";
 import { Icon, type IconName } from "../components/Icon";
 import { OrchestraWorkView } from "../components/OrchestraWorkView";
 import { SprintView } from "../components/SprintView";
@@ -30,7 +31,9 @@ export function AgentsSurface({
   onSprintChanged: () => void;
   onEditCard: (card: Card) => void;
 }) {
-  const [tab, setTab] = useState<AgentsTab>("team");
+  const location = useRouteState();
+  const tab: AgentsTab = TABS.some((item) => item.id === location.tool) ? location.tool as AgentsTab : "team";
+  const setTab = (next: AgentsTab) => updateRouteState({ tool: next });
 
   return (
     <div className="h-full flex flex-col min-h-0">
