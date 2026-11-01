@@ -25,6 +25,7 @@ import type {
   HistoryEntry,
   SessionEntry,
 } from "../lib/types";
+import { QuietSelect } from "./QuietSelect";
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -1712,7 +1713,7 @@ export function HistoryView({
                     <span className="text-danger">-{shortNumber(commitDeletions)}</span>
                   </span>
                   {branchOptions.length > 0 ? (
-                    <select
+                    <QuietSelect
                       value={branchValue}
                       onChange={(event) => setBranch(event.target.value)}
                       className="h-7 max-w-[180px] bg-card border border-border/80 rounded-md px-2 text-[10.5px] text-text outline-none focus:border-accent/70"
@@ -1723,7 +1724,7 @@ export function HistoryView({
                           {item}
                         </option>
                       ))}
-                    </select>
+                    </QuietSelect>
                   ) : (
                     <span className="text-[9px] font-mono text-muted/60">{resolvedBranch}</span>
                   )}
@@ -2117,7 +2118,7 @@ export function HistoryView({
                   <span className="block text-[9px] uppercase tracking-[0.12em] text-muted mb-1">
                     Agent
                   </span>
-                  <select
+                  <QuietSelect
                     value={assignAgentId}
                     onChange={(event) => setAssignAgentId(event.target.value)}
                     className={INPUT}
@@ -2128,13 +2129,13 @@ export function HistoryView({
                         {agent.name} ({agent.role})
                       </option>
                     ))}
-                  </select>
+                  </QuietSelect>
                 </label>
                 <label className="block">
                   <span className="block text-[9px] uppercase tracking-[0.12em] text-muted mb-1">
                     Priority
                   </span>
-                  <select
+                  <QuietSelect
                     value={assignPriority}
                     onChange={(event) => setAssignPriority(event.target.value)}
                     className={INPUT}
@@ -2143,7 +2144,7 @@ export function HistoryView({
                     <option value="medium">Medium</option>
                     <option value="high">High</option>
                     <option value="urgent">Urgent</option>
-                  </select>
+                  </QuietSelect>
                 </label>
               </div>
 
@@ -2172,7 +2173,7 @@ export function HistoryView({
                       key={`${criterion}-${index}`}
                       className="flex items-center gap-2 rounded-md bg-surface/50 px-2 py-1 text-[10px] text-text"
                     >
-                      <span className="text-success">✓</span>
+                      <span className="text-success"><Icon name="check" size={11} /></span>
                       <span className="min-w-0 flex-1 truncate">{criterion}</span>
                       <button
                         type="button"

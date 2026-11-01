@@ -75,6 +75,11 @@ cards:
   checklist: []
   comments: []
   attachments: []
+  links:
+  - ty: child
+    target: history-logging-t1
+  - ty: child
+    target: history-logging-t2
   pinned: false
   version: 1
   created_at: 2026-07-30T07:18:05.326Z
@@ -184,3 +189,71 @@ cards:
   version: 3
   created_at: 2026-10-26T12:28:29.514849Z
   updated_at: 2026-10-26T12:31:39.511090Z
+- id: history-logging-t1
+  title: History logging — slice 1
+  description: |-
+    Part of: History logging
+
+    JSONL history log for all card operations
+
+    Plan: plan_bfd407288f0f4b6a9394bd9d53a099bf
+    Task: t1
+    Role: builder
+  column: todo
+  priority: high
+  labels:
+  - heuristic
+  - orchestra
+  - role:builder
+  checklist:
+  - text: Slice 1 done
+    done: false
+  - text: Gate passes
+    done: false
+  comments: []
+  attachments: []
+  links:
+  - ty: parent
+    target: history-logging
+  acceptance_criteria:
+  - Slice 1 done
+  - Gate passes
+  effort: 1
+  pinned: false
+  version: 1
+  created_at: 2026-11-01T09:42:54.120988Z
+  updated_at: 2026-11-01T09:42:54.120988Z
+- id: history-logging-t2
+  title: History logging — tests
+  description: |-
+    Part of: History logging
+
+    Add tests for the slice
+
+    Plan: plan_bfd407288f0f4b6a9394bd9d53a099bf
+    Task: t2
+    Role: builder
+  column: todo
+  priority: medium
+  labels:
+  - test
+  - orchestra
+  - role:builder
+  checklist:
+  - text: Tests pass
+    done: false
+  - text: Gate passes
+    done: false
+  comments: []
+  attachments: []
+  links:
+  - ty: parent
+    target: history-logging
+  acceptance_criteria:
+  - Tests pass
+  - Gate passes
+  effort: 1
+  pinned: false
+  version: 1
+  created_at: 2026-11-01T09:42:54.120992Z
+  updated_at: 2026-11-01T09:42:54.120992Z

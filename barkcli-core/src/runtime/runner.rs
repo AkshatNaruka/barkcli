@@ -194,6 +194,35 @@ impl RunService {
             .cloned()
             .ok_or_else(|| anyhow!("card '{}' not found", card_id))?;
 
+        // A follow-up is a new attempt, but its code starts with the task's
+        // previous result instead of silently returning to main HEAD.
+        let parent = request.parent_run_id.as_deref()
+            .map(|id| self.store().load_run(id))
+            .transpose()?;
+        let inherited_head = if let Some(parent) = parent.as_ref() {
+            if parent.card_id != card_id {
+                return Err(anyhow!("The selected parent belongs to another thread."));
+            }
+            if !parent.status.is_terminal() {
+                return Err(anyhow!("The previous build is still active. Stop it or wait before continuing."));
+            }
+            if parent.status == RunStatus::Merged {
+                None // The merged code is already in the target branch.
+            } else {
+                let worktree = managed_worktree(parent)?;
+                if !git_out(&worktree, &["status", "--porcelain"])?.is_empty() {
+                    // Stop can leave partial edits. Checkpoint only this
+                    // managed task worktree before branching the next attempt.
+                    // Older verification is invalidated by its changed HEAD.
+                    git_out(&worktree, &["add", "-A"])?;
+                    git_out(&worktree, &["commit", "-m", "bark(run): checkpoint work before continuation"])?;
+                }
+                Some(git_out(&worktree, &["rev-parse", "HEAD"])? )
+            }
+        } else {
+            None
+        };
+
         let run_id = format!("run_{}", uuid::Uuid::new_v4().simple());
         let slug = run_slug(card_id, &run_id);
         let worktree = acquire_worktree(&slug).with_context(|| {
@@ -202,6 +231,12 @@ impl RunService {
             )
         })?;
         let base_sha = git_out(&worktree, &["rev-parse", "HEAD"]).unwrap_or_default();
+        if let Some(head) = inherited_head {
+            if let Err(error) = git_out(&worktree, &["merge", "--no-edit", &head]) {
+                let _ = release_worktree(&slug, true);
+                return Err(error.context("The previous build conflicts with the current target. Resolve its worktree before continuing; the previous work is preserved."));
+            }
+        }
         let branch = format!("bark/{slug}");
         let provider = request
             .provider
@@ -237,6 +272,12 @@ impl RunService {
         } else {
             None
         };
+
+        let history = super::chat::history_prompt(card_id, request.prompt.as_deref().unwrap_or(""));
+        if !history.is_empty() {
+            request.prompt = Some(format!("Conversation so far (reference):\n{history}\n\nCurrent request:\n{}",
+                request.prompt.as_deref().unwrap_or(&card.title)));
+        }
 
         // Compile the reusable context pack before the provider starts. If
         // compilation fails we still ship the run with the legacy prompt: a
@@ -716,12 +757,10 @@ impl RunService {
 fn run_slug(card_id: &str, run_id: &str) -> String {
     let card = crate::util::slug::to_slug(card_id);
     let short = run_id.trim_start_matches("run_").chars().take(8).collect::<String>();
-    let mut slug = format!("{}-{}", card, short);
-    if slug.len() > 56 {
-        slug.truncate(56);
-        slug = slug.trim_end_matches('-').to_string();
-    }
-    slug
+    // Reserve the attempt suffix before truncating the prompt-derived title.
+    // Long prompts must not give every follow-up the same worktree path.
+    let prefix = card.chars().take(56 - short.len() - 1).collect::<String>();
+    format!("{}-{}", prefix.trim_end_matches('-'), short)
 }
 
 fn build_prompt(card: &crate::models::Card, extra: Option<&str>) -> String {
@@ -1224,6 +1263,17 @@ pub fn gate_summary(run: &RunRecord) -> Option<GateSummary> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn long_thread_titles_keep_distinct_attempt_worktrees() {
+        let title = "a-very-long-task-title-".repeat(10);
+        let first = run_slug(&title, "run_12345678abcd");
+        let second = run_slug(&title, "run_87654321abcd");
+        assert_ne!(first, second);
+        assert!(first.ends_with("12345678"));
+        assert!(second.ends_with("87654321"));
+        assert!(first.len() <= 56);
+    }
 
     #[test]
     fn slug_is_bounded_and_stable() {

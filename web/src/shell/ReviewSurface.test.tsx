@@ -42,7 +42,7 @@ describe("ReviewSurface", () => {
     render(<ReviewSurface boardName="dev" />);
 
     expect(await screen.findByText("No build yet · plan only")).toBeInTheDocument();
-    expect(screen.getByText("Nothing has been built for this thread yet.")).toBeInTheDocument();
+    expect(screen.getByText(/Nothing has been built for this thread yet/)).toBeInTheDocument();
     expect(screen.getByText("Open thread")).toBeInTheDocument();
     expect(screen.queryByText("Review priority")).not.toBeInTheDocument();
   });

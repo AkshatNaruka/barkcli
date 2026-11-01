@@ -24,6 +24,7 @@ import {
   mergeRun,
   retryOrchestraTask,
 } from "../lib/api";
+import { QuietSelect } from "./QuietSelect";
 
 const PLAN_STATUS_LABEL: Record<PlanStatus, string> = {
   draft: "Draft",
@@ -102,7 +103,8 @@ export function OrchestraWorkView({
     async (initial = false, advance = false) => {
       if (initial) setLoading(true);
       const next = await fetchOrchestra(advance);
-      if (next) setSnapshot(next);
+      if (next) { setSnapshot(next); setError(null); }
+      else setError("Could not load orchestration. Check the local server and refresh.");
       setLoading(false);
     },
     []
@@ -254,7 +256,7 @@ export function OrchestraWorkView({
             <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card/45 px-3 py-2.5">
               <Icon name="spark" size={13} className="text-accent-text" />
               <span className="text-[11px] text-muted">Plan a card</span>
-              <select
+              <QuietSelect
                 value={selectedCard}
                 onChange={(e) => setSelectedCard(e.target.value)}
                 className="min-w-[250px] flex-1 rounded border border-border bg-surface px-2 py-1.5 text-[11.5px] text-text outline-none focus:border-accent"
@@ -265,7 +267,7 @@ export function OrchestraWorkView({
                     {card.title}
                   </option>
                 ))}
-              </select>
+              </QuietSelect>
               <button
                 onClick={() => void createPlan()}
                 disabled={!selectedCard || busy === "create"}
@@ -626,7 +628,7 @@ function PlanCard({
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
                       {candidates.length > 0 && task.status !== "running" && (
-                        <select
+                        <QuietSelect
                           value={task.agent_id || ""}
                           onChange={(e) => {
                             if (e.target.value) void onAssign(task, e.target.value);
@@ -640,7 +642,7 @@ function PlanCard({
                               {profile.name}
                             </option>
                           ))}
-                        </select>
+                        </QuietSelect>
                       )}
                       <button
                         onClick={() => onWhy(task)}

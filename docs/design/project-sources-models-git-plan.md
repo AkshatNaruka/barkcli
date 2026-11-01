@@ -5,6 +5,8 @@ Status: proposed implementation plan
 Scope: shared `web/` UI, `desktop/` Tauri shell, `barkcli-server`, `barkcli-core`  
 Reference: three product screenshots supplied on 2026-10-30 (project sources, model picker, project/git menu)
 
+> **Implementation snapshot (2026-10-31):** the composer model picker is implemented as described here — controlled popover, provider rail, model search, favorites, scoped `⌘1–5`, and outside-click/Escape close. The project switcher and project/git status panel remain planned.
+
 ## 1. Decision
 
 Bark should make three setup/context actions feel like one continuous workspace:

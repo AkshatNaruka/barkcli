@@ -17,8 +17,8 @@ import { GraphNodeCard, type BrainNodeData } from "./brain/GraphNodeCard";
 import { layoutGraph, TIER, KIND_ICON, NODE_W, NODE_H } from "./brain/layout";
 import { ContributionsPanel } from "./ContributionsPanel";
 
-export function BrainView({ boardName }: { boardName: string | null }) {
-  const [mode, setMode] = useState<"graph" | "contributions">("graph");
+export function BrainView({ boardName, initialMode = "graph" }: { boardName: string | null; initialMode?: "graph" | "contributions" }) {
+  const [mode, setMode] = useState<"graph" | "contributions">(initialMode);
   const [nodes, setNodes] = useState<BrainNode[]>([]);
   const [edges, setEdges] = useState<BrainEdge[]>([]);
   const [loading, setLoading] = useState(true);

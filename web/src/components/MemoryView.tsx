@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import type { MemoryEntry, ProjectFact, MemoryTier } from "../lib/types";
 import { Icon } from "./Icon";
 import { fetchMemory, addMemory, deleteMemory, fetchMemoryStats, addFact, fetchFacts, ingestMemory, consolidateMemory } from "../lib/api";
+import { QuietSelect } from "./QuietSelect";
 
 const TIER_COLORS: Record<string, string> = {
   working: "#60a5fa",
@@ -145,7 +146,7 @@ export function MemoryView({ boardName }: { boardName: string | null }) {
               placeholder="Search memories..."
               className="flex-1 bg-card rounded-lg px-3 py-2 text-sm text-text placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent"
             />
-            <select
+            <QuietSelect
               value={filterTier}
               onChange={e => setFilterTier(e.target.value)}
               className="bg-card rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:ring-1 focus:ring-accent"
@@ -155,7 +156,7 @@ export function MemoryView({ boardName }: { boardName: string | null }) {
               <option value="short_term">Short-term</option>
               <option value="long_term">Long-term</option>
               <option value="external">External</option>
-            </select>
+            </QuietSelect>
           </div>
 
           {/* Add Memory */}
@@ -168,7 +169,7 @@ export function MemoryView({ boardName }: { boardName: string | null }) {
               rows={2}
             />
             <div className="flex items-center gap-2 mt-2">
-              <select
+              <QuietSelect
                 value={newTier}
                 onChange={e => setNewTier(e.target.value as MemoryTier)}
                 className="bg-card border border-border rounded px-2 py-1 text-xs text-text"
@@ -177,7 +178,7 @@ export function MemoryView({ boardName }: { boardName: string | null }) {
                 <option value="short_term">Short-term</option>
                 <option value="long_term">Long-term</option>
                 <option value="external">External</option>
-              </select>
+              </QuietSelect>
               <input
                 type="text"
                 value={newTags}
@@ -268,7 +269,7 @@ export function MemoryView({ boardName }: { boardName: string | null }) {
                 rows={2}
               />
               <div className="flex items-center gap-2 mt-2">
-                <select
+                <QuietSelect
                   value={factCategory}
                   onChange={e => setFactCategory(e.target.value)}
                   className="bg-card border border-border rounded px-2 py-1 text-xs text-text"
@@ -277,7 +278,7 @@ export function MemoryView({ boardName }: { boardName: string | null }) {
                   <option value="pattern">Pattern</option>
                   <option value="decision">Decision</option>
                   <option value="preference">Preference</option>
-                </select>
+                </QuietSelect>
                 <button
                   onClick={handleAddFact}
                   disabled={!factText.trim()}

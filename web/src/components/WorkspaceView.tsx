@@ -399,7 +399,7 @@ export function WorkspaceView({
                   <div className="mt-3 rounded-md border border-border/60 bg-bg/40 px-2.5 py-2 font-mono text-[10px] text-muted">
                     {steps.map((step) => (
                       <div key={step.id} className="flex gap-2 py-0.5">
-                        <span className={step.ok ? "text-emerald-400" : "text-amber-400"}>{step.ok ? "✓" : "!"}</span>
+                        <span className={step.ok ? "text-emerald-400" : "text-amber-400"}><Icon name={step.ok ? "check" : "warn"} size={11} /></span>
                         <span className="min-w-0 flex-1">{step.detail}</span>
                       </div>
                     ))}

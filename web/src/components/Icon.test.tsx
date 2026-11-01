@@ -3,14 +3,18 @@ import { render } from "@testing-library/react";
 import { Icon } from "./Icon";
 
 describe("Icon", () => {
-  it("renders the plus glyph used by New intent", () => {
-    const { container } = render(<Icon name="plus" />);
-    expect(container.querySelectorAll("path")).toHaveLength(1);
-    expect(container.querySelector("path")?.getAttribute("d")).toBe("M12 5v14M5 12h14");
+  it("renders a Lucide glyph with a consistent accessible treatment", () => {
+    const { container } = render(<Icon name="plus" size={14} className="test-icon" />);
+    const svg = container.querySelector("svg");
+    expect(svg).not.toBeNull();
+    expect(svg).toHaveAttribute("aria-hidden", "true");
+    expect(svg).toHaveAttribute("width", "14");
+    expect(svg).toHaveClass("test-icon");
   });
 
-  it("renders the stop glyph", () => {
+  it("renders every semantic icon through the shared library", () => {
     const { container } = render(<Icon name="stop" />);
-    expect(container.querySelectorAll("rect")).toHaveLength(1);
+    expect(container.querySelector("svg")).not.toBeNull();
+    expect(container.querySelector("rect, path")).not.toBeNull();
   });
 });

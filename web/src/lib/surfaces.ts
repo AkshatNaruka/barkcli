@@ -12,7 +12,8 @@ export type Surface =
   | "skills"
   | "operations"
   | "history"
-  | "hub";
+  | "hub"
+  | "projects";
 
 export interface SurfaceDef {
   id: Surface;
@@ -36,7 +37,7 @@ export const SURFACES: SurfaceDef[] = [
 ];
 
 export function isSurface(value: string): value is Surface {
-  return SURFACES.some((s) => s.id === value);
+  return value === "projects" || SURFACES.some((s) => s.id === value);
 }
 
 /**

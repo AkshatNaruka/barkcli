@@ -13,6 +13,7 @@ export function AccessibleDialog({ label, onClose, children, className = "" }: {
     const focusable = () => Array.from(container?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex="0"]') || []).filter((element) => !element.closest("[hidden]") && (!element.closest("details:not([open])") || element.tagName === "SUMMARY"));
     (focusable()[0] || container)?.focus();
     const key = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.isComposing) return;
       if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); close.current(); }
       if (event.key !== "Tab") return;
       const items = focusable();
@@ -20,8 +21,9 @@ export function AccessibleDialog({ label, onClose, children, className = "" }: {
       if (event.shiftKey && (document.activeElement === items[0] || document.activeElement === container)) { event.preventDefault(); items[items.length - 1].focus(); }
       else if (!event.shiftKey && document.activeElement === items[items.length - 1]) { event.preventDefault(); items[0].focus(); }
     };
-    document.addEventListener("keydown", key, true);
-    return () => { document.removeEventListener("keydown", key, true); saved.forEach(([element, wasInert]) => { if (!wasInert) element.removeAttribute("inert"); }); if (previous?.isConnected) previous.focus(); };
+    // Inner controls get first refusal (for example Escape to cancel a rename).
+    document.addEventListener("keydown", key);
+    return () => { document.removeEventListener("keydown", key); saved.forEach(([element, wasInert]) => { if (!wasInert) element.removeAttribute("inert"); }); if (previous?.isConnected) previous.focus(); };
   }, []);
   return createPortal(<div className="bark-dialog-scrim" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}><div ref={dialog} className={`bark-dialog ${className}`} role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}>{children}</div></div>, document.body);
 }

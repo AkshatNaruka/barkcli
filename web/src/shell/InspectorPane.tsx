@@ -47,6 +47,7 @@ import { checkState, checksPassed, canReviewMerge } from "../lib/run-state";
 import { useRouteState, updateRouteState } from "../lib/hashnav";
 import { PANEL_TO_TAB, TAB_TO_PANEL, WORKBENCH_SURFACES, type WorkbenchTab } from "../lib/workbench";
 import { ChecksPanel } from "./ChecksPanel";
+import { QuietSelect } from "../components/QuietSelect";
 
 interface InspectorPaneProps {
   card?: Card;
@@ -655,7 +656,7 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
         </div>
       )}
 
-      <details className="workbench-more"><summary>Evidence & tools</summary><div>{TABS.filter((item) => ["receipt", "eval", "context"].includes(item.id)).map((item) => <button key={item.id} onClick={() => setTab(item.id)}>{item.label}</button>)}{runs.length > 1 && <label>Attempt<select value={latestRun?.id || ""} onChange={(event) => updateRouteState({ run: event.target.value, file: undefined })}>{runs.map((run) => <option key={run.id} value={run.id}>Attempt {run.ordinal} · {run.status}</option>)}</select></label>}</div></details>
+      <details className="workbench-more"><summary>Evidence & tools</summary><div>{TABS.filter((item) => ["receipt", "eval", "context"].includes(item.id)).map((item) => <button key={item.id} onClick={() => setTab(item.id)}>{item.label}</button>)}{runs.length > 1 && <label>Attempt<QuietSelect value={latestRun?.id || ""} onChange={(event) => updateRouteState({ run: event.target.value, file: undefined })}>{runs.map((run) => <option key={run.id} value={run.id}>Attempt {run.ordinal} · {run.status}</option>)}</QuietSelect></label>}</div></details>
       <div id="workbench-panel" {...(visibleTabs.length > 1 ? { role: "tabpanel", "aria-labelledby": `workbench-tab-${tab}` } : {})} className="min-h-0 flex-1 overflow-y-auto">
         {location.run && !latestRun && !runs.length && <p role="status" className="p-4 text-muted">Loading the selected run…</p>}
         {location.run && runs.length > 0 && !latestRun && <p role="alert" className="p-4 text-warning">That run is unavailable. Return to the thread to choose another attempt.</p>}
@@ -701,7 +702,7 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
                 </p>
               ) : (
                 <>
-                  <select
+                  <QuietSelect
                     value={delegateAgent}
                     onChange={(event) => setDelegateAgent(event.target.value)}
                     aria-label="Delegate to agent"
@@ -712,7 +713,7 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
                         {profile.name} · {profile.role} · {profile.provider}
                       </option>
                     ))}
-                  </select>
+                  </QuietSelect>
                   {selectedScriptAgent && (
                     <div className="mt-1.5 flex flex-wrap gap-1">
                       <span className="rounded bg-white/[0.04] px-1.5 py-0.5 font-mono text-[8.5px] text-muted">

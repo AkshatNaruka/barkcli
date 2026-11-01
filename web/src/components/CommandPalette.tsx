@@ -41,6 +41,17 @@ export function CommandPalette({
     const q = query.trim().toLowerCase();
     const items: { label: string; icon: IconName; action: () => void }[] = [];
 
+    if (!q || "projects all projects workspace overview".includes(q)) {
+      items.push({
+        label: "All projects",
+        icon: "grid",
+        action: () => {
+          navigate("projects");
+          onClose();
+        },
+      });
+    }
+
     for (const command of APP_COMMANDS) {
       if (onCommand && (!q || command.label.toLowerCase().includes(q))) items.push({ label: command.label, icon: command.icon, action: () => { onClose(); onCommand(command.id); } });
     }

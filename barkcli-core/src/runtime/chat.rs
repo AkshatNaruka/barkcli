@@ -226,7 +226,7 @@ fn build_prompt(root: &Path, request: &ChatRequest, files: &[String]) -> Result<
 /// Compact the thread into a prompt without replaying tool noise. The current
 /// user message is omitted so the provider sees it exactly once, under the
 /// current-request heading.
-fn history_prompt(card_id: &str, current_text: &str) -> String {
+pub(super) fn history_prompt(card_id: &str, current_text: &str) -> String {
     let mut events = threads::read_events(card_id).unwrap_or_default();
     let current = current_text.trim();
     if events

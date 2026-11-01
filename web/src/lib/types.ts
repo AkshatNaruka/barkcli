@@ -510,6 +510,39 @@ export interface ScheduleEntry {
   created_at: string;
 }
 
+
+export interface ProjectBoardSummary {
+  name: string;
+  cards: number;
+  todo: number;
+  doing: number;
+  review: number;
+  done: number;
+}
+
+export interface ProjectSummaryGit {
+  branch: string;
+  clean: boolean;
+  changes: number;
+  last_commit?: string | null;
+  last_commit_at?: number | null;
+}
+
+/** A local project Bark can manage. Read from disk by the desktop shell. */
+export interface ProjectSummary {
+  path: string;
+  name: string;
+  current: boolean;
+  available: boolean;
+  board_files: number;
+  boards: ProjectBoardSummary[];
+  active_board?: string | null;
+  agents: number;
+  threads: number;
+  last_active?: number | null;
+  git?: ProjectSummaryGit | null;
+}
+
 export interface ProjectSnapshot {
   root: string;
   name: string;
@@ -1001,6 +1034,16 @@ export interface QueueItem {
   additions: number;
   deletions: number;
   risk: RiskAssessment;
+  /** Last recorded gate/guard outcome. Absent when no receipt exists yet. */
+  checks?: {
+    gate_passed: boolean;
+    gate_skipped: boolean;
+    gate_command?: string | null;
+    guard_errors: number;
+    guard_warnings: number;
+    receipt_verified: boolean;
+    confidence: "low" | "medium" | "high";
+  } | null;
 }
 
 export interface RepoEntry {

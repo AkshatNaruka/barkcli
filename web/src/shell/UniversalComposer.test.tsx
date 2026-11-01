@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { UniversalComposer } from "./UniversalComposer";
 
-const { createThread, fetchProviders, fetchProviderModels, fetchRoles, startThreadChat } = vi.hoisted(() => ({
+const { createThread, fetchProviders, fetchProviderModels, fetchRoles, startThreadChat, startThreadBuild } = vi.hoisted(() => ({
   createThread: vi.fn(),
   fetchProviders: vi.fn(async () => [
     { id: "opencode", name: "OpenCode", available: true, authenticated: true },
@@ -11,6 +11,7 @@ const { createThread, fetchProviders, fetchProviderModels, fetchRoles, startThre
   fetchProviderModels: vi.fn(async () => []),
   fetchRoles: vi.fn(async () => []),
   startThreadChat: vi.fn(),
+  startThreadBuild: vi.fn(async () => ({ id: "run_1" })),
 }));
 vi.mock("../lib/api", () => ({
   createThread,
@@ -18,6 +19,7 @@ vi.mock("../lib/api", () => ({
   fetchProviderModels,
   fetchRoles,
   startThreadChat,
+  startThreadBuild,
 }));
 
 describe("UniversalComposer", () => {
@@ -47,9 +49,12 @@ describe("UniversalComposer", () => {
       kind: "feature",
       backend: "opencode",
       model: undefined,
-      mode: "plan_first",
+      mode: "build",
       board: "dev",
     });
+    expect(startThreadBuild).toHaveBeenCalledWith("thread-1", expect.objectContaining({
+      provider: "opencode", prompt: "Make the demo real", board: "dev",
+    }));
     expect(onClose).toHaveBeenCalled();
     expect(onCreated).toHaveBeenCalledWith("thread-1");
   });
@@ -57,7 +62,7 @@ describe("UniversalComposer", () => {
   it("keeps the dialog open and explains a failed start", async () => {
     createThread.mockResolvedValue(null);
     const user = userEvent.setup();
-    render(<UniversalComposer isOpen onClose={vi.fn()} onCreated={vi.fn()} />);
+    render(<UniversalComposer isOpen initialMode="plan_first" onClose={vi.fn()} onCreated={vi.fn()} />);
 
     await user.type(screen.getByTestId("thread-composer"), "A failing intent");
     await user.click(screen.getByRole("button", { name: /Plan changes/ }));
@@ -104,5 +109,22 @@ describe("UniversalComposer", () => {
 
     await user.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("retries a failed build start in the same saved thread and preserves the prompt", async () => {
+    createThread.mockResolvedValue({ thread_id: "saved-thread" });
+    startThreadBuild.mockRejectedValueOnce(new Error("The selected provider is unavailable"));
+    const onCreated = vi.fn();
+    const user = userEvent.setup();
+    render(<UniversalComposer isOpen onClose={vi.fn()} onCreated={onCreated} boardName="dev" />);
+    await user.type(screen.getByTestId("thread-composer"), "Implement this feature");
+    await waitFor(() => expect(screen.getByTestId("composer-submit")).toBeEnabled());
+    await user.click(screen.getByTestId("composer-submit"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("selected provider is unavailable");
+    expect(screen.getByTestId("thread-composer")).toHaveValue("Implement this feature");
+    expect(onCreated).not.toHaveBeenCalled();
+    await user.click(screen.getByTestId("composer-submit"));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith("saved-thread"));
+    expect(createThread).toHaveBeenCalledTimes(1);
   });
 });

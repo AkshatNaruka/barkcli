@@ -3,6 +3,7 @@ import type { Board as BoardType, Card } from "../lib/types";
 import { Avatar } from "./Avatar";
 import { PriorityBadge } from "./PriorityBadge";
 import { LabelChip } from "./LabelChip";
+import { QuietSelect } from "./QuietSelect";
 
 interface Props {
   board: BoardType;
@@ -32,14 +33,14 @@ export function TableView({ board, onEditCard, onDeleteCard, onMoveCard }: Props
   return (
     <div className="p-4 overflow-auto h-full">
       <div className="flex items-center gap-3 mb-3 flex-wrap">
-        <select value={areaFilter} onChange={(e) => setAreaFilter(e.target.value)} className={selectCls}>
+        <QuietSelect value={areaFilter} onChange={(e) => setAreaFilter(e.target.value)} className={selectCls}>
           <option value="all">All areas</option>
           {areas.map((a) => <option key={a} value={a}>{a}</option>)}
-        </select>
-        <select value={colFilter} onChange={(e) => setColFilter(e.target.value)} className={selectCls}>
+        </QuietSelect>
+        <QuietSelect value={colFilter} onChange={(e) => setColFilter(e.target.value)} className={selectCls}>
           <option value="all">All columns</option>
           {board.columns.map((col) => <option key={col.id} value={col.id}>{col.name}</option>)}
-        </select>
+        </QuietSelect>
         {totalEffort > 0 && (
           <span className="text-xs text-muted ml-auto">
             Effort: <span className="text-text font-mono">{doneEffort}/{totalEffort}</span> pts done
@@ -70,7 +71,7 @@ export function TableView({ board, onEditCard, onDeleteCard, onMoveCard }: Props
                 </button>
               </td>
               <td className="p-2">
-                <select
+                <QuietSelect
                   value={card.column}
                   onChange={(e) => onMoveCard(card.id, e.target.value)}
                   className={selectCls}
@@ -78,7 +79,7 @@ export function TableView({ board, onEditCard, onDeleteCard, onMoveCard }: Props
                   {board.columns.map((col) => (
                     <option key={col.id} value={col.id}>{col.name}</option>
                   ))}
-                </select>
+                </QuietSelect>
               </td>
               <td className="p-2"><PriorityBadge priority={card.priority} /></td>
               <td className="p-2">

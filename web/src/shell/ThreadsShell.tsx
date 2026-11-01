@@ -8,7 +8,7 @@ import { UniversalComposer } from "./UniversalComposer";
 import { PaneResizeHandle } from "../components/PaneResizeHandle";
 import { ThreadActionsMenu, type ThreadActionTarget } from "./ThreadActionsMenu";
 import { SurfacesPanel } from "./SurfacesPanel";
-import { openProjectTool, type ProjectTool } from "../lib/commands";
+import { ThreadList } from "./ThreadList";
 import { PANEL_TO_TAB, TAB_TO_PANEL, type WorkbenchTab } from "../lib/workbench";
 
 interface ThreadsShellProps {
@@ -56,10 +56,6 @@ export function ThreadsShell({ boardName, projectRoot = "current-project", proje
     return () => observer.disconnect();
   }, []);
   const openPanel = (panel: WorkbenchTab) => updateRouteState({ panel: TAB_TO_PANEL[panel] });
-  const selectTool = (tool: ProjectTool) => {
-    openProjectTool(tool);
-    if (surfacesOpen) onToggleSurfaces();
-  };
   useEffect(() => {
     const openThread = (event: Event) => {
       const id = (event as CustomEvent<string>).detail;
@@ -76,6 +72,7 @@ export function ThreadsShell({ boardName, projectRoot = "current-project", proje
     onConsumeSeed?.(); navigate("chat", { thread: id, board: boardName || undefined });
   };
   return <div ref={container} className={`threads-shell ${focused ? "artifact-focused" : ""}`}>
+    <ThreadList boardName={boardName} />
     <div className="thread-document" hidden={focused}>
       {selectedId ? <ThreadPane key={`${scope}:${selectedId}:${threadRevision}`} threadId={selectedId} boardName={boardName || undefined} scope={scope} project={project}
         inspectorOpen={surfacesOpen} onThreadChange={setActiveThread}
@@ -85,7 +82,7 @@ export function ThreadsShell({ boardName, projectRoot = "current-project", proje
           key={`${scope}:${seed?.nonce || "new"}`} isOpen inline scope={scope} boardName={boardName || undefined}
           initialText={seed?.text} initialMode={seed?.mode} onClose={() => {}} onCreated={created} />}
     </div>
-    {surfacesOpen && <div className={`surfaces-frame ${focused ? "is-focused" : ""}`} style={focused ? undefined : { width: showWorkbench ? width : 320 }}>
+    {surfacesOpen && selectedId && <div className={`surfaces-frame ${focused ? "is-focused" : ""}`} style={focused ? undefined : { width: showWorkbench ? width : 320 }}>
       {!focused && showWorkbench && <PaneResizeHandle label="Workbench width" width={width} min={360} max={560} reverse onChange={(next) => { setWidth(next); writeLocal("bark:workbench-width", String(next)); }} />}
       {showWorkbench ? (
         <InspectorPane card={activeThread?.card} events={activeThread?.events || []} threadId={selectedId || undefined}
@@ -93,9 +90,7 @@ export function ThreadsShell({ boardName, projectRoot = "current-project", proje
           onClose={onToggleSurfaces} />
       ) : (
         <SurfacesPanel boardName={boardName || project?.active_board || null} activePanel={activeTab} showThread={Boolean(selectedId)}
-          onSelectThread={openPanel} onOpenProjectTool={selectTool}
-          onOpenProjectHub={() => { navigate("hub"); if (surfacesOpen) onToggleSurfaces(); }}
-          onClose={onToggleSurfaces} />
+          onSelectThread={openPanel} onClose={onToggleSurfaces} />
       )}
     </div>}
     {threadMenu && <ThreadActionsMenu

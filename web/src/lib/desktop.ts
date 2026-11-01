@@ -5,6 +5,8 @@
  * working without it.
  */
 
+import type { ProjectSummary } from "./types";
+
 export interface DesktopProject {
   path: string;
   name: string;
@@ -59,7 +61,13 @@ async function invoke<T>(command: string, args?: Record<string, unknown>): Promi
   try {
     return (await fn(command, args)) as T;
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     console.warn(`[desktop] ${command} failed`, error);
+    // Surface failures instead of silently turning every desktop action into a
+    // no-op. The shell renders this as a toast with the command that failed.
+    window.dispatchEvent(
+      new CustomEvent("bark-desktop-error", { detail: { command, message } })
+    );
     return null;
   }
 }
@@ -68,8 +76,11 @@ export async function openProjectDialog(): Promise<DesktopProject | null> {
   return invoke<DesktopProject | null>("open_project_dialog");
 }
 
-export async function switchProject(path: string): Promise<DesktopProject | null> {
-  return invoke<DesktopProject | null>("switch_project", { path });
+export async function switchProject(
+  path: string,
+  target?: "chat" | "review" | "projects"
+): Promise<DesktopProject | null> {
+  return invoke<DesktopProject | null>("switch_project", target ? { path, target } : { path });
 }
 
 export async function currentProject(): Promise<DesktopProject | null> {
@@ -78,6 +89,19 @@ export async function currentProject(): Promise<DesktopProject | null> {
 
 export async function recentProjects(): Promise<DesktopProject[]> {
   return (await invoke<DesktopProject[]>("recent_projects")) ?? [];
+}
+
+/** App preferences survive the sidecar's per-launch port and project changes. */
+export async function loadSidebarLayout(): Promise<unknown> {
+  return invoke<unknown>("sidebar_layout_get");
+}
+
+export async function saveSidebarLayout(layout: unknown): Promise<void> {
+  await invoke<void>("sidebar_layout_set", { layout });
+}
+
+export async function projectSummaries(): Promise<ProjectSummary[]> {
+  return (await invoke<ProjectSummary[]>("project_summaries")) ?? [];
 }
 
 export async function revealProject(path?: string): Promise<boolean> {

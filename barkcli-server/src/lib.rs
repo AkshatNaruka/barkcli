@@ -5257,6 +5257,13 @@ async fn start_thread_run_handler(
     Query(params): Query<BoardQuery>,
     Json(req): Json<StartThreadRunRequest>,
 ) -> Result<Json<serde_json::Value>, ServerError> {
+    let _intake = barkcli_core::util::lock::FileLock::acquire(
+        &barkcli_core::storage::board_dir::find_board_dir()
+            .map_err(|error| ServerError::internal(error.to_string()))?.join("thread-turn-intake"),
+    ).map_err(|error| ServerError::internal(error.to_string()))?;
+    if state.chat.lock().map_err(|_| ServerError::internal("chat state is poisoned"))?.contains_key(&card_id) {
+        return Err(ServerError::bad("This thread is waiting for a reply. Stop it or wait before building."));
+    }
     let board_name = resolve_board_name(&state, params.name)?;
     if let Some(expected) = req.plan_event_id.as_deref() {
         let events = barkcli_core::threads::read_events(&card_id).unwrap_or_default();
@@ -6693,6 +6700,10 @@ async fn chat_thread_handler(
     Path(card_id): Path<String>,
     Json(req): Json<ChatThreadRequest>,
 ) -> Result<Json<serde_json::Value>, ServerError> {
+    let _intake = barkcli_core::util::lock::FileLock::acquire(
+        &barkcli_core::storage::board_dir::find_board_dir()
+            .map_err(|error| ServerError::internal(error.to_string()))?.join("thread-turn-intake"),
+    ).map_err(|error| ServerError::internal(error.to_string()))?;
     let text = req.text.trim().to_string();
     if text.is_empty() {
         return Err(ServerError::bad("message text required"));
@@ -6709,6 +6720,12 @@ async fn chat_thread_handler(
     }
 
     let board_name = resolve_board_name(&state, req.board.clone())?;
+    let store = barkcli_core::runtime::RuntimeStore::from_project()
+        .map_err(|error| ServerError::internal(error.to_string()))?;
+    if store.list_runs(Some(&card_id)).map_err(|error| ServerError::internal(error.to_string()))?
+        .iter().any(|run| !run.status.is_terminal()) {
+        return Err(ServerError::bad("This thread is building. Stop it or wait before asking."));
+    }
     let provider = match req.provider.as_deref().unwrap_or("opencode").to_lowercase().as_str() {
         "claude" | "claude-code" => "claude-code".to_string(),
         other => other.to_string(),
@@ -6745,6 +6762,8 @@ async fn chat_thread_handler(
         Some(serde_json::json!({
             "mode": "ask",
             "provider": provider,
+            "backend": provider,
+            "model": req.model,
             "files": req.files,
         })),
     );
@@ -7212,7 +7231,7 @@ async fn create_thread_handler(
     let _ = barkcli_core::threads::append_event(&card_id, &user_event);
     let _ = state.thread_tx.send(user_event.clone());
 
-    if mode == "chat" {
+    if mode == "chat" || mode == "build" {
         // A read-only conversation, not an implementation intent. The first
         // reply comes from /api/threads/:id/chat.
     } else if mode == "plan_and_run" || mode == "auto" {
@@ -7317,6 +7336,9 @@ async fn stream_thread_handler(
     Path(card_id): Path<String>,
     Query(params): Query<StreamQuery>,
 ) -> Sse<impl futures::Stream<Item = Result<Event, std::convert::Infallible>>> {
+    // Subscribe before the disk snapshot so events arriving during that read
+    // are replayed rather than lost. Clients deduplicate persisted event ids.
+    let rx = state.thread_tx.subscribe();
     let after_seq = params.after_seq.unwrap_or(0);
     let existing_events = barkcli_core::threads::read_events(&card_id)
         .unwrap_or_default()
@@ -7328,7 +7350,6 @@ async fn stream_thread_handler(
         Ok(Event::default().json_data(&ev).unwrap_or_else(|_| Event::default().data("{}")))
     }));
 
-    let rx = state.thread_tx.subscribe();
     let live_stream = futures::stream::unfold((rx, cid, after_seq), |(mut rx, cid, after_seq)| async move {
         loop {
             match rx.recv().await {
@@ -8220,7 +8241,7 @@ cards:
     }
 
     #[tokio::test]
-    async fn chat_threads_do_not_auto_propose_a_plan() {
+    async fn conversation_and_direct_build_threads_do_not_auto_propose_a_plan() {
         let project = with_temp_project();
         std::fs::write(
             project.root().join("work.board"),
@@ -8228,13 +8249,14 @@ cards:
         )
         .unwrap();
         let app = project_router(test_state(None));
-        let res = app
+        for mode in ["chat", "build"] {
+        let res = app.clone()
             .oneshot(post_json_request(
                 "/api/threads",
                 serde_json::json!({
                     "text": "Where is the auth middleware?",
                     "backend": "opencode",
-                    "mode": "chat"
+                    "mode": mode
                 }),
             ))
             .await
@@ -8245,6 +8267,7 @@ cards:
         let events = barkcli_core::threads::read_events(thread_id).unwrap();
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].kind, barkcli_core::threads::ThreadEventKind::User);
+        }
     }
 
     #[tokio::test]

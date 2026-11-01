@@ -7,5 +7,21 @@
   },
   "local": true,
   "windows": ["main"],
-  "permissions": ["core:default", "core:event:default"]
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "allow-current-project",
+    "allow-open-project-dialog",
+    "allow-switch-project",
+    "allow-recent-projects",
+    "allow-project-summaries",
+    "allow-reveal-project",
+    "allow-open-provider-login",
+    "allow-open-terminal",
+    "allow-open-logs",
+    "allow-notify",
+    "allow-sidebar-layout-get",
+    "allow-sidebar-layout-set",
+    "allow-thread-preference-set"
+  ]
 }

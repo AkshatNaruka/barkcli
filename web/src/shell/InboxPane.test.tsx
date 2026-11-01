@@ -105,7 +105,8 @@ describe("InboxPane", () => {
     await user.click(screen.getByTestId("new-intent"));
     expect(handlers.onNew).toHaveBeenCalled();
 
-    await user.selectOptions(screen.getByLabelText("Board"), "roadmap");
+    await user.click(screen.getByRole("combobox", { name: "Board" }));
+    await user.click(screen.getByRole("option", { name: "roadmap.board" }));
     expect(handlers.onSwitchBoard).toHaveBeenCalledWith("roadmap");
   });
 

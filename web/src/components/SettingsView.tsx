@@ -1,9 +1,68 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import type { Board as BoardType, ProviderStatus } from "../lib/types";
-import { apiAccess, fetchConfig, fetchHooks, fetchProject, fetchProviders, validateBoards, type BoardConfig } from "../lib/api";
+import {
+  apiAccess,
+  fetchConfig,
+  fetchHooks,
+  fetchProject,
+  fetchProviders,
+  validateBoards,
+  type BoardConfig,
+} from "../lib/api";
 import { isDesktop, openLogs, openProviderLogin, openTerminal } from "../lib/desktop";
 import { useTheme, type Theme } from "../lib/theme";
-import { Icon } from "./Icon";
+import { navigate } from "../lib/hashnav";
+import { Icon, type IconName } from "./Icon";
+import { ProviderIcon } from "./ProviderIcon";
+
+type SettingsSection = "project" | "appearance" | "agents" | "diagnostics";
+
+const SECTIONS: Array<{
+  id: SettingsSection;
+  label: string;
+  icon: IconName;
+  hint: string;
+}> = [
+  { id: "project", label: "Project", icon: "board", hint: "Board and columns" },
+  { id: "appearance", label: "Appearance", icon: "palette", hint: "Theme and density" },
+  { id: "agents", label: "Agents", icon: "robot", hint: "CLI readiness and sign-in" },
+  { id: "diagnostics", label: "Diagnostics", icon: "pulse", hint: "Health, logs, and access" },
+];
+
+const THEMES: Array<{ id: Theme; label: string; note: string }> = [
+  { id: "black", label: "Bark", note: "Warm charcoal and copper" },
+  { id: "slate", label: "Slate", note: "Cool neutral dark" },
+  { id: "neon", label: "Terminal", note: "High-contrast dark" },
+  { id: "light", label: "Paper", note: "Light, warm neutral" },
+  { id: "system", label: "Auto", note: "Follow the system appearance" },
+];
+
+function Section({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="settings-section">
+      <header>
+        <h3>{title}</h3>
+        {description && <p>{description}</p>}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+function providerState(provider: ProviderStatus): { label: string; tone: string } {
+  if (!provider.available) return { label: "Not installed", tone: "off" };
+  if (provider.authenticated === false) return { label: "Sign-in needed", tone: "warn" };
+  if (provider.authenticated === true) return { label: "Ready", tone: "ready" };
+  return { label: "Installed", tone: "idle" };
+}
 
 export function SettingsView({
   board,
@@ -12,6 +71,7 @@ export function SettingsView({
   board: BoardType;
   onSaveBoard: (b: BoardType) => void;
 }) {
+  const [section, setSection] = useState<SettingsSection>("project");
   const [title, setTitle] = useState(board.title);
   const [description, setDescription] = useState(board.description || "");
   const [cols, setCols] = useState(board.columns.map((c) => ({ id: c.id, name: c.name })));
@@ -19,18 +79,88 @@ export function SettingsView({
   const { theme, setTheme } = useTheme();
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [providers, setProviders] = useState<ProviderStatus[]>([]);
+  const [providersBusy, setProvidersBusy] = useState(false);
   const [diagnostics, setDiagnostics] = useState<any | null>(null);
   const [diagnosticsBusy, setDiagnosticsBusy] = useState(false);
   const [authBusy, setAuthBusy] = useState<string | null>(null);
   const [authNote, setAuthNote] = useState<string | null>(null);
 
-  useEffect(() => { setTitle(board.title); setDescription(board.description || ""); setCols(board.columns.map((c) => ({ id: c.id, name: c.name }))); }, [board.title, board.description, board.columns]);
   useEffect(() => {
-    fetchConfig().then((c) => setAi(c?.ai ?? null));
-    fetchProviders().then((next) =>
-      setProviders(next.filter((provider) => provider.id !== "human"))
-    );
+    setTitle(board.title);
+    setDescription(board.description || "");
+    setCols(board.columns.map((c) => ({ id: c.id, name: c.name })));
+  }, [board.title, board.description, board.columns]);
+
+  useEffect(() => {
+    fetchConfig().then((c) => setAi(c?.ai ?? null)).catch(() => setAi(null));
+    void loadProviders();
   }, []);
+
+  const loadProviders = async () => {
+    setProvidersBusy(true);
+    try {
+      const next = await fetchProviders();
+      setProviders(next.filter((provider) => provider.id !== "human"));
+    } finally {
+      setProvidersBusy(false);
+    }
+  };
+
+  const notify = (msg: string) => {
+    setSavedMsg(msg);
+    window.setTimeout(() => setSavedMsg(null), 2800);
+  };
+
+  const normalized = useMemo(
+    () =>
+      cols.map((column) => ({
+        id: column.id,
+        name: column.name.trim() || column.id,
+      })),
+    [cols]
+  );
+
+  const dirty =
+    title.trim() !== board.title ||
+    (description.trim() || "") !== (board.description || "") ||
+    JSON.stringify(normalized) !==
+      JSON.stringify(board.columns.map((column) => ({ id: column.id, name: column.name })));
+
+  const saveProject = () => {
+    const removed = new Set(
+      board.columns
+        .map((column) => column.id)
+        .filter((id) => !normalized.some((column) => column.id === id))
+    );
+    const first = normalized[0]?.id || board.columns[0]?.id || "todo";
+    const next: BoardType = {
+      ...board,
+      title: title.trim() || board.title,
+      description: description.trim() || undefined,
+      columns: normalized,
+      cards: board.cards.map((card) =>
+        removed.has(card.column) ? { ...card, column: first } : card
+      ),
+    };
+    onSaveBoard(next);
+    notify("Project settings saved");
+  };
+
+  const addColumn = () => {
+    const base = "new-column";
+    let id = base;
+    let index = 2;
+    while (cols.some((column) => column.id === id)) {
+      id = `${base}-${index}`;
+      index += 1;
+    }
+    setCols([...cols, { id, name: "New column" }]);
+  };
+
+  const removeColumn = (id: string) => {
+    if (cols.length <= 1) return;
+    setCols(cols.filter((column) => column.id !== id));
+  };
 
   const authenticate = async (provider: ProviderStatus) => {
     setAuthNote(null);
@@ -40,8 +170,8 @@ export function SettingsView({
       setAuthBusy(null);
       setAuthNote(
         opened
-          ? `${provider.name} sign-in opened in Terminal. Finish there, then reload this page.`
-          : `Could not open a terminal for ${provider.name}.`
+          ? `${provider.name} sign-in opened in Terminal. Finish there, then recheck.`
+          : `Could not open a terminal for ${provider.name}. Open the project terminal from Diagnostics.`
       );
       return;
     }
@@ -51,63 +181,11 @@ export function SettingsView({
     }
     try {
       await navigator.clipboard.writeText(provider.auth_command);
-      setAuthNote(`Copied \`${provider.auth_command}\`. Run it, then reload this page.`);
+      setAuthNote(`Copied \`${provider.auth_command}\`. Run it, then recheck.`);
     } catch {
-      setAuthNote(`Run \`${provider.auth_command}\`, then reload this page.`);
+      setAuthNote(`Run \`${provider.auth_command}\`, then recheck.`);
     }
   };
-
-  const notify = (msg: string) => {
-    setSavedMsg(msg);
-    setTimeout(() => setSavedMsg(null), 2500);
-  };
-
-  const save = (next: BoardType) => {
-    onSaveBoard(next);
-    notify("Saved");
-  };
-
-  const onSaveTitle = () => {
-    const b = { ...board, title: title.trim() || board.title, description: description.trim() || undefined };
-    save(b);
-  };
-
-  const onRenameColumn = (id: string, name: string) => {
-    const nextCols = cols.map((c) => (c.id === id ? { ...c, name } : c));
-    setCols(nextCols);
-    const b = { ...board, columns: nextCols };
-    save(b);
-  };
-
-  const onAddColumn = () => {
-    const base = "new-column";
-    let id = base;
-    let i = 2;
-    while (cols.some((c) => c.id === id)) { id = `${base}-${i}`; i++; }
-    const nextCols = [...cols, { id, name: id }];
-    setCols(nextCols);
-    save({ ...board, columns: nextCols });
-  };
-
-  const onRemoveColumn = (id: string) => {
-    if (cols.length <= 1) return;
-    const nextCols = cols.filter((c) => c.id !== id);
-    setCols(nextCols);
-    const first = nextCols[0].id;
-    const b = {
-      ...board,
-      columns: nextCols,
-      cards: board.cards.map((c) => (c.column === id ? { ...c, column: first } : c)),
-    };
-    save(b);
-  };
-
-  const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <div className="bg-surface border border-border rounded-lg p-4">
-      <h3 className="text-xs font-semibold text-text mb-3">{title}</h3>
-      {children}
-    </div>
-  );
 
   const runDiagnostics = async () => {
     setDiagnosticsBusy(true);
@@ -136,359 +214,376 @@ export function SettingsView({
     if (!diagnostics) return;
     try {
       await navigator.clipboard.writeText(JSON.stringify(diagnostics, null, 2));
+      notify("Diagnostics copied");
     } catch {
-      /* clipboard is optional */
+      notify("Could not copy diagnostics");
+    }
+  };
+
+  const copyRemoteUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(
+        `${apiAccess().base}${apiAccess().token ? `?token=${apiAccess().token}` : ""}`
+      );
+      notify("Remote URL copied");
+    } catch {
+      notify("Could not copy the URL");
     }
   };
 
   return (
-    <div className="h-full overflow-auto">
-      <div className="max-w-2xl mx-auto p-4 space-y-6">
+    <div className="settings-shell">
+      <nav className="settings-nav" aria-label="Settings sections">
+        <div className="settings-nav-head">
+          <strong>Settings</strong>
+          <span>Applies to this project</span>
+        </div>
+        {SECTIONS.map((item) => {
+          const active = section === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              aria-current={active ? "page" : undefined}
+              onClick={() => setSection(item.id)}
+            >
+              <Icon name={item.icon} size={14} />
+              <span>
+                <strong>{item.label}</strong>
+                <small>{item.hint}</small>
+              </span>
+            </button>
+          );
+        })}
+      </nav>
+
+      <div className="settings-content">
+        <div className="settings-content-head">
+          <h2>{SECTIONS.find((item) => item.id === section)?.label}</h2>
+          <p>{SECTIONS.find((item) => item.id === section)?.hint}</p>
+        </div>
+
         {savedMsg && (
-          <div className="text-[11px] text-success bg-success-soft rounded px-3 py-2">
+          <div className="settings-saved" role="status">
+            <Icon name="check" size={12} />
             {savedMsg}
           </div>
         )}
 
-        {/* Board identity */}
-        <Section title="Board">
-          <div className="space-y-3">
-            <label className="block">
-              <span className="text-[10px] uppercase tracking-wider text-muted block mb-1">Title</span>
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                onBlur={onSaveTitle}
-                className="w-full bg-bg border border-border rounded px-2.5 py-1.5 text-sm text-text focus:outline-none focus:ring-1 focus:ring-accent"
-              />
-            </label>
-            <label className="block">
-              <span className="text-[10px] uppercase tracking-wider text-muted block mb-1">Description</span>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                onBlur={onSaveTitle}
-                rows={2}
-                className="w-full bg-bg border border-border rounded px-2.5 py-1.5 text-sm text-text focus:outline-none focus:ring-1 focus:ring-accent resize-none"
-              />
-            </label>
-          </div>
-        </Section>
-
-        {/* Columns */}
-        <Section title="Columns">
-          <div className="space-y-2">
-            {cols.map((c) => (
-              <div key={c.id} className="flex items-center gap-2">
-                <span className="font-mono text-[10px] text-muted w-20 truncate shrink-0">{c.id}</span>
-                <input
-                  value={c.name}
-                  onChange={(e) => onRenameColumn(c.id, e.target.value)}
-                  className="flex-1 bg-bg border border-border rounded px-2.5 py-1.5 text-sm text-text focus:outline-none focus:ring-1 focus:ring-accent"
-                />
-                <button
-                  onClick={() => onRemoveColumn(c.id)}
-                  disabled={cols.length <= 1}
-                  className="text-muted hover:text-danger transition-colors disabled:opacity-30"
-                  title="Remove column (cards move to the first column)"
-                >
-                  <Icon name="x" size={13} />
-                </button>
+        {section === "project" && (
+          <>
+            <Section title="Board" description="The name and description shown on this board.">
+              <div className="settings-fields">
+                <label>
+                  <span>Title</span>
+                  <input value={title} onChange={(event) => setTitle(event.target.value)} />
+                </label>
+                <label>
+                  <span>Description</span>
+                  <textarea
+                    value={description}
+                    onChange={(event) => setDescription(event.target.value)}
+                    rows={2}
+                    placeholder="What is this board for?"
+                  />
+                </label>
               </div>
-            ))}
-            <button
-              onClick={onAddColumn}
-              className="text-[11px] px-2 py-1 rounded text-muted hover:text-accent hover:bg-accent-soft transition-colors"
+            </Section>
+
+            <Section
+              title="Columns"
+              description="Cards in a removed column move to the first column when you save."
             >
-              + Add column
-            </button>
-          </div>
-        </Section>
-
-        {/* Theme */}
-        <Section title="Appearance">
-          <div className="flex flex-wrap bg-surface rounded-md p-0.5 w-fit border border-border">
-            {(["black", "slate", "neon", "light", "system"] as Theme[]).map((t) => {
-              const label =
-                t === "black" ? "Bark" : t === "slate" ? "Slate" : t === "neon" ? "Terminal" : t === "light" ? "Paper" : "Auto";
-              return (
-                <button
-                  key={t}
-                  onClick={() => setTheme(t)}
-                  className={`px-3 py-1 text-xs rounded font-medium transition-colors ${
-                    theme === t ? "bg-accent text-white" : "text-muted hover:text-text"
-                  }`}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-          <button className="bark-button mt-3" onClick={() => window.dispatchEvent(new CustomEvent("bark-command", { detail: "appearance" }))}>Customize appearance</button>
-          <p className="mt-2 text-[10.5px] text-muted/70">
-            Colors and shareable presets are available in Appearance.
-          </p>
-        </Section>
-
-        {/* Local coding agents */}
-        <Section title="Local agents">
-          <p className="mb-3 text-[11px] text-muted">
-            Bark runs the coding CLIs installed on this machine. It never invents a
-            provider or reports one as ready when it is not.
-          </p>
-          <div className="space-y-1.5">
-            {providers.length === 0 ? (
-              <p className="text-xs text-muted">No local agents reported by the server.</p>
-            ) : (
-              providers.map((provider) => (
-                <div key={provider.id} className="flex items-center gap-2 rounded border border-border/60 px-2.5 py-2">
-                  <Icon name="robot" size={13} className="text-muted" />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[11.5px] text-text">{provider.name}</div>
-                    <div className="truncate font-mono text-[9.5px] text-muted">
-                      {provider.command}
-                      {provider.version ? ` · ${provider.version}` : ""}
-                    </div>
-                  </div>
-                  <span
-                    className={`font-mono text-[9.5px] ${
-                      !provider.available
-                        ? "text-muted"
-                        : provider.authenticated === false
-                          ? "text-amber-400"
-                          : provider.authenticated === true
-                            ? "text-emerald-400"
-                            : "text-muted"
-                    }`}
-                  >
-                    {!provider.available
-                      ? "Not installed"
-                      : provider.authenticated === false
-                        ? "Sign-in needed"
-                        : provider.authenticated === true
-                          ? "Ready"
-                          : "Installed"}
-                  </span>
-                  {provider.authenticated === false && provider.auth_command && (
+              <div className="settings-columns">
+                {cols.map((column) => (
+                  <div key={column.id} className="settings-column">
+                    <span className="settings-column-id">{column.id}</span>
+                    <input
+                      value={column.name}
+                      aria-label={`Name for ${column.id}`}
+                      onChange={(event) =>
+                        setCols(
+                          cols.map((item) =>
+                            item.id === column.id
+                              ? { ...item, name: event.target.value }
+                              : item
+                          )
+                        )
+                      }
+                    />
                     <button
                       type="button"
-                      onClick={() => void authenticate(provider)}
-                      disabled={authBusy !== null}
-                      className="rounded border border-border px-2 py-1 text-[10px] text-text hover:border-border-strong disabled:opacity-50"
-                      title={provider.auth_hint}
+                      onClick={() => removeColumn(column.id)}
+                      disabled={cols.length <= 1}
+                      aria-label={`Remove ${column.name}`}
+                      title="Remove column"
                     >
-                      {authBusy === provider.id ? "Opening…" : "Sign in"}
+                      <Icon name="x" size={13} />
                     </button>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-          {authNote && (
-            <p className="mt-2 rounded border border-border/60 bg-bg/50 px-2.5 py-2 text-[10.5px] text-muted">
-              {authNote}
-            </p>
-          )}
-        </Section>
+                  </div>
+                ))}
+                <button type="button" className="settings-add-column" onClick={addColumn}>
+                  <Icon name="plus" size={12} />
+                  Add column
+                </button>
+              </div>
+            </Section>
 
-        {/* Remote access */}
-        <Section title="Remote access">
-          <p className="mb-3 text-[11px] leading-relaxed text-muted">
-            Bark is local-first. To reach it from a phone or another machine on
-            your LAN, start the server with{" "}
-            <code className="font-mono text-text/80">barkcli serve --host 0.0.0.0</code>{" "}
-            and open the URL below. Keep the token secret.
-          </p>
-          <div className="flex gap-2">
-            <input
-              readOnly
-              value={`${apiAccess().base}${apiAccess().token ? `?token=${apiAccess().token}` : ""}`}
-              className="flex-1 rounded-md border border-border bg-bg px-2.5 py-1.5 font-mono text-[11px] text-text focus:outline-none"
-            />
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(
-                    `${apiAccess().base}${apiAccess().token ? `?token=${apiAccess().token}` : ""}`
-                  );
-                } catch {
-                  /* clipboard is optional */
-                }
-              }}
-              className="rounded-md border border-border px-2.5 py-1.5 text-[11px] text-text transition-colors hover:border-border-strong"
-            >
-              Copy URL
-            </button>
-          </div>
-        </Section>
-
-        {/* Diagnostics */}
-        <Section title="Diagnostics">
-          <p className="mb-3 text-[11px] leading-relaxed text-muted">
-            When a provider or the local server misbehaves, the sidecar log and a
-            project terminal are the fastest way to see what happened.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => void openLogs()}
-              disabled={!isDesktop()}
-              className="rounded-md border border-border px-2.5 py-1.5 text-[11px] text-text transition-colors hover:border-border-strong disabled:opacity-40"
-            >
-              Open server log
-            </button>
-            <button
-              type="button"
-              onClick={() => void openTerminal()}
-              disabled={!isDesktop()}
-              className="rounded-md border border-border px-2.5 py-1.5 text-[11px] text-text transition-colors hover:border-border-strong disabled:opacity-40"
-            >
-              Open project terminal
-            </button>
-          </div>
-        </Section>
-
-        {/* Remote access */}
-        <Section title="Remote access">
-          <p className="mb-3 text-[11px] leading-relaxed text-muted">
-            Bark is local-first. To reach it from a phone or another machine on
-            your LAN, start the server with{" "}
-            <code className="font-mono text-text/80">barkcli serve --host 0.0.0.0</code>{" "}
-            and open the URL below. Keep the token secret.
-          </p>
-          <div className="flex gap-2">
-            <input
-              readOnly
-              value={`${apiAccess().base}${apiAccess().token ? `?token=${apiAccess().token}` : ""}`}
-              className="flex-1 rounded-md border border-border bg-bg px-2.5 py-1.5 font-mono text-[11px] text-text focus:outline-none"
-            />
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(
-                    `${apiAccess().base}${apiAccess().token ? `?token=${apiAccess().token}` : ""}`
-                  );
-                } catch {
-                  /* clipboard is optional */
-                }
-              }}
-              className="rounded-md border border-border px-2.5 py-1.5 text-[11px] text-text transition-colors hover:border-border-strong"
-            >
-              Copy URL
-            </button>
-          </div>
-        </Section>
-
-        {/* Diagnostics */}
-        <Section title="Diagnostics">
-          <p className="mb-3 text-[11px] leading-relaxed text-muted">
-            Run a read-only health check before you ask an agent to work. The
-            output is safe to share when filing a bug.
-          </p>
-          <div className="flex flex-wrap gap-2 mb-3">
-            <button
-              type="button"
-              onClick={() => void runDiagnostics()}
-              disabled={diagnosticsBusy}
-              className="rounded-md border border-border px-2.5 py-1.5 text-[11px] text-text transition-colors hover:border-border-strong disabled:opacity-40"
-            >
-              {diagnosticsBusy ? "Running…" : "Run diagnostics"}
-            </button>
-            <button
-              type="button"
-              onClick={() => void copyDiagnostics()}
-              disabled={!diagnostics}
-              className="rounded-md border border-border px-2.5 py-1.5 text-[11px] text-text transition-colors hover:border-border-strong disabled:opacity-40"
-            >
-              Copy diagnostics
-            </button>
-            {isDesktop() && (
+            <div className="settings-actions">
               <button
                 type="button"
-                onClick={() => void openLogs()}
-                className="rounded-md border border-border px-2.5 py-1.5 text-[11px] text-text transition-colors hover:border-border-strong"
+                className="bark-primary"
+                onClick={saveProject}
+                disabled={!dirty}
               >
-                Open server log
+                Save changes
               </button>
-            )}
-          </div>
-          {diagnostics && (
-            <div className="space-y-1.5 text-[11px]">
-              <div className="flex items-center gap-2">
-                <span className={diagnostics.project?.is_git ? "text-success" : "text-warning"}>
-                  {diagnostics.project?.is_git ? "✓" : "!"}
-                </span>
-                <span className="text-muted">Project</span>
-                <span className="font-mono text-text/90 truncate">
-                  {diagnostics.project?.root || "unknown"}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className={diagnostics.project?.setup?.complete ? "text-success" : "text-warning"}>
-                  {diagnostics.project?.setup?.complete ? "✓" : "!"}
-                </span>
-                <span className="text-muted">Setup</span>
-                <span className="text-text/90">
-                  {diagnostics.project?.setup?.complete ? "complete" : "needs setup"}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className={diagnostics.hooks?.installed ? "text-success" : "text-warning"}>
-                  {diagnostics.hooks?.installed ? "✓" : "!"}
-                </span>
-                <span className="text-muted">Agent hooks</span>
-                <span className="text-text/90">
-                  {diagnostics.hooks?.installed ? "installed" : "not installed"}
-                </span>
-              </div>
-              {Array.isArray(diagnostics.providers) && (
-                <div className="flex items-center gap-2">
-                  <span className="text-success">✓</span>
-                  <span className="text-muted">Providers</span>
-                  <span className="text-text/90">
-                    {diagnostics.providers.filter((p: any) => p.available).length}/
-                    {diagnostics.providers.length} available ·{" "}
-                    {diagnostics.providers.filter((p: any) => p.authenticated === true).length} signed in
-                  </span>
-                </div>
-              )}
-              {diagnostics.validation && (
-                <div className="flex items-center gap-2">
-                  <span className={diagnostics.validation.all_valid ? "text-success" : "text-warning"}>
-                    {diagnostics.validation.all_valid ? "✓" : "!"}
-                  </span>
-                  <span className="text-muted">Boards</span>
-                  <span className="text-text/90">
-                    {diagnostics.validation.all_valid ? "all valid" : "validation issues"}
-                  </span>
-                </div>
-              )}
+              <button
+                type="button"
+                className="bark-button"
+                onClick={() => {
+                  setTitle(board.title);
+                  setDescription(board.description || "");
+                  setCols(board.columns.map((column) => ({ id: column.id, name: column.name })));
+                }}
+                disabled={!dirty}
+              >
+                Discard
+              </button>
+              {dirty && <span className="settings-dirty">Unsaved changes</span>}
             </div>
-          )}
-        </Section>
 
-        {/* AI config */}
-        <Section title="AI provider">
-          {ai ? (
-            <div className="space-y-1.5 text-xs">
-              <div className="flex items-center gap-2">
-                <span className="text-muted w-20">Base URL</span>
-                <span className="font-mono text-muted-strong">{ai.base_url || "(default)"}</span>
+            {ai && (
+              <Section title="Agent endpoint" description="Read from the project config.">
+                <dl className="settings-facts">
+                  <div>
+                    <dt>Base URL</dt>
+                    <dd><code>{ai.base_url || "Local default"}</code></dd>
+                  </div>
+                  <div>
+                    <dt>Model</dt>
+                    <dd>{ai.model || "CLI default"}</dd>
+                  </div>
+                </dl>
+              </Section>
+            )}
+          </>
+        )}
+
+        {section === "appearance" && (
+          <>
+            <Section
+              title="Theme"
+              description="Changes apply immediately and stay on this machine."
+            >
+              <div className="settings-themes">
+                {THEMES.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    aria-pressed={theme === item.id}
+                    className={theme === item.id ? "is-active" : ""}
+                    onClick={() => setTheme(item.id)}
+                  >
+                    <span className={`settings-theme-swatch is-${item.id}`} aria-hidden="true" />
+                    <span>
+                      <strong>{item.label}</strong>
+                      <small>{item.note}</small>
+                    </span>
+                    {theme === item.id && <Icon name="check" size={13} />}
+                  </button>
+                ))}
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-muted w-20">Model</span>
-                <span className="font-mono text-muted-strong">{ai.model || "(default)"}</span>
+            </Section>
+
+            <Section
+              title="Custom appearance"
+              description="Accent colors and shareable presets."
+            >
+              <button
+                type="button"
+                className="bark-button"
+                onClick={() =>
+                  window.dispatchEvent(new CustomEvent("bark-command", { detail: "appearance" }))
+                }
+              >
+                <Icon name="palette" size={13} />
+                Customize appearance
+              </button>
+            </Section>
+          </>
+        )}
+
+        {section === "agents" && (
+          <>
+            <Section
+              title="Local coding agents"
+              description="Bark runs the CLIs installed on this machine. It never reports an unavailable provider as ready."
+            >
+              <div className="settings-agents">
+                {providers.length === 0 ? (
+                  <p className="settings-empty">
+                    No local agents reported by the server. Open project setup to check
+                    the CLI installation.
+                  </p>
+                ) : (
+                  providers.map((provider) => {
+                    const state = providerState(provider);
+                    return (
+                      <div key={provider.id} className="settings-agent">
+                        <ProviderIcon id={provider.id} name={provider.name} size={20} />
+                        <div className="settings-agent-copy">
+                          <strong>{provider.name}</strong>
+                          <small>
+                            {provider.command}
+                            {provider.version ? ` · ${provider.version}` : ""}
+                          </small>
+                        </div>
+                        <span className={`settings-status is-${state.tone}`}>{state.label}</span>
+                        {provider.available && provider.authenticated !== true && provider.auth_command ? (
+                          <button
+                            type="button"
+                            className="bark-button"
+                            onClick={() => void authenticate(provider)}
+                            disabled={authBusy !== null}
+                            title={provider.auth_hint}
+                          >
+                            {authBusy === provider.id ? "Opening…" : "Sign in"}
+                          </button>
+                        ) : null}
+                      </div>
+                    );
+                  })
+                )}
               </div>
-              <p className="text-[11px] text-muted pt-1">
-                Configure with <span className="font-mono">barkcli agent config set</span> in the terminal.
+              <div className="settings-inline-actions">
+                <button type="button" className="bark-button" onClick={() => void loadProviders()} disabled={providersBusy}>
+                  <Icon name="refresh" size={12} />
+                  {providersBusy ? "Checking…" : "Recheck"}
+                </button>
+                <button
+                  type="button"
+                  className="bark-button"
+                  onClick={() => navigate("operations", { tool: "workspace" })}
+                >
+                  Project setup
+                </button>
+              </div>
+              {authNote && <p className="settings-note">{authNote}</p>}
+            </Section>
+
+            <Section
+              title="Agent behavior"
+              description="Rules and automations are project tools, not global settings."
+            >
+              <div className="settings-inline-actions">
+                <button type="button" className="bark-button" onClick={() => navigate("operations", { tool: "rules" })}>
+                  Rules
+                </button>
+                <button type="button" className="bark-button" onClick={() => navigate("operations", { tool: "automations" })}>
+                  Automations
+                </button>
+                <button type="button" className="bark-button" onClick={() => navigate("skills")}>
+                  Skills
+                </button>
+              </div>
+            </Section>
+          </>
+        )}
+
+        {section === "diagnostics" && (
+          <>
+            <Section
+              title="Health check"
+              description="Run a read-only check before asking an agent to work. The output is safe to share."
+            >
+              <div className="settings-inline-actions">
+                <button type="button" className="bark-primary" onClick={() => void runDiagnostics()} disabled={diagnosticsBusy}>
+                  {diagnosticsBusy ? "Running…" : "Run diagnostics"}
+                </button>
+                <button type="button" className="bark-button" onClick={() => void copyDiagnostics()} disabled={!diagnostics}>
+                  Copy diagnostics
+                </button>
+              </div>
+              {diagnostics && (
+                <dl className="settings-facts is-diagnostics">
+                  <div>
+                    <dt>Project</dt>
+                    <dd>
+                      <span className={diagnostics.project?.is_git ? "is-ok" : "is-warn"}>
+                        {diagnostics.project?.is_git ? "Git" : "No Git"}
+                      </span>
+                      <code>{diagnostics.project?.root || "unknown"}</code>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Setup</dt>
+                    <dd>{diagnostics.project?.setup?.complete ? "Complete" : "Needs setup"}</dd>
+                  </div>
+                  <div>
+                    <dt>Agent hooks</dt>
+                    <dd>{diagnostics.hooks?.installed ? "Installed" : "Not installed"}</dd>
+                  </div>
+                  <div>
+                    <dt>Providers</dt>
+                    <dd>
+                      {diagnostics.providers?.filter((provider: ProviderStatus) => provider.available).length || 0}/
+                      {diagnostics.providers?.length || 0} available ·{" "}
+                      {diagnostics.providers?.filter((provider: ProviderStatus) => provider.authenticated === true).length || 0} signed in
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Boards</dt>
+                    <dd>{diagnostics.validation?.all_valid ? "All valid" : "Validation issues"}</dd>
+                  </div>
+                  <div>
+                    <dt>Server</dt>
+                    <dd>{diagnostics.ping?.version || "responding"}</dd>
+                  </div>
+                </dl>
+              )}
+            </Section>
+
+            <Section
+              title="Logs and terminal"
+              description="These open native apps on this machine."
+            >
+              <div className="settings-inline-actions">
+                <button type="button" className="bark-button" onClick={() => void openLogs()} disabled={!isDesktop()}>
+                  Open server log
+                </button>
+                <button type="button" className="bark-button" onClick={() => void openTerminal()} disabled={!isDesktop()}>
+                  Open project terminal
+                </button>
+              </div>
+              {!isDesktop() && (
+                <p className="settings-note">
+                  Native logs and terminals are available in the Bark Mac app.
+                </p>
+              )}
+            </Section>
+
+            <Section
+              title="Remote access"
+              description="Bark is local-first. Share this URL only on a network you trust."
+            >
+              <div className="settings-copy-row">
+                <input
+                  readOnly
+                  value={`${apiAccess().base}${apiAccess().token ? `?token=${apiAccess().token}` : ""}`}
+                  aria-label="Remote access URL"
+                />
+                <button type="button" className="bark-button" onClick={() => void copyRemoteUrl()}>
+                  Copy URL
+                </button>
+              </div>
+              <p className="settings-note">
+                Start with <code>barkcli serve --host 0.0.0.0</code> to reach this project
+                from another device. Keep the token secret.
               </p>
-            </div>
-          ) : (
-            <p className="text-xs text-muted">No project config found.</p>
-          )}
-        </Section>
+            </Section>
+          </>
+        )}
       </div>
     </div>
   );

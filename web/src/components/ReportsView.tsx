@@ -317,7 +317,7 @@ export function ReportsView({ board, sprints }: { board: BoardType; sprints: Spr
 
         {/* Notion Style Delivery Summary Callout */}
         <div className="p-4 rounded-2xl bg-surface border border-border text-xs text-text flex items-start gap-3 shadow-sm">
-          <span className="text-base select-none mt-0.5">📌</span>
+          <Icon name="pin" size={14} className="mt-0.5 shrink-0 text-accent-text" />
           <div className="flex-1 space-y-1">
             <div className="font-semibold text-text">Velocity & Acceptance Gate Intelligence</div>
             <p className="text-muted leading-relaxed">

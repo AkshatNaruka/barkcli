@@ -1,26 +1,59 @@
 import React from "react";
-import { Icon } from "./Icon";
+import { SelectMenu, type SelectOption } from "./SelectMenu";
 
-// Ghost select: native dropdown reliability, styled like a quiet app control.
-// The closed side shows label + chevron only — no border, no native chrome
-// (appearance-none avoids the OS-native white pill artifact in Chromium).
+function labelOf(node: React.ReactNode): string {
+  if (node === null || node === undefined || typeof node === "boolean") return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(labelOf).join("");
+  if (React.isValidElement<{ children?: React.ReactNode }>(node)) return labelOf(node.props.children);
+  return "";
+}
+
+function optionsFrom(children: React.ReactNode): SelectOption[] {
+  const options: SelectOption[] = [];
+  React.Children.forEach(children, (child) => {
+    if (!React.isValidElement<{ value?: string | number; disabled?: boolean; children?: React.ReactNode }>(child)) {
+      return;
+    }
+    if (child.type !== "option") return;
+    options.push({
+      value: String(child.props.value ?? labelOf(child.props.children)),
+      label: labelOf(child.props.children),
+      disabled: child.props.disabled,
+    });
+  });
+  return options;
+}
+
+/**
+ * Backwards-compatible quiet select used across the app. It now renders the
+ * shared SelectMenu, so every call site gets the same Mac-style menu, keyboard
+ * support, outside-click handling, and focus return.
+ */
 export function QuietSelect({
   className = "",
-  chevronClass = "",
+  chevronClass: _chevronClass,
   children,
+  value,
+  onChange,
+  disabled,
+  title,
   ...props
 }: React.SelectHTMLAttributes<HTMLSelectElement> & { chevronClass?: string }) {
+  const options = optionsFrom(children);
+  const selected = value === undefined ? "" : String(value);
   return (
-    <div className="relative inline-flex items-center min-w-0">
-      <select
-        {...props}
-        className={`appearance-none bg-transparent rounded-md text-xs text-muted hover:text-text cursor-pointer focus:outline-none disabled:opacity-50 truncate pr-6 ${className}`}
-      >
-        {children}
-      </select>
-      <span className={`pointer-events-none absolute right-1.5 text-muted flex ${chevronClass}`}>
-        <Icon name="chevR" size={11} className="rotate-90" />
-      </span>
-    </div>
+    <SelectMenu
+      id={props.id}
+      value={selected}
+      options={options}
+      ariaLabel={props["aria-label"] || title || "Select"}
+      className={className}
+      disabled={disabled}
+      title={title}
+      onChange={(next) =>
+        onChange?.({ target: { value: next } } as React.ChangeEvent<HTMLSelectElement>)
+      }
+    />
   );
 }

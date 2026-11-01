@@ -4,6 +4,7 @@
 //! lifecycle: find the project, spawn `barkcli serve --app` on a private port,
 //! open the window when it is ready, and make sure the server dies with us.
 
+use std::collections::HashSet;
 use std::ffi::OsString;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
@@ -21,6 +22,40 @@ use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WebviewUrl, WebviewWin
 struct DesktopProject {
     path: String,
     name: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ProjectGitSummary {
+    branch: String,
+    clean: bool,
+    changes: usize,
+    last_commit: Option<String>,
+    last_commit_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ProjectBoardSummary {
+    name: String,
+    cards: usize,
+    todo: usize,
+    doing: usize,
+    review: usize,
+    done: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ProjectSummary {
+    path: String,
+    name: String,
+    current: bool,
+    available: bool,
+    board_files: usize,
+    boards: Vec<ProjectBoardSummary>,
+    active_board: Option<String>,
+    agents: usize,
+    threads: usize,
+    last_active: Option<i64>,
+    git: Option<ProjectGitSummary>,
 }
 
 impl From<&Path> for DesktopProject {
@@ -90,7 +125,7 @@ fn main() {
     // Chat is the landing surface. Without an explicit fragment the webview
     // can restore an older hash from its session history, which would make a
     // fresh launch feel arbitrary.
-    let url = format!("http://127.0.0.1:{}/?token={}#/chat", port, token);
+    let url = format!("http://127.0.0.1:{}/?token={}#/projects", port, token);
 
     let mut child = spawn_server(&bin, &project, port, &token).unwrap_or_else(|e| {
         fatal(&format!("Failed to start barkcli: {}", e));
@@ -121,11 +156,15 @@ fn main() {
             open_project_dialog,
             switch_project,
             recent_projects,
+            project_summaries,
             reveal_project,
             open_provider_login,
             open_terminal,
             open_logs,
             notify,
+            sidebar_layout_get,
+            sidebar_layout_set,
+            thread_preference_set,
         ])
         .on_menu_event(|app, event| {
             let _ = app.emit("bark-menu", event.id().as_ref());
@@ -133,6 +172,10 @@ fn main() {
         .setup(move |app| {
             let parsed = url.parse().expect("valid local url");
             let mut window = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(parsed))
+                .initialization_script(format!(
+                    "if (location.protocol === 'http:' && location.hostname === '127.0.0.1') {{ window.__BARK_THREAD_PREFERENCES__ = {}; try {{ for (const [key, value] of Object.entries(window.__BARK_THREAD_PREFERENCES__)) {{ if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value); }} }} catch {{}} }}",
+                    serde_json::to_string(&load_thread_preferences()).unwrap_or_else(|_| "{}".into())
+                ))
                 .title(title)
                 .inner_size(1440.0, 900.0)
                 .min_inner_size(1040.0, 680.0)
@@ -159,6 +202,8 @@ fn main() {
             let app_menu = SubmenuBuilder::new(app, "Bark")
                 .about(None)
                 .separator()
+                .item(&item("settings", "Settings…", Some("CmdOrCtrl+,"))?)
+                .separator()
                 .services()
                 .separator()
                 .hide()
@@ -168,15 +213,30 @@ fn main() {
                 .build()?;
             let file_menu = SubmenuBuilder::new(app, "File")
                 .item(&item("open-project", "Open Project…", Some("CmdOrCtrl+O"))?)
-                .item(&item("new-chat", "New Read-Only Question", Some("CmdOrCtrl+Shift+N"))?)
+                .item(&item(
+                    "new-chat",
+                    "New Read-Only Question",
+                    Some("CmdOrCtrl+Shift+N"),
+                )?)
                 .item(&item("new-intent", "New Thread", Some("CmdOrCtrl+N"))?)
                 .separator()
                 .item(&item("quick-open", "Quick Open…", Some("CmdOrCtrl+P"))?)
-                .item(&item("command-runner", "Run Command…", Some("CmdOrCtrl+Shift+R"))?)
-                .item(&item("command-palette", "Command Palette…", Some("CmdOrCtrl+K"))?)
-                .item(&item("settings", "Settings…", Some("CmdOrCtrl+,"))?)
+                .item(&item(
+                    "command-runner",
+                    "Run Command…",
+                    Some("CmdOrCtrl+Shift+R"),
+                )?)
+                .item(&item(
+                    "command-palette",
+                    "Command Palette…",
+                    Some("CmdOrCtrl+K"),
+                )?)
                 .separator()
-                .item(&item("open-terminal", "Open Terminal", Some("CmdOrCtrl+Shift+T"))?)
+                .item(&item(
+                    "open-terminal",
+                    "Open Terminal",
+                    Some("CmdOrCtrl+Shift+T"),
+                )?)
                 .item(&item("reveal-project", "Reveal Project in Finder", None)?)
                 .separator()
                 .close_window()
@@ -191,16 +251,23 @@ fn main() {
                 .select_all()
                 .build()?;
             let view_menu = SubmenuBuilder::new(app, "View")
-                .item(&item("toggle-sidebar", "Toggle Sidebar", Some("CmdOrCtrl+Shift+B"))?)
-                .item(&item("toggle-workbench", "Toggle Workbench", Some("CmdOrCtrl+J"))?)
+                .item(&item(
+                    "toggle-sidebar",
+                    "Toggle Sidebar",
+                    Some("CmdOrCtrl+Shift+B"),
+                )?)
+                .item(&item("customize-sidebar", "Customize Sidebar…", None)?)
+                .item(&item(
+                    "toggle-workbench",
+                    "Toggle Workbench",
+                    Some("CmdOrCtrl+J"),
+                )?)
                 .separator()
                 .fullscreen()
                 .build()?;
             let window_menu = SubmenuBuilder::new(app, "Window")
                 .minimize()
                 .maximize()
-                .separator()
-                .close_window()
                 .build()?;
             let help_menu = SubmenuBuilder::new(app, "Help")
                 .item(&item("help", "Bark Help", None)?)
@@ -247,6 +314,96 @@ fn current_project(state: State<'_, ServerState>) -> DesktopProject {
     DesktopProject::from(runtime.project.as_path())
 }
 
+fn sidebar_layout_path() -> Result<PathBuf, String> {
+    state_path()
+        .and_then(|path| {
+            path.parent()
+                .map(|parent| parent.join("sidebar-layout.json"))
+        })
+        .ok_or_else(|| "Could not locate Bark's preferences folder".to_string())
+}
+
+fn thread_preferences_path() -> Result<PathBuf, String> {
+    sidebar_layout_path().map(|path| path.with_file_name("thread-preferences.json"))
+}
+
+fn load_thread_preferences() -> serde_json::Map<String, serde_json::Value> {
+    thread_preferences_path().ok()
+        .and_then(|path| fs::read(path).ok())
+        .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+        .unwrap_or_default()
+}
+
+fn durable_thread_key(key: &str) -> bool {
+    key.len() <= 4096 && ["bark:draft:v1:", "bark:agent:v1:", "bark:composer-mode:v1:"]
+        .iter().any(|prefix| key.starts_with(prefix))
+}
+
+fn write_thread_preference_at(path: &Path, key: String, value: Option<String>) -> Result<(), String> {
+    if !durable_thread_key(&key) || value.as_ref().is_some_and(|value| value.len() > 512_000) {
+        return Err("Invalid thread preference".into());
+    }
+    let mut saved: serde_json::Map<String, serde_json::Value> = match fs::read(path) {
+        Ok(bytes) => serde_json::from_slice(&bytes).map_err(|error| error.to_string())?,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Default::default(),
+        Err(error) => return Err(error.to_string()),
+    };
+    saved.insert(key, serde_json::to_value(value).map_err(|error| error.to_string())?);
+    let bytes = serde_json::to_vec(&saved).map_err(|error| error.to_string())?;
+    if bytes.len() > 4_194_304 { return Err("Thread preferences are full. Clear old drafts before saving more.".into()); }
+    fs::create_dir_all(path.parent().ok_or("Missing preferences folder")?).map_err(|error| error.to_string())?;
+    let temporary = path.with_extension("json.tmp");
+    fs::write(&temporary, bytes).map_err(|error| error.to_string())?;
+    #[cfg(unix)] {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&temporary, fs::Permissions::from_mode(0o600)).map_err(|error| error.to_string())?;
+    }
+    fs::rename(&temporary, path).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn thread_preference_set(key: String, value: Option<String>) -> Result<(), String> {
+    static WRITE_LOCK: Mutex<()> = Mutex::new(());
+    let _lock = WRITE_LOCK.lock().map_err(|_| "Thread preferences are locked")?;
+    write_thread_preference_at(&thread_preferences_path()?, key, value)
+}
+
+#[tauri::command]
+fn sidebar_layout_get() -> Result<Option<serde_json::Value>, String> {
+    read_sidebar_layout(&sidebar_layout_path()?)
+}
+
+fn read_sidebar_layout(path: &Path) -> Result<Option<serde_json::Value>, String> {
+    match fs::read_to_string(path) {
+        Ok(text) => serde_json::from_str(&text)
+            .map(Some)
+            .map_err(|error| error.to_string()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+#[tauri::command]
+fn sidebar_layout_set(layout: serde_json::Value) -> Result<(), String> {
+    write_sidebar_layout(&sidebar_layout_path()?, layout)
+}
+
+fn write_sidebar_layout(path: &Path, layout: serde_json::Value) -> Result<(), String> {
+    let bytes = serde_json::to_vec(&layout).map_err(|error| error.to_string())?;
+    if bytes.len() > 65_536
+        || layout.get("version").and_then(|value| value.as_u64()) != Some(1)
+        || !layout.get("groups").is_some_and(|value| value.is_array())
+        || !layout.get("hidden").is_some_and(|value| value.is_array())
+    {
+        return Err("Invalid sidebar layout".to_string());
+    }
+    let parent = path.parent().ok_or("Missing preferences folder")?;
+    fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    let temporary = path.with_extension("json.tmp");
+    fs::write(&temporary, bytes).map_err(|error| error.to_string())?;
+    fs::rename(&temporary, &path).map_err(|error| error.to_string())
+}
+
 #[tauri::command]
 fn open_project_dialog(state: State<'_, ServerState>) -> Option<DesktopProject> {
     let current = {
@@ -265,17 +422,21 @@ async fn switch_project(
     app: AppHandle,
     state: State<'_, ServerState>,
     path: String,
+    route_target: Option<String>,
 ) -> Result<DesktopProject, String> {
     let bin = state.bin.clone();
-    tauri::async_runtime::spawn_blocking(move || switch_project_blocking(&app, &bin, path))
-        .await
-        .map_err(|error| format!("project switch task failed: {error}"))?
+    tauri::async_runtime::spawn_blocking(move || {
+        switch_project_blocking(&app, &bin, path, route_target)
+    })
+    .await
+    .map_err(|error| format!("project switch task failed: {error}"))?
 }
 
 fn switch_project_blocking(
     app: &AppHandle,
     bin: &Path,
     path: String,
+    route_target: Option<String>,
 ) -> Result<DesktopProject, String> {
     let target = PathBuf::from(path)
         .canonicalize()
@@ -329,8 +490,13 @@ fn switch_project_blocking(
     }
 
     // Let the command return before the webview leaves the old origin.
+    let route = match route_target.as_deref() {
+        Some("review") => "review",
+        Some("projects") => "projects",
+        _ => "chat",
+    };
     let url = format!(
-        "http://127.0.0.1:{}/?token={}#/workspace",
+        "http://127.0.0.1:{}/?token={}#/{route}",
         new_port, new_token
     );
     let handle = app.clone();
@@ -376,6 +542,209 @@ fn recent_projects(state: State<'_, ServerState>) -> Vec<DesktopProject> {
     projects.insert(0, current);
     projects.truncate(8);
     projects
+}
+
+/// Read only what Bark already keeps on disk for a project. This never starts
+/// a second server, so the overview stays cheap when many projects are known.
+fn summarize_project(path: &Path, current: bool) -> ProjectSummary {
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("project")
+        .to_string();
+    let board_dir = path.join(".board");
+    let mut board_names = Vec::new();
+    if let Ok(entries) = fs::read_dir(path) {
+        for entry in entries.flatten() {
+            let candidate = entry.path();
+            if candidate.extension().and_then(|ext| ext.to_str()) == Some("board") {
+                if let Some(stem) = candidate.file_stem().and_then(|stem| stem.to_str()) {
+                    board_names.push(stem.to_string());
+                }
+            }
+        }
+    }
+    board_names.sort();
+
+    let default_board = fs::read_to_string(board_dir.join("config.json"))
+        .ok()
+        .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+        .and_then(|value| {
+            value
+                .get("default_board")
+                .and_then(|board| board.as_str())
+                .map(|board| board.to_string())
+        });
+    let active_board = default_board
+        .filter(|board| board_names.iter().any(|name| name == board))
+        .or_else(|| board_names.first().cloned());
+
+    let mut boards = Vec::new();
+    if let Some(active) = active_board.as_ref() {
+        if let Some(summary) = read_board_summary(path, active) {
+            boards.push(summary);
+        }
+    }
+    for board in &board_names {
+        if active_board.as_deref() == Some(board.as_str()) {
+            continue;
+        }
+        if let Some(summary) = read_board_summary(path, board) {
+            boards.push(summary);
+        }
+    }
+
+    let agents = count_files(&board_dir.join("agents"), "md");
+    let threads = count_files(&board_dir.join("threads"), "json");
+
+    let mut last_active = None;
+    for board in &board_names {
+        last_active = latest(
+            last_active,
+            modified_epoch(&path.join(format!("{board}.board"))),
+        );
+    }
+    last_active = latest(last_active, modified_epoch(&board_dir.join("threads")));
+    last_active = latest(last_active, modified_epoch(&board_dir.join("config.json")));
+
+    ProjectSummary {
+        path: path.display().to_string(),
+        name,
+        current,
+        available: board_dir.is_dir() || !board_names.is_empty(),
+        board_files: board_names.len(),
+        boards,
+        active_board,
+        agents,
+        threads,
+        last_active,
+        git: git_summary(path),
+    }
+}
+
+fn read_board_summary(path: &Path, board: &str) -> Option<ProjectBoardSummary> {
+    let text = fs::read_to_string(path.join(format!("{board}.board"))).ok()?;
+    let value: serde_yaml::Value = serde_yaml::from_str(&text).ok()?;
+    let cards = value.get("cards").and_then(|cards| cards.as_sequence());
+    let mut summary = ProjectBoardSummary {
+        name: board.to_string(),
+        cards: 0,
+        todo: 0,
+        doing: 0,
+        review: 0,
+        done: 0,
+    };
+    for card in cards.into_iter().flatten() {
+        let column = card
+            .get("column")
+            .and_then(|column| column.as_str())
+            .unwrap_or("todo");
+        summary.cards += 1;
+        match column {
+            "todo" => summary.todo += 1,
+            "doing" => summary.doing += 1,
+            "review" => summary.review += 1,
+            "done" => summary.done += 1,
+            _ => {}
+        }
+    }
+    Some(summary)
+}
+
+fn count_files(dir: &Path, extension: &str) -> usize {
+    fs::read_dir(dir)
+        .map(|entries| {
+            entries
+                .flatten()
+                .filter(|entry| {
+                    entry.path().extension().and_then(|ext| ext.to_str()) == Some(extension)
+                })
+                .count()
+        })
+        .unwrap_or(0)
+}
+
+fn modified_epoch(path: &Path) -> Option<i64> {
+    fs::metadata(path)
+        .ok()?
+        .modified()
+        .ok()?
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .map(|duration| duration.as_secs() as i64)
+}
+
+fn latest(current: Option<i64>, candidate: Option<i64>) -> Option<i64> {
+    match (current, candidate) {
+        (Some(a), Some(b)) => Some(a.max(b)),
+        (Some(a), None) => Some(a),
+        (None, Some(b)) => Some(b),
+        (None, None) => None,
+    }
+}
+
+fn git_summary(path: &Path) -> Option<ProjectGitSummary> {
+    if !path.join(".git").exists() {
+        return None;
+    }
+    let branch = git_output(path, &["rev-parse", "--abbrev-ref", "HEAD"])?;
+    let status = git_output(path, &["status", "--porcelain"]).unwrap_or_default();
+    let changes = status
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .count();
+    let last_commit = git_output(path, &["log", "-1", "--format=%s"]);
+    let last_commit_at = git_output(path, &["log", "-1", "--format=%ct"])
+        .and_then(|value| value.parse::<i64>().ok());
+    Some(ProjectGitSummary {
+        branch,
+        clean: changes == 0,
+        changes,
+        last_commit,
+        last_commit_at,
+    })
+}
+
+fn git_output(path: &Path, args: &[&str]) -> Option<String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(path)
+        .args(args)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+#[tauri::command]
+fn project_summaries(state: State<'_, ServerState>) -> Vec<ProjectSummary> {
+    let current = {
+        let runtime = state.runtime.lock().unwrap();
+        runtime.project.clone()
+    };
+    let mut paths = vec![current.clone()];
+    if let Some(recent) = load_state()
+        .and_then(|state| state.get("recent").cloned())
+        .and_then(|value| serde_json::from_value::<Vec<DesktopProject>>(value).ok())
+    {
+        for project in recent {
+            paths.push(PathBuf::from(project.path));
+        }
+    }
+    let mut seen = HashSet::new();
+    let mut summaries = Vec::new();
+    for path in paths {
+        if !seen.insert(path.clone()) {
+            continue;
+        }
+        if summaries.len() >= 12 {
+            break;
+        }
+        summaries.push(summarize_project(&path, path == current));
+    }
+    summaries
 }
 
 #[tauri::command]
@@ -656,12 +1025,7 @@ fn pipe_logs<R: std::io::Read + Send + 'static>(reader: R, label: &'static str) 
     });
 }
 
-fn spawn_server(
-    bin: &Path,
-    project: &Path,
-    port: u16,
-    token: &str,
-) -> std::io::Result<Child> {
+fn spawn_server(bin: &Path, project: &Path, port: u16, token: &str) -> std::io::Result<Child> {
     let port_arg = port.to_string();
     let mut cmd = Command::new(bin);
     cmd.args([
@@ -882,12 +1246,17 @@ fn update_state(update: impl FnOnce(&mut serde_json::Map<String, serde_json::Val
         .ok()
         .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
         .unwrap_or_else(|| serde_json::json!({}));
-    let Some(map) = value.as_object_mut() else { return };
+    let Some(map) = value.as_object_mut() else {
+        return;
+    };
     update(map);
     if let Some(parent) = path.parent() {
         let _ = fs::create_dir_all(parent);
     }
-    let _ = fs::write(path, serde_json::to_string_pretty(&value).unwrap_or_default());
+    let _ = fs::write(
+        path,
+        serde_json::to_string_pretty(&value).unwrap_or_default(),
+    );
 }
 
 fn remember_project(project: &Path) {
@@ -901,7 +1270,8 @@ fn remember_project(project: &Path) {
             .and_then(|value| value.as_array())
             .cloned()
             .unwrap_or_default();
-        recent.retain(|item| item.get("path").and_then(|path| path.as_str()) != Some(path.as_str()));
+        recent
+            .retain(|item| item.get("path").and_then(|path| path.as_str()) != Some(path.as_str()));
         recent.insert(0, value);
         recent.truncate(8);
         state.insert("recent".into(), serde_json::Value::Array(recent));
@@ -912,8 +1282,12 @@ fn remember_window_state(app: &AppHandle) {
     let Some(window) = app.get_webview_window("main") else {
         return;
     };
-    let Ok(size) = window.inner_size() else { return };
-    let Ok(position) = window.outer_position() else { return };
+    let Ok(size) = window.inner_size() else {
+        return;
+    };
+    let Ok(position) = window.outer_position() else {
+        return;
+    };
     let scale = window.scale_factor().unwrap_or(1.0);
     if scale <= 0.0 {
         return;
@@ -936,6 +1310,40 @@ mod tests {
     use super::*;
 
     #[test]
+    fn thread_preferences_keep_drafts_and_choices_without_accepting_arbitrary_keys() {
+        let directory = std::env::temp_dir().join(format!("bark-thread-preferences-{}", random_token()));
+        let path = directory.join("thread-preferences.json");
+        write_thread_preference_at(&path, "bark:draft:v1:/project:dev:new".into(), Some("Keep this prompt".into())).unwrap();
+        write_thread_preference_at(&path, "bark:agent:v1:/project:dev".into(), Some("codex".into())).unwrap();
+        let saved: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        assert_eq!(saved["bark:draft:v1:/project:dev:new"], "Keep this prompt");
+        assert_eq!(saved["bark:agent:v1:/project:dev"], "codex");
+        assert!(write_thread_preference_at(&path, "auth-token".into(), Some("must not be stored".into())).is_err());
+        write_thread_preference_at(&path, "bark:draft:v1:/project:dev:new".into(), None).unwrap();
+        let cleared: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        assert!(cleared["bark:draft:v1:/project:dev:new"].is_null());
+        assert_eq!(cleared["bark:agent:v1:/project:dev"], "codex");
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn sidebar_preferences_survive_reloads_and_reject_invalid_replacements() {
+        let directory = std::env::temp_dir().join(format!("bark-sidebar-{}", random_token()));
+        let path = directory.join("sidebar-layout.json");
+        assert_eq!(read_sidebar_layout(&path).unwrap(), None);
+        let layout = serde_json::json!({
+            "version": 1,
+            "groups": [{ "id": "build", "label": "My workflow", "items": ["review", "chat"] }],
+            "hidden": ["code"]
+        });
+        write_sidebar_layout(&path, layout.clone()).unwrap();
+        assert_eq!(read_sidebar_layout(&path).unwrap(), Some(layout.clone()));
+        assert!(write_sidebar_layout(&path, serde_json::json!({"version": 2})).is_err());
+        assert_eq!(read_sidebar_layout(&path).unwrap(), Some(layout));
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
     fn augmented_path_prepends_agent_bins_and_keeps_existing() {
         let parts: Vec<PathBuf> = std::env::split_paths(&augmented_path()).collect();
 
@@ -949,7 +1357,11 @@ mod tests {
 
         if let Some(existing) = std::env::var_os("PATH") {
             for dir in std::env::split_paths(&existing) {
-                assert!(parts.contains(&dir), "missing inherited PATH entry: {:?}", dir);
+                assert!(
+                    parts.contains(&dir),
+                    "missing inherited PATH entry: {:?}",
+                    dir
+                );
             }
         }
 

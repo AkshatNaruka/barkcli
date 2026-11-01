@@ -1535,7 +1535,7 @@ export async function deleteThread(
 export async function postThreadMessage(
   id: string,
   text: string,
-  opts?: { author?: string; backend?: string; model?: string; mode?: "plan_first"; board?: string }
+  opts?: { author?: string; backend?: string; model?: string; mode?: "plan_first" | "build"; board?: string }
 ): Promise<ThreadEvent | null> {
   return postJson(`/api/threads/${encodeURIComponent(id)}/messages`, {
     text,
@@ -1687,9 +1687,7 @@ export async function fetchRun(id: string): Promise<RunRecord | null> {
   }
 }
 
-export async function startThreadRun(
-  threadId: string,
-  payload: {
+export interface ThreadRunRequest {
     provider?: string;
     model?: string;
     role?: string;
@@ -1700,9 +1698,24 @@ export async function startThreadRun(
     skills?: string[];
     parent_run_id?: string;
     plan_event_id?: string;
-  }
+    board?: string;
+}
+
+/** Direct composer starts preserve the server's actionable error message. */
+export async function startThreadBuild(threadId: string, payload: ThreadRunRequest): Promise<RunRecord> {
+  const { board, ...body } = payload;
+  const query = board ? `?name=${encodeURIComponent(board)}` : "";
+  const result = await mutateJson(`/api/threads/${encodeURIComponent(threadId)}/runs${query}`, "POST", body);
+  if (!result.ok || !result.data?.id) throw new Error(result.error || "The local agent did not start. Your prompt is saved.");
+  return result.data;
+}
+
+export async function startThreadRun(
+  threadId: string,
+  payload: ThreadRunRequest
 ): Promise<RunRecord | null> {
-  return postJson(`/api/threads/${encodeURIComponent(threadId)}/runs`, payload);
+  const { board, ...body } = payload;
+  return postJson(`/api/threads/${encodeURIComponent(threadId)}/runs${board ? `?name=${encodeURIComponent(board)}` : ""}`, body);
 }
 
 export async function fetchRunDiff(runId: string): Promise<RunDiff | null> {
@@ -2199,14 +2212,10 @@ export async function runProjectCommand(
 
 export async function fetchRules(): Promise<Rule[]> {
   if (isVscode) return [];
-  try {
-    const res = await fetch(withToken("/api/rules"));
-    if (!res.ok) return [];
-    const data = (await res.json()) as { rules?: Rule[] };
-    return data.rules || [];
-  } catch {
-    return [];
-  }
+  const res = await fetch(withToken("/api/rules"));
+  if (!res.ok) throw new Error(`Could not read rules (${res.status}).`);
+  const data = (await res.json()) as { rules?: Rule[] };
+  return data.rules || [];
 }
 
 export async function createRule(title: string, body: string): Promise<boolean> {

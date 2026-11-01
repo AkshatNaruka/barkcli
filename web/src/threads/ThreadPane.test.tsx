@@ -19,6 +19,7 @@ const api = vi.hoisted(() => ({
   forkSession: vi.fn(),
   raceTask: vi.fn(),
   startThreadRun: vi.fn(),
+  startThreadBuild: vi.fn(),
   stopRun: vi.fn(),
   mergeRun: vi.fn(),
   fetchProviders: vi.fn(async () => [
@@ -102,7 +103,7 @@ describe("ThreadPane", () => {
     expect(onSelectCard).toHaveBeenCalled();
 
     const composer = screen.getByTestId("thread-composer");
-    await user.click(screen.getByRole("button", { name: "Build" }));
+    await user.click(screen.getByRole("button", { name: "Plan" }));
     await user.type(composer, "Please add a regression test.");
     await user.keyboard("{Meta>}{Enter}{/Meta}");
 
@@ -123,7 +124,7 @@ describe("ThreadPane", () => {
     expect(onRefreshInbox).toHaveBeenCalled();
   });
 
-  it("asks the local agent in read-only mode by default", async () => {
+  it("asks the local agent when Ask is selected", async () => {
     api.fetchThread.mockResolvedValue(detail);
     api.startThreadChat.mockResolvedValue({
       ok: true,
@@ -138,6 +139,7 @@ describe("ThreadPane", () => {
     await screen.findByText("Static demo hosting");
 
     const composer = screen.getByTestId("thread-composer");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
     await user.type(composer, "Where is the auth middleware?");
     await user.keyboard("{Meta>}{Enter}{/Meta}");
 
@@ -154,6 +156,20 @@ describe("ThreadPane", () => {
       "Where is the auth middleware?",
       expect.anything()
     );
+  });
+
+  it("sends coding follow-ups to the build runtime by default", async () => {
+    api.fetchThread.mockResolvedValue(detail);
+    api.postThreadMessage.mockResolvedValue({ id: "followup", kind: "user", text: "Now add tests" });
+    api.startThreadBuild.mockResolvedValue({ id: "run_followup", status: "running", diff_stats: { files: 0, additions: 0, deletions: 0 } });
+    const user = userEvent.setup();
+    render(<ThreadPane threadId="demo-mode" boardName="dev" />);
+    await screen.findByText("Static demo hosting");
+    await user.type(screen.getByTestId("thread-composer"), "Now add tests");
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(api.startThreadBuild).toHaveBeenCalledWith("demo-mode",
+      expect.objectContaining({ prompt: "Now add tests", provider: "opencode", board: "dev" })));
+    expect(api.startThreadChat).not.toHaveBeenCalled();
   });
 
   it("renders streamed assistant deltas as one bubble", async () => {

@@ -177,6 +177,162 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Enables the current_project command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-current-project",
+          "markdownDescription": "Enables the current_project command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the notify command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-notify",
+          "markdownDescription": "Enables the notify command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the open_logs command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-open-logs",
+          "markdownDescription": "Enables the open_logs command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the open_project_dialog command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-open-project-dialog",
+          "markdownDescription": "Enables the open_project_dialog command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the open_provider_login command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-open-provider-login",
+          "markdownDescription": "Enables the open_provider_login command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the open_terminal command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-open-terminal",
+          "markdownDescription": "Enables the open_terminal command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the project_summaries command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-project-summaries",
+          "markdownDescription": "Enables the project_summaries command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the recent_projects command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-recent-projects",
+          "markdownDescription": "Enables the recent_projects command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the reveal_project command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-reveal-project",
+          "markdownDescription": "Enables the reveal_project command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the sidebar_layout_get command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-sidebar-layout-get",
+          "markdownDescription": "Enables the sidebar_layout_get command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the sidebar_layout_set command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-sidebar-layout-set",
+          "markdownDescription": "Enables the sidebar_layout_set command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the switch_project command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-switch-project",
+          "markdownDescription": "Enables the switch_project command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the thread_preference_set command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-thread-preference-set",
+          "markdownDescription": "Enables the thread_preference_set command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the current_project command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-current-project",
+          "markdownDescription": "Denies the current_project command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the notify command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-notify",
+          "markdownDescription": "Denies the notify command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the open_logs command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-open-logs",
+          "markdownDescription": "Denies the open_logs command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the open_project_dialog command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-open-project-dialog",
+          "markdownDescription": "Denies the open_project_dialog command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the open_provider_login command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-open-provider-login",
+          "markdownDescription": "Denies the open_provider_login command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the open_terminal command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-open-terminal",
+          "markdownDescription": "Denies the open_terminal command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the project_summaries command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-project-summaries",
+          "markdownDescription": "Denies the project_summaries command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the recent_projects command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-recent-projects",
+          "markdownDescription": "Denies the recent_projects command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the reveal_project command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-reveal-project",
+          "markdownDescription": "Denies the reveal_project command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the sidebar_layout_get command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-sidebar-layout-get",
+          "markdownDescription": "Denies the sidebar_layout_get command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the sidebar_layout_set command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-sidebar-layout-set",
+          "markdownDescription": "Denies the sidebar_layout_set command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the switch_project command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-switch-project",
+          "markdownDescription": "Denies the switch_project command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the thread_preference_set command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-thread-preference-set",
+          "markdownDescription": "Denies the thread_preference_set command without any pre-configured scope."
+        },
+        {
           "description": "Default core plugins set.\n#### This default permission set includes:\n\n- `core:path:default`\n- `core:event:default`\n- `core:window:default`\n- `core:webview:default`\n- `core:app:default`\n- `core:image:default`\n- `core:resources:default`\n- `core:menu:default`\n- `core:tray:default`",
           "type": "string",
           "const": "core:default",

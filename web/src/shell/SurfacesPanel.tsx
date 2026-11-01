@@ -1,5 +1,4 @@
 import React from "react";
-import { PROJECT_TOOLS, type ProjectTool } from "../lib/commands";
 import { WORKBENCH_SURFACES, type WorkbenchTab } from "../lib/workbench";
 import { Icon } from "../components/Icon";
 
@@ -8,56 +7,30 @@ interface SurfacesPanelProps {
   activePanel?: WorkbenchTab | null;
   showThread: boolean;
   onSelectThread: (panel: WorkbenchTab) => void;
-  onOpenProjectTool: (tool: ProjectTool) => void;
-  onOpenProjectHub: () => void;
   onClose: () => void;
 }
 
-const SHORTCUTS: Array<{ id: string; letter: string }> = [
-  { id: "board", letter: "B" },
-  { id: "agents", letter: "A" },
-];
-
+/**
+ * Thread surfaces live beside the conversation. Project tools live in the left
+ * rail, so this panel never competes with project navigation.
+ */
 export function SurfacesPanel({
   boardName,
   activePanel,
   showThread,
   onSelectThread,
-  onOpenProjectTool,
-  onOpenProjectHub,
   onClose,
 }: SurfacesPanelProps) {
-  const shortcuts = SHORTCUTS.map((shortcut) => ({
-    ...shortcut,
-    tool: PROJECT_TOOLS.find((tool) => tool.id === shortcut.id)!,
-  })).filter((shortcut) => shortcut.tool);
-
-  const activate = (letter: string) => {
-    const thread = showThread
-      ? WORKBENCH_SURFACES.find((surface) => surface.letter === letter)
-      : undefined;
-    if (thread) {
-      onSelectThread(thread.id);
-      return;
-    }
-    const shortcut = shortcuts.find((entry) => entry.letter === letter);
-    if (shortcut) {
-      onOpenProjectTool(shortcut.tool);
-      return;
-    }
-    if (letter === "T") onOpenProjectHub();
-  };
-
   return (
     <aside className="surfaces-list" aria-label="Thread surfaces">
       <header className="surfaces-list-head">
-        <span>{showThread ? "This thread" : "Project"}</span>
+        <span>{showThread ? "This thread" : "Thread"}</span>
         <button
           type="button"
           className="bark-icon-button"
           onClick={onClose}
-          aria-label="Close surfaces"
-          title="Close surfaces (⌘J)"
+          aria-label="Close thread panel"
+          title="Close thread panel (⌘J)"
         >
           <Icon name="x" size={15} />
         </button>
@@ -74,8 +47,11 @@ export function SurfacesPanel({
             return;
           }
           if (event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey) {
-            event.preventDefault();
-            activate(event.key.toUpperCase());
+            const surface = WORKBENCH_SURFACES.find((entry) => entry.letter === event.key.toUpperCase());
+            if (surface && showThread) {
+              event.preventDefault();
+              onSelectThread(surface.id);
+            }
           }
         }}
       >
@@ -97,35 +73,11 @@ export function SurfacesPanel({
             ))}
           </section>
         ) : (
-          <p className="surfaces-note">Start a thread to see its plan, changes, and checks here.</p>
+          <p className="surfaces-note">
+            Start a thread to see its plan, changes, checks, and evidence here.
+            Project tools stay in the left rail.
+          </p>
         )}
-
-        <section className="surfaces-group">
-          <h2>{showThread ? "Project" : "Project shortcuts"}</h2>
-          {shortcuts.map(({ tool, letter }) => (
-            <button
-              key={tool.id}
-              type="button"
-              className="surface-row"
-              onClick={() => onOpenProjectTool(tool)}
-              title={tool.hint}
-            >
-              <Icon name={tool.icon} size={15} />
-              <span>{tool.label}</span>
-              <kbd className="surface-key">{letter}</kbd>
-            </button>
-          ))}
-          <button
-            type="button"
-            className="surface-row"
-            onClick={onOpenProjectHub}
-            title="All project tools"
-          >
-            <Icon name="grid" size={15} />
-            <span>Project tools</span>
-            <kbd className="surface-key">T</kbd>
-          </button>
-        </section>
       </div>
 
       <footer className="surfaces-list-foot">

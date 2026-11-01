@@ -209,33 +209,19 @@ fn opencode_capabilities() -> ProviderCapabilities {
 }
 
 fn claude_models() -> Vec<String> {
-    // Claude Code does not expose a machine-readable model list, so this is a
-    // curated set of aliases and full names the CLI accepts. Keep it short;
-    // the UI still accepts free-form model ids.
-    vec![
-        "opus".into(),
-        "sonnet".into(),
-        "haiku".into(),
-        "fable".into(),
-        "claude-opus-4-6".into(),
-        "claude-sonnet-4-6".into(),
-        "claude-haiku-4-5".into(),
-        "claude-opus-4-5".into(),
-        "claude-sonnet-4-5".into(),
-        "claude-opus-4-1".into(),
-    ]
+    // No machine-readable installed catalog: offer CLI default and custom id.
+    Vec::new()
 }
 
 fn codex_models() -> Vec<String> {
-    vec![
-        "gpt-5".into(),
-        "gpt-5-mini".into(),
-        "gpt-4.1".into(),
-        "gpt-4.1-mini".into(),
-        "o3".into(),
-        "o4-mini".into(),
-        "codex-mini-latest".into(),
-    ]
+    let home = std::env::var_os("CODEX_HOME").map(std::path::PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|home| std::path::PathBuf::from(home).join(".codex")));
+    let catalog = home.and_then(|home| std::fs::read(home.join("models_cache.json")).ok())
+        .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok());
+    catalog.as_ref().and_then(|value| value.get("models")).and_then(Value::as_array)
+        .map(|models| models.iter().filter(|model| model.get("visibility").and_then(Value::as_str) != Some("hide"))
+            .filter_map(|model| model.get("slug").and_then(Value::as_str)).map(str::to_string).collect())
+        .unwrap_or_default()
 }
 
 fn claude_capabilities() -> ProviderCapabilities {
@@ -255,13 +241,15 @@ fn claude_capabilities() -> ProviderCapabilities {
 
 fn codex_capabilities() -> ProviderCapabilities {
     ProviderCapabilities {
-        resume: true,
+        // Each build gets a fresh worktree with the saved thread context.
+        // Do not advertise native resume until the adapter forwards it.
+        resume: false,
         stream_json: true,
         tool_events: true,
         approvals: false,
         questions: false,
         fork: false,
-        usage: false,
+        usage: true,
         skills: true,
         mcp: true,
         headless: true,
@@ -554,39 +542,48 @@ fn spawn_cli(mut cmd: Command, req: StartRun, sink: EventSink) -> Result<Box<dyn
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 
+    let raw_log = RawLog::new(req.raw_log_path.as_deref())?;
     let mut child = cmd
         .spawn()
         .with_context(|| format!("failed to start {}. Is it installed and authenticated?", req.provider))?;
     let pid = child.id();
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
-    let raw_log = RawLog::new(req.raw_log_path.as_deref())?;
+    sink(RuntimeEvent::Started {
+        provider: req.provider.clone(),
+        model: req.model.clone(),
+        cwd: req.cwd.clone(),
+    });
     let interrupted = Arc::new(AtomicBool::new(false));
     let interrupted_for_thread = interrupted.clone();
     let run_id = req.run_id.clone();
     let sink_for_wait = sink.clone();
 
-    if let Some(stdout) = stdout {
+    let stdout_reader = if let Some(stdout) = stdout {
         let sink = sink.clone();
         let raw_log = raw_log.clone();
         thread::Builder::new()
             .name(format!("{run_id}-stdout"))
             .spawn(move || read_stream(stdout, sink, raw_log, false))
-            .ok();
-    }
-    if let Some(stderr) = stderr {
+            .ok()
+    } else { None };
+    let stderr_reader = if let Some(stderr) = stderr {
         let sink = sink.clone();
         let raw_log = raw_log.clone();
         thread::Builder::new()
             .name(format!("{run_id}-stderr"))
             .spawn(move || read_stream(stderr, sink, raw_log, true))
-            .ok();
-    }
+            .ok()
+    } else { None };
 
     let join = thread::Builder::new()
         .name(format!("{run_id}-wait"))
         .spawn(move || -> Result<RunOutcome> {
             let status = child.wait().context("failed to wait for provider")?;
+            // Drain output before publishing completion. Otherwise a fast
+            // process can finish before its final reply reaches the thread.
+            if let Some(reader) = stdout_reader { let _ = reader.join(); }
+            if let Some(reader) = stderr_reader { let _ = reader.join(); }
             let exit_code = status.code().unwrap_or(1);
             let was_interrupted = interrupted_for_thread.load(Ordering::SeqCst);
             if was_interrupted || exit_code == 130 {
@@ -734,6 +731,37 @@ fn normalize_value(value: &Value, events: &mut Vec<RuntimeEvent>) {
     }
 
     match kind.as_str() {
+        "item.started" | "item.completed" => {
+            if let Some(item) = value.get("item") {
+                let completed = kind == "item.completed";
+                match item.get("type").and_then(Value::as_str).unwrap_or_default() {
+                    "agent_message" if completed => {
+                        if let Some(text) = item.get("text").and_then(Value::as_str) {
+                            events.push(RuntimeEvent::Assistant { text: text.into(), partial: false });
+                        }
+                    }
+                    "command_execution" => events.push(RuntimeEvent::ToolCall {
+                        name: "shell".into(),
+                        input: serde_json::json!({ "command": item.get("command").and_then(Value::as_str).unwrap_or_default() }),
+                        output: item.get("aggregated_output").cloned(),
+                        status: if completed { "completed" } else { "running" }.into(),
+                    }),
+                    "file_change" if completed => {
+                        if let Some(changes) = item.get("changes").and_then(Value::as_array) {
+                            for change in changes {
+                                if let Some(path) = change.get("path").and_then(Value::as_str) {
+                                    events.push(RuntimeEvent::FileChange { path: path.into(), change: change.get("kind").and_then(Value::as_str).unwrap_or("modified").into(), additions: 0, deletions: 0 });
+                                }
+                            }
+                        }
+                    }
+                    _ => {} // Unrecognized provider items remain inspectable logs.
+                }
+            }
+        }
+        "turn.failed" => events.push(RuntimeEvent::Failed {
+            message: value.pointer("/error/message").and_then(Value::as_str).unwrap_or("Codex turn failed").into(), exit_code: None,
+        }),
         "assistant" | "message" => {
             if let Some(message) = value.get("message") {
                 normalize_message(message, events);
@@ -965,6 +993,7 @@ fn session_id_of(value: &Value) -> Option<String> {
         .get("session_id")
         .or_else(|| value.get("sessionId"))
         .or_else(|| value.get("sessionID"))
+        .or_else(|| value.get("thread_id"))
         .and_then(Value::as_str);
     let nested = value
         .pointer("/properties/sessionID")
@@ -1050,6 +1079,62 @@ impl ProviderAdapter for ProbeOnlyProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn cli_marks_running_and_drains_reply_before_completion() {
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let captured = events.clone();
+        let sink: EventSink = Arc::new(move |event| captured.lock().unwrap().push(event));
+        let mut command = Command::new("/bin/sh");
+        command.args(["-c", "printf '%s\\n' '{\"type\":\"item.completed\",\"item\":{\"type\":\"agent_message\",\"text\":\"Finished\"}}'"]);
+        let request = StartRun {
+            run_id: "cli-lifecycle".into(), thread_id: "thread".into(), card_id: "card".into(),
+            prompt: "test".into(), cwd: std::env::temp_dir().to_string_lossy().into_owned(),
+            provider: "codex".into(), model: Some("selected-model".into()), role: None,
+            agent_id: None, permission_mode: "auto".into(), provider_session_id: None,
+            raw_log_path: None,
+        };
+        assert_eq!(spawn_cli(command, request, sink).unwrap().wait().unwrap().exit_code, 0);
+        let events = events.lock().unwrap();
+        assert!(matches!(events.first(), Some(RuntimeEvent::Started { provider, model: Some(model), .. }) if provider == "codex" && model == "selected-model"));
+        assert!(matches!(events.get(1), Some(RuntimeEvent::Assistant { text, .. }) if text == "Finished"));
+        assert!(matches!(events.last(), Some(RuntimeEvent::Completed { exit_code: 0, .. })));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn cli_stop_interrupts_the_process_instead_of_completing() {
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let captured = events.clone();
+        let sink: EventSink = Arc::new(move |event| captured.lock().unwrap().push(event));
+        let mut command = Command::new("/bin/sh");
+        command.args(["-c", "exec sleep 10"]);
+        let request = StartRun {
+            run_id: "cli-stop".into(), thread_id: "thread".into(), card_id: "card".into(),
+            prompt: "test".into(), cwd: std::env::temp_dir().to_string_lossy().into_owned(),
+            provider: "codex".into(), model: None, role: None, agent_id: None,
+            permission_mode: "auto".into(), provider_session_id: None, raw_log_path: None,
+        };
+        let handle = spawn_cli(command, request, sink).unwrap();
+        handle.interrupt().unwrap();
+        let outcome = handle.wait().unwrap();
+        assert!(outcome.interrupted);
+        assert_eq!(outcome.exit_code, 130);
+        let events = events.lock().unwrap();
+        assert!(matches!(events.last(), Some(RuntimeEvent::Interrupted)));
+        assert!(!events.iter().any(|event| matches!(event, RuntimeEvent::Completed { .. })));
+    }
+
+    #[test]
+    fn normalizes_codex_exec_conversation_and_commands() {
+        let started = normalize_line(r#"{"type":"thread.started","thread_id":"session-1"}"#);
+        assert!(matches!(&started[0], RuntimeEvent::Session { id } if id == "session-1"));
+        let reply = normalize_line(r#"{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"Created hello.txt."}}"#);
+        assert!(matches!(&reply[0], RuntimeEvent::Assistant { text, partial: false } if text == "Created hello.txt."));
+        let command = normalize_line(r#"{"type":"item.completed","item":{"id":"item_2","type":"command_execution","command":"npm test","aggregated_output":"passed","exit_code":0,"status":"completed"}}"#);
+        assert!(matches!(&command[0], RuntimeEvent::ToolCall { name, output: Some(output), .. } if name == "shell" && output == "passed"));
+    }
 
     #[test]
     fn opencode_session_ids_are_valid() {

@@ -91,9 +91,7 @@ export const KanbanCard = React.memo(function KanbanCard({ card, isOverlay, onEd
           className="text-muted hover:text-text p-1 rounded bg-card/80"
           aria-label="Card actions"
         >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-            <circle cx="8" cy="3" r="1.5" /><circle cx="8" cy="8" r="1.5" /><circle cx="8" cy="13" r="1.5" />
-          </svg>
+          <Icon name="dots" size={14} />
         </button>
       </div>
 

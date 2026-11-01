@@ -140,8 +140,8 @@ export function InboxPane({
               <QuietSelect
                 value={boardName || boards[0] || ""}
                 onChange={(event) => onSwitchBoard(event.target.value)}
-                title="Switch board"
                 aria-label="Board"
+                title="Switch board"
                 className="max-w-[176px] text-[12px] font-medium text-text hover:text-text"
                 chevronClass="-ml-1"
               >

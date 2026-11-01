@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { QueueItem, RiskTier } from "../lib/types";
 import { fetchReviewQueue } from "../lib/api";
+import { CheckChip } from "./CheckStatus";
 import { Icon } from "./Icon";
 
 interface ReviewQueuePanelProps {
@@ -134,6 +135,9 @@ function QueueRow({
           </span>
           {lines === 0 && <span className="text-muted/50">no diff resolved</span>}
         </span>
+        <span className="mt-1 flex flex-wrap items-center gap-2">
+          <CheckChip item={item} />
+        </span>
         <span className="mt-1 block text-[10px] leading-relaxed text-muted">
           {topReason || "No risk signals yet."}
         </span>
@@ -231,9 +235,9 @@ export function ReviewQueuePanel({
         </div>
 
         <div className="border-t border-border/70 px-4 py-2.5 text-[9.5px] leading-relaxed text-muted/60">
-          Score combines security-sensitive paths, complexity, missing tests,
-          churn, public API changes, and size. Unknown means no diff could be
-          resolved for the card.
+          “Checks” is the last recorded acceptance gate for the card. “No checks yet”
+          means no build receipt exists. Score combines security-sensitive paths,
+          complexity, missing tests, churn, public API changes, and size.
         </div>
       </aside>
     </div>

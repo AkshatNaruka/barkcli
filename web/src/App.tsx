@@ -29,10 +29,11 @@ import {
 } from "./lib/api";
 import { isDesktop, isMac, onMenu, openProjectDialog, openTerminal, revealProject, switchProject } from "./lib/desktop";
 import { useRoute, useRouteState, navigate, updateRouteState, parseRouteState, type Route } from "./lib/hashnav";
-import { APP_COMMANDS, PROJECT_TOOLS, commandForKey, openProjectTool } from "./lib/commands";
-import { SurfacesPanel } from "./shell/SurfacesPanel";
+import { APP_COMMANDS, PROJECT_TOOLS, commandForKey } from "./lib/commands";
+import { ProjectsDashboard } from "./shell/ProjectsDashboard";
 import { ProjectHub } from "./shell/ProjectHub";
 import { ProjectRequired } from "./shell/ProjectRequired";
+import { BoardFilters } from "./components/BoardFilters";
 import { Icon } from "./components/Icon";
 import { BoardView } from "./components/BoardView";
 import { TableView } from "./components/TableView";
@@ -57,6 +58,7 @@ const OperationsView = lazy(() => import("./shell/OperationsView").then((m) => (
 import { BrainSurface } from "./shell/BrainSurface";
 import { AgentsSurface } from "./shell/AgentsSurface";
 import { CustomizePanel } from "./shell/CustomizePanel";
+import { SidebarCustomizePanel } from "./shell/SidebarCustomizePanel";
 import { useTheme } from "./lib/theme";
 import { SURFACES } from "./lib/surfaces";
 
@@ -127,7 +129,7 @@ function CardHistoryModal({ cardId, entries, onClose }: { cardId: string; entrie
       <div className="bg-card rounded-xl border border-border shadow-2xl max-w-md w-full mx-4 max-h-[400px] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h3 className="font-semibold text-text font-mono text-sm">History: {cardId}</h3>
-          <button onClick={onClose} className="text-muted hover:text-text">✕</button>
+          <button onClick={onClose} className="text-muted hover:text-text" aria-label="Close"><Icon name="x" size={14} /></button>
         </div>
         <div className="p-4 space-y-2">
           {entries.length === 0 ? (
@@ -183,7 +185,7 @@ function ActivityModal({
       <div className="bg-card rounded-xl border border-border shadow-2xl max-w-md w-full mx-4 max-h-[500px] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h3 className="font-semibold text-text text-sm">Activity: {cardId}</h3>
-          <button onClick={onClose} className="text-muted hover:text-text">✕</button>
+          <button onClick={onClose} className="text-muted hover:text-text" aria-label="Close"><Icon name="x" size={14} /></button>
         </div>
         <div className="p-4 space-y-2">
           {entries.length === 0 ? (
@@ -232,6 +234,7 @@ export function App() {
   const [commandRunnerOpen, setCommandRunnerOpen] = useState(false);
   const [projectName, setProjectName] = useState<string | null>(null);
   const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [sidebarCustomizeOpen, setSidebarCustomizeOpen] = useState(false);
   const [composeSeed, setComposeSeed] = useState<{
     text: string;
     nonce: number;
@@ -395,6 +398,18 @@ export function App() {
     setTimeout(() => setToast(null), 4000);
   }, []);
 
+  // Desktop commands can fail (TCC, missing app, bad path). Do not swallow
+  // that: tell the user which action failed and keep the app usable.
+  useEffect(() => {
+    const onDesktopError = (event: Event) => {
+      const detail = (event as CustomEvent<{ command: string; message: string }>).detail;
+      if (!detail) return;
+      notify(`Desktop action failed: ${detail.command.replace(/_/g, " ")}. ${detail.message}`);
+    };
+    window.addEventListener("bark-desktop-error", onDesktopError);
+    return () => window.removeEventListener("bark-desktop-error", onDesktopError);
+  }, [notify]);
+
   // Board → agent handoff. Plan & run dispatches immediately; Ask agent opens
   // the composer with the card as context so the user can steer first.
   const handlePlanCard = useCallback(
@@ -427,7 +442,11 @@ export function App() {
       return;
     }
     const project = await openProjectDialog();
-    if (project) await switchProject(project.path);
+    if (!project) return;
+    const opened = await switchProject(project.path);
+    if (!opened) {
+      notify("Could not open that project. Choose a folder with a .board/ or .git/ directory — the current project is still open.");
+    }
   }, [notify]);
 
   const openOperationsTab = useCallback((tab: string) => {
@@ -452,22 +471,36 @@ export function App() {
     switch (id) {
       case "open-project": void handleOpenProject(); break;
       case "new-chat": setComposeSeed({ text: "", nonce: Date.now(), mode: "chat" }); navigate("chat", { draft: "1" }); break;
-      case "new-intent": setComposeSeed({ text: "", nonce: Date.now(), mode: "plan_first" }); navigate("chat", { draft: "1" }); break;
+      case "new-intent": setComposeSeed({ text: "", nonce: Date.now() }); navigate("chat", { draft: "1" }); break;
       case "quick-open": setQuickOpenOpen(true); break;
       case "command-runner": setCommandRunnerOpen(true); break;
       case "command-palette": setPaletteOpen((open) => !open); break;
-      case "open-terminal": void openTerminal(); break;
-      case "reveal-project": void revealProject(); break;
-      case "toggle-workbench": toggleInspector(); break;
+      case "open-terminal":
+        void openTerminal().then((opened) => { if (!opened && isDesktop()) notify("Could not open Terminal for this project."); });
+        break;
+      case "reveal-project":
+        void revealProject().then((opened) => { if (!opened && isDesktop()) notify("Could not reveal this project in Finder."); });
+        break;
+      case "toggle-workbench":
+        if (route !== "chat") notify("Surfaces are available on a thread. Open Build to use them.");
+        else toggleInspector();
+        break;
       case "toggle-sidebar":
         if (window.innerWidth < 900) setSidebarOpen((open) => !open);
         else setSidebarCollapsed((collapsed) => { window.localStorage.setItem("bark:sidebar-collapsed", collapsed ? "0" : "1"); return !collapsed; });
         break;
       case "settings": openOperationsTab("settings"); break;
+      case "projects": navigate("projects"); break;
       case "appearance": setCustomizeOpen(true); break;
+      case "customize-sidebar": setSidebarCustomizeOpen(true); break;
       case "help": setHelpOpen(true); break;
     }
-  }, [handleOpenProject, openOperationsTab, toggleInspector]);
+  }, [handleOpenProject, notify, openOperationsTab, route, toggleInspector]);
+
+  // The app opens on the workspace overview. Project routes remain deep-linkable.
+  useEffect(() => {
+    if (!window.location.hash) navigate("projects");
+  }, []);
   useEffect(() => {
     let disposed = false;
     let cleanup: (() => void) | undefined;
@@ -666,7 +699,7 @@ export function App() {
     setForm(target);
   }, [cardContexts]);
 
-  if (error && !board) {
+  if (error && !board && route !== "projects") {
     return (
       <div className="flex items-center justify-center h-screen bg-bg">
         <div className="text-danger bg-danger-soft p-6 rounded-lg max-w-md text-center">
@@ -677,7 +710,7 @@ export function App() {
     );
   }
 
-  if (loading) {
+  if (loading && route !== "projects") {
     return (
       <div className="flex items-center justify-center h-screen bg-bg">
         <div className="space-y-4 w-80">
@@ -707,17 +740,28 @@ export function App() {
           onNew={() => executeCommand("new-intent")} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       </div>
       <div id="workspace-main" className="flex-1 flex flex-col min-w-0">
-      {route !== "chat" && <header className="workspace-topbar">
+      {route !== "chat" && route !== "projects" && <header className="workspace-topbar">
         <button className="bark-icon-button" onClick={() => executeCommand("toggle-sidebar")} aria-label="Toggle sidebar" title="Toggle sidebar"><Icon name="panel" size={16} /></button>
         <h1>{PROJECT_TOOLS.find((tool) => tool.destination.route === route && tool.destination.tool === location.tool)?.label || (location.tool === "settings" ? "Settings" : location.tool === "docs" ? "Help" : SURFACES.find((surface) => surface.id === route)?.label)}</h1>
         <div className="ml-auto flex items-center gap-1">
-          <button className="bark-icon-button" onClick={toggleInspector} aria-label="Toggle surfaces" aria-pressed={inspectorOpen} title="Toggle surfaces (⌘J)"><Icon name="panel" size={16} /></button>
           <button className="bark-icon-button" onClick={() => executeCommand("quick-open")} aria-label="Quick open file" title="Quick open file (⌘P)"><Icon name="doc" size={16} /></button>
           <button className="bark-icon-button" onClick={() => executeCommand("command-palette")} aria-label="Search or command" title="Search or command (⌘K)"><Icon name="search" size={16} /></button>
         </div>
       </header>}
       <div className="flex-1 flex min-h-0">
         <main id="main-content" tabIndex={-1} className="flex-1 overflow-hidden min-w-0">
+          {route === "projects" && (
+            <ProjectsDashboard
+              currentRoot={projectInfo?.root}
+              currentName={projectName || projectInfo?.name}
+              currentBoard={board}
+              currentBoardName={boardName}
+              currentBoards={boardList}
+              currentAgents={projectInfo?.counts.agents}
+              onOpenFolder={() => void handleOpenProject()}
+              onNotify={notify}
+            />
+          )}
           {route === "chat" && projectReady && (
             <ThreadsShell
               boardName={boardName}
@@ -811,25 +855,6 @@ export function App() {
             </Suspense>
           )}
         </main>
-        {route !== "chat" && inspectorOpen && (
-          <div className="surfaces-drawer">
-            <SurfacesPanel
-              boardName={boardName || boardList[0] || null}
-              showThread={false}
-              onSelectThread={() => {}}
-              onOpenProjectTool={(tool) => {
-                openProjectTool(tool);
-                toggleInspector();
-              }}
-              onOpenProjectHub={() => {
-                navigate("hub");
-                toggleInspector();
-              }}
-              onClose={toggleInspector}
-            />
-          </div>
-        )}
-
       </div>
 
       {/* Modals */}
@@ -879,6 +904,7 @@ export function App() {
         onClose={() => setCommandRunnerOpen(false)}
       />
       <CustomizePanel open={customizeOpen} onClose={() => setCustomizeOpen(false)} />
+      <SidebarCustomizePanel open={sidebarCustomizeOpen} onClose={() => setSidebarCustomizeOpen(false)} />
 
       {/* Toasts */}
       {toast && (
@@ -971,12 +997,6 @@ function BoardPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [board, filter, chips]);
   const hidden = board.cards.length - visible.cards.length;
-  const CHIP_DEFS = [
-    { id: "blocked", label: "Blocked", icon: "blocked" as const },
-    { id: "stale", label: "Stale", icon: "clock" as const },
-    { id: "no-spec", label: "No spec", icon: "link" as const },
-    { id: "high", label: "High", icon: "flag" as const },
-  ];
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center gap-2 px-4 pt-2 pb-0 shrink-0">
@@ -997,30 +1017,11 @@ function BoardPage({
         <input
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          placeholder="Filter by title, id, label, spec…"
-          className="flex-1 max-w-xs bg-surface border border-border rounded-md px-2.5 py-1 text-xs text-text placeholder:text-muted focus:outline-none focus:border-accent"
+          placeholder="Filter cards…"
+          aria-label="Filter cards"
+          className="min-w-0 flex-1 max-w-xs bg-surface border border-border rounded-md px-2.5 py-1 text-xs text-text placeholder:text-muted focus:outline-none focus:border-accent"
         />
-        {CHIP_DEFS.map((chip) => {
-          const on = chips.includes(chip.id);
-          return (
-            <button
-              key={chip.id}
-              onClick={() => toggleChip(chip.id)}
-              title={`Quick filter: ${chip.label}`}
-              className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-full transition-colors ${
-                on
-                  ? "text-accent bg-accent-soft font-medium"
-                  : "text-muted hover:text-text hover:bg-surface"
-              }`}
-            >
-              <Icon name={chip.icon} size={12} />
-              {chip.label}
-            </button>
-          );
-        })}
-        {hidden > 0 && (
-          <span className="text-[10px] text-muted font-mono">{hidden} hidden</span>
-        )}
+        <BoardFilters chips={chips} onToggle={toggleChip} onClear={() => setChips([])} hidden={hidden} />
       </div>
       <div className="flex-1 overflow-hidden">
         {view === "board" && (
@@ -1086,8 +1087,19 @@ function SurfaceEmpty({ label }: { label: string }) {
 }
 
 function HelpModal({ onClose }: { onClose: () => void }) {
-  return <AccessibleDialog label="Keyboard shortcuts" onClose={onClose}>
-    <div className="flex items-center justify-between mb-4"><h2 className="font-medium">Keyboard shortcuts</h2><button className="bark-icon-button" onClick={onClose} aria-label="Close help"><Icon name="x" size={15} /></button></div>
-    <div className="space-y-3">{APP_COMMANDS.map((command) => <div className="flex justify-between gap-5 text-sm" key={command.id}><span>{command.label}</span><kbd className="text-muted text-xs whitespace-nowrap">⌘{command.modifiers.includes("shift") ? "⇧" : ""}{command.shortcut.toUpperCase()}</kbd></div>)}<div className="flex justify-between gap-5 text-sm"><span>Submit prompt</span><kbd className="text-muted text-xs">⌘Return</kbd></div><div className="flex justify-between gap-5 text-sm"><span>Build / Review</span><kbd className="text-muted text-xs">⌘1 / ⌘2</kbd></div></div>
+  return <AccessibleDialog label="Bark help" onClose={onClose}>
+    <div className="flex items-center justify-between mb-4"><h2 className="font-medium">Bark help</h2><button className="bark-icon-button" onClick={onClose} aria-label="Close help"><Icon name="x" size={15} /></button></div>
+    <div className="help-loop">
+      <h3>How Bark works</h3>
+      <ol>
+        <li><strong>Describe the outcome.</strong> Bark proposes a plan before it builds.</li>
+        <li><strong>Build in isolation.</strong> The agent works in its own worktree, not your checkout.</li>
+        <li><strong>Checks are the gate.</strong> A change only merges when the project checks pass.</li>
+        <li><strong>Review the evidence.</strong> Inspect the diff, plan, and checks, then merge.</li>
+      </ol>
+      <p>Bark is local-first. Your code and agent sessions stay on this machine.</p>
+    </div>
+    <h3 className="help-shortcuts-title">Keyboard shortcuts</h3>
+    <div className="space-y-3">{APP_COMMANDS.filter((command) => command.shortcut).map((command) => <div className="flex justify-between gap-5 text-sm" key={command.id}><span>{command.label}</span><kbd className="text-muted text-xs whitespace-nowrap">⌘{command.modifiers?.includes("shift") ? "⇧" : ""}{command.shortcut!.toUpperCase()}</kbd></div>)}<div className="flex justify-between gap-5 text-sm"><span>Submit prompt</span><kbd className="text-muted text-xs">⌘Return</kbd></div><div className="flex justify-between gap-5 text-sm"><span>Build / Review</span><kbd className="text-muted text-xs">⌘1 / ⌘2</kbd></div></div>
   </AccessibleDialog>;
 }

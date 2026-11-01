@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon } from "./Icon";
+import { AccessibleDialog } from "./AccessibleDialog";
+import { ProviderIcon } from "./ProviderIcon";
 import type {
   AgentProfile,
   OrchestraSnapshot,
@@ -18,6 +20,7 @@ import {
   saveAgentProfile,
   setProfileStatus,
 } from "../lib/api";
+import { QuietSelect } from "./QuietSelect";
 
 interface SkillOption {
   id: string;
@@ -273,7 +276,8 @@ export function TeamView({ boardName }: { boardName: string | null }) {
                 </div>
 
                 <div className="mt-3 flex items-center justify-between text-[10.5px]">
-                  <span className="rounded border border-border bg-surface px-1.5 py-0.5 font-mono text-[9.5px] text-muted">
+                  <span className="inline-flex items-center gap-1.5 rounded border border-border bg-surface px-1.5 py-0.5 font-mono text-[9.5px] text-muted">
+                    <ProviderIcon id={profile.provider} name={profile.provider} size={10} />
                     {profile.provider}
                     {profile.model ? ` · ${profile.model}` : ""}
                   </span>
@@ -282,33 +286,35 @@ export function TeamView({ boardName }: { boardName: string | null }) {
                   </span>
                 </div>
 
-                <div className="mt-3">
-                  <div className="flex items-center justify-between text-[10px] text-muted">
-                    <span>Load</span>
-                    <span className="font-mono">
-                      {load}/{profile.capacity}
-                    </span>
+                {activeTaskIds.length > 0 && (
+                  <div className="mt-3">
+                    <div className="flex items-center justify-between text-[10px] text-muted">
+                      <span>Load</span>
+                      <span className="font-mono">
+                        {load}/{profile.capacity}
+                      </span>
+                    </div>
+                    <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/[0.06]">
+                      <div
+                        className={`h-full rounded-full ${
+                          load >= profile.capacity ? "bg-warning" : "bg-accent"
+                        }`}
+                        style={{
+                          width: `${Math.min(100, (load / Math.max(1, profile.capacity)) * 100)}%`,
+                        }}
+                      />
+                    </div>
                   </div>
-                  <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/[0.06]">
-                    <div
-                      className={`h-full rounded-full ${
-                        load >= profile.capacity ? "bg-warning" : "bg-accent"
-                      }`}
-                      style={{
-                        width: `${Math.min(100, (load / Math.max(1, profile.capacity)) * 100)}%`,
-                      }}
-                    />
-                  </div>
-                </div>
+                )}
 
                 <div className="mt-2.5 flex items-center justify-between text-[10px] text-muted">
                   <span>
                     {activeTaskIds.length > 0
                       ? `${activeTaskIds.length} live task${activeTaskIds.length === 1 ? "" : "s"}`
-                      : "No live tasks"}
+                      : `Idle · capacity ${profile.capacity}`}
                   </span>
                   <span>
-                    {successRate > 0 ? `${Math.round(successRate * 100)}% success` : "New"}
+                    {successRate > 0 ? `${Math.round(successRate * 100)}% success` : "No runs yet"}
                   </span>
                 </div>
 
@@ -408,8 +414,12 @@ export function TeamView({ boardName }: { boardName: string | null }) {
       </div>
 
       {editing && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 px-4">
-          <div className="w-full max-w-[560px] rounded-lg border border-border-strong bg-panel shadow-2xl">
+        <AccessibleDialog
+          label={profiles.some((profile) => profile.id === editing.id) ? "Edit agent" : "Hire agent"}
+          onClose={() => setEditing(null)}
+          className="agent-editor"
+        >
+          <div className="w-full">
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <div>
                 <h3 className="text-[13px] font-medium text-text">
@@ -441,7 +451,8 @@ export function TeamView({ boardName }: { boardName: string | null }) {
                 </label>
                 <label className="block">
                   <span className="text-[10px] uppercase tracking-wide text-muted">Role</span>
-                  <select
+                  <QuietSelect
+                    aria-label="Role"
                     value={editing.role}
                     onChange={(e) => {
                       const role = roles.find((item) => item.id === e.target.value);
@@ -458,11 +469,12 @@ export function TeamView({ boardName }: { boardName: string | null }) {
                         {role.name}
                       </option>
                     ))}
-                  </select>
+                  </QuietSelect>
                 </label>
                 <label className="block">
                   <span className="text-[10px] uppercase tracking-wide text-muted">Provider</span>
-                  <select
+                  <QuietSelect
+                    aria-label="Provider"
                     value={editing.provider}
                     onChange={(e) => setEditing({ ...editing, provider: e.target.value })}
                     className="mt-1 w-full rounded border border-border bg-surface px-2 py-1.5 text-[12px] text-text outline-none focus:border-accent"
@@ -481,12 +493,13 @@ export function TeamView({ boardName }: { boardName: string | null }) {
                         </option>
                       ))
                     )}
-                  </select>
+                  </QuietSelect>
                 </label>
                 <label className="block">
                   <span className="text-[10px] uppercase tracking-wide text-muted">Model</span>
                   {models.length > 0 ? (
-                    <select
+                    <QuietSelect
+                      aria-label="Model"
                       value={editing.model || ""}
                       onChange={(e) =>
                         setEditing({ ...editing, model: e.target.value || undefined })
@@ -499,7 +512,7 @@ export function TeamView({ boardName }: { boardName: string | null }) {
                           {model}
                         </option>
                       ))}
-                    </select>
+                    </QuietSelect>
                   ) : (
                     <input
                       value={editing.model || ""}
@@ -526,7 +539,8 @@ export function TeamView({ boardName }: { boardName: string | null }) {
                 </label>
                 <label className="block">
                   <span className="text-[10px] uppercase tracking-wide text-muted">Permissions</span>
-                  <select
+                  <QuietSelect
+                    aria-label="Permissions"
                     value={editing.permission_mode}
                     onChange={(e) =>
                       setEditing({ ...editing, permission_mode: e.target.value })
@@ -538,7 +552,7 @@ export function TeamView({ boardName }: { boardName: string | null }) {
                         {mode}
                       </option>
                     ))}
-                  </select>
+                  </QuietSelect>
                 </label>
                 <div className="block sm:col-span-2">
                   <span className="text-[10px] uppercase tracking-wide text-muted">
@@ -629,7 +643,7 @@ export function TeamView({ boardName }: { boardName: string | null }) {
               </button>
             </div>
           </div>
-        </div>
+        </AccessibleDialog>
       )}
     </div>
   );

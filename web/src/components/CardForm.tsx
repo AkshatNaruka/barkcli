@@ -306,6 +306,7 @@ export function CardForm({
             <div>
               <span className={fieldName}>Agent Backend</span>
               <QuietSelect
+                aria-label="Agent backend"
                 value={backend}
                 onChange={(e) => {
                   setBackend(e.target.value);
@@ -335,6 +336,7 @@ export function CardForm({
             <div>
               <span className={fieldName}>Column</span>
               <QuietSelect
+                aria-label="Column"
                 value={column}
                 onChange={(e) => setColumn(e.target.value)}
                 className="w-full bg-surface px-2.5 py-1.5 text-xs text-text"
@@ -345,6 +347,7 @@ export function CardForm({
             <div>
               <span className={fieldName}>Priority</span>
               <QuietSelect
+                aria-label="Priority"
                 value={priority}
                 onChange={(e) => setPriority(e.target.value)}
                 className="w-full bg-surface px-2.5 py-1.5 text-xs text-text"
@@ -513,6 +516,7 @@ export function CardForm({
               </div>
               <div className="flex gap-2 mt-1.5">
                 <QuietSelect
+                  aria-label="Link type"
                   value={linkType}
                   onChange={(e) => setLinkType(e.target.value as LinkType)}
                   className="w-28 bg-surface px-2 py-1.5 text-xs text-text shrink-0"
@@ -523,6 +527,7 @@ export function CardForm({
                   <option value="blocked-by">blocked-by</option>
                 </QuietSelect>
                 <QuietSelect
+                  aria-label="Link target"
                   value={linkTarget}
                   onChange={(e) => setLinkTarget(e.target.value)}
                   className="flex-1 min-w-0 bg-surface px-2 py-1.5 text-xs text-text"

@@ -3,6 +3,7 @@ import { Icon, type IconName } from "./Icon";
 import { agentColor } from "../lib/agents";
 import { isReplayMode, restartReplay } from "../lib/replay";
 import { cardPlanAndRun } from "../lib/api";
+import { QuietSelect } from "./QuietSelect";
 
 interface Agent {
   id: string;
@@ -605,7 +606,7 @@ function RegisterAgentModal({
           <label className="block">
             <span className="block text-[9px] uppercase tracking-[0.14em] text-muted mb-1">Role</span>
             <div className="relative">
-              <select
+              <QuietSelect
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
                 className={`${field} appearance-none cursor-pointer pr-8`}
@@ -615,7 +616,7 @@ function RegisterAgentModal({
                     {label}
                   </option>
                 ))}
-              </select>
+              </QuietSelect>
               <Icon
                 name="chevR"
                 size={12}

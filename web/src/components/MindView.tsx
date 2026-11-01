@@ -6,6 +6,7 @@ import { navigate } from "../lib/hashnav";
 import { Icon } from "./Icon";
 import { AgentRail, type RailAgent } from "./AgentRail";
 import { isReplayMode, replaySessions, restartReplay } from "../lib/replay";
+import { QuietSelect } from "./QuietSelect";
 
 interface MindSnapshot {
   board_name: string;
@@ -313,7 +314,7 @@ export function MindView({ boardName, board }: { boardName: string | null; board
               placeholder="What should get done?"
               className="flex-1 bg-transparent text-sm text-text placeholder:text-muted/70 focus:outline-none min-w-0"
             />
-            <select
+            <QuietSelect
               value={intentKind}
               onChange={e => setIntentKind(e.target.value)}
               title="Work item type"
@@ -322,8 +323,8 @@ export function MindView({ boardName, board }: { boardName: string | null; board
               <option value="task">Task</option>
               <option value="feature">Feature</option>
               <option value="bug">Bug</option>
-            </select>
-            <select
+            </QuietSelect>
+            <QuietSelect
               value={backend}
               onChange={e => setBackend(e.target.value)}
               title="Agent backend"
@@ -334,7 +335,7 @@ export function MindView({ boardName, board }: { boardName: string | null; board
               <option value="codex">Codex</option>
               <option value="claude">Claude</option>
               <option value="auto">Auto Agent</option>
-            </select>
+            </QuietSelect>
             <button
               onClick={submit}
               disabled={!intent.trim() || submitting}

@@ -15,6 +15,7 @@ import {
   forkSession,
   raceTask,
   startThreadRun,
+  startThreadBuild,
   stopRun,
   mergeRun,
   verifyContribution,
@@ -24,6 +25,7 @@ import {
 } from "../lib/api";
 import { notify as desktopNotify } from "../lib/desktop";
 import { preferredModel, rememberModel } from "../lib/models";
+import { activeChatTurn, useComposerMode } from "../lib/composer";
 import { Icon } from "../components/Icon";
 import { QuietSelect } from "../components/QuietSelect";
 import { relativeTime } from "../lib/threads";
@@ -247,9 +249,11 @@ export function ThreadPane({
   const [newOutput, setNewOutput] = useState(false);
   const stickToBottom = useRef(true);
   const sendLock = useRef(false);
+  const pendingBuild = useRef<string | null>(null);
   const runLock = useRef(false);
   const selectionRestored = useRef(false);
-  const [chatMode, setChatMode] = useState<"ask" | "build">("ask");
+  const [chatMode, setChatMode] = useComposerMode(scope);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [chatBusy, setChatBusy] = useState(false);
   const [chatTurnId, setChatTurnId] = useState<string | null>(null);
   const [approvalBusyId, setApprovalBusyId] = useState<string | null>(null);
@@ -299,14 +303,9 @@ export function ThreadPane({
           if (choice) agent.restoreChoice(choice.data!.backend, choice.data!.model || "");
           selectionRestored.current = true;
         }
-        const last = data?.events?.[data.events.length - 1];
-        const activeChat =
-          last?.run_id?.startsWith("chat_") &&
-          last.kind !== "chat_done" &&
-          last.kind !== "run_failed" &&
-          last.kind !== "run_interrupted";
-        setChatBusy(Boolean(activeChat));
-        setChatTurnId(activeChat ? last?.run_id || null : null);
+        const turn = activeChatTurn(data?.events || []);
+        setChatBusy(Boolean(turn));
+        setChatTurnId(turn);
         if (data?.card) {
           selectCardRef.current?.(data.card);
           const cardRole = data.card.labels
@@ -328,13 +327,32 @@ export function ThreadPane({
   }, [threadId, boardName, reloadKey]);
 
   useEffect(() => {
+    const turn = activeChatTurn(thread?.events || []);
+    setChatBusy(Boolean(turn));
+    setChatTurnId(turn);
+  }, [thread?.events]);
+
+  useEffect(() => {
     if (!threadId || isDemoMode()) return;
     const url = streamThreadUrl(threadId);
     let eventSource: EventSource | null = null;
     let disposed = false;
+    let refreshing = false;
+    let refreshAgain = false;
+    const refreshSnapshot = async () => {
+      if (refreshing) { refreshAgain = true; return; }
+      refreshing = true;
+      try {
+        do {
+          refreshAgain = false;
+          const next = await fetchThread(threadId, boardName);
+          if (!disposed && next) setThread(next);
+        } while (!disposed && refreshAgain);
+      } finally { refreshing = false; }
+    };
     try {
       eventSource = new EventSource(url);
-      eventSource.onopen = () => setConnectionError(false);
+      eventSource.onopen = () => { setConnectionError(false); void refreshSnapshot(); };
       eventSource.onerror = () => setConnectionError(true);
       eventSource.onmessage = (event) => {
         if (disposed) return;
@@ -355,13 +373,7 @@ export function ThreadPane({
             parsed.kind === "diff" ||
             parsed.kind === "merge"
           ) {
-            fetchThread(threadId, boardName).then((next) => {
-              if (!disposed && next) setThread(next);
-            });
-          }
-          if (parsed.kind === "chat_done") {
-            setChatBusy(false);
-            setChatTurnId(null);
+            void refreshSnapshot();
           }
           if (
             (parsed.kind === "run_completed" ||
@@ -407,9 +419,10 @@ export function ThreadPane({
 
   const handleSendMessage = async () => {
     const text = input.trim();
-    if (!text || !threadId || submitting || chatBusy || sendLock.current) return;
+    if (!text || !threadId || submitting || chatBusy || activeRun || sendLock.current) return;
     sendLock.current = true;
     setSubmitting(true);
+    setSendError(null);
     try {
       if (chatMode === "ask") {
         const provider = backend === "claude" ? "claude-code" : backend;
@@ -435,6 +448,30 @@ export function ThreadPane({
         refreshInboxRef.current?.();
         return;
       }
+      if (chatMode === "build") {
+        if (!agent.ready) throw new Error("Choose an installed, signed-in agent before building. Your draft is saved.");
+        if (pendingBuild.current !== text) {
+          const saved = await postThreadMessage(threadId, text, {
+            author: "you", backend, model: model.trim() || undefined, mode: "build", board: boardName,
+          });
+          if (!saved) throw new Error("Could not save your prompt. Check the local server and try again.");
+          pendingBuild.current = text;
+        }
+        const run = await startThreadBuild(threadId, {
+          provider: backend === "claude" ? "claude-code" : backend,
+          model: model.trim() || undefined, role, prompt: text, board: boardName,
+          test_cmd: agent.testCommand.trim() || undefined,
+          parent_run_id: latestRun && latestRun.status !== "merged" ? latestRun.id : undefined,
+        });
+        pendingBuild.current = null;
+        setInput("");
+        stickToBottom.current = true;
+        setThread((previous) => previous ? { ...previous, runs: [...(previous.runs || []), run] } : previous);
+        const next = await fetchThread(threadId, boardName);
+        if (next) setThread(next);
+        refreshInboxRef.current?.();
+        return;
+      }
       const event = await postThreadMessage(threadId, text, {
         author: "you",
         backend, model: model.trim() || undefined, mode: "plan_first",
@@ -452,9 +489,9 @@ export function ThreadPane({
         });
       }
       refreshInboxRef.current?.();
-    } catch {
+    } catch (error) {
       setInput(text);
-      setActionStatus("Message did not send. Check the server, then try again.");
+      setSendError(error instanceof Error ? error.message : "Message did not send. Check the server, then try again.");
     } finally {
       sendLock.current = false;
       setSubmitting(false);
@@ -481,6 +518,22 @@ export function ThreadPane({
   );
   const activeRun =
     [...runs].reverse().find(isActiveRun) || null;
+  // REST recovery also covers a missed final broadcast or a reconnect while
+  // the provider is completing checks. Idle threads perform no polling.
+  useEffect(() => {
+    if (!threadId || (!activeRun && !chatBusy)) return;
+    let disposed = false;
+    let inFlight = false;
+    const timer = window.setInterval(async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const next = await fetchThread(threadId, boardName);
+        if (!disposed && next) setThread(next);
+      } finally { inFlight = false; }
+    }, 1500);
+    return () => { disposed = true; window.clearInterval(timer); };
+  }, [threadId, boardName, Boolean(activeRun), chatBusy]);
   const latestUserText = [...(thread?.events || [])]
     .reverse()
     .find((event) => event.kind === "user")?.text;
@@ -514,6 +567,7 @@ export function ThreadPane({
         prompt: latestUserText,
         parent_run_id: parentRunId,
         plan_event_id: planEventId,
+        board: boardName,
         test_cmd: agent.testCommand.trim() || undefined,
       });
       if (!run) {
@@ -1167,7 +1221,7 @@ export function ThreadPane({
                                 {Array.isArray(child.acceptance_criteria) &&
                                   child.acceptance_criteria.length > 0 && (
                                     <p className="mt-1 font-mono text-[9.5px] text-muted/65">
-                                      ✓ {child.acceptance_criteria.join(" · ")}
+                                      Acceptance: {child.acceptance_criteria.join(" · ")}
                                     </p>
                                   )}
                               </div>
@@ -1457,7 +1511,7 @@ export function ThreadPane({
       <div className="thread-composer-dock">
         {newOutput && <button className="jump-to-latest" onClick={() => { stickToBottom.current = true; setNewOutput(false); messagesEndRef.current?.scrollIntoView({ behavior: "auto" }); }}>Jump to latest</button>}
         <ThreadComposer value={input} onChange={setInput} mode={chatMode} onModeChange={setChatMode} agent={agent} onSubmit={handleSendMessage}
-          busy={submitting || startingRun} active={chatBusy || Boolean(activeRun)} onStop={chatBusy ? handleStopChat : activeRun ? () => void handleStopRun(activeRun) : undefined} />
+          busy={submitting || startingRun} error={sendError} active={chatBusy || Boolean(activeRun)} onStop={chatBusy ? handleStopChat : activeRun ? () => void handleStopRun(activeRun) : undefined} />
       </div>
     </section>
   );

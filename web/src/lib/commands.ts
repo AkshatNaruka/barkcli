@@ -39,20 +39,29 @@ export function openProjectTool(tool: ProjectTool) {
   navigate(route, state);
 }
 
-export const APP_COMMANDS = [
-  { id: "new-intent", label: "New thread", icon: "plus" as IconName, shortcut: "n", modifiers: "mod" },
-  { id: "new-chat", label: "New read-only question", icon: "comment" as IconName, shortcut: "n", modifiers: "mod+shift" },
-  { id: "open-project", label: "Open project", icon: "layers" as IconName, shortcut: "o", modifiers: "mod" },
-  { id: "quick-open", label: "Quick open file", icon: "search" as IconName, shortcut: "p", modifiers: "mod" },
-  { id: "command-runner", label: "Run project command", icon: "terminal" as IconName, shortcut: "r", modifiers: "mod+shift" },
-  { id: "command-palette", label: "Search or command", icon: "search" as IconName, shortcut: "k", modifiers: "mod" },
-  { id: "settings", label: "Settings", icon: "gear" as IconName, shortcut: ",", modifiers: "mod" },
-  { id: "open-terminal", label: "Open terminal", icon: "terminal" as IconName, shortcut: "t", modifiers: "mod+shift" },
-  { id: "toggle-workbench", label: "Toggle surfaces", icon: "panel" as IconName, shortcut: "j", modifiers: "mod" },
-  { id: "toggle-sidebar", label: "Toggle sidebar", icon: "panel" as IconName, shortcut: "b", modifiers: "mod+shift" },
-] as const;
+export interface AppCommand {
+  id: string;
+  label: string;
+  icon: IconName;
+  shortcut?: string;
+  modifiers?: string;
+}
+
+export const APP_COMMANDS: AppCommand[] = [
+  { id: "new-intent", label: "New thread", icon: "plus", shortcut: "n", modifiers: "mod" },
+  { id: "new-chat", label: "New read-only question", icon: "comment", shortcut: "n", modifiers: "mod+shift" },
+  { id: "open-project", label: "Open project", icon: "layers", shortcut: "o", modifiers: "mod" },
+  { id: "quick-open", label: "Quick open file", icon: "search", shortcut: "p", modifiers: "mod" },
+  { id: "command-runner", label: "Run project command", icon: "terminal", shortcut: "r", modifiers: "mod+shift" },
+  { id: "command-palette", label: "Search or command", icon: "search", shortcut: "k", modifiers: "mod" },
+  { id: "settings", label: "Settings", icon: "gear", shortcut: ",", modifiers: "mod" },
+  { id: "customize-sidebar", label: "Customize sidebar", icon: "sliders" },
+  { id: "open-terminal", label: "Open terminal", icon: "terminal", shortcut: "t", modifiers: "mod+shift" },
+  { id: "toggle-workbench", label: "Toggle surfaces", icon: "panel", shortcut: "j", modifiers: "mod" },
+  { id: "toggle-sidebar", label: "Toggle sidebar", icon: "panel", shortcut: "b", modifiers: "mod+shift" },
+];
 export function commandForKey(event: KeyboardEvent): string | undefined {
   if (!(event.metaKey || event.ctrlKey) || event.altKey || event.isComposing) return;
   return APP_COMMANDS.find((command) => command.shortcut === event.key.toLowerCase() &&
-    command.modifiers.includes("shift") === event.shiftKey)?.id;
+    Boolean(command.modifiers?.includes("shift")) === event.shiftKey)?.id;
 }

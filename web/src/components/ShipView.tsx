@@ -22,6 +22,7 @@ import {
   type GitCommit as GitCommitRecord,
 } from "../lib/api";
 import { Icon } from "./Icon";
+import { QuietSelect } from "./QuietSelect";
 
 function changePath(path: string): string {
   return path.includes(" -> ") ? path.split(" -> ").pop() || path : path;
@@ -258,7 +259,7 @@ export function ShipView({
           </span>
           <span className="ml-auto flex items-center gap-2">
             {editors && (
-              <select
+              <QuietSelect
                 value={editorId}
                 onChange={(event) => setEditorId(event.target.value)}
                 className="rounded border border-border bg-card px-1.5 py-1 text-[10px] text-text outline-none"
@@ -272,7 +273,7 @@ export function ShipView({
                       {editor.name}
                     </option>
                   ))}
-              </select>
+              </QuietSelect>
             )}
             <button
               type="button"
@@ -462,7 +463,7 @@ export function ShipView({
                   <label htmlFor="ship-all">All working tree changes</label>
                   <label className="ml-auto flex items-center gap-1 text-[9.5px]">
                     Card
-                    <select
+                    <QuietSelect
                       value={cardId}
                       onChange={(event) => setCardId(event.target.value)}
                       className="max-w-[110px] rounded border border-border bg-card px-1 py-0.5 text-[9.5px] text-text"
@@ -473,7 +474,7 @@ export function ShipView({
                           {card.title}
                         </option>
                       ))}
-                    </select>
+                    </QuietSelect>
                   </label>
                 </div>
                 {!allChanges && (

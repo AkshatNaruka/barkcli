@@ -100,6 +100,10 @@ impl ProviderAdapter for ScriptProvider {
         let session_id = format!("script-session-{run_id}");
         let cwd = PathBuf::from(&req.cwd);
         let join = thread::spawn(move || -> anyhow::Result<RunOutcome> {
+            if req.prompt.contains("CONTINUE_EXISTING_FEATURE") {
+                anyhow::ensure!(cwd.join("feature.js").exists(), "follow-up lost the previous build's files");
+                std::fs::write(cwd.join("followup.txt"), "The next turn kept the first turn's work.\n")?;
+            }
             sink(RuntimeEvent::Started {
                 provider: "script".into(),
                 model: None,
@@ -313,9 +317,27 @@ fn run_gets_worktree_diff_gate_and_human_merge() {
     let unapproved = service.merge(&run.id, false);
     assert!(unapproved.is_err(), "merge must require human approval");
 
-    let merged = service.merge(&run.id, true).unwrap();
+    std::fs::write(worktree.join("partial.txt"), "Partial edits are retained on continuation.\n").unwrap();
+
+    // A new prompt in the same thread must build on its unmerged work.
+    let followup = service.start_for_card("ship-feature", CreateRunRequest {
+        provider: Some("script".into()),
+        parent_run_id: Some(run.id.clone()),
+        prompt: Some("CONTINUE_EXISTING_FEATURE: add a follow-up note".into()),
+        test_cmd: Some("node test.js".into()),
+        ..Default::default()
+    }, None).unwrap();
+    let followup = wait_for_terminal(&store, &followup.id);
+    assert_eq!(followup.status, RunStatus::Passed, "follow-up must inherit the first turn: {followup:?}");
+    let followup_diff = service.diff(&followup.id).unwrap();
+    assert!(followup_diff.files.contains(&"feature.js".into()), "review must include the cumulative change");
+    assert!(followup_diff.files.contains(&"followup.txt".into()));
+    assert!(followup_diff.files.contains(&"partial.txt".into()));
+
+    assert!(service.merge(&run.id, true).is_err(), "checkpointing partial edits invalidates old checks");
+    let merged = service.merge(&followup.id, true).unwrap();
     assert_eq!(merged.run.status, RunStatus::Merged);
-    assert!(!worktree.exists(), "worktree released after merge");
+    assert!(!PathBuf::from(followup.worktree.as_ref().unwrap()).exists(), "merged worktree released after merge");
     assert!(
         root.join("feature.js").exists(),
         "merged branch content is on main"

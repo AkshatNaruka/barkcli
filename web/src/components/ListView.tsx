@@ -4,6 +4,7 @@ import { Avatar } from "./Avatar";
 import { PriorityBadge } from "./PriorityBadge";
 import { LabelChip } from "./LabelChip";
 import { Icon } from "./Icon";
+import { QuietSelect } from "./QuietSelect";
 
 interface Props {
   board: BoardType;
@@ -40,7 +41,7 @@ export function ListView({ board, onEditCard, onDeleteCard, onMoveCard }: Props)
               ))}
             </div>
           </div>
-          <select
+          <QuietSelect
             value={card.column}
             onChange={(e) => onMoveCard(card.id, e.target.value)}
             className="bg-card text-text text-xs rounded px-2 py-1 border border-border hover:border-border-strong focus:outline-none focus:ring-1 focus:ring-accent"
@@ -48,10 +49,10 @@ export function ListView({ board, onEditCard, onDeleteCard, onMoveCard }: Props)
             {board.columns.map((col) => (
               <option key={col.id} value={col.id}>{col.name}</option>
             ))}
-          </select>
+          </QuietSelect>
           {card.assignee && <Avatar name={card.assignee} />}
           <button onClick={() => onDeleteCard(card.id)} className="text-muted hover:text-danger transition-colors">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5ZM11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H2.506a.58.58 0 0 0-.01 0H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1h-.995a.59.59 0 0 0-.01 0H11Z"/></svg>
+            <Icon name="trash" size={14} />
           </button>
         </div>
       ))}

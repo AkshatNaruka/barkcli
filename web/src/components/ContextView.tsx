@@ -137,7 +137,7 @@ export function ContextView({ boardName }: { boardName: string | null }) {
             title="Rewrite the Brief section with your configured LLM — facts-only, one call, derived from the generated sections"
             className="px-3 py-1.5 bg-card text-text text-xs rounded font-medium hover:bg-surface border border-card hover:border-accent disabled:opacity-50"
           >
-            {digesting ? "Polishing…" : "✨ Polish brief"}
+            {digesting ? "Polishing…" : "Polish brief"}
           </button>
           <button
             onClick={handleDigest}
@@ -179,7 +179,7 @@ export function ContextView({ boardName }: { boardName: string | null }) {
       {/* Flagged drift strip */}
       {flagged.length > 0 && (
         <div className="bg-surface border border-yellow-600/40 rounded-lg px-3 py-2 text-xs text-muted shrink-0">
-          <span className="text-yellow-500 font-medium">⚠ Drift detected</span> — these sections may be
+          <span className="text-yellow-500 font-medium">Drift detected</span> — these sections may be
           out of date:{" "}
           {flagged
             .map(f => `${f.id} (${(f.staleness || 0).toFixed(2)})`)

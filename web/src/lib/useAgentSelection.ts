@@ -44,12 +44,17 @@ export function useAgentSelection(scope: string) {
   const setModel = useCallback((value: string) => {
     changeModel(value); writeLocal(key, JSON.stringify({ backend, model: value }));
   }, [backend, key]);
+  const selectChoice = useCallback((nextBackend: string, nextModel: string) => {
+    changeBackend(nextBackend);
+    changeModel(nextModel);
+    writeLocal(key, JSON.stringify({ backend: nextBackend, model: nextModel, role, testCommand }));
+  }, [key, role, testCommand]);
   const restoreChoice = (provider: string, selectedModel: string) => { changeBackend(provider); changeModel(selectedModel); };
   useEffect(() => { if (!loading && backend) writeLocal(key, JSON.stringify({ backend, model, role, testCommand })); }, [key, backend, model, role, testCommand, loading]);
   const selected = providers.find((provider) => provider.id === backend);
   const ready = Boolean(selected?.available && selected.authenticated !== false);
   const readiness = loading ? "Checking agents…" : !selected?.available ? "Choose an installed agent" : selected.authenticated === false ? "Sign-in needed" : selected.authenticated === true ? "Ready" : "Installed; sign-in not confirmed";
-  return { backend, setBackend, model, setModel, restoreChoice, role, setRole, testCommand, setTestCommand, providers, roles, modelOptions, loading, ready, readiness, selected,
+  return { backend, setBackend, model, setModel, selectChoice, restoreChoice, role, setRole, testCommand, setTestCommand, providers, roles, modelOptions, loading, ready, readiness, selected,
     recheck: () => setRefresh((value) => value + 1), choice: { backend, model, role, testCommand } as AgentChoice };
 }
 export type AgentSelection = ReturnType<typeof useAgentSelection>;

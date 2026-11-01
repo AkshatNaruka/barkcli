@@ -83,6 +83,7 @@ export function RulesView() {
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="Rule title"
+              aria-label="Rule title"
               className="w-full rounded-md border border-border bg-bg px-2.5 py-1.5 text-sm text-text focus:outline-none focus:ring-1 focus:ring-accent"
             />
             <textarea
@@ -90,6 +91,7 @@ export function RulesView() {
               onChange={(event) => setBody(event.target.value)}
               rows={4}
               placeholder="What must every agent do or avoid?"
+              aria-label="Rule instructions"
               className="w-full resize-none rounded-md border border-border bg-bg px-2.5 py-1.5 text-sm text-text focus:outline-none focus:ring-1 focus:ring-accent"
             />
             <div className="flex items-center gap-2">
@@ -101,7 +103,7 @@ export function RulesView() {
               >
                 {busy ? "Saving…" : "Add rule"}
               </button>
-              {error && <span className="text-[11px] text-danger">{error}</span>}
+              {error && <span role="alert" className="text-[11px] text-danger">{error}</span>}
             </div>
           </div>
         </div>

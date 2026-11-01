@@ -37,6 +37,39 @@ pub struct QueueItem {
     pub additions: u32,
     pub deletions: u32,
     pub risk: RiskAssessment,
+    /// The last recorded acceptance-gate result for this card, when a receipt
+    /// exists. `None` means no build receipt has been written yet, not that
+    /// checks passed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub checks: Option<QueueChecks>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct QueueChecks {
+    /// The gate actually ran and passed. A skipped gate is never "passed".
+    pub gate_passed: bool,
+    pub gate_skipped: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gate_command: Option<String>,
+    pub guard_errors: u32,
+    pub guard_warnings: u32,
+    /// The receipt's content hash still matches its body.
+    pub receipt_verified: bool,
+    pub confidence: crate::receipt::ConfidenceLevel,
+}
+
+impl QueueChecks {
+    fn from_receipt(receipt: &Receipt) -> Self {
+        Self {
+            gate_passed: receipt.gate.passed && !receipt.gate.skipped,
+            gate_skipped: receipt.gate.skipped,
+            gate_command: receipt.gate.command.clone(),
+            guard_errors: receipt.guard.errors,
+            guard_warnings: receipt.guard.warnings,
+            receipt_verified: receipt.hash_ok(),
+            confidence: receipt.confidence.level,
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -154,6 +187,7 @@ pub fn build_queue(
                 tier: RiskTier::Unknown,
                 reasons: Vec::new(),
             },
+            checks: latest.map(QueueChecks::from_receipt),
         };
 
         if let Some(branch) = branch {
@@ -431,6 +465,7 @@ mod tests {
                     detail: "test".into(),
                 }],
             },
+            checks: None,
         }
     }
 
