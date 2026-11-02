@@ -4,6 +4,13 @@ import type { AgentSelection } from "../lib/useAgentSelection";
 import { navigate } from "../lib/hashnav";
 import { AgentPicker } from "./AgentPicker";
 import type { ComposerMode } from "../lib/composer";
+import { SelectMenu } from "../components/SelectMenu";
+
+const MODES = [
+  { value: "build", label: "Build", hint: "Make changes with your agent" },
+  { value: "plan", label: "Plan", hint: "Prepare a plan before building" },
+  { value: "ask", label: "Ask", hint: "Read-only conversation" },
+];
 
 export function ThreadComposer({ value, onChange, mode, onModeChange, agent, onSubmit, busy = false, active = false, onStop, error, autoFocus = false }: {
   value: string; onChange: (value: string) => void; mode: ComposerMode; onModeChange: (mode: ComposerMode) => void;
@@ -21,20 +28,20 @@ export function ThreadComposer({ value, onChange, mode, onModeChange, agent, onS
     <form className="thread-composer" onSubmit={(event) => { event.preventDefault(); if (!busy && !active && value.trim()) onSubmit(); }}>
       <label className="sr-only" htmlFor={`${id}-prompt`}>{mode === "ask" ? "Ask the local agent" : "What do you want to build?"}</label>
       <textarea id={`${id}-prompt`} ref={textarea} data-testid="thread-composer" value={value} onChange={(event) => onChange(event.target.value)}
-        autoFocus={autoFocus} name="prompt" rows={3} aria-describedby={`${id}-hint`} placeholder={mode === "ask" ? "Ask about the code or the plan…" : "Type a goal, a bug, or an idea…"}
+        autoFocus={autoFocus} name="prompt" rows={2} aria-describedby={`${id}-hint`} placeholder={mode === "ask" ? "Ask about this project…" : mode === "plan" ? "Describe what you want to plan…" : "What would you like to build?"}
         onKeyDown={(event) => {
           if (!event.nativeEvent.isComposing && event.key === "Enter" && !event.shiftKey) {
             event.preventDefault(); if (!busy && !active && value.trim()) onSubmit();
           }
         }} />
       <div className="thread-composer-controls">
-        <div className="composer-modes" role="group" aria-label="Composer mode">{(["ask", "plan", "build"] as const).map((choice) => <button key={choice} type="button" aria-pressed={mode === choice} disabled={busy} onClick={() => onModeChange(choice)}>{choice === "ask" ? "Ask" : choice === "plan" ? "Plan" : "Build"}</button>)}</div>
+        <SelectMenu className="composer-mode-select" value={mode} options={MODES} ariaLabel="Composer mode" disabled={busy} onChange={(value) => onModeChange(value as ComposerMode)} />
         <AgentPicker agent={agent} mode={mode} />
-        {active ? <button className="bark-button composer-submit" type="button" data-testid="composer-submit" onClick={onStop} disabled={!onStop || busy}><Icon name="stop" size={13} />Stop</button> : <button className="bark-primary composer-submit" type="submit" data-testid="composer-submit" disabled={!value.trim() || busy || (mode !== "plan" && !agent.ready)}>{busy ? "Starting…" : mode === "ask" ? "Ask" : mode === "plan" ? "Plan changes" : "Build"}<Icon name="arrowUp" size={13} /></button>}
+        {active ? <button className="bark-button composer-submit" type="button" data-testid="composer-submit" aria-label="Stop" title="Stop" onClick={onStop} disabled={!onStop || busy}><Icon name="stop" size={15} /></button> : <button className="bark-primary composer-submit" type="submit" data-testid="composer-submit" aria-label={busy ? "Starting" : mode === "plan" ? "Prepare plan" : "Send message"} title={mode === "plan" ? "Prepare plan (Enter)" : "Send message (Enter)"} disabled={!value.trim() || busy || (mode !== "plan" && !agent.ready)}><Icon name="arrowUp" size={16} /></button>}
       </div>
     </form>
     {error && <p role="alert" className="composer-error">{error}</p>}
-    <p className="composer-hint" id={`${id}-hint`}>{active ? "Your draft stays here while work is running." : mode === "ask" ? "Read-only. Enter to send · Shift+Enter for a new line." : mode === "plan" ? "Prepare a plan for review. Enter to send · Shift+Enter for a new line." : "Build in an isolated worktree. Enter to send · Shift+Enter for a new line."}</p>
+    <p className="sr-only" id={`${id}-hint`}>{active ? "Your draft stays here while work is running." : mode === "ask" ? "Read-only. Enter to send. Shift+Enter for a new line." : mode === "plan" ? "Prepare a plan for review. Enter to send. Shift+Enter for a new line." : "Enter to send. Shift+Enter for a new line. Changes are made in an isolated worktree."}</p>
     {!agent.ready && !agent.loading && <p className="composer-readiness">{agent.readiness}. <button onClick={() => navigate("operations", { tool: "workspace" })}>Open agent setup</button>{mode === "plan" ? ". You can still prepare a plan." : ". Your draft is saved."}</p>}
   </div>;
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { ThreadDetail } from "../lib/types";
+import type { ThreadDetail, RunRecord } from "../lib/types";
 import { ThreadPane } from "./ThreadPane";
 
 const api = vi.hoisted(() => ({
@@ -73,6 +73,15 @@ const detail: ThreadDetail = {
   ],
 };
 
+const run: RunRecord = {
+  id: "run_1", thread_id: detail.id, card_id: detail.id, ordinal: 1,
+  provider: "opencode", model: "chosen-model", status: "passed", permission_mode: "auto",
+  worktree: "/isolated/worktree", branch: "bark/private-branch", started_at: "2026-11-02T08:00:00Z",
+  diff_stats: { files: 2, additions: 8, deletions: 0 }, usage: { input_tokens: 100, output_tokens: 20 },
+  gate: { passed: true, command: "npm test", finished_at: "2026-11-02T08:01:00Z",
+    verification: { outcome: "passed", tested_head: "tested", target_head: "target", exit_code: 0 } },
+};
+
 describe("ThreadPane", () => {
   it("loads the thread, renders prose, and sends a message", async () => {
     api.fetchThread.mockResolvedValue(detail);
@@ -103,7 +112,8 @@ describe("ThreadPane", () => {
     expect(onSelectCard).toHaveBeenCalled();
 
     const composer = screen.getByTestId("thread-composer");
-    await user.click(screen.getByRole("button", { name: "Plan" }));
+    await user.click(screen.getByRole("combobox", { name: "Composer mode" }));
+    await user.click(screen.getByRole("option", { name: /^Plan/ }));
     await user.type(composer, "Please add a regression test.");
     await user.keyboard("{Meta>}{Enter}{/Meta}");
 
@@ -139,7 +149,8 @@ describe("ThreadPane", () => {
     await screen.findByText("Static demo hosting");
 
     const composer = screen.getByTestId("thread-composer");
-    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await user.click(screen.getByRole("combobox", { name: "Composer mode" }));
+    await user.click(screen.getByRole("option", { name: /^Ask/ }));
     await user.type(composer, "Where is the auth middleware?");
     await user.keyboard("{Meta>}{Enter}{/Meta}");
 
@@ -226,7 +237,67 @@ describe("ThreadPane", () => {
       <ThreadPane threadId="demo-mode" inspectorOpen onOpenInspector={onOpenInspector} />
     );
     expect(await screen.findByText("Static demo hosting")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Hide surfaces" }));
+    await user.click(screen.getByRole("button", { name: "Hide thread panel" }));
     expect(onOpenInspector).toHaveBeenCalled();
   });
+  it("keeps technical evidence behind Details and opens changes contextually", async () => {
+    api.fetchThread.mockResolvedValue({ ...detail, runs: [run], events: [...detail.events, {
+      id: "log-1", card_id: detail.id, kind: "log", text: "private diagnostic", author: "agent", created_at: run.started_at,
+    }, { id: "done-1", card_id: detail.id, kind: "run_completed", text: "Run completed (exit 0)", author: "agent", created_at: run.started_at }] });
+    const onReview = vi.fn();
+    const user = userEvent.setup();
+    render(<ThreadPane threadId={detail.id} boardName="dev" onReview={onReview} />);
+    await screen.findByText("Static demo hosting");
+    expect(screen.getByText("Checks passed")).toBeInTheDocument();
+    expect(screen.queryByText("dev.board")).not.toBeInTheDocument();
+    expect(screen.queryByText(run.worktree!)).not.toBeInTheDocument();
+    expect(screen.queryByText("private diagnostic")).not.toBeInTheDocument();
+    expect(screen.queryByText("Run completed (exit 0)")).not.toBeInTheDocument();
+    expect(screen.queryByText(/operations/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "2 files changed" }));
+    expect(onReview).toHaveBeenCalledOnce();
+    await user.click(screen.getByText("Details", { selector: "summary" }));
+    expect(await screen.findByText(run.worktree!)).toBeInTheDocument();
+    expect(screen.getByText("private diagnostic", { selector: "summary" })).toBeInTheDocument();
+  });
+
+  it("keeps failed checks and actionable errors visible while details stay closed", async () => {
+    api.fetchThread.mockResolvedValue({ ...detail, runs: [{ ...run, status: "failed", error: "The verification command exited with code 1", gate: {
+      ...run.gate, passed: false, verification: { ...run.gate!.verification, outcome: "failed", exit_code: 1 },
+    } }] });
+    render(<ThreadPane threadId={detail.id} />);
+    expect(await screen.findByText("Checks failed")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("verification command exited with code 1");
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+    expect(screen.queryByText(run.worktree!)).not.toBeInTheDocument();
+  });
+
+  it("offers one Stop even with Details open and keeps the next draft editable", async () => {
+    const active = { ...run, status: "running", gate: undefined };
+    api.fetchThread.mockResolvedValue({ ...detail, runs: [active] });
+    api.stopRun.mockResolvedValue({ ...active, status: "interrupted" });
+    const user = userEvent.setup();
+    render(<ThreadPane threadId={detail.id} />);
+    await screen.findByText("Building");
+    await user.click(screen.getByText("Details", { selector: "summary" }));
+    await screen.findByText(run.worktree!);
+    expect(screen.getAllByRole("button", { name: "Stop" })).toHaveLength(1);
+    await user.type(screen.getByTestId("thread-composer"), "Keep this next prompt");
+    await user.click(screen.getByRole("button", { name: "Stop" }));
+    await waitFor(() => expect(api.stopRun).toHaveBeenCalledWith("run_1"));
+    expect(screen.getByTestId("thread-composer")).toHaveValue("Keep this next prompt");
+    expect(await screen.findByText("Stopped")).toBeInTheDocument();
+  });
+
+  it("renders reply code and lists as Markdown without executing HTML or loading images", async () => {
+    api.fetchThread.mockResolvedValue({ ...detail, events: [{ ...detail.events[1], text:
+      "Use `hello.txt`.\n\n```js\nconsole.log('hello');\n```\n\n1. Read it\n2. Run tests\n\n<script>alert('no')</script>\n\n![tracker](https://example.invalid/pixel)" }] });
+    const { container } = render(<ThreadPane threadId={detail.id} />);
+    await screen.findByText("hello.txt");
+    expect(container.querySelector("code")).toHaveTextContent("hello.txt");
+    expect(container.querySelector("pre code")).toHaveTextContent("console.log('hello');");
+    expect(container.querySelectorAll("ol li")).toHaveLength(2);
+    expect(container.querySelector("script, img")).toBeNull();
+  });
+
 });

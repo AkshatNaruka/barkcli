@@ -62,7 +62,7 @@ function DraftComposer({ onClose, onCreated, boardName, initialText = "", initia
     finally { sending.current = false; setSubmitting(false); }
   };
   const content = <div className="new-thread-content">
-    <div className="new-thread-intro"><h1>{mode === "ask" ? "Ask about this project" : mode === "plan" ? "What do you want to plan?" : "What do you want to build?"}</h1><p>{mode === "ask" ? "A read-only conversation with your local coding agent." : mode === "plan" ? "Prepare a plan, review it, then choose when to build." : "Describe the outcome. Your agent works in an isolated worktree."}</p></div>
+    <div className="new-thread-intro"><h1>{mode === "ask" ? "Ask about this project" : mode === "plan" ? "What do you want to plan?" : "What do you want to build?"}</h1></div>
     <ThreadComposer value={text} onChange={setText} mode={mode} onModeChange={setMode} agent={agent} onSubmit={submit} busy={submitting} error={error} autoFocus />
   </div>;
   return inline ? <section className="new-thread-screen" aria-label={mode === "ask" ? "New question" : "New thread"}><header className="thread-header"><button className="bark-icon-button" aria-label="Toggle sidebar" onClick={() => window.dispatchEvent(new CustomEvent("bark-command", { detail: "toggle-sidebar" }))}><Icon name="panel" size={16} /></button><span className="text-muted">{mode === "ask" ? "New question" : "New thread"}</span></header>{content}</section> : <AccessibleDialog label="New thread" onClose={onClose}>{content}<button className="bark-button" onClick={onClose}>Close</button></AccessibleDialog>;

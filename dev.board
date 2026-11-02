@@ -257,3 +257,51 @@ cards:
   version: 1
   created_at: 2026-11-01T09:42:54.120992Z
   updated_at: 2026-11-01T09:42:54.120992Z
+- id: hi
+  title: Hi
+  description: Hi
+  column: todo
+  priority: medium
+  labels:
+  - agent:opencode
+  - type:feature
+  assignee: opencode
+  checklist: []
+  comments: []
+  attachments: []
+  pinned: false
+  version: 1
+  created_at: 2026-11-01T19:28:36.536707Z
+  updated_at: 2026-11-01T19:28:36.536707Z
+- id: hi-2
+  title: Hi
+  description: Hi
+  column: todo
+  priority: medium
+  labels:
+  - agent:opencode
+  - type:feature
+  assignee: opencode
+  checklist: []
+  comments: []
+  attachments: []
+  pinned: false
+  version: 1
+  created_at: 2026-11-01T19:38:15.448101Z
+  updated_at: 2026-11-01T19:38:15.448101Z
+- id: yo
+  title: yo
+  description: yo
+  column: todo
+  priority: medium
+  labels:
+  - agent:opencode
+  - type:feature
+  assignee: opencode
+  checklist: []
+  comments: []
+  attachments: []
+  pinned: false
+  version: 1
+  created_at: 2026-11-01T19:41:24.368909Z
+  updated_at: 2026-11-01T19:41:24.368909Z

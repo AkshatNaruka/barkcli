@@ -239,8 +239,7 @@ export function AgentPicker({ agent, mode }: { agent: AgentSelection; mode: Comp
         ) : (
           <Icon name="robot" size={14} />
         )}
-        <span>{agent.selected?.name || agent.backend || "Choose agent"}</span>
-        <span className="agent-model-label">{agent.model || "CLI default"}</span>
+        <span className="agent-model-label">{agent.model ? modelLabel(agent.model) : agent.selected?.name || agent.backend || "Choose agent"}</span>
         <Icon name="arrowDown" size={10} />
       </button>
 

@@ -249,25 +249,19 @@ export function App() {
   const [toast, setToast] = useState<{ message: string; action?: { label: string; onClick: () => void } } | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(() => {
-    const saved = window.localStorage.getItem("barkcli:inspector");
-    if (parseRouteState(window.location.hash).route !== "chat") return false;
-    if (saved !== null) return saved !== "0";
-    return window.innerWidth >= 1280;
+    const initial = parseRouteState(window.location.hash);
+    return initial.route === "chat" && Boolean(initial.panel);
   });
   const toggleInspector = useCallback(() => {
-    setInspectorOpen((open) => {
-      window.localStorage.setItem("barkcli:inspector", open ? "0" : "1");
-      return !open;
-    });
+    setInspectorOpen((open) => !open);
   }, []);
   useEffect(() => {
     if (route !== "chat") {
       setInspectorOpen(false);
       return;
     }
-    const saved = window.localStorage.getItem("barkcli:inspector");
-    setInspectorOpen(saved === null ? window.innerWidth >= 1280 : saved !== "0");
-  }, [route]);
+    setInspectorOpen(Boolean(location.panel));
+  }, [route, location.thread, location.panel]);
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const boardRef = useRef(board);
   boardRef.current = board;

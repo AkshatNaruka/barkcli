@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { UniversalComposer } from "./UniversalComposer";
 
@@ -65,7 +65,7 @@ describe("UniversalComposer", () => {
     render(<UniversalComposer isOpen initialMode="plan_first" onClose={vi.fn()} onCreated={vi.fn()} />);
 
     await user.type(screen.getByTestId("thread-composer"), "A failing intent");
-    await user.click(screen.getByRole("button", { name: /Plan changes/ }));
+    await user.click(screen.getByRole("button", { name: "Prepare plan" }));
 
     expect(
       await screen.findByText(
@@ -83,7 +83,8 @@ describe("UniversalComposer", () => {
     );
 
     await user.type(screen.getByTestId("thread-composer"), "Where is auth?");
-    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await user.click(screen.getByRole("combobox", { name: "Composer mode" }));
+    await user.click(screen.getByRole("option", { name: /^Ask/ }));
     await waitFor(() =>
       expect(screen.getByTestId("composer-submit")).toBeEnabled()
     );
@@ -127,4 +128,23 @@ describe("UniversalComposer", () => {
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith("saved-thread"));
     expect(createThread).toHaveBeenCalledTimes(1);
   });
+  it("keeps mode choices tucked away and preserves newline and IME input", async () => {
+    createThread.mockResolvedValue({ thread_id: "compact-thread" });
+    const user = userEvent.setup();
+    const { container } = render(<UniversalComposer isOpen inline onClose={vi.fn()} onCreated={vi.fn()} />);
+    const composer = screen.getByTestId("thread-composer");
+    expect(screen.getByRole("combobox", { name: "Composer mode" })).toHaveTextContent("Build");
+    expect(screen.queryByRole("option")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ask" })).not.toBeInTheDocument();
+    expect(container.querySelector(".composer-hint")).toBeNull();
+    await user.type(composer, "First line");
+    await user.keyboard("{Shift>}{Enter}{/Shift}");
+    await user.type(composer, "Second line");
+    expect(composer).toHaveValue("First line\nSecond line");
+    fireEvent.keyDown(composer, { key: "Enter", isComposing: true });
+    expect(createThread).not.toHaveBeenCalled();
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(createThread).toHaveBeenCalledWith(expect.objectContaining({ text: "First line\nSecond line" })));
+  });
+
 });
