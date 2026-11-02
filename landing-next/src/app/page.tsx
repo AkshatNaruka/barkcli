@@ -598,7 +598,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen w-full bg-black text-white selection:bg-[#38bdf8]/30">
+    <div className="min-h-screen w-full bg-black text-white selection:bg-[#B8845C]/30">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -785,7 +785,7 @@ export default function Home() {
       <section id="product" className="py-24 px-6">
         <div className="max-w-6xl mx-auto">
           <AnimatedSection className="text-center mb-12">
-            <p className="text-[#38bdf8] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
+            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
               The web app
             </p>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4">
@@ -810,7 +810,7 @@ export default function Home() {
               { metric: "MIT", desc: "open source forever" },
             ].map((s) => (
               <div key={s.desc} className="text-center border border-white/10 rounded-xl py-4 bg-white/[0.02]">
-                <div className="text-2xl font-bold text-[#93c5fd] font-mono">{s.metric}</div>
+                <div className="text-2xl font-bold text-[#D4A574] font-mono">{s.metric}</div>
                 <div className="text-[11px] text-white/40 mt-1">{s.desc}</div>
               </div>
             ))}
@@ -822,7 +822,7 @@ export default function Home() {
       <section id="features" className="py-24 px-6">
         <div className="max-w-6xl mx-auto">
           <AnimatedSection className="text-center mb-16">
-            <p className="text-[#38bdf8] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
+            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
               Why barkcli
             </p>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4">
@@ -840,7 +840,7 @@ export default function Home() {
                     <div className={`absolute inset-0 bg-gradient-to-br ${feature.gradient} rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
                     <div className="relative">
                       <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <Icon className="w-5 h-5 text-[#38bdf8]" />
+                        <Icon className="w-5 h-5 text-[#B8845C]" />
                       </div>
                       <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
                       <p className="text-white/50 text-sm leading-relaxed mb-4">
@@ -862,7 +862,7 @@ export default function Home() {
       <section id="pipeline" className="py-24 px-6 bg-gradient-to-b from-white/[0.02] to-transparent">
         <div className="max-w-6xl mx-auto">
           <AnimatedSection className="text-center mb-16">
-            <p className="text-[#38bdf8] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
+            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
               The pipeline
             </p>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight">
@@ -873,14 +873,14 @@ export default function Home() {
           </AnimatedSection>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 relative">
             {/* Connecting Line */}
-            <div className="hidden lg:block absolute top-12 left-[10%] right-[10%] h-px bg-gradient-to-r from-transparent via-[#38bdf8]/30 to-transparent" />
+            <div className="hidden lg:block absolute top-12 left-[10%] right-[10%] h-px bg-gradient-to-r from-transparent via-[#B8845C]/30 to-transparent" />
             {STEPS.map((step, i) => {
               const Icon = step.icon;
               return (
                 <AnimatedSection key={i} delay={i * 0.15}>
                   <div className="text-center relative">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#38bdf8]/20 to-[#38bdf8]/5 border border-[#38bdf8]/20 flex items-center justify-center mx-auto mb-6 relative z-10">
-                      <Icon className="w-7 h-7 text-[#38bdf8]" />
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#B8845C]/20 to-[#B8845C]/5 border border-[#B8845C]/20 flex items-center justify-center mx-auto mb-6 relative z-10">
+                      <Icon className="w-7 h-7 text-[#B8845C]" />
                     </div>
                     <h3 className="text-xl font-semibold mb-3">{step.title}</h3>
                     <p className="text-white/50 text-sm leading-relaxed mb-4 px-4">
@@ -901,13 +901,13 @@ export default function Home() {
       <section id="autonomy" className="py-24 px-6">
         <div className="max-w-6xl mx-auto">
           <AnimatedSection className="text-center mb-16">
-            <p className="text-[#38bdf8] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
+            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
               Management layer
             </p>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4">
               One prompt.
               <br />
-              <span className="bg-gradient-to-r from-[#38bdf8] to-[#93c5fd] bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-[#B8845C] to-[#D4A574] bg-clip-text text-transparent">
                 Three agents. Merged.
               </span>
             </h2>
@@ -922,7 +922,7 @@ export default function Home() {
           </AnimatedSection>
 
           <AnimatedSection delay={0.15}>
-            <div className="relative max-w-5xl mx-auto rounded-2xl border border-white/10 overflow-hidden bg-black/60 shadow-2xl shadow-[#38bdf8]/5">
+            <div className="relative max-w-5xl mx-auto rounded-2xl border border-white/10 overflow-hidden bg-black/60 shadow-2xl shadow-[#B8845C]/5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/run-agents-demo.gif"
@@ -965,9 +965,9 @@ export default function Home() {
           </div>
 
           <AnimatedSection delay={0.35}>
-            <div className="max-w-4xl mx-auto mt-6 rounded-2xl border border-[#38bdf8]/25 bg-gradient-to-r from-[#38bdf8]/10 via-[#38bdf8]/5 to-transparent p-6 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="max-w-4xl mx-auto mt-6 rounded-2xl border border-[#B8845C]/25 bg-gradient-to-r from-[#B8845C]/10 via-[#B8845C]/5 to-transparent p-6 flex flex-col sm:flex-row sm:items-center gap-4">
               <div className="flex-1">
-                <p className="text-[10px] font-mono font-semibold uppercase tracking-widest text-[#38bdf8] mb-1">
+                <p className="text-[10px] font-mono font-semibold uppercase tracking-widest text-[#B8845C] mb-1">
                   Multiplayer AI
                 </p>
                 <h3 className="text-lg font-semibold mb-1">Your team, in the same agent session.</h3>
@@ -980,7 +980,7 @@ export default function Home() {
               {ON_PAGES && (
                 <a
                   href={`${BASE}/app/?run=replay#/mind`}
-                  className="shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#38bdf8] text-white text-sm font-medium hover:bg-[#a5764f] transition-colors"
+                  className="shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#B8845C] text-white text-sm font-medium hover:bg-[#a5764f] transition-colors"
                 >
                   <Play className="w-4 h-4" />
                   Watch the replay
@@ -996,7 +996,7 @@ export default function Home() {
       <section id="interfaces" className="py-24 px-6">
         <div className="max-w-6xl mx-auto">
           <AnimatedSection className="text-center mb-16">
-            <p className="text-[#38bdf8] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
+            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
               Interfaces
             </p>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight">
@@ -1013,7 +1013,7 @@ export default function Home() {
                     onClick={() => setActiveTab(iface.id)}
                     className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 cursor-pointer flex items-center gap-2 ${
                       activeTab === iface.id
-                        ? "bg-[#38bdf8] text-white shadow-lg shadow-[#38bdf8]/20"
+                        ? "bg-[#B8845C] text-white shadow-lg shadow-[#B8845C]/20"
                         : "border border-white/10 text-white/50 hover:text-white hover:border-white/20 hover:bg-white/5"
                     }`}
                   >
@@ -1036,7 +1036,7 @@ export default function Home() {
                   {iface.id === "web" && (
                     <a
                       href="/docs/web-app"
-                      className="inline-block text-sm text-[#38bdf8] hover:text-[#93c5fd] mb-6 transition-colors"
+                      className="inline-block text-sm text-[#B8845C] hover:text-[#D4A574] mb-6 transition-colors"
                     >
                       Read the full Web App Guide →
                     </a>
@@ -1062,12 +1062,12 @@ export default function Home() {
       <section className="py-24 px-6 bg-gradient-to-b from-transparent to-white/[0.02]">
         <div className="max-w-6xl mx-auto">
           <AnimatedSection className="text-center mb-16">
-            <p className="text-[#38bdf8] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
+            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
               Code Intelligence
             </p>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4">
               Your codebase.{" "}
-              <span className="text-[#38bdf8]">Understood.</span>
+              <span className="text-[#B8845C]">Understood.</span>
             </h2>
             <p className="text-white/50 max-w-lg mx-auto">
               barkcli analyzes your code to provide rich context for every task. See how changes impact your codebase.
@@ -1078,14 +1078,14 @@ export default function Home() {
               const Icon = item.icon;
               return (
                 <AnimatedSection key={i} delay={i * 0.1}>
-                  <div className="group bg-white/[0.02] border border-white/10 rounded-2xl p-6 hover:border-[#38bdf8]/30 transition-all duration-300 h-full">
+                  <div className="group bg-white/[0.02] border border-white/10 rounded-2xl p-6 hover:border-[#B8845C]/30 transition-all duration-300 h-full">
                     <div className="flex items-center gap-2 mb-4">
-                      <div className="w-8 h-8 rounded-lg bg-[#38bdf8]/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <Icon className="w-4 h-4 text-[#38bdf8]" />
+                      <div className="w-8 h-8 rounded-lg bg-[#B8845C]/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <Icon className="w-4 h-4 text-[#B8845C]" />
                       </div>
                       <h4 className="text-base font-semibold">{item.title}</h4>
                     </div>
-                    <div className="text-4xl font-bold text-[#38bdf8] mb-3 font-mono">
+                    <div className="text-4xl font-bold text-[#B8845C] mb-3 font-mono">
                       {item.metric}
                     </div>
                     <p className="text-white/50 text-sm leading-relaxed">
@@ -1102,7 +1102,7 @@ export default function Home() {
             <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-6">
               <div className="flex flex-col sm:flex-row items-center gap-6">
                 <div className="text-center sm:text-left shrink-0">
-                  <div className="text-5xl font-bold text-[#38bdf8] font-mono">57×</div>
+                  <div className="text-5xl font-bold text-[#B8845C] font-mono">57×</div>
                   <div className="text-white/40 text-xs mt-1">less context to gather</div>
                 </div>
                 <div className="text-center sm:text-left shrink-0 sm:border-l sm:border-white/10 sm:pl-6">
@@ -1121,7 +1121,7 @@ export default function Home() {
                   excluded. Measured on the barkcli repo itself @{" "}
                   <code className="text-white/40">339f66a</code>, Oct&nbsp;2026; the 44× variant
                   reads three candidate files instead of eight.{" "}
-                  <a href="/benchmark" className="text-[#38bdf8] hover:text-[#93c5fd] transition-colors">
+                  <a href="/benchmark" className="text-[#B8845C] hover:text-[#D4A574] transition-colors">
                     Run it on your repo →
                   </a>
                 </p>
@@ -1135,13 +1135,13 @@ export default function Home() {
       <section className="py-24 px-6">
         <div className="max-w-6xl mx-auto">
           <AnimatedSection className="text-center mb-16">
-            <p className="text-[#38bdf8] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
+            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
               Management Layer
             </p>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4">
               Your AI agent&apos;s
               <br />
-              <span className="bg-gradient-to-r from-[#38bdf8] to-[#93c5fd] bg-clip-text text-transparent">project manager.</span>
+              <span className="bg-gradient-to-r from-[#B8845C] to-[#D4A574] bg-clip-text text-transparent">project manager.</span>
             </h2>
             <p className="text-white/50 max-w-lg mx-auto">
               Claude, GPT, and OpenCode can now read tasks, claim work, and update progress. barkcli is the missing piece in the AI-native dev stack.
@@ -1170,8 +1170,8 @@ export default function Home() {
             ].map((item, i) => (
               <AnimatedSection key={i} delay={i * 0.1}>
                 <div className="group border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all duration-300 h-full">
-                  <div className="w-10 h-10 rounded-xl bg-[#38bdf8]/10 border border-[#38bdf8]/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <item.icon className="w-5 h-5 text-[#38bdf8]" />
+                  <div className="w-10 h-10 rounded-xl bg-[#B8845C]/10 border border-[#B8845C]/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <item.icon className="w-5 h-5 text-[#B8845C]" />
                   </div>
                   <h3 className="text-lg font-semibold mb-3">{item.title}</h3>
                   <p className="text-white/50 text-sm leading-relaxed mb-4">
@@ -1195,14 +1195,14 @@ export default function Home() {
       <section id="ai-agent" className="py-24 px-6 bg-gradient-to-b from-white/[0.02] to-transparent">
         <div className="max-w-6xl mx-auto">
           <AnimatedSection className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 bg-[#38bdf8]/10 border border-[#38bdf8]/20 rounded-full px-4 py-1.5 mb-6">
-              <Sparkles className="w-3 h-3 text-[#38bdf8]" />
-              <span className="text-xs text-[#38bdf8] font-mono">Works with Claude, OpenCode, Cursor</span>
+            <div className="inline-flex items-center gap-2 bg-[#B8845C]/10 border border-[#B8845C]/20 rounded-full px-4 py-1.5 mb-6">
+              <Sparkles className="w-3 h-3 text-[#B8845C]" />
+              <span className="text-xs text-[#B8845C] font-mono">Works with Claude, OpenCode, Cursor</span>
             </div>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4">
               One prompt.
               <br />
-              <span className="bg-gradient-to-r from-[#38bdf8] to-[#93c5fd] bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-[#B8845C] to-[#D4A574] bg-clip-text text-transparent">
                 Your agent is ready.
               </span>
             </h2>
@@ -1233,7 +1233,7 @@ export default function Home() {
                   onClick={() => setActiveAgentTab(agent.id)}
                   className={`text-xs font-mono px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all duration-300 ${
                     activeAgentTab === agent.id
-                      ? "bg-[#38bdf8] text-white shadow-lg shadow-[#38bdf8]/20"
+                      ? "bg-[#B8845C] text-white shadow-lg shadow-[#B8845C]/20"
                       : "border border-white/10 text-white/50 hover:text-white hover:border-white/20 hover:bg-white/5"
                   }`}
                 >
@@ -1244,10 +1244,10 @@ export default function Home() {
             </div>
 
             {/* Main Setup Prompt Card */}
-            <div className="border border-[#38bdf8]/20 rounded-2xl overflow-hidden bg-gradient-to-b from-[#38bdf8]/5 to-transparent">
-              <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 border-b border-white/10 bg-[#38bdf8]/10">
+            <div className="border border-[#B8845C]/20 rounded-2xl overflow-hidden bg-gradient-to-b from-[#B8845C]/5 to-transparent">
+              <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 border-b border-white/10 bg-[#B8845C]/10">
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-[#38bdf8] animate-pulse" />
+                  <span className="w-2 h-2 rounded-full bg-[#B8845C] animate-pulse" />
                   <span className="text-xs font-mono text-white/60">
                     {activeAgentTab === "claude"
                       ? "Paste in Claude Code"
@@ -1296,9 +1296,9 @@ export default function Home() {
                 { icon: ClipboardList, title: "Create", desc: "Makes a board" },
                 { icon: Plug, title: "Connect", desc: "Configures MCP" },
               ].map((item, i) => (
-                <div key={i} className="bg-white/[0.02] border border-white/10 rounded-xl p-3 text-center group hover:border-[#38bdf8]/30 transition-colors">
-                  <div className="w-8 h-8 rounded-lg bg-[#38bdf8]/10 flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
-                    <item.icon className="w-4 h-4 text-[#38bdf8]" />
+                <div key={i} className="bg-white/[0.02] border border-white/10 rounded-xl p-3 text-center group hover:border-[#B8845C]/30 transition-colors">
+                  <div className="w-8 h-8 rounded-lg bg-[#B8845C]/10 flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
+                    <item.icon className="w-4 h-4 text-[#B8845C]" />
                   </div>
                   <h4 className="text-xs font-semibold">{item.title}</h4>
                   <p className="text-[10px] text-white/40">{item.desc}</p>
@@ -1329,7 +1329,7 @@ export default function Home() {
             <div className="text-center mt-6">
               <a
                 href="/docs/getting-started"
-                className="inline-flex items-center gap-2 text-[#38bdf8] text-sm font-medium hover:underline group"
+                className="inline-flex items-center gap-2 text-[#B8845C] text-sm font-medium hover:underline group"
               >
                 Read the full integration guide
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -1343,7 +1343,7 @@ export default function Home() {
       <section id="install" className="py-24 px-6">
         <div className="max-w-6xl mx-auto">
           <AnimatedSection className="text-center mb-16">
-            <p className="text-[#38bdf8] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
+            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
               Install
             </p>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight">
@@ -1362,7 +1362,7 @@ export default function Home() {
               <AnimatedSection key={i} delay={i * 0.08}>
                 <div className="group border border-white/10 rounded-xl p-4 hover:border-white/20 transition-all duration-300 h-full">
                   <div className="flex items-center gap-2 mb-3">
-                    <method.icon className="w-4 h-4 text-[#38bdf8]" />
+                    <method.icon className="w-4 h-4 text-[#B8845C]" />
                     <h4 className="text-sm font-semibold">{method.title}</h4>
                   </div>
                   <code className="text-[#059669] text-xs font-mono block bg-white/5 rounded-lg px-3 py-2 break-all group-hover:bg-white/10 transition-colors">
@@ -1384,7 +1384,7 @@ export default function Home() {
       <section className="py-24 px-6 bg-gradient-to-b from-white/[0.02] to-transparent">
         <div className="max-w-3xl mx-auto">
           <AnimatedSection className="text-center mb-16">
-            <p className="text-[#38bdf8] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
+            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
               FAQ
             </p>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight">
@@ -1399,12 +1399,12 @@ export default function Home() {
                     onClick={() => setOpenFaq(openFaq === i ? null : i)}
                     className="w-full text-left py-5 flex justify-between items-center cursor-pointer group"
                   >
-                    <span className="text-white font-medium group-hover:text-[#38bdf8] transition-colors pr-4 text-sm sm:text-base">
+                    <span className="text-white font-medium group-hover:text-[#B8845C] transition-colors pr-4 text-sm sm:text-base">
                       {item.question}
                     </span>
                     <ChevronDown
                       className={`w-5 h-5 text-white/40 shrink-0 transition-transform duration-300 ${
-                        openFaq === i ? "rotate-180 text-[#38bdf8]" : ""
+                        openFaq === i ? "rotate-180 text-[#B8845C]" : ""
                       }`}
                     />
                   </button>
@@ -1429,12 +1429,12 @@ export default function Home() {
         <div className="max-w-3xl mx-auto text-center">
           <AnimatedSection>
             <div className="relative">
-              <div className="absolute inset-0 bg-[#38bdf8]/5 blur-[100px] rounded-full" />
+              <div className="absolute inset-0 bg-[#B8845C]/5 blur-[100px] rounded-full" />
               <div className="relative border border-white/10 rounded-3xl p-8 sm:p-12 bg-gradient-to-b from-white/[0.02] to-transparent">
                 <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4">
                   Stop managing tasks
                   <br />
-                  <span className="bg-gradient-to-r from-[#38bdf8] to-[#93c5fd] bg-clip-text text-transparent">
+                  <span className="bg-gradient-to-r from-[#B8845C] to-[#D4A574] bg-clip-text text-transparent">
                     in someone else&apos;s cloud.
                   </span>
                 </h2>
@@ -1444,7 +1444,7 @@ export default function Home() {
                 <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
                   <a
                     href="#install"
-                    className="px-6 py-3 bg-[#38bdf8] text-white font-medium rounded-xl hover:bg-[#38bdf8]/80 transition-all duration-300 shadow-lg shadow-[#38bdf8]/20 hover:shadow-[#38bdf8]/30 flex items-center justify-center gap-2"
+                    className="px-6 py-3 bg-[#B8845C] text-white font-medium rounded-xl hover:bg-[#B8845C]/80 transition-all duration-300 shadow-lg shadow-[#B8845C]/20 hover:shadow-[#B8845C]/30 flex items-center justify-center gap-2"
                   >
                     Install Now
                     <ArrowRight className="w-4 h-4" />
@@ -1468,7 +1468,7 @@ export default function Home() {
       <footer className="py-8 px-6 border-t border-white/10">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-[#38bdf8] flex items-center justify-center">
+            <div className="w-6 h-6 rounded-md bg-[#B8845C] flex items-center justify-center">
               <svg viewBox="0 0 100 100" className="w-4 h-4" fill="none" stroke="white" strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M29 24 Q14 27 11 42 Q10 54 19 59 Q27 56 30 47" />
                 <path d="M71 24 Q86 27 89 42 Q90 54 81 59 Q73 56 70 47" />

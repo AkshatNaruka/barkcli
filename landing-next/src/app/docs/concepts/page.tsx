@@ -91,10 +91,10 @@ export default function ConceptsPage() {
       <div className="mt-12 rounded-xl border border-white/10 bg-white/5 p-6">
         <h2 className="mb-3 text-lg font-semibold">Related</h2>
         <div className="flex flex-wrap gap-4 text-sm">
-          <Link href="/docs/getting-started" className="text-[#38bdf8] hover:underline">Getting Started</Link>
-          <Link href="/docs/commands" className="text-[#38bdf8] hover:underline">Commands</Link>
-          <Link href="/docs/code-context" className="text-[#38bdf8] hover:underline">Code Context Guide</Link>
-          <Link href="/docs/advanced" className="text-[#38bdf8] hover:underline">Advanced</Link>
+          <Link href="/docs/getting-started" className="text-[#B8845C] hover:underline">Getting Started</Link>
+          <Link href="/docs/commands" className="text-[#B8845C] hover:underline">Commands</Link>
+          <Link href="/docs/code-context" className="text-[#B8845C] hover:underline">Code Context Guide</Link>
+          <Link href="/docs/advanced" className="text-[#B8845C] hover:underline">Advanced</Link>
         </div>
       </div>
     </>

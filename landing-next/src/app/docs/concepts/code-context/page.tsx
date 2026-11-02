@@ -89,9 +89,9 @@ barkcli context sync`}</code></pre>
       <div className="rounded-xl border border-white/10 bg-white/5 p-6">
         <h3 className="mb-2 text-lg font-semibold">Related</h3>
         <div className="flex gap-4 text-sm">
-          <Link href="/docs/code-context" className="text-[#38bdf8] hover:underline">Code Context Guide</Link>
-          <Link href="/docs/commands/context" className="text-[#38bdf8] hover:underline">context command</Link>
-          <Link href="/docs/commands/code" className="text-[#38bdf8] hover:underline">code command</Link>
+          <Link href="/docs/code-context" className="text-[#B8845C] hover:underline">Code Context Guide</Link>
+          <Link href="/docs/commands/context" className="text-[#B8845C] hover:underline">context command</Link>
+          <Link href="/docs/commands/code" className="text-[#B8845C] hover:underline">code command</Link>
         </div>
       </div>
     </>

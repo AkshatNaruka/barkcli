@@ -64,7 +64,7 @@ export function BenchmarkPlayground() {
           </button>
           <button
             onClick={() => setRaw(SAMPLE)}
-            className="text-[10px] font-mono text-[#38bdf8]/70 hover:text-[#38bdf8] transition-colors"
+            className="text-[10px] font-mono text-[#B8845C]/70 hover:text-[#B8845C] transition-colors"
           >
             use the barkcli sample
           </button>
@@ -76,14 +76,14 @@ export function BenchmarkPlayground() {
         placeholder='{"cold_tokens": 29402, …}'
         spellCheck={false}
         rows={5}
-        className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-xs font-mono text-white/80 outline-none focus:border-[#38bdf8]/40 transition-colors resize-none"
+        className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-xs font-mono text-white/80 outline-none focus:border-[#B8845C]/40 transition-colors resize-none"
       />
       {parsed.error && <p className="text-red-400/80 text-xs mt-2 font-mono">{parsed.error}</p>}
 
       {parsed.data && (
         <div className="mt-5 space-y-4">
           <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
-            <div className="text-4xl font-bold text-[#38bdf8] font-mono">
+            <div className="text-4xl font-bold text-[#B8845C] font-mono">
               {ratio ? `${ratio.toFixed(1)}×` : "—"}
             </div>
             <div className="text-white/40 text-xs">
@@ -101,7 +101,7 @@ export function BenchmarkPlayground() {
                   <span className="text-[10px] font-mono text-white/40 w-16 shrink-0">{p.label}</span>
                   <div className="h-4 flex-1 bg-white/5 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-[#38bdf8]/70 to-[#93c5fd]/70 rounded-full"
+                      className="h-full bg-gradient-to-r from-[#B8845C]/70 to-[#D4A574]/70 rounded-full"
                       style={{ width: `${Math.max((p.n / coldTotal) * 100, 1)}%` }}
                     />
                   </div>
@@ -111,10 +111,10 @@ export function BenchmarkPlayground() {
                 </div>
               ))}
               <div className="flex items-center gap-3 pt-2 border-t border-white/5">
-                <span className="text-[10px] font-mono text-[#93c5fd] w-16 shrink-0">warm</span>
+                <span className="text-[10px] font-mono text-[#D4A574] w-16 shrink-0">warm</span>
                 <div className="h-4 flex-1 bg-white/5 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-[#93c5fd]/60 rounded-full"
+                    className="h-full bg-[#D4A574]/60 rounded-full"
                     style={{
                       width: `${ratio ? Math.max((100 / ratio), 1.6) : 2}%`,
                     }}

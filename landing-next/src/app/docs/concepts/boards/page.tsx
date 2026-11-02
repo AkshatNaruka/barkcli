@@ -100,9 +100,9 @@ barkcli my-project undo`}</code></pre>
       <div className="rounded-xl border border-white/10 bg-white/5 p-6">
         <h3 className="mb-2 text-lg font-semibold">Related</h3>
         <div className="flex gap-4 text-sm">
-          <Link href="/docs/commands/create" className="text-[#38bdf8] hover:underline">create command</Link>
-          <Link href="/docs/commands/boards" className="text-[#38bdf8] hover:underline">boards command</Link>
-          <Link href="/docs/concepts/tasks" className="text-[#38bdf8] hover:underline">Tasks</Link>
+          <Link href="/docs/commands/create" className="text-[#B8845C] hover:underline">create command</Link>
+          <Link href="/docs/commands/boards" className="text-[#B8845C] hover:underline">boards command</Link>
+          <Link href="/docs/concepts/tasks" className="text-[#B8845C] hover:underline">Tasks</Link>
         </div>
       </div>
     </>
