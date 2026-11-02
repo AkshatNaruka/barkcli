@@ -24,12 +24,24 @@ impl TierManager {
             || content_lower.contains("never use")
             || content_lower.contains("we decided")
             || content_lower.contains("architecture")
+            || content_lower.contains("acceptance gate")
+            || content_lower.contains("worktree")
+            || content_lower.contains("gotcha")
+            || content_lower.contains("perf")
         {
             return MemoryTier::LongTerm;
         }
 
-        // Decision rationale → long-term
-        if tags.iter().any(|t| t == "decision" || t == "convention" || t == "pattern") {
+        // Decision rationale and explicit category tags → long-term
+        if tags.iter().any(|t| {
+            t == "decision"
+                || t == "convention"
+                || t == "pattern"
+                || t == "architecture"
+                || t == "gotcha"
+                || t == "perf"
+                || t == "preference"
+        }) {
             return MemoryTier::LongTerm;
         }
 
