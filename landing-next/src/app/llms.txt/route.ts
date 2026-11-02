@@ -5,40 +5,50 @@ export const dynamic = "force-static";
 
 const llmsTxt = `# barkcli
 
-> The management layer between humans and AI coding agents. Tasks, specs, memory, skills, and agent runs live in your git repo. No cloud, no accounts, open source (MIT), built in Rust.
+> The management layer for AI agents — intent in, plans out, isolated git worktrees, tests as the acceptance gate, and a merge train for whatever passes. Tasks, specs, memory, skills, and agent runs live in your git repo. No cloud, no accounts, 100% open source (MIT), built in Rust.
 
-barkcli is a local-first management layer. Humans write intent, agents do work, barkcli manages the pipeline: intake, plan, dispatch, review, remember. Perfect for individual developers, teams, and AI-assisted workflows.
+barkcli is a local-first management layer. Humans write intent, agents propose plans and execute within isolated worktrees, and barkcli enforces the acceptance test contract before merging. Perfect for founders, developers, teams, and autonomous AI-assisted workflows.
 
 ## What Is barkcli
 
-- The management layer for AI agents — intent, plans, isolated worktrees, a test gate, and a merge train, all in one binary.
-- Tasks are YAML files (\`.board/*.board\`) committed to your repository — diff them, merge them, grep them, roll them back with git.
-- No cloud required, no accounts, no subscriptions. Works fully offline.
-- Four interfaces over one data source: CLI, terminal UI (TUI), web app, and VS Code extension.
-- ${MCP_TOOL_COUNT} MCP tools let AI coding agents (Claude Code, OpenCode, Cursor) read tasks, claim work, and update progress.
+- **The management layer for AI agents**: Intent in, plans out, isolated worktrees, a test gate, and a merge train, all in one binary.
+- **Isolated Git Worktrees**: Every agent works inside an isolated \`.worktrees/\` directory. Your working tree remains clean and untouched.
+- **Acceptance Gate Contract**: "Done" strictly means the project's tests (\`cargo test\`, \`pytest\`, \`npm test\`) pass in the worktree. Crashed agents and broken code never merge.
+- **Merge Train**: Passing branches merge sequentially; conflicted branches re-run solo against the updated main branch.
+- **Living Context & 4-Tier Memory**: Self-healing \`project_context.md\` + cross-session gotchas, conventions, and architectural facts.
+- **Deterministic Trust Layer**: \`barkcli guard\` scans for hardcoded secrets and dangerous patterns; \`barkcli receipt show\` provides cryptographic SHA-256 audit receipts.
+- **Tasks are YAML files**: Plain version-controlled files (\`.board/*.board\`) in your repository — diff them, merge them, grep them, roll them back with git.
+- **No cloud required**: Zero accounts, zero subscriptions, works fully offline.
+- **Five interfaces over one data source**: CLI, terminal UI (TUI), web app (axum), native macOS app (Tauri), and VS Code extension.
+- **${MCP_TOOL_COUNT} MCP tools**: Let AI coding agents (Claude Code, OpenCode, Cursor) read tasks, claim work, inspect memory, and update progress.
 
 ## Key Features
 
-- **Management layer:** Pipeline from human intent to reviewed agent output (intake → plan → dispatch → review → merge).
-- **Mind:** Compiled project snapshot — health, blockers, stale work, next actions.
-- **Skills:** Reusable conventions versioned in your repo, injected into agent prompts.
-- **Specs:** Requirements and traceability from spec to code.
-- **Memory:** Four-tier local memory; project facts persist across sessions.
-- **Autopilot:** Agent-driven loop with plan and merge gates and web intent UI.
-- **Repo-native:** YAML task files committed to your repo; git is the sync layer.
-- **Multi-interface:** CLI, Terminal UI, Web App, VS Code extension.
-- **AI/MCP:** 71 tools for Claude Code, OpenCode, Cursor integration.
-- **Sprints:** Start/end sprints with velocity tracking.
-- **Free core:** MIT license, free CLI forever, no per-seat pricing. Hosted team layer planned at $99/month per team.
+- **Management Layer Pipeline**: Intake → plan → dispatch → test gate → review → merge train.
+- **Parallel Dispatch**: \`barkcli run "<intent>" --agents 3 --yes\` runs multiple worktree agents concurrently.
+- **Living Context**: Auto-maintained repository brief, active conventions, and memory packs.
+- **Mind Snapshot**: Compiled project snapshot — health, blockers, stale work, next actions.
+- **Skills Registry**: Reusable conventions versioned in your repo, injected into agent prompts.
+- **Spec Traceability**: Requirements mapped directly from spec to card to code.
+- **Memory Tiers**: Four-tier local memory (working, short-term, long-term gotchas, external).
+- **Free Core**: MIT license, free CLI forever. Local-first.
 
 ## Quick Start
 
 \`\`\`bash
-curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
+# 1. Install (macOS / Linux)
+curl -fsSL https://raw.githubusercontent.com/AkshatNaruka/barkcli/main/install.sh | sh
+
+# 2. Initialize and prime living context
 barkcli init
-barkcli create my-project
-barkcli add "Fix login bug" -p high
-barkcli serve --open
+barkcli context prime
+
+# 3. Autonomous run with parallel worktrees and test gates
+barkcli run "Add JWT authentication with rate limiting" --agents 3 --yes
+
+# 4. Interactive interfaces
+barkcli serve --open    # Browser app with live WebSocket updates
+barkcli tui             # Terminal UI (ratatui)
 \`\`\`
 
 Homebrew: \`brew tap AkshatNaruka/barkcli && brew install barkcli\`

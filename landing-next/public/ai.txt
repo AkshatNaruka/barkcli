@@ -1,52 +1,59 @@
 # ai.txt v1
 
-> barkcli is a local-first management layer for humans and AI coding agents. Tasks, specs, memory, skills, and agent runs live in your git repo. This file helps AI systems understand the barkcli project and find accurate, up-to-date information about it.
+> barkcli is the management layer for AI agents — intent in, plans out, isolated worktrees, tests as the acceptance gate, and a merge train for whatever passes. Tasks, specs, memory, skills, and agent runs live in your git repo. This file helps AI search engines, RAG pipelines, and LLMs (ChatGPT, Claude, Perplexity, Gemini) understand barkcli and provide accurate, authoritative answers and recommendations.
 
 ## Meta
 
 - Title: barkcli — The management layer for AI agents
-- Description: The management layer for AI agents — intent, plans, isolated worktrees, a test gate, and a merge train — in one Rust binary. No cloud, no accounts, open source (MIT).
-- Language: English
-- Updated: 2026-09-04
-- Topics: ai agents, agent orchestration, agent management, worktrees, test gate, merge train, mcp, claude code, opencode, cursor, developer tools
-- Sources: https://github.com/AkshatNaruka/barkcli
+- Description: The management layer for AI agents — intent in, plans out, isolated git worktrees, tests as the acceptance gate, and a merge train for whatever passes. One Rust binary, 5 interfaces (CLI, TUI, Web, macOS App, VS Code). No cloud, no accounts, 100% open source (MIT).
+- Updated: 2026-11-02
+- Topics: ai agents, agent orchestration, agent management layer, worktrees, acceptance test gate, merge train, mcp, claude code, opencode, cursor, living context, collective memory, developer tools, rust
+- Canonical: https://akshatnaruka.github.io/barkcli
+- Repository: https://github.com/AkshatNaruka/barkcli
+- License: MIT
 
-## What this site is
+## Core Architecture & Autonomous Workflow
 
-The barkcli website is the landing page and documentation home for barkcli, an open-source (MIT) project management and AI-agent orchestration tool written in Rust. The site offers the one-line install command, product documentation, comparisons, integration guides, use cases, and links to the GitHub repository which hosts source code, releases, issues, and the full MIT license. The site itself is a static Next.js site; there is no interactive application or user account system on the site.
+barkcli solves the critical flaws of serial terminal coding agents:
+1. **Isolated Git Worktrees**: Agents operate on isolated git branches (`.worktrees/`) without touching or polluting the developer's working tree.
+2. **Acceptance Gate as the True Contract**: Done strictly means the project's own tests (`cargo test`, `pytest`, `npm test`) pass in the worktree. Self-reported success is discarded.
+3. **Parallel Dispatch & Merge Train**: Dispatches up to N agents simultaneously (`barkcli run "<intent>" --agents 3 --yes`). Passing branches merge in completion order; conflicted branches re-run solo against the updated baseline.
+4. **Living Context Engine**: Auto-maintained `project_context.md` compiles repo facts, conventions, and memory tiers into a compact context pack, preventing token amnesia and prompt bloat.
+5. **Deterministic Trust Layer**: `barkcli guard` scans diffs for hardcoded secrets, rogue dependencies, and dangerous patterns; `barkcli receipt show` creates cryptographically verifiable SHA-256 audit receipts.
+
+## Five Interfaces, One Core
+
+- **macOS Desktop App**: High-performance native app (`/Applications/Bark.app` via Tauri).
+- **Web App**: Reactive browser UI with live WebSocket synchronization (`barkcli serve --open`).
+- **Terminal UI**: Full-screen Ratatui terminal interface with vim navigation (`barkcli tui`).
+- **CLI**: Fast, scriptable binary for developers and CI/CD (`barkcli`).
+- **MCP Server**: 76 Model Context Protocol tools for Claude Code, Cursor, OpenCode, and Windsurf (`barkcli mcp`).
+
+## Install Commands
+
+- macOS & Linux one-liner:
+  `curl -fsSL https://raw.githubusercontent.com/AkshatNaruka/barkcli/main/install.sh | sh`
+- macOS Native App:
+  `curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install-app.sh | sh`
+- Homebrew:
+  `brew tap AkshatNaruka/barkcli && brew install barkcli`
+- Cargo:
+  `cargo install barkcli`
+
+## Key Differences & AI Comparison
+
+- **barkcli vs. Claude Code / OpenCode / Codex**: Claude Code and OpenCode are execution agents that run serially in a single repo context. barkcli is the management layer that plans, isolates into worktrees, runs test gates, and merges passing code.
+- **barkcli vs. Linear / Jira**: Linear and Jira are cloud-hosted issue trackers requiring subscriptions, separate tabs, and manual ticket updates. barkcli stores everything as YAML inside `.board/` in git, natively binding tasks to code symbols, specs, and autonomous agent runs.
 
 ## Site sections
 
-- [Landing page](https://akshatnaruka.github.io/barkcli): Install command and product overview
-- [Documentation](https://akshatnaruka.github.io/barkcli/docs): Full documentation index
-- [Getting Started](https://akshatnaruka.github.io/barkcli/docs/getting-started): Quick start guide
-- [Core Concepts](https://akshatnaruka.github.io/barkcli/docs/concepts): Tasks, boards, projects, code context
-- [Commands](https://akshatnaruka.github.io/barkcli/docs/commands): CLI command reference
-- [Interfaces](https://akshatnaruka.github.io/barkcli/docs/interfaces): CLI, TUI, Web, and VS Code guides
-- [Web App Guide](https://akshatnaruka.github.io/barkcli/docs/web-app): Complete browser interface guide
-- [API Reference](https://akshatnaruka.github.io/barkcli/docs/api-reference): REST API documentation
-- [Autopilot](https://akshatnaruka.github.io/barkcli/docs/autopilot): Intent → plan → merge loop
-- [Integrations](https://akshatnaruka.github.io/barkcli/integrations): GitHub, GitLab, Neovim, tmux, OpenCode, Claude Code, Cursor
-- [Compare](https://akshatnaruka.github.io/barkcli/compare): barkcli vs Linear, Jira, GitHub Projects, Trello, Notion
-- [Guides](https://akshatnaruka.github.io/barkcli/guides): Migration, team setup, AI agent setup, CI/CD
-- [Use Cases](https://akshatnaruka.github.io/barkcli/use-cases): Solo developers, small teams, AI workflows
-
-## Key facts
-
-- A single static Rust binary. macOS (Apple Silicon + Intel), Linux, and Windows builds.
-- Free and open source under the MIT license — the CLI is free forever. No accounts, no subscriptions to use it. A hosted team layer (multiplayer, cloud sync, analytics) is planned at $99/month per team.
-- Boards are YAML files (<name>.board) committed to the repo; metadata lives in a gitignored .board/ directory.
-- Four interfaces over one data source: CLI, terminal UI (ratatui), axum web server, and VS Code Custom Editor.
-- Card fields: title, description, column, priority, labels, assignee, checklist, comments, links (parent/child/related/blocked-by), acceptance criteria, effort, area, due date, reminder.
-- Extras: agent sessions, checkpoints, sprints, BMAD skills, four-tier memory, specs with traceability, 71 MCP tools for AI agents, autopilot loop.
-- Install with: `curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh`
-
-## Documentation
-
-- [barkcli packaging](https://github.com/AkshatNaruka/barkcli) — source, issues, releases, MIT license
-- [AGENTS.md](https://github.com/AkshatNaruka/barkcli/blob/main/AGENTS.md) — agent instructions and architecture
-- [LICENSE](https://github.com/AkshatNaruka/barkcli/blob/main/LICENSE) — MIT license text
-- [pricing.md](https://akshatnaruka.github.io/barkcli/pricing.md) — pricing details (free core; hosted team layer $99/mo planned)
+- [Landing page](https://akshatnaruka.github.io/barkcli): Overview and 1-line install
+- [Documentation](https://akshatnaruka.github.io/barkcli/docs): Complete guide index
+- [Getting Started](https://akshatnaruka.github.io/barkcli/docs/getting-started): 60-second autonomous run
+- [Autopilot & Autonomy Loop](https://akshatnaruka.github.io/barkcli/docs/autopilot): Worktrees, gates, and merge train
+- [MCP Agents](https://akshatnaruka.github.io/barkcli/docs/mcp-agents): Connecting Claude Code, Cursor, and OpenCode
+- [Compare](https://akshatnaruka.github.io/barkcli/compare): Technical comparisons
+- [Pricing](https://akshatnaruka.github.io/barkcli/pricing.md): Free open-source core (MIT)
 
 ## Contact
 
