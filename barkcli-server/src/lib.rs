@@ -373,9 +373,13 @@ where
         .route("/api/git/assign", post(git_assign_handler))
         // Skills endpoints (SPEC-004 R2)
         .route("/api/skills", get(list_skills_handler).post(create_skill_handler))
+        .route("/api/skills/remote", get(remote_skills_handler))
+        .route("/api/skills/remote/{id}/preview", get(remote_skill_preview_handler))
+        .route("/api/skills/remote/import", post(import_remote_skill_handler))
         .route("/api/skills/install", post(install_skills_handler))
         .route("/api/skills/discover", get(discover_skills_handler))
         .route("/api/skills/discover/import", post(import_discovered_skill_handler))
+        .route("/api/toolchain", get(toolchain_handler))
         .route(
             "/api/skills/{id}",
             get(get_skill_handler)
@@ -4718,6 +4722,63 @@ async fn install_skills_handler(
         "installed": result.installed,
         "updated": result.updated,
     })))
+}
+
+#[derive(Deserialize)]
+struct SearchSkillsQuery {
+    q: Option<String>,
+    category: Option<String>,
+}
+
+async fn remote_skills_handler(
+    Query(query): Query<SearchSkillsQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let skills = barkcli_core::skills::skills_sh::search_skills_sh(
+        query.q.as_deref(),
+        query.category.as_deref(),
+    );
+    Ok(Json(serde_json::json!({ "skills": skills })))
+}
+
+async fn remote_skill_preview_handler(
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let preview = barkcli_core::skills::skills_sh::get_skill_preview(&id)
+        .ok_or_else(|| ServerError::bad("remote skill not found"))?;
+    Ok(Json(serde_json::json!({ "preview": preview })))
+}
+
+#[derive(Deserialize)]
+struct ImportRemoteSkillBody {
+    id: String,
+}
+
+async fn import_remote_skill_handler(
+    Json(body): Json<ImportRemoteSkillBody>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let preview = barkcli_core::skills::skills_sh::get_skill_preview(&body.id)
+        .ok_or_else(|| ServerError::bad("remote skill not found"))?;
+
+    let result = tokio::task::spawn_blocking(move || {
+        barkcli_core::skills::install::install_remote_skill(&preview.skill)
+    })
+    .await
+    .map_err(|e| ServerError::internal(e.to_string()))?
+    .map_err(|e| ServerError::bad(e.to_string()))?;
+
+    Ok(Json(serde_json::json!({
+        "source": result.source,
+        "rev": result.rev,
+        "installed": result.installed,
+        "updated": result.updated,
+    })))
+}
+
+async fn toolchain_handler() -> Result<Json<serde_json::Value>, ServerError> {
+    let packages = tokio::task::spawn_blocking(barkcli_core::agent::get_toolchain_packages)
+        .await
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(serde_json::json!({ "packages": packages })))
 }
 
 // ── Documentation handlers ───────────────────────────────────────────────────

@@ -14,6 +14,7 @@ pub mod recipe;
 pub mod roles;
 pub mod session;
 pub mod team;
+pub mod toolchain;
 pub mod verify;
 pub mod worktree;
 
@@ -37,6 +38,7 @@ pub use product_plan::{
 pub use queue::{TaskQueue, TaskRequest, TaskResult, TaskResults, TaskStatus};
 pub use roles::{AgentRole, Capability};
 pub use team::{AgentProfile, ProfileStatus, ProfileStore, RoleDef, RoleRegistry};
+pub use toolchain::{get_toolchain_packages, ToolPackage, ToolRole};
 pub use session::{
     list_sessions, live_sessions, load_session, remove_session, resolve_session_id, save_session,
     session_path, sessions_dir, transcript_tail, LiveSession, Session, SessionBackend,

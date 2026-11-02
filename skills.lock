@@ -1,0 +1,16 @@
+{
+  "skills": [
+    {
+      "id": "agent-browser",
+      "source": "https://github.com/vercel-labs/agent-browser",
+      "rev": "latest",
+      "origin_path": "agent-browser/SKILL.md",
+      "sha256": "8ad012193e7c7c70d31972ca971653dbb7004020841a8f6d84f7cb7b2044b44a",
+      "installed_at": "2026-11-02T12:43:29.003257+00:00",
+      "author": "vercel-labs",
+      "license": "Apache-2.0",
+      "upstream_url": "https://skills.sh/vercel-labs/agent-browser",
+      "installed_via": "skills.sh"
+    }
+  ]
+}

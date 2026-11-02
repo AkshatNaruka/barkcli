@@ -6,5 +6,7 @@ pub mod lock;
 pub mod manage;
 pub mod publish;
 pub mod registry;
+pub mod scanner;
+pub mod skills_sh;
 
 pub use registry::{Skill, SkillSource, SkillRegistry, MatchContext};

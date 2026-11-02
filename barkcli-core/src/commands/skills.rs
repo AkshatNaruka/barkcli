@@ -10,6 +10,7 @@ pub fn run_skills(args: &[String]) -> Result<()> {
     match sub {
         "list" | "ls" => run_list(&args[1..]),
         "show" => run_show(&args[1..]),
+        "remote" | "explore" => run_remote(&args[1..]),
         "install" => run_install(&args[1..]),
         "lock" => run_lock(&args[1..]),
         "publish" => run_publish(&args[1..]),
@@ -65,6 +66,30 @@ fn run_show(args: &[String]) -> Result<()> {
     Ok(())
 }
 
+fn run_remote(args: &[String]) -> Result<()> {
+    let query = args.first().map(|s| s.as_str());
+    let remote = crate::skills::skills_sh::search_skills_sh(query, None);
+    let mut t = display::table();
+    t.set_header(display::header(vec!["ID", "Name", "Category", "License", "Author", "Triggers / Tags"]));
+    for s in &remote {
+        t.add_row(vec![
+            Cell::new(style::accent(&s.id)),
+            Cell::new(&s.name),
+            Cell::new(&s.category),
+            Cell::new(style::ok(&s.license)),
+            Cell::new(&s.author),
+            Cell::new(s.tags.join(", ")),
+        ]);
+    }
+    println!("{t}");
+    println!(
+        "{} Found {} skills in skills.sh catalog. Install with `barkcli skills install <id>`.",
+        style::ok("skills.sh:"),
+        remote.len()
+    );
+    Ok(())
+}
+
 /// Two install modes:
 ///   `skills install <repo>`       — pull `**/*.md` skills from a git repo
 ///                                   (github `owner/repo`, a URL, or a local
@@ -93,9 +118,30 @@ fn run_install(args: &[String]) -> Result<()> {
     let from = from_idx.and_then(|i| args.get(i + 1));
 
     let reg = SkillRegistry::load_all(None)?;
-    let builtin = reg
-        .get(target)
-        .ok_or_else(|| anyhow::anyhow!("skill '{}' not found in registry", target))?;
+    let builtin = reg.get(target);
+
+    if builtin.is_none() {
+        if let Some(preview) = crate::skills::skills_sh::get_skill_preview(target) {
+            let res = install::install_remote_skill(&preview.skill)?;
+            println!(
+                "{} Installed skill '{}' from skills.sh (license: {}, author: {})",
+                style::ok("OK"),
+                target,
+                preview.skill.license,
+                preview.skill.author
+            );
+            if !preview.safety.is_clean {
+                println!(
+                    "  {} Safety warnings detected:\n    - {}",
+                    style::warn("Notice:"),
+                    preview.safety.warnings.join("\n    - ")
+                );
+            }
+            return Ok(());
+        }
+        anyhow::bail!("skill '{}' not found in local registry or skills.sh catalog", target);
+    }
+    let builtin = builtin.unwrap();
 
     let board_dir = crate::storage::board_dir::find_board_dir()?;
     let dest_dir = board_dir.join("skills");

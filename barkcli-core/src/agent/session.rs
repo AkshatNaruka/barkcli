@@ -10,6 +10,7 @@ pub enum SessionBackend {
     Opencode,
     ClaudeCode,
     Codex,
+    Fx,
     Human,
 }
 
@@ -19,6 +20,7 @@ impl SessionBackend {
             SessionBackend::Opencode => "opencode",
             SessionBackend::ClaudeCode => "claude-code",
             SessionBackend::Codex => "codex",
+            SessionBackend::Fx => "fx",
             SessionBackend::Human => "human",
         }
     }
@@ -32,6 +34,7 @@ impl SessionBackend {
             "opencode" => Some(SessionBackend::Opencode),
             "claude-code" | "claude" => Some(SessionBackend::ClaudeCode),
             "codex" => Some(SessionBackend::Codex),
+            "fx" => Some(SessionBackend::Fx),
             "human" => Some(SessionBackend::Human),
             _ => None,
         }
@@ -44,6 +47,7 @@ impl SessionBackend {
             ("opencode", SessionBackend::Opencode),
             ("claude", SessionBackend::ClaudeCode),
             ("codex", SessionBackend::Codex),
+            ("fx", SessionBackend::Fx),
         ] {
             if which(name) {
                 out.push(backend);

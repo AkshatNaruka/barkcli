@@ -7,6 +7,7 @@
 pub mod checks;
 pub mod deps;
 pub mod diff;
+pub mod security;
 
 use std::path::Path;
 use std::process::Command;
@@ -19,6 +20,7 @@ use crate::models::config::GuardSettings;
 use diff::{diff_for_scope, DiffScope};
 
 pub use diff::{ChangedFile, DiffLine, DiffSet, FileStatus};
+pub use security::{run_deepsec_scan, DeepsecFinding, DeepsecReport};
 
 /// Bumped whenever finding semantics change; receipts pin this.
 pub const GUARD_VERSION: u32 = 1;

@@ -127,6 +127,7 @@ fn dispatch(cmd: &str, cmd_args: &[String]) -> Result<()> {
         "mind" => commands::mind::run_mind(cmd_args)?,
         "overview" => commands::overview::run_overview(cmd_args)?,
         "skills" | "skill" => commands::skills::run_skills(cmd_args)?,
+        "tools" | "toolchain" => commands::toolchain::run_tools(cmd_args)?,
         "dispatch" => {
             // Alias to orchestrate cycle via agent engine
             let board_name = resolve_board(None)?;

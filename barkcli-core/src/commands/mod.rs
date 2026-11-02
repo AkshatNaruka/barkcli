@@ -44,6 +44,7 @@ pub mod skills;
 pub mod spec;
 pub mod status;
 pub mod task_cmd;
+pub mod toolchain;
 pub mod undo;
 pub mod validate;
 pub mod verify_cmd;

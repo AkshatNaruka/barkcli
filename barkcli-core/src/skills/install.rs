@@ -126,6 +126,10 @@ pub fn install_from_source(repo_ref: &str, dir: Option<&str>) -> Result<InstallR
                 .unwrap_or_else(|_| id.clone()),
             sha256: sha_after,
             installed_at: now_iso(),
+            author: None,
+            license: None,
+            upstream_url: None,
+            installed_via: Some("git".into()),
         });
     }
 
@@ -168,6 +172,51 @@ fn head_rev(dir: &Path) -> Result<String> {
         anyhow::bail!("rev-parse failed: {}", String::from_utf8_lossy(&out.stderr));
     }
     Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+}
+
+/// Install a remote skill from skills.sh into `.board/skills/<id>.md` with license and author attribution.
+pub fn install_remote_skill(remote: &super::skills_sh::RemoteSkill) -> Result<InstallResult> {
+    let dest_dir = crate::storage::board_dir::find_board_dir()?.join("skills");
+    std::fs::create_dir_all(&dest_dir)?;
+
+    let dest = dest_dir.join(format!("{}.md", remote.id));
+    let sha_before = if dest.exists() { file_sha256(&dest).ok() } else { None };
+    std::fs::write(&dest, &remote.content)?;
+    let sha_after = file_sha256(&dest)?;
+
+    let mut res = InstallResult {
+        source: remote.upstream_url.clone(),
+        rev: "skills.sh".into(),
+        installed: Vec::new(),
+        updated: Vec::new(),
+    };
+
+    match sha_before {
+        None => res.installed.push(remote.id.clone()),
+        Some(before) if before != sha_after => res.updated.push(remote.id.clone()),
+        _ => {}
+    }
+
+    let previous = load().unwrap_or_default();
+    let mut lock = previous;
+    lock.upsert(LockEntry {
+        id: remote.id.clone(),
+        source: remote.repository.clone(),
+        rev: "latest".into(),
+        origin_path: format!("{}/SKILL.md", remote.id),
+        sha256: sha_after,
+        installed_at: now_iso(),
+        author: Some(remote.author.clone()),
+        license: Some(remote.license.clone()),
+        upstream_url: Some(remote.upstream_url.clone()),
+        installed_via: Some("skills.sh".into()),
+    });
+    save(&lock)?;
+
+    // Enable by default
+    super::manage::set_enabled(&remote.id, true).ok();
+
+    Ok(res)
 }
 
 fn collect_md(dir: &Path, depth: usize, out: &mut Vec<PathBuf>) {

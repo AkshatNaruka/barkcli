@@ -860,6 +860,50 @@ export interface DiscoveredSkill {
   enabled: boolean;
 }
 
+export interface SafetyReport {
+  is_clean: boolean;
+  has_scripts: boolean;
+  script_languages: string[];
+  warnings: string[];
+  network_calls: string[];
+  secrets_accessed: string[];
+}
+
+export interface RemoteSkill {
+  id: string;
+  name: string;
+  description: string;
+  author: string;
+  license: string;
+  repository: string;
+  upstream_url: string;
+  category: string;
+  tags: string[];
+  content: string;
+  safety?: SafetyReport;
+}
+
+export interface SkillPreview {
+  skill: RemoteSkill;
+  safety: SafetyReport;
+}
+
+export interface ToolPackage {
+  id: string;
+  name: string;
+  description: string;
+  role: "AgentRunner" | "SecurityGate" | "BrowserAutomation";
+  binary_name: string;
+  installed: boolean;
+  version?: string;
+  binary_path?: string;
+  author: string;
+  license: string;
+  repository: string;
+  doc_url: string;
+  install_command: string;
+}
+
 export interface SessionTranscript {
   id: string;
   status: string;

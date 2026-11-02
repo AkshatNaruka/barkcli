@@ -47,6 +47,7 @@ pub trait Backend {
 pub struct OpencodeBackend;
 pub struct ClaudeCodeBackend;
 pub struct CodexBackend;
+pub struct FxBackend;
 pub struct HumanBackend;
 
 impl Backend for OpencodeBackend {
@@ -97,6 +98,28 @@ impl Backend for CodexBackend {
     }
 }
 
+impl Backend for FxBackend {
+    fn backend(&self) -> SessionBackend {
+        SessionBackend::Fx
+    }
+    fn detect(&self) -> bool {
+        which("fx")
+    }
+    fn command(&self, prompt: &str) -> Command {
+        let mut cmd = Command::new("fx");
+        cmd.arg("-p").arg(prompt);
+        let model = std::env::var("BARKCLI_FX_MODEL")
+            .or_else(|_| std::env::var("FX_MODEL"))
+            .ok();
+        if let Some(m) = model {
+            if !m.is_empty() {
+                cmd.arg("--model").arg(m);
+            }
+        }
+        cmd
+    }
+}
+
 impl Backend for HumanBackend {
     fn backend(&self) -> SessionBackend {
         SessionBackend::Human
@@ -119,13 +142,19 @@ pub fn backend_for(name: &str) -> Box<dyn Backend> {
         Some(SessionBackend::Opencode) => Box::new(OpencodeBackend),
         Some(SessionBackend::ClaudeCode) => Box::new(ClaudeCodeBackend),
         Some(SessionBackend::Codex) => Box::new(CodexBackend),
+        Some(SessionBackend::Fx) => Box::new(FxBackend),
         _ => Box::new(HumanBackend),
     }
 }
 
-/// Pick the best installed backend: opencode → claude → codex → human.
+/// Pick the best installed backend: opencode → claude → codex → fx → human.
 pub fn auto_backend() -> Box<dyn Backend> {
-    for backend in [&OpencodeBackend as &dyn Backend, &ClaudeCodeBackend, &CodexBackend] {
+    for backend in [
+        &OpencodeBackend as &dyn Backend,
+        &ClaudeCodeBackend,
+        &CodexBackend,
+        &FxBackend,
+    ] {
         if backend.detect() {
             return backend_for(backend.backend().display_name());
         }

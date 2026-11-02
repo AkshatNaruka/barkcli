@@ -25,6 +25,14 @@ pub struct LockEntry {
     pub sha256: String,
     #[serde(rename = "installed_at")]
     pub installed_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub author: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub license: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upstream_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub installed_via: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -97,6 +105,10 @@ mod tests {
             origin_path: "skills/oauth.md".into(),
             sha256: "aaa".into(),
             installed_at: now_iso(),
+            author: None,
+            license: None,
+            upstream_url: None,
+            installed_via: None,
         });
         lock.upsert(LockEntry {
             id: "oauth".into(),
@@ -105,6 +117,10 @@ mod tests {
             origin_path: "skills/oauth.md".into(),
             sha256: "bbb".into(),
             installed_at: now_iso(),
+            author: Some("Community".into()),
+            license: Some("MIT".into()),
+            upstream_url: Some("https://skills.sh/skills/oauth".into()),
+            installed_via: Some("skills.sh".into()),
         });
         assert_eq!(lock.skills.len(), 1);
         assert_eq!(lock.skills[0].rev, "rev2");

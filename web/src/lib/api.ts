@@ -25,6 +25,9 @@ import type {
   RunContext,
   ContextPack,
   DiscoveredSkill,
+  RemoteSkill,
+  SkillPreview,
+  ToolPackage,
   ProviderStatus,
   ScheduleEntry,
   SessionTranscript,
@@ -1859,6 +1862,49 @@ export async function fetchDiscoveredSkills(): Promise<DiscoveredSkill[]> {
 
 export async function importDiscoveredSkill(path: string): Promise<{ id: string; path: string } | null> {
   return postJson("/api/skills/discover/import", { path });
+}
+
+export async function fetchRemoteSkills(query?: string, category?: string): Promise<RemoteSkill[]> {
+  if (isVscode) return [];
+  try {
+    const params = new URLSearchParams();
+    if (query) params.set("q", query);
+    if (category) params.set("category", category);
+    const res = await fetch(`/api/skills/remote?${params.toString()}`);
+    if (!res.ok) return [];
+    const data = (await res.json()) as { skills?: RemoteSkill[] };
+    return data.skills || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchRemoteSkillPreview(id: string): Promise<SkillPreview | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(`/api/skills/remote/${encodeURIComponent(id)}/preview`);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { preview?: SkillPreview };
+    return data.preview || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function importRemoteSkill(id: string): Promise<any | null> {
+  return postJson("/api/skills/remote/import", { id });
+}
+
+export async function fetchToolchain(): Promise<ToolPackage[]> {
+  if (isVscode) return [];
+  try {
+    const res = await fetch("/api/toolchain");
+    if (!res.ok) return [];
+    const data = (await res.json()) as { packages?: ToolPackage[] };
+    return data.packages || [];
+  } catch {
+    return [];
+  }
 }
 
 export async function stopRun(runId: string): Promise<RunRecord | null> {
