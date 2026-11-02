@@ -418,34 +418,35 @@ function useInView(ref: React.RefObject<HTMLElement | null>, threshold = 0.1) {
 }
 
 function ProductMock() {
-  // Agent-tool brand colors — same hexes as web/src/lib/agents.ts and barkcli-tui/src/ui.rs.
-  // Claude #D97757 = official Anthropic terracotta, OpenCode #D99C57 = opencode.ai
-  // palette gold, human reviewer = emerald.
   const AGENT_BRAND: Record<string, string> = {
-    opencode: "#D99C57",
-    claude: "#D97757",
-    human: "#34D399",
+    opencode: "#38bdf8",
+    claude: "#818cf8",
+    human: "#34d399",
   };
   return (
-    <div className="border border-white/10 rounded-2xl overflow-hidden bg-[#0A0A0A] shadow-2xl shadow-black/60">
+    <div className="border border-sky-500/20 rounded-2xl overflow-hidden bg-[#070b14]/90 shadow-2xl shadow-sky-950/60 backdrop-blur-xl">
       {/* Browser chrome */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10 bg-white/[0.02]">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.08] bg-white/[0.02]">
         <div className="flex gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-full bg-white/15" />
-          <div className="w-2.5 h-2.5 rounded-full bg-white/15" />
-          <div className="w-2.5 h-2.5 rounded-full bg-white/15" />
+          <div className="w-2.5 h-2.5 rounded-full bg-slate-700" />
+          <div className="w-2.5 h-2.5 rounded-full bg-slate-700" />
+          <div className="w-2.5 h-2.5 rounded-full bg-slate-700" />
         </div>
         <div className="flex-1 text-center">
-          <span className="text-[11px] font-mono text-white/30 bg-white/5 border border-white/10 rounded-md px-3 py-1">
-            localhost:4321 — barkcli mind
+          <span className="text-[11px] font-mono text-sky-400/80 bg-sky-950/40 border border-sky-500/20 rounded-md px-3 py-1">
+            localhost:4321 — barkcli runtime harness
           </span>
         </div>
-        <div className="w-10" />
+        <div className="w-10 text-right">
+          <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/50 border border-emerald-500/30 px-1.5 py-0.5 rounded">
+            SYNCED
+          </span>
+        </div>
       </div>
       <div className="flex text-left">
         {/* Sidebar */}
-        <div className="hidden sm:flex flex-col w-40 shrink-0 border-r border-white/10 py-3">
-          <div className="px-3 pb-2 text-[10px] font-mono uppercase tracking-widest text-white/30">Manage</div>
+        <div className="hidden sm:flex flex-col w-44 shrink-0 border-r border-white/[0.08] py-3 bg-[#050811]/60">
+          <div className="px-3 pb-2 text-[10px] font-mono uppercase tracking-widest text-slate-400">Manage</div>
           {[
             { icon: Brain, label: "Mind", active: true, badge: "2" },
             { icon: LayoutDashboard, label: "Board", active: false, badge: "8" },
@@ -455,67 +456,66 @@ function ProductMock() {
               key={item.label}
               className={`flex items-center gap-2 px-3 py-1.5 text-xs border-l-2 ${
                 item.active
-                  ? "text-white bg-white/5 border-[#B8845C]"
-                  : "text-white/40 border-transparent"
+                  ? "text-sky-300 bg-sky-500/10 border-sky-400"
+                  : "text-slate-400 border-transparent hover:text-slate-200"
               }`}
             >
               <item.icon className="w-3.5 h-3.5" />
               {item.label}
               {item.badge && (
-                <span className={`ml-auto text-[10px] font-mono px-1.5 py-px rounded-full ${item.active ? "bg-red-500/20 text-red-400" : "bg-white/5 text-white/40"}`}>
+                <span className={`ml-auto text-[10px] font-mono px-1.5 py-px rounded-full ${item.active ? "bg-sky-500/20 text-sky-300" : "bg-white/5 text-slate-400"}`}>
                   {item.badge}
                 </span>
               )}
             </div>
           ))}
-          <div className="px-3 pt-3 pb-2 text-[10px] font-mono uppercase tracking-widest text-white/30">Build</div>
-          {[{ icon: Bot, label: "Agents", badge: "3" }].map((item) => (
-            <div key={item.label} className="flex items-center gap-2 px-3 py-1.5 text-xs text-white/40 border-l-2 border-transparent">
+          <div className="px-3 pt-3 pb-2 text-[10px] font-mono uppercase tracking-widest text-slate-400">Runtime</div>
+          {[{ icon: Bot, label: "Pool (3 Active)", badge: "3" }].map((item) => (
+            <div key={item.label} className="flex items-center gap-2 px-3 py-1.5 text-xs text-sky-400/90 border-l-2 border-transparent">
               <item.icon className="w-3.5 h-3.5" />
               {item.label}
-              <span className="ml-auto text-[10px] font-mono px-1.5 py-px rounded-full bg-white/5 text-white/40">{item.badge}</span>
+              <span className="ml-auto text-[10px] font-mono px-1.5 py-px rounded-full bg-sky-950 text-sky-400 border border-sky-500/30">{item.badge}</span>
             </div>
           ))}
         </div>
         {/* Kanban */}
-        <div className="flex-1 grid grid-cols-3 gap-2 p-3 min-w-0">
+        <div className="flex-1 grid grid-cols-3 gap-2.5 p-3.5 min-w-0 bg-[#070b14]/40">
           {[
             {
-              name: "Todo",
-              tone: "text-white/40",
+              name: "Intent (Intake)",
+              tone: "text-slate-400",
               cards: [
-                { title: "Add OAuth login", meta: "HIGH", metaCls: "text-red-400 bg-red-500/10 border-red-500/30", spec: true, blocked: false },
-                { title: "Fix checkout crash", meta: "BUG", metaCls: "text-red-400 bg-red-500/10 border-red-500/30", spec: true, blocked: true },
+                { title: "Implement Argon2 hashing", meta: "GATE: PASS", metaCls: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30", spec: true, branch: "wt-argon2" },
+                { title: "Fix rate-limiting leak", meta: "RUNNING", metaCls: "text-sky-400 bg-sky-500/10 border-sky-500/30", spec: true, branch: "wt-ratelimit" },
               ],
             },
             {
-              name: "Doing",
-              tone: "text-white/40",
+              name: "Worktree Execution",
+              tone: "text-sky-400",
               cards: [
-                { title: "Implement OAuth flow", meta: "IN PROGRESS", metaCls: "text-white/40 bg-white/5 border-white/10", spec: true, blocked: false },
+                { title: "OAuth 2.0 PKCE flow", meta: "cargo test", metaCls: "text-amber-400 bg-amber-500/10 border-amber-500/30", spec: true, branch: "wt-oauth" },
               ],
             },
             {
-              name: "Review",
-              tone: "text-white/40",
+              name: "Merge Train Gate",
+              tone: "text-emerald-400",
               cards: [
-                { title: "Store tokens securely", meta: "REVIEW", metaCls: "text-white/40 bg-white/5 border-white/10", spec: false, blocked: false },
+                { title: "Deterministic Guard Scan", meta: "VERIFIED", metaCls: "text-emerald-300 bg-emerald-500/20 border-emerald-400/40", spec: false, branch: "main" },
               ],
             },
           ].map((col) => (
-            <div key={col.name} className="bg-white/[0.02] border border-white/10 rounded-xl p-2 min-w-0">
-              <div className={`text-[10px] font-semibold uppercase tracking-wide mb-2 ${col.tone}`}>{col.name}</div>
+            <div key={col.name} className="bg-slate-900/40 border border-slate-800/80 rounded-xl p-2.5 min-w-0">
+              <div className={`text-[10px] font-mono uppercase tracking-wider mb-2.5 ${col.tone}`}>{col.name}</div>
               <div className="space-y-2">
                 {col.cards.map((c) => (
                   <div
                     key={c.title}
-                    className={`bg-white/[0.03] rounded-lg p-2 border ${c.blocked ? "border-red-500/50" : "border-white/10"}`}
+                    className="bg-slate-950/70 rounded-lg p-2.5 border border-slate-800 hover:border-sky-500/30 transition-colors"
                   >
-                    <div className="text-[11px] text-white/90 font-medium leading-snug">{c.title}</div>
-                    <div className="flex items-center gap-1.5 mt-1.5">
-                      <span className={`text-[9px] font-semibold px-1.5 py-px rounded border ${c.metaCls}`}>{c.meta}</span>
-                      {c.spec && <span className="text-[9px] font-mono text-[#D4A574]">⎇ spec</span>}
-                      {c.blocked && <span className="text-[9px] font-semibold text-red-400">BLOCKED</span>}
+                    <div className="text-[11px] text-slate-200 font-medium leading-snug">{c.title}</div>
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <span className={`text-[9px] font-mono px-1.5 py-px rounded border ${c.metaCls}`}>{c.meta}</span>
+                      {c.branch && <span className="text-[9px] font-mono text-slate-400">git:{c.branch}</span>}
                     </div>
                   </div>
                 ))}
@@ -524,40 +524,40 @@ function ProductMock() {
           ))}
         </div>
         {/* Agent queue */}
-        <div className="hidden md:flex flex-col w-48 shrink-0 border-l border-white/10 p-3">
-          <div className="text-[10px] font-mono uppercase tracking-widest text-white/30 mb-2">Agents</div>
+        <div className="hidden md:flex flex-col w-52 shrink-0 border-l border-white/[0.08] p-3 bg-[#050811]/60">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-2">Worktree Pool</div>
           {[
             {
-              name: "opencode-1",
-              task: "OAuth flow",
+              name: "agent-worktree-1",
+              task: "wt/argon2 (test gate)",
               tool: "opencode",
               Logo: OpenCodeLogo,
             },
             {
-              name: "claude-2",
-              task: "Token storage",
+              name: "agent-worktree-2",
+              task: "wt/ratelimit (active)",
               tool: "claude",
               Logo: ClaudeCodeLogo,
             },
             {
-              name: "human-you",
-              task: "Review queue",
+              name: "merge-train",
+              task: "fast-forward -> main",
               tool: "human",
               Logo: AnyAgentLogo,
             },
           ].map((a) => (
-            <div key={a.name} className="py-1.5 border-b border-white/5 last:border-0">
+            <div key={a.name} className="py-2 border-b border-white/[0.04] last:border-0">
               <div className="flex items-center gap-1.5">
                 <a.Logo className="w-3.5 h-3.5 shrink-0" />
-                <span className="text-[11px] font-mono text-white/70">{a.name}</span>
+                <span className="text-[11px] font-mono text-slate-300">{a.name}</span>
               </div>
-              <div className="text-[10px] mt-0.5" style={{ color: AGENT_BRAND[a.tool] }}>
+              <div className="text-[10px] font-mono mt-0.5" style={{ color: AGENT_BRAND[a.tool] }}>
                 {a.task}
               </div>
             </div>
           ))}
-          <div className="mt-auto pt-2">
-            <div className="text-[10px] font-mono text-white/30">Next: dispatch 2 pending</div>
+          <div className="mt-auto pt-2 border-t border-white/[0.04]">
+            <div className="text-[10px] font-mono text-sky-400/70">Merge Train: 2 ready</div>
           </div>
         </div>
       </div>
@@ -625,17 +625,18 @@ export default function Home() {
         >
           <source src={VIDEO_URL} type="video/mp4" />
         </video>
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#05070d]/90 via-[#04060a]/80 to-[#04060a] pointer-events-none" />
+        <div className="absolute inset-0 cyber-grid opacity-25 pointer-events-none" />
 
-        {/* Gradient Orbs */}
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#B8845C]/10 rounded-full blur-[120px] pointer-events-none" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#B8845C]/5 rounded-full blur-[120px] pointer-events-none" />
+        {/* DeepSeek & x.ai Atmospheric Glow Orbs */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" />
+        <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[160px] pointer-events-none" />
 
         {/* Nav */}
-        <header className={`relative z-10 flex items-center justify-between px-6 md:px-10 h-16 shrink-0 transition-all duration-300 ${scrolled ? "bg-black/80 backdrop-blur-xl border-b border-white/10" : ""}`}>
-          <a href="#" className="flex items-center gap-2 no-underline group">
-            <div className="w-8 h-8 rounded-lg bg-[#B8845C] flex items-center justify-center group-hover:scale-110 transition-transform">
-              <svg viewBox="0 0 100 100" className="w-5 h-5" fill="none" stroke="white" strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round">
+        <header className={`relative z-10 flex items-center justify-between px-6 md:px-12 h-16 shrink-0 transition-all duration-300 ${scrolled ? "bg-[#04060a]/90 backdrop-blur-xl border-b border-white/[0.08]" : "border-b border-white/[0.04]"}`}>
+          <a href="#" className="flex items-center gap-2.5 no-underline group">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center group-hover:scale-105 transition-transform shadow-lg shadow-sky-500/20">
+              <svg viewBox="0 0 100 100" className="w-5 h-5" fill="none" stroke="white" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M29 24 Q14 27 11 42 Q10 54 19 59 Q27 56 30 47" />
                 <path d="M71 24 Q86 27 89 42 Q90 54 81 59 Q73 56 70 47" />
                 <path d="M29 24 Q50 15 71 24" />
@@ -645,7 +646,7 @@ export default function Home() {
               </svg>
             </div>
             <span className="text-sm font-bold tracking-tight font-mono text-white">
-              barkcli
+              barkcli <span className="text-[10px] text-sky-400 font-mono font-normal px-1.5 py-0.5 rounded border border-sky-400/20 bg-sky-500/10">runtime</span>
             </span>
           </a>
           <nav className="flex items-center gap-1">
@@ -685,27 +686,31 @@ export default function Home() {
           </nav>
         </header>
 
-        {/* Center */}
-        <main className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6">
-          <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 mb-6">
-            <Sparkles className="w-3 h-3 text-[#B8845C]" />
-            <span className="text-xs text-white/60 font-mono">Open source (MIT) · v0.4.0 · {MCP_TOOL_COUNT} MCP tools</span>
+        {/* Center Hero */}
+        <main className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6 pt-12 pb-16">
+          <div className="inline-flex items-center gap-2 bg-sky-950/40 border border-sky-500/20 rounded-full px-4 py-1.5 mb-8 backdrop-blur-md">
+            <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
+            <span className="text-xs text-sky-200/80 font-mono tracking-wide">
+              AUTONOMOUS RUNTIME · MIT OPEN SOURCE · {MCP_TOOL_COUNT} MCP TOOLS
+            </span>
           </div>
-          <h1 className="text-white text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.05] mb-6">
+
+          <h1 className="text-white text-5xl sm:text-6xl md:text-8xl font-extrabold tracking-tighter leading-[0.98] mb-6 max-w-5xl">
             The management layer
             <br />
-            <span className="bg-gradient-to-r from-[#B8845C] via-[#D4A574] to-[#B8845C] bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-sky-300 via-blue-400 to-indigo-300 bg-clip-text text-transparent">
               for AI agents.
             </span>
           </h1>
-          <p className="text-white/60 text-sm sm:text-base md:text-lg font-light max-w-xl mb-10 leading-relaxed px-2">
-            barkcli is Git for your work — tasks, specs, memory and agent runs live
-            in your repo, not someone else&apos;s cloud. Humans write intent, agents do work.
+
+          <p className="text-slate-300/80 text-base sm:text-lg md:text-xl font-normal max-w-2xl mb-10 leading-relaxed px-2 tracking-tight">
+            Intent in, verified plans out. Isolated git worktrees, tests as the acceptance gate, and a merge train for whatever passes. Zero cloud, zero subscriptions.
           </p>
-          <div className="flex flex-col items-center gap-3 w-full max-w-lg">
-            <div className="flex items-center gap-1 border border-white/20 rounded-xl pl-5 pr-2 py-2.5 bg-white/5 backdrop-blur-xl w-full">
-              <code className="text-white text-xs sm:text-sm font-mono truncate flex-1 min-w-0">
-                <span className="text-white/40 select-none">$ </span>
+
+          <div className="flex flex-col items-center gap-4 w-full max-w-xl">
+            <div className="flex items-center gap-2 border border-sky-500/20 rounded-xl pl-5 pr-2 py-3 bg-[#0a101f]/80 backdrop-blur-2xl w-full shadow-2xl shadow-sky-950/50">
+              <code className="text-sky-100 text-xs sm:text-sm font-mono truncate flex-1 min-w-0 text-left">
+                <span className="text-sky-400/60 select-none">$ </span>
                 {INSTALL}
               </code>
               <button
@@ -714,55 +719,63 @@ export default function Home() {
                   setCopied(true);
                   setTimeout(() => setCopied(false), 1500);
                 }}
-                className="ml-3 text-xs font-mono rounded-lg bg-white/10 px-3 py-1.5 text-white/80 hover:bg-white/20 transition-colors cursor-pointer flex items-center gap-1.5"
+                className="ml-2 text-xs font-mono rounded-lg bg-sky-500/20 border border-sky-400/30 px-3.5 py-1.5 text-sky-200 hover:bg-sky-500/30 transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
               >
                 {copied ? (
                   <>
-                    <Check className="w-3 h-3 text-green-400" />
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
                     Copied
                   </>
                 ) : (
                   <>
-                    <Copy className="w-3 h-3" />
+                    <Copy className="w-3.5 h-3.5" />
                     Copy
                   </>
                 )}
               </button>
             </div>
-            <a
-              href="#product"
-              className="flex items-center gap-2 text-sm font-medium text-white/60 hover:text-white transition-colors px-4 py-2.5"
-            >
-              <Bot className="w-4 h-4" />
-              See the management layer
-              <ArrowRight className="w-3 h-3" />
-            </a>
-            <div className="flex items-center gap-2 sm:gap-3 text-[11px] font-mono text-white/50">
-              <span className="flex items-center gap-1.5 border border-white/10 rounded-full px-3 py-1.5 bg-white/[0.03]">
-                <Sparkles className="w-3 h-3 text-[#B8845C]" /> 1. Type intent
+
+            <div className="flex flex-wrap items-center justify-center gap-3 w-full pt-1">
+              <a
+                href="#product"
+                className="inline-flex items-center gap-2 text-xs font-mono font-medium tracking-wide uppercase text-white bg-sky-600 hover:bg-sky-500 transition-all px-5 py-2.5 rounded-lg shadow-lg shadow-sky-900/40"
+              >
+                <Bot className="w-4 h-4" />
+                Explore Harness Architecture
+                <ArrowRight className="w-3.5 h-3.5" />
+              </a>
+              <a
+                href="/docs"
+                className="inline-flex items-center gap-2 text-xs font-mono font-medium tracking-wide uppercase text-slate-300 hover:text-white bg-slate-900/80 hover:bg-slate-800 border border-slate-700/60 px-5 py-2.5 rounded-lg transition-all"
+              >
+                Documentation
+              </a>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-[11px] font-mono text-slate-400/80 pt-2">
+              <span className="flex items-center gap-1.5 border border-white/10 rounded-full px-3 py-1 bg-white/[0.02]">
+                <Sparkles className="w-3 h-3 text-sky-400" /> 1. Human writes intent
               </span>
-              <ArrowRight className="w-3 h-3 text-white/30" />
-              <span className="flex items-center gap-1.5 border border-white/10 rounded-full px-3 py-1.5 bg-white/[0.03]">
-                <Check className="w-3 h-3 text-[#B8845C]" /> 2. Approve plan
+              <ArrowRight className="w-3 h-3 text-slate-600 hidden sm:inline" />
+              <span className="flex items-center gap-1.5 border border-white/10 rounded-full px-3 py-1 bg-white/[0.02]">
+                <Shield className="w-3 h-3 text-sky-400" /> 2. Worktree & test gate
               </span>
-              <ArrowRight className="w-3 h-3 text-white/30" />
-              <span className="flex items-center gap-1.5 border border-white/10 rounded-full px-3 py-1.5 bg-white/[0.03]">
-                <GitMerge className="w-3 h-3 text-[#B8845C]" /> 3. Merge
+              <ArrowRight className="w-3 h-3 text-slate-600 hidden sm:inline" />
+              <span className="flex items-center gap-1.5 border border-white/10 rounded-full px-3 py-1 bg-white/[0.02]">
+                <GitMerge className="w-3 h-3 text-sky-400" /> 3. Merge train
               </span>
             </div>
-            <p className="text-[11px] font-mono text-white/30">
-              Agents do everything between — no CLI commands to memorize.
-            </p>
           </div>
-          <div className="flex flex-wrap justify-center gap-3 sm:gap-4 mt-6 text-[11px] font-mono text-white/40">
-            <span className="flex items-center gap-1">
-              <Check className="w-3 h-3 text-green-500" /> No cloud
+
+          <div className="flex flex-wrap justify-center gap-4 sm:gap-6 mt-8 text-[11px] font-mono text-slate-400/70 border-t border-slate-800/60 pt-6">
+            <span className="flex items-center gap-1.5">
+              <Check className="w-3.5 h-3.5 text-sky-400" /> 100% Local-First Git
             </span>
-            <span className="flex items-center gap-1">
-              <Check className="w-3 h-3 text-green-500" /> No accounts
+            <span className="flex items-center gap-1.5">
+              <Check className="w-3.5 h-3.5 text-sky-400" /> Zero Working Tree Pollution
             </span>
-            <span className="flex items-center gap-1">
-              <Check className="w-3 h-3 text-green-500" /> MIT licensed
+            <span className="flex items-center gap-1.5">
+              <Check className="w-3.5 h-3.5 text-sky-400" /> Deterministic Trust Receipts
             </span>
           </div>
         </main>
