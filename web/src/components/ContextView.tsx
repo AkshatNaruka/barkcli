@@ -119,6 +119,22 @@ export function ContextView({ boardName }: { boardName: string | null }) {
     : 0;
   const tokenColor = tokenPct >= 100 ? "#f87171" : tokenPct >= 85 ? "#facc15" : "#4ade80";
 
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyPack = async () => {
+    if (!data.file) return;
+    const fullText = blocks
+      .map(b => `<!-- section: ${b.id} -->\n## ${b.heading}\n\n${b.body}`)
+      .join("\n\n");
+    try {
+      await navigator.clipboard.writeText(fullText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback
+    }
+  };
+
   return (
     <div className="h-full flex flex-col p-4 gap-4 overflow-y-auto">
       {/* Header */}
@@ -132,17 +148,25 @@ export function ContextView({ boardName }: { boardName: string | null }) {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
+            onClick={handleCopyPack}
+            className="px-3 py-1.5 bg-card text-text text-xs rounded font-medium hover:bg-surface border border-border hover:border-border-strong transition-colors flex items-center gap-1.5"
+            title="Copy compiled context pack formatted for LLM prompts"
+          >
+            <Icon name={copied ? "check" : "copy"} size={13} />
+            {copied ? "Copied Pack!" : "Copy Context Pack"}
+          </button>
+          <button
             onClick={() => handlePolish(true)}
             disabled={digesting}
             title="Rewrite the Brief section with your configured LLM — facts-only, one call, derived from the generated sections"
-            className="px-3 py-1.5 bg-card text-text text-xs rounded font-medium hover:bg-surface border border-card hover:border-accent disabled:opacity-50"
+            className="px-3 py-1.5 bg-card text-text text-xs rounded font-medium hover:bg-surface border border-card hover:border-accent disabled:opacity-50 transition-colors"
           >
             {digesting ? "Polishing…" : "Polish brief"}
           </button>
           <button
             onClick={handleDigest}
             disabled={digesting}
-            className="px-3 py-1.5 bg-accent text-white text-xs rounded font-medium hover:bg-accent-hover disabled:opacity-50"
+            className="px-3 py-1.5 bg-accent text-white text-xs rounded font-medium hover:bg-accent-hover disabled:opacity-50 transition-colors"
           >
             {digesting ? "Regenerating…" : "Regenerate digest"}
           </button>

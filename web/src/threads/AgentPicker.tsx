@@ -25,6 +25,20 @@ function modelLabel(id: string) {
   return parts.length > 1 ? parts.slice(1).join("/") : id;
 }
 
+function modelBadge(id: string): { label?: string; tone?: string } {
+  const lower = id.toLowerCase();
+  if (lower.includes("gemini-2.5") || lower.includes("gemini-2.0") || lower.includes("flash")) {
+    return { label: "Fast / High Token Budget", tone: "text-[#38bdf8] bg-[#38bdf8]/10" };
+  }
+  if (lower.includes("gemini-1.5-pro") || lower.includes("claude-3-7-sonnet") || lower.includes("claude-3-5-sonnet")) {
+    return { label: "Reasoning & Coding", tone: "text-[#a78bfa] bg-[#a78bfa]/10" };
+  }
+  if (lower.includes("o3") || lower.includes("o1")) {
+    return { label: "Deep Reasoning", tone: "text-[#34d399] bg-[#34d399]/10" };
+  }
+  return {};
+}
+
 function providerState(provider: AgentSelection["providers"][number]) {
   if (!provider.available) return "Not installed";
   if (provider.authenticated === false) return "Sign-in needed";
@@ -386,7 +400,14 @@ export function AgentPicker({ agent, mode }: { agent: AgentSelection; mode: Comp
                             onClick={() => choose(row.provider, row.id)}
                           >
                             <span className="model-copy">
-                              <strong>{modelLabel(row.id)}</strong>
+                              <span className="flex items-center gap-1.5 flex-wrap">
+                                <strong>{modelLabel(row.id)}</strong>
+                                {modelBadge(row.id).label && (
+                                  <span className={`text-[9.5px] px-1 py-0.2 rounded font-sans ${modelBadge(row.id).tone}`}>
+                                    {modelBadge(row.id).label}
+                                  </span>
+                                )}
+                              </span>
                               <small><ProviderIcon id={row.provider} name={row.providerName} size={11} className="model-provider-icon" /><span>{row.providerName}</span></small>
                             </span>
                             {index < 5 && <kbd className="model-key">⌘{index + 1}</kbd>}

@@ -281,9 +281,24 @@ export function TeamView({ boardName }: { boardName: string | null }) {
                     {profile.provider}
                     {profile.model ? ` · ${profile.model}` : ""}
                   </span>
-                  <span className="text-muted">
-                    {profile.permission_mode}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {providers.find((p) => p.id === profile.provider)?.authenticated === false ? (
+                      <span className="text-[9.5px] text-warning bg-warning/10 px-1 py-0.2 rounded border border-warning/20">
+                        sign-in needed
+                      </span>
+                    ) : providers.find((p) => p.id === profile.provider)?.available ? (
+                      <span className="text-[9.5px] text-success bg-success/10 px-1 py-0.2 rounded border border-success/20">
+                        ready
+                      </span>
+                    ) : (
+                      <span className="text-[9.5px] text-muted bg-white/[0.04] px-1 py-0.2 rounded">
+                        not installed
+                      </span>
+                    )}
+                    <span className="text-muted capitalize">
+                      {profile.permission_mode}
+                    </span>
+                  </div>
                 </div>
 
                 {activeTaskIds.length > 0 && (

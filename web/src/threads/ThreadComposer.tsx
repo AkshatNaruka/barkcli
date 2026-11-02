@@ -123,6 +123,16 @@ export function ThreadComposer({
           />
           <AgentPicker agent={agent} mode={mode} />
 
+          <button
+            type="button"
+            onClick={() => navigate("operations", { tool: "context" })}
+            className="hidden sm:inline-flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-mono text-muted hover:text-text hover:bg-surface border border-transparent hover:border-border transition-colors"
+            title="Inspect project context pack and active rules (AGENTS.md)"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+            <span>Context Primed</span>
+          </button>
+
           <div className="composer-actions-right">
             <span className="composer-hint-key" aria-hidden="true">
               ↵ send · ⇧↵ newline
