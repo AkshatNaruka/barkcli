@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ThreadDetail, RunRecord } from "../lib/types";
 import { ThreadPane } from "./ThreadPane";
@@ -300,4 +300,39 @@ describe("ThreadPane", () => {
     expect(container.querySelector("script, img")).toBeNull();
   });
 
+  it("provides copy and reuse actions on user messages and copies text", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    api.fetchThread.mockResolvedValue(detail);
+
+    render(<ThreadPane threadId={detail.id} />);
+    await screen.findByText("Static demo hosting");
+
+    const copyBtn = screen.getByRole("button", { name: "Copy prompt" });
+    await user.click(copyBtn);
+    expect(writeText).toHaveBeenCalledWith("Make the static demo a real surface.");
+
+    const reuseBtn = screen.getByRole("button", { name: "Reuse prompt" });
+    await user.click(reuseBtn);
+    expect(screen.getByTestId("thread-composer")).toHaveValue("Make the static demo a real surface.");
+  });
+
+  it("offers prompt suggestion chips that populate the composer", async () => {
+    api.fetchThread.mockResolvedValue(detail);
+    const user = userEvent.setup();
+
+    render(<ThreadPane threadId={detail.id} />);
+    await screen.findByText("Static demo hosting");
+
+    const chip = screen.getByRole("button", { name: "Add regression test" });
+    expect(chip).toBeInTheDocument();
+    await user.click(chip);
+    expect(screen.getByTestId("thread-composer")).toHaveValue("Add regression test");
+  });
+
 });
+

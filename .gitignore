@@ -1,5 +1,6 @@
 /target
 .board/
+ref/
 .vercel
 .claude/
 .agents/

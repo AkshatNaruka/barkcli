@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
 import type { Card, ThreadEvent, ThreadDetail, RunRecord, ProviderStatus, ProjectSnapshot } from "../lib/types";
 import {
   fetchThread,
@@ -20,6 +21,7 @@ import { Icon } from "../components/Icon";
 import { relativeTime } from "../lib/threads";
 import { isDemoMode } from "../lib/demo";
 import { ThreadComposer } from "./ThreadComposer";
+import { CodeBlock } from "./CodeBlock";
 import { useAgentSelection } from "../lib/useAgentSelection";
 import { useDraft } from "../lib/drafts";
 import { runLabel, checkState, checksPassed, isActiveRun } from "../lib/run-state";
@@ -46,8 +48,43 @@ function isMessage(event: ThreadEvent): boolean {
 
 /** Render provider replies as readable prose and code without raw HTML or remote images. */
 function Prose({ text }: { text: string }) {
-  return <div className="chat-prose"><ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml disallowedElements={["img"]}
-    components={{ a: ({ node, children, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer">{children}</a> }}>{text}</ReactMarkdown></div>;
+  return (
+    <div className="chat-prose">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeHighlight]}
+        skipHtml
+        disallowedElements={["img"]}
+        components={{
+          a: ({ node, children, ...props }) => (
+            <a {...props} target="_blank" rel="noopener noreferrer">
+              {children}
+            </a>
+          ),
+          pre: ({ node, children, ...props }) => (
+            <CodeBlock {...props}>{children}</CodeBlock>
+          ),
+          code: ({ node, className, children, ...props }) => {
+            const isInline = !className;
+            if (isInline) {
+              return (
+                <code className="chat-inline-code" {...props}>
+                  {children}
+                </code>
+              );
+            }
+            return (
+              <code className={className} {...props}>
+                {children}
+              </code>
+            );
+          },
+        }}
+      >
+        {text}
+      </ReactMarkdown>
+    </div>
+  );
 }
 
 function EventTime({ iso }: { iso: string }) {
@@ -155,9 +192,23 @@ export function ThreadPane({
   const [actionStatus, setActionStatus] = useState<string | null>(null);
   const [startingRun, setStartingRun] = useState(false);
   const [runBusyId, setRunBusyId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const selectCardRef = useRef(onSelectCard);
   const refreshInboxRef = useRef(onRefreshInbox);
+
+  const handleCopyText = (id: string, text: string) => {
+    navigator.clipboard?.writeText(text).then(() => {
+      setCopiedId(id);
+      window.setTimeout(() => setCopiedId(null), 2000);
+    });
+  };
+
+  const handleReusePrompt = (text: string) => {
+    setInput(text);
+    const composer = document.querySelector<HTMLTextAreaElement>('[data-testid="thread-composer"]');
+    composer?.focus();
+  };
 
   useEffect(() => {
     selectCardRef.current = onSelectCard;
@@ -390,8 +441,7 @@ export function ThreadPane({
   );
   const activeRun =
     [...runs].reverse().find(isActiveRun) || null;
-  // REST recovery also covers a missed final broadcast or a reconnect while
-  // the provider is completing checks. Idle threads perform no polling.
+
   useEffect(() => {
     if (!threadId || (!activeRun && !chatBusy)) return;
     let disposed = false;
@@ -406,6 +456,7 @@ export function ThreadPane({
     }, 1500);
     return () => { disposed = true; window.clearInterval(timer); };
   }, [threadId, boardName, Boolean(activeRun), chatBusy]);
+
   const latestUserText = [...(thread?.events || [])]
     .reverse()
     .find((event) => event.kind === "user")?.text;
@@ -558,14 +609,29 @@ export function ThreadPane({
   return (
     <section className="flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-bg">
       <header className="thread-header">
-        <button className="bark-icon-button" onClick={() => window.dispatchEvent(new CustomEvent("bark-command", { detail: "toggle-sidebar" }))} aria-label="Toggle sidebar"><Icon name="panel" size={16} /></button>
+        <button
+          className="bark-icon-button"
+          onClick={() =>
+            window.dispatchEvent(
+              new CustomEvent("bark-command", { detail: "toggle-sidebar" })
+            )
+          }
+          aria-label="Toggle sidebar"
+        >
+          <Icon name="panel" size={16} />
+        </button>
         <div className="flex min-w-0 items-center gap-2">
-          <span className="min-w-0 truncate text-[12.5px] font-medium text-text">
+          <span className="min-w-0 truncate text-[13px] font-medium text-text">
             {card?.title || threadId}
           </span>
+          {card?.column && (
+            <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-mono text-muted uppercase tracking-wider">
+              {card.column}
+            </span>
+          )}
         </div>
 
-        <div className="ml-auto flex shrink-0 items-center gap-1">
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
           {onThreadMenu && (
             <button
               type="button"
@@ -584,7 +650,7 @@ export function ThreadPane({
               }}
               aria-label="Thread actions"
               title="Thread actions"
-              className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-white/[0.05] hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
             >
               <Icon name="dots" size={15} />
             </button>
@@ -598,8 +664,8 @@ export function ThreadPane({
               title={inspectorOpen ? "Hide thread panel (⌘J)" : "Show thread panel (⌘J)"}
               className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
                 inspectorOpen
-                  ? "bg-surface text-text"
-                  : "text-muted hover:bg-white/[0.05] hover:text-text"
+                  ? "bg-surface text-text shadow-xs"
+                  : "text-muted hover:bg-surface hover:text-text"
               }`}
             >
               <Icon name="panel" size={15} />
@@ -608,8 +674,20 @@ export function ThreadPane({
         </div>
       </header>
 
-      {connectionError && <div className="connection-notice" role="status">Connection interrupted. Reconnecting… Your draft is saved.</div>}
-      <div className="flex-1 overflow-y-auto min-h-0 thread-events" onScroll={(event) => { const node = event.currentTarget; stickToBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 100; if (stickToBottom.current) setNewOutput(false); }}>
+      {connectionError && (
+        <div className="connection-notice" role="status">
+          Connection interrupted. Reconnecting… Your draft is saved.
+        </div>
+      )}
+
+      <div
+        className="flex-1 overflow-y-auto min-h-0 thread-events"
+        onScroll={(event) => {
+          const node = event.currentTarget;
+          stickToBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 100;
+          if (stickToBottom.current) setNewOutput(false);
+        }}
+      >
         <div className="thread-conversation">
           {loading && (
             <div className="space-y-6" aria-label="Loading thread">
@@ -625,14 +703,14 @@ export function ThreadPane({
 
           {!loading && loadError && (
             <div className="mx-auto max-w-[420px] py-16 text-center" role="alert">
-              <div className="text-[12.5px] font-medium text-text">Could not load this thread</div>
+              <div className="text-[13px] font-semibold text-text">Could not load this thread</div>
               <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted">
                 The server may still be starting, or the thread was moved. Your board is untouched.
               </p>
               <button
                 type="button"
                 onClick={() => setReloadKey((key) => key + 1)}
-                className="mt-4 h-7 rounded-md border border-border px-2.5 text-[11px] text-muted-strong transition-colors hover:border-border-strong hover:text-text"
+                className="mt-4 h-7 rounded-md border border-border px-3 text-[11.5px] font-medium text-muted-strong transition-colors hover:border-border-strong hover:text-text hover:bg-surface"
               >
                 Try again
               </button>
@@ -640,8 +718,12 @@ export function ThreadPane({
           )}
 
           {!loading && !loadError && thread?.events.length === 0 && (
-            <div className="py-12 text-center text-[12px] text-muted">
-              No messages in this thread yet. Send a prompt below to begin.
+            <div className="py-16 text-center text-[12px] text-muted">
+              <span className="flex h-10 w-10 mx-auto items-center justify-center rounded-xl bg-surface text-muted mb-3">
+                <Icon name="robot" size={20} />
+              </span>
+              <p className="font-medium text-text text-[13px]">No messages yet</p>
+              <p className="mt-1 text-muted text-[11.5px]">Choose Build, Plan, or Ask below to start.</p>
             </div>
           )}
 
@@ -649,16 +731,88 @@ export function ThreadPane({
             <div className="chat-messages">
               {displayEvents.map((event) => {
                 if (event.kind === "user") {
-                  return <article key={`${event.id}:${event.seq}`} className="chat-message chat-message-user" aria-label="Your message">
-                    <div className="chat-user-text">{event.text}</div>
-                    <span className="chat-message-time"><EventTime iso={event.created_at} /></span>
-                  </article>;
+                  return (
+                    <article
+                      key={`${event.id}:${event.seq}`}
+                      className="chat-message chat-message-user group"
+                      aria-label="Your message"
+                    >
+                      <div className="chat-user-header">
+                        <span className="chat-user-author">You</span>
+                        <div className="chat-user-actions">
+                          <button
+                            type="button"
+                            onClick={() => handleReusePrompt(event.text)}
+                            className="chat-action-btn"
+                            aria-label="Reuse prompt"
+                            title="Reuse in composer"
+                          >
+                            <Icon name="pencil" size={11} />
+                            <span>Reuse</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyText(event.id, event.text)}
+                            className="chat-action-btn"
+                            aria-label="Copy prompt"
+                            title="Copy prompt"
+                          >
+                            <Icon name={copiedId === event.id ? "check" : "copy"} size={11} />
+                            <span>{copiedId === event.id ? "Copied" : "Copy"}</span>
+                          </button>
+                          <span className="chat-message-time">
+                            <EventTime iso={event.created_at} />
+                          </span>
+                        </div>
+                      </div>
+                      <div className="chat-user-text">{event.text}</div>
+                    </article>
+                  );
                 }
+
                 if (event.kind === "assistant" || event.kind === "assistant_delta") {
-                  return <article key={`${event.id}:${event.seq}`} className="chat-message chat-message-assistant" aria-label="Agent reply" aria-busy={event.kind === "assistant_delta"}>
-                    <Prose text={event.text} />
-                    <span className="chat-message-time"><EventTime iso={event.created_at} /></span>
-                  </article>;
+                  const isStreaming = event.kind === "assistant_delta";
+                  return (
+                    <article
+                      key={`${event.id}:${event.seq}`}
+                      className="chat-message chat-message-assistant group"
+                      aria-label="Agent reply"
+                      aria-busy={isStreaming}
+                    >
+                      <div className="chat-assistant-header">
+                        <div className="flex items-center gap-2">
+                          <span className="chat-assistant-avatar">
+                            <Icon name="robot" size={13} />
+                          </span>
+                          <span className="chat-assistant-name">
+                            {event.author === "you" ? "Assistant" : event.author || "Bark Agent"}
+                          </span>
+                          {isStreaming && (
+                            <span className="chat-streaming-badge">
+                              <span className="chat-working-dot animate-pulse" />
+                              <span>Streaming…</span>
+                            </span>
+                          )}
+                        </div>
+                        <div className="chat-assistant-actions">
+                          <button
+                            type="button"
+                            onClick={() => handleCopyText(event.id, event.text)}
+                            className="chat-action-btn"
+                            aria-label="Copy reply"
+                            title="Copy reply"
+                          >
+                            <Icon name={copiedId === event.id ? "check" : "copy"} size={11} />
+                            <span>{copiedId === event.id ? "Copied" : "Copy"}</span>
+                          </button>
+                          <span className="chat-message-time">
+                            <EventTime iso={event.created_at} />
+                          </span>
+                        </div>
+                      </div>
+                      <Prose text={event.text} />
+                    </article>
+                  );
                 }
 
                 if (event.kind === "approval_requested" || event.kind === "question") {
@@ -671,27 +825,27 @@ export function ThreadPane({
                   return (
                     <div
                       key={`${event.id}:${event.seq}`}
-                      className="rounded-lg border border-warning/40 bg-warning/5 px-3 py-2.5"
+                      className="rounded-xl border border-warning/40 bg-warning/5 p-3.5 shadow-xs"
                     >
-                      <div className="flex items-center gap-2 text-[11px] font-medium text-warning">
-                        <Icon name="warn" size={12} />
+                      <div className="flex items-center gap-2 text-[12px] font-medium text-warning">
+                        <Icon name="warn" size={14} />
                         {event.kind === "approval_requested" ? "Approval requested" : "Agent question"}
                       </div>
-                      <p className="mt-1 text-[11.5px] leading-relaxed text-muted-strong">
+                      <p className="mt-1.5 text-[12px] leading-relaxed text-muted-strong">
                         {data.title || data.text || event.text}
                       </p>
                       {data.detail && (
-                        <p className="mt-1 font-mono text-[10px] leading-relaxed text-muted/70">
+                        <p className="mt-1 font-mono text-[10.5px] leading-relaxed text-muted/80 bg-surface/60 rounded p-2">
                           {data.detail}
                         </p>
                       )}
                       {mergeApproval ? (
-                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
                           <button
                             type="button"
                             onClick={() => handleApproval(event, true)}
                             disabled={approvalBusyId !== null}
-                            className="rounded bg-accent px-2.5 py-1 text-[10.5px] font-medium text-bg transition-opacity hover:opacity-90 disabled:opacity-40"
+                            className="rounded-md bg-accent px-3 py-1.5 text-[11px] font-medium text-bg transition-opacity hover:opacity-90 disabled:opacity-40"
                           >
                             {approvalBusyId?.endsWith(":yes") ? "Merging…" : "Approve & merge"}
                           </button>
@@ -699,22 +853,22 @@ export function ThreadPane({
                             type="button"
                             onClick={() => handleApproval(event, false)}
                             disabled={approvalBusyId !== null}
-                            className="rounded border border-border px-2.5 py-1 text-[10.5px] text-muted-strong transition-colors hover:bg-white/[0.04] hover:text-text disabled:opacity-40"
+                            className="rounded-md border border-border px-3 py-1.5 text-[11px] text-muted-strong transition-colors hover:bg-surface hover:text-text disabled:opacity-40"
                           >
                             Reject
                           </button>
                           {data.branch && (
-                            <span className="font-mono text-[9.5px] text-muted/60">
+                            <span className="font-mono text-[10px] text-muted/70 bg-surface px-2 py-0.5 rounded">
                               {data.branch}
                             </span>
                           )}
                         </div>
                       ) : Array.isArray(data.options) && data.options.length > 0 ? (
-                        <div className="mt-2 flex flex-wrap gap-1.5">
+                        <div className="mt-2.5 flex flex-wrap gap-1.5">
                           {data.options.map((option: string) => (
                             <span
                               key={option}
-                              className="rounded border border-border px-2 py-0.5 font-mono text-[9px] text-muted"
+                              className="rounded border border-border px-2.5 py-1 font-mono text-[9.5px] text-muted bg-surface/50"
                             >
                               {option}
                             </span>
@@ -735,13 +889,13 @@ export function ThreadPane({
                   return (
                     <div
                       key={`${event.id}:${event.seq}`}
-                      className={`flex flex-wrap items-center gap-2 text-[11px] ${
+                      className={`flex flex-wrap items-center gap-2 text-[11.5px] font-medium ${
                         failed ? "text-danger" : interrupted ? "text-warning" : "text-success"
                       }`}
                     >
                       <Icon
                         name={failed ? "warn" : interrupted ? "stop" : "check"}
-                        size={11}
+                        size={12}
                       />
                       <span>{event.text}</span>
                       <EventTime iso={event.created_at} />
@@ -752,34 +906,44 @@ export function ThreadPane({
                 if (event.kind === "plan_proposed") {
                   const proposal = event.data || {};
                   const children: any[] = Array.isArray(proposal.children) ? proposal.children : [];
-                  const latestProposal = [...(thread?.events || [])].reverse().find((item) => item.kind === "plan_proposed");
-                  const isApproved = latestProposal?.id !== event.id || [...approvedPlans].some(
-                    (approvedAt) => approvedAt >= Date.parse(event.created_at)
-                  );
+                  const latestProposal = [...(thread?.events || [])]
+                    .reverse()
+                    .find((item) => item.kind === "plan_proposed");
+                  const isApproved =
+                    latestProposal?.id !== event.id ||
+                    [...approvedPlans].some(
+                      (approvedAt) => approvedAt >= Date.parse(event.created_at)
+                    );
                   return (
                     <section
                       key={`${event.id}:${event.seq}`}
-                      className="border-y border-border/80 py-4"
+                      className="plan-card my-4 rounded-xl border border-border/80 bg-card p-4 shadow-xs"
                       aria-label="Plan proposal"
                     >
-                      <div className="flex items-start gap-2">
-                        <span className="mt-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-warning/50 text-[9px] text-warning">
+                      <div className="flex items-start gap-2.5">
+                        <span className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border border-warning/50 text-[10px] text-warning bg-warning/10 font-bold">
                           ●
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                            <h3 className="text-[12.5px] font-medium text-text">
+                            <h3 className="text-[13px] font-semibold text-text">
                               Plan · {children.length || 0} steps
                             </h3>
-                            <span className="font-mono text-[9.5px] text-muted/65">
+                            <span className="font-mono text-[10px] text-muted/70 bg-surface px-1.5 py-0.5 rounded">
                               Bark plan · offline
                             </span>
-                            <span className="ml-auto font-mono text-[9.5px] text-muted/55">
+                            <span
+                              className={`ml-auto font-mono text-[10px] uppercase font-semibold px-2 py-0.5 rounded ${
+                                isApproved
+                                  ? "text-success bg-success/10"
+                                  : "text-warning bg-warning/10"
+                              }`}
+                            >
                               {isApproved ? "approved" : "waiting"}
                             </span>
                           </div>
                           {proposal.rationale && (
-                            <p className="mt-1.5 text-[12px] leading-relaxed text-muted">
+                            <p className="mt-2 text-[12px] leading-relaxed text-muted bg-surface/40 p-2.5 rounded-lg border border-border/40">
                               {proposal.rationale}
                             </p>
                           )}
@@ -787,10 +951,13 @@ export function ThreadPane({
                       </div>
 
                       {children.length > 0 && (
-                        <ol className="mt-4 divide-y divide-border/60 border-y border-border/60">
+                        <ol className="mt-3 divide-y divide-border/50 border-y border-border/50">
                           {children.map((child, index) => (
-                            <li key={`${child.title}-${index}`} className="flex gap-3 py-2.5">
-                              <span className="w-4 shrink-0 pt-0.5 font-mono text-[9.5px] text-muted/55">
+                            <li
+                              key={`${child.title}-${index}`}
+                              className="flex gap-3 py-2.5 items-start"
+                            >
+                              <span className="w-5 shrink-0 pt-0.5 font-mono text-[10px] text-muted/60 font-semibold">
                                 {String(index + 1).padStart(2, "0")}
                               </span>
                               <div className="min-w-0 flex-1">
@@ -799,7 +966,7 @@ export function ThreadPane({
                                     {child.title}
                                   </span>
                                   {child.effort != null && (
-                                    <span className="font-mono text-[9px] text-muted/60">
+                                    <span className="font-mono text-[9.5px] text-muted/70 bg-surface px-1.5 py-0.5 rounded">
                                       {child.effort}h
                                     </span>
                                   )}
@@ -811,13 +978,13 @@ export function ThreadPane({
                                 )}
                                 {Array.isArray(child.acceptance_criteria) &&
                                   child.acceptance_criteria.length > 0 && (
-                                    <p className="mt-1 font-mono text-[9.5px] text-muted/65">
+                                    <p className="mt-1 font-mono text-[9.5px] text-muted/70">
                                       Acceptance: {child.acceptance_criteria.join(" · ")}
                                     </p>
                                   )}
                               </div>
                               {child.priority && (
-                                <span className="self-center font-mono text-[9px] uppercase text-muted/55">
+                                <span className="self-center font-mono text-[9px] uppercase px-1.5 py-0.5 rounded bg-surface text-muted/70 font-semibold">
                                   {child.priority}
                                 </span>
                               )}
@@ -826,13 +993,32 @@ export function ThreadPane({
                         </ol>
                       )}
 
-                      {!isApproved && <dl className="execution-summary"><dt>Build with</dt><dd>{agent.selected?.name || agent.backend || "Choose an agent below"} / {model || "CLI default"}</dd><dt>Workspace</dt><dd>Isolated worktree{project?.git?.branch ? ` from ${project.git.branch}` : ""}</dd><dt>Checks</dt><dd>{agent.testCommand || project?.verification_command || "Not configured — choose a verification command in Build options"}</dd></dl>}
                       {!isApproved && (
-                        <div className="mt-3 flex items-center justify-end gap-2">
+                        <dl className="execution-summary mt-3">
+                          <dt>Build with</dt>
+                          <dd>
+                            {agent.selected?.name || agent.backend || "Choose an agent below"} /{" "}
+                            {model || "CLI default"}
+                          </dd>
+                          <dt>Workspace</dt>
+                          <dd>
+                            Isolated worktree
+                            {project?.git?.branch ? ` from ${project.git.branch}` : ""}
+                          </dd>
+                          <dt>Checks</dt>
+                          <dd>
+                            {agent.testCommand ||
+                              project?.verification_command ||
+                              "Not configured — choose a verification command in Build options"}
+                          </dd>
+                        </dl>
+                      )}
+                      {!isApproved && (
+                        <div className="mt-3.5 flex items-center justify-end gap-2">
                           <button
                             type="button"
                             onClick={handleRejectPlan}
-                            className="h-7 rounded-md px-2.5 text-[11px] text-muted transition-colors hover:bg-white/[0.04] hover:text-text"
+                            className="h-7.5 rounded-md px-3 text-[11.5px] text-muted transition-colors hover:bg-surface hover:text-text border border-border/70"
                           >
                             Request plan changes
                           </button>
@@ -840,7 +1026,7 @@ export function ThreadPane({
                             type="button"
                             onClick={handleApprovePlan}
                             disabled={startingRun || !agent.ready || Boolean(activeRun)}
-                            className="h-7 rounded-md bg-accent px-3 text-[11px] font-medium text-bg transition-opacity hover:opacity-90"
+                            className="h-7.5 rounded-md bg-accent px-3.5 text-[11.5px] font-semibold text-bg transition-opacity hover:opacity-90 disabled:opacity-40"
                           >
                             {startingRun ? "Starting…" : "Approve plan & build"}
                           </button>
@@ -852,7 +1038,10 @@ export function ThreadPane({
 
                 if (event.kind === "plan_approved") {
                   return (
-                    <div key={`${event.id}:${event.seq}`} className="flex items-center gap-2 text-[11.5px] text-success">
+                    <div
+                      key={`${event.id}:${event.seq}`}
+                      className="flex items-center gap-2 text-[11.5px] font-medium text-success"
+                    >
                       <Icon name="check" size={13} className="shrink-0" />
                       <span>{event.text}</span>
                       <EventTime iso={event.created_at} />
@@ -862,7 +1051,10 @@ export function ThreadPane({
 
                 if (event.kind === "merge") {
                   return (
-                    <div key={`${event.id}:${event.seq}`} className="flex items-center gap-2 text-[11.5px] text-accent-text">
+                    <div
+                      key={`${event.id}:${event.seq}`}
+                      className="flex items-center gap-2 text-[11.5px] font-medium text-accent-text"
+                    >
                       <Icon name="branch" size={12} className="shrink-0" />
                       <span>{event.text}</span>
                       <EventTime iso={event.created_at} />
@@ -871,7 +1063,10 @@ export function ThreadPane({
                 }
 
                 return (
-                  <div key={`${event.id}:${event.seq}`} className="text-[11.5px] leading-relaxed text-muted">
+                  <div
+                    key={`${event.id}:${event.seq}`}
+                    className="text-[11.5px] leading-relaxed text-muted"
+                  >
                     <span className="font-medium text-muted-strong">{event.author}</span>
                     <span className="mx-2 text-muted/40">·</span>
                     {event.text}
@@ -883,39 +1078,131 @@ export function ThreadPane({
               })}
             </div>
           )}
-          {!loading && !loadError && (latestRun || activityEvents.length > 0) && <details className="thread-details" open={activityOpen} onToggle={(event) => setActivityOpen(event.currentTarget.open)}>
-            <summary>Details</summary>
-            {activityOpen && <div className="thread-details-content">
-              {latestRun && <RunSummaryCard run={latestRun} busy={runBusyId === latestRun.id || startingRun}
-                onVerify={() => handleVerifyRun(latestRun)} onBuildOn={() => handleStartRun(latestRun.id)} />}
-              {activityEvents.length > 0 && <div className="thread-activity" aria-label="Technical activity">
-                {activityEvents.map((event) => <details key={event.id}>
-                  <summary>{event.kind === "gate" ? checkState(event.data as any).label : event.data?.name || event.text.slice(0, 100) || event.kind} <EventTime iso={event.created_at} /></summary>
-                  <pre>{event.text}{event.data ? `\n${JSON.stringify(event.data, null, 2)}` : ""}</pre>
-                </details>)}
-              </div>}
-            </div>}
-          </details>}
+
+          {!loading && !loadError && (latestRun || activityEvents.length > 0) && (
+            <details
+              className="thread-details"
+              open={activityOpen}
+              onToggle={(event) => setActivityOpen(event.currentTarget.open)}
+            >
+              <summary>Details</summary>
+              {activityOpen && (
+                <div className="thread-details-content">
+                  {latestRun && (
+                    <RunSummaryCard
+                      run={latestRun}
+                      busy={runBusyId === latestRun.id || startingRun}
+                      onVerify={() => handleVerifyRun(latestRun)}
+                      onBuildOn={() => handleStartRun(latestRun.id)}
+                    />
+                  )}
+                  {activityEvents.length > 0 && (
+                    <div className="thread-activity" aria-label="Technical activity">
+                      {activityEvents.map((event) => (
+                        <details key={event.id}>
+                          <summary>
+                            {event.kind === "gate"
+                              ? checkState(event.data as any).label
+                              : event.data?.name || event.text.slice(0, 100) || event.kind}{" "}
+                            <EventTime iso={event.created_at} />
+                          </summary>
+                          <pre>
+                            {event.text}
+                            {event.data ? `\n${JSON.stringify(event.data, null, 2)}` : ""}
+                          </pre>
+                        </details>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </details>
+          )}
           <div ref={messagesEndRef} />
         </div>
       </div>
 
       <div className="thread-composer-dock">
-        {actionStatus && <div className="composer-action-note" role="status">
-          <span>{actionStatus}</span><button className="bark-icon-button" onClick={() => setActionStatus(null)} aria-label="Dismiss status"><Icon name="x" size={12} /></button>
-        </div>}
-        {!loading && !loadError && (latestRun || chatBusy) && <div className="thread-outcome" role="status" aria-live="polite">
-          <span className={`thread-outcome-label ${!chatBusy && (latestRun?.status === "failed" || checkState(latestRun?.gate).tone === "danger") ? "text-danger" : "text-muted"}`}>
-            {(chatBusy || activeRun) && <span className="chat-working-dot" aria-hidden="true" />}
-            {chatBusy ? "Working…" : latestRun ? runLabel(latestRun) : ""}
-          </span>
-          {latestRun && latestRun.diff_stats.files > 0 && onReview && <button className="chat-text-action" onClick={onReview}><Icon name="code" size={13} />{latestRun.diff_stats.files} {latestRun.diff_stats.files === 1 ? "file" : "files"} changed</button>}
-          {latestRun && ["failed", "interrupted", "cancelled"].includes(latestRun.status) && !activeRun && <button className="chat-text-action" disabled={startingRun} onClick={() => handleStartRun(latestRun.id)}>Retry</button>}
-        </div>}
-        {latestRun?.error && !activeRun && !chatBusy && <p className="composer-error" role="alert">{latestRun.error}</p>}
-        {newOutput && <button className="jump-to-latest" onClick={() => { stickToBottom.current = true; setNewOutput(false); messagesEndRef.current?.scrollIntoView({ behavior: "auto" }); }}>Jump to latest</button>}
-        <ThreadComposer value={input} onChange={setInput} mode={chatMode} onModeChange={setChatMode} agent={agent} onSubmit={handleSendMessage}
-          busy={submitting || startingRun || Boolean(runBusyId)} error={sendError} active={chatBusy || Boolean(activeRun)} onStop={chatBusy ? handleStopChat : activeRun ? () => void handleStopRun(activeRun) : undefined} />
+        {actionStatus && (
+          <div className="composer-action-note" role="status">
+            <span>{actionStatus}</span>
+            <button
+              className="bark-icon-button"
+              onClick={() => setActionStatus(null)}
+              aria-label="Dismiss status"
+            >
+              <Icon name="x" size={12} />
+            </button>
+          </div>
+        )}
+        {!loading && !loadError && (latestRun || chatBusy) && (
+          <div className="thread-outcome" role="status" aria-live="polite">
+            <span
+              className={`thread-outcome-label ${
+                !chatBusy &&
+                (latestRun?.status === "failed" || checkState(latestRun?.gate).tone === "danger")
+                  ? "text-danger"
+                  : "text-muted"
+              }`}
+            >
+              {(chatBusy || activeRun) && <span className="chat-working-dot" aria-hidden="true" />}
+              {chatBusy ? "Working…" : latestRun ? runLabel(latestRun) : ""}
+            </span>
+            {latestRun && latestRun.diff_stats.files > 0 && onReview && (
+              <button className="chat-text-action" onClick={onReview}>
+                <Icon name="code" size={13} />
+                {latestRun.diff_stats.files}{" "}
+                {latestRun.diff_stats.files === 1 ? "file" : "files"} changed
+              </button>
+            )}
+            {latestRun &&
+              ["failed", "interrupted", "cancelled"].includes(latestRun.status) &&
+              !activeRun && (
+                <button
+                  className="chat-text-action"
+                  disabled={startingRun}
+                  onClick={() => handleStartRun(latestRun.id)}
+                >
+                  Retry
+                </button>
+              )}
+          </div>
+        )}
+        {latestRun?.error && !activeRun && !chatBusy && (
+          <p className="composer-error" role="alert">
+            {latestRun.error}
+          </p>
+        )}
+        {newOutput && (
+          <button
+            className="jump-to-latest"
+            onClick={() => {
+              stickToBottom.current = true;
+              setNewOutput(false);
+              messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+            }}
+          >
+            Jump to latest
+          </button>
+        )}
+        <ThreadComposer
+          value={input}
+          onChange={setInput}
+          mode={chatMode}
+          onModeChange={setChatMode}
+          agent={agent}
+          onSubmit={handleSendMessage}
+          busy={submitting || startingRun || Boolean(runBusyId)}
+          error={sendError}
+          active={chatBusy || Boolean(activeRun)}
+          onStop={
+            chatBusy
+              ? handleStopChat
+              : activeRun
+              ? () => void handleStopRun(activeRun)
+              : undefined
+          }
+        />
       </div>
     </section>
   );
