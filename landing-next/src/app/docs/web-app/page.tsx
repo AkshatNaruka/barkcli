@@ -254,7 +254,7 @@ export default function WebAppGuidePage() {
       <div className="mt-8">
         <Link
           href="/docs"
-          className="text-[#B8845C] hover:text-[#B8845C]/80 text-sm transition-colors"
+          className="text-[#38bdf8] hover:text-[#38bdf8]/80 text-sm transition-colors"
         >
           ← Back to Docs
         </Link>

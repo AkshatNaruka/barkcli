@@ -95,14 +95,14 @@ export default function AutopilotGuidePage() {
       </div>
 
       <div className="flex gap-4 text-sm">
-        <Link href="/docs/web-app" className="text-[#B8845C] hover:underline">Web App Guide →</Link>
-        <Link href="/docs/commands" className="text-[#B8845C] hover:underline">Command reference (power users) →</Link>
+        <Link href="/docs/web-app" className="text-[#38bdf8] hover:underline">Web App Guide →</Link>
+        <Link href="/docs/commands" className="text-[#38bdf8] hover:underline">Command reference (power users) →</Link>
       </div>
 
       <div className="mt-8">
         <Link
           href="/docs"
-          className="text-[#B8845C] hover:text-[#B8845C]/80 text-sm transition-colors"
+          className="text-[#38bdf8] hover:text-[#38bdf8]/80 text-sm transition-colors"
         >
           ← Back to Docs
         </Link>

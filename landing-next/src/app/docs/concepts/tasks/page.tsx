@@ -100,9 +100,9 @@ links:
       <div className="rounded-xl border border-white/10 bg-white/5 p-6">
         <h3 className="mb-2 text-lg font-semibold">Related</h3>
         <div className="flex gap-4 text-sm">
-          <Link href="/docs/commands/add" className="text-[#B8845C] hover:underline">add command</Link>
-          <Link href="/docs/commands/list" className="text-[#B8845C] hover:underline">list command</Link>
-          <Link href="/docs/concepts/boards" className="text-[#B8845C] hover:underline">Boards</Link>
+          <Link href="/docs/commands/add" className="text-[#38bdf8] hover:underline">add command</Link>
+          <Link href="/docs/commands/list" className="text-[#38bdf8] hover:underline">list command</Link>
+          <Link href="/docs/concepts/boards" className="text-[#38bdf8] hover:underline">Boards</Link>
         </div>
       </div>
     </>

@@ -22,19 +22,19 @@ export default function BenchmarkPage() {
           ← barkcli
         </Link>
 
-        <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mt-10 mb-4">
+        <p className="text-[#38bdf8] text-xs font-mono font-semibold tracking-widest uppercase mt-10 mb-4">
           Interactive · paste your own numbers
         </p>
         <h1 className="text-4xl sm:text-5xl font-bold tracking-tight leading-tight">
           One file instead of
           <br />
-          <span className="bg-gradient-to-r from-[#B8845C] to-[#D4A574] bg-clip-text text-transparent">twenty-nine thousand tokens.</span>
+          <span className="bg-gradient-to-r from-[#38bdf8] to-[#93c5fd] bg-clip-text text-transparent">twenty-nine thousand tokens.</span>
         </h1>
         <p className="text-white/50 text-sm leading-relaxed mt-5 max-w-2xl">
           Every cold agent session starts the same way: <em>list</em> the repo to find where work
           lives, <em>search</em> for active tasks, <em>read</em> candidate files to reconstruct
           state — before the first real edit. barkcli&apos;s auto-maintained{" "}
-          <code className="text-[#D4A574]">project_context.md</code> is that state, compiled,
+          <code className="text-[#93c5fd]">project_context.md</code> is that state, compiled,
           verified against git, and ~515 tokens. The page below is the measurement.
         </p>
 
@@ -47,7 +47,7 @@ export default function BenchmarkPage() {
             { n: "57.1×", label: "smaller" },
           ].map((s) => (
             <div key={s.label} className="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
-              <div className="text-2xl sm:text-3xl font-bold text-[#B8845C] font-mono">{s.n}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-[#38bdf8] font-mono">{s.n}</div>
               <div className="text-white/40 text-xs mt-1">{s.label}</div>
             </div>
           ))}
@@ -65,15 +65,15 @@ export default function BenchmarkPage() {
             <div key={b.step} className="bg-white/[0.02] border border-white/10 rounded-2xl p-5">
               <div className="flex items-baseline justify-between gap-4">
                 <div className="text-sm font-semibold">{b.step}</div>
-                <div className="text-[#B8845C] font-mono text-sm shrink-0">~{b.cold.toLocaleString()} tk</div>
+                <div className="text-[#38bdf8] font-mono text-sm shrink-0">~{b.cold.toLocaleString()} tk</div>
               </div>
               <p className="text-white/40 text-xs mt-1 leading-relaxed">{b.detail}</p>
             </div>
           ))}
-          <div className="bg-[#B8845C]/[0.06] border border-[#B8845C]/20 rounded-2xl p-5">
+          <div className="bg-[#38bdf8]/[0.06] border border-[#38bdf8]/20 rounded-2xl p-5">
             <div className="flex items-baseline justify-between gap-4">
               <div className="text-sm font-semibold">One read of project_context.md</div>
-              <div className="text-[#D4A574] font-mono text-sm shrink-0">~515 tk</div>
+              <div className="text-[#93c5fd] font-mono text-sm shrink-0">~515 tk</div>
             </div>
             <p className="text-white/40 text-xs mt-1 leading-relaxed">
               Generated, staleness-checked, and reconciled against git by <code>barkcli context digest</code> /
@@ -124,7 +124,7 @@ export default function BenchmarkPage() {
           </Link>
           <Link
             href="/docs"
-            className="bg-[#B8845C] hover:bg-[#C79465] rounded-full px-5 py-2.5 text-xs font-mono text-white transition-colors"
+            className="bg-[#38bdf8] hover:bg-[#C79465] rounded-full px-5 py-2.5 text-xs font-mono text-white transition-colors"
           >
             read the docs →
           </Link>

@@ -8,7 +8,7 @@ export const alt =
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const BROWN = "#B8845C";
+const BROWN = "#38bdf8";
 
 function DogFace({ size: s, color = BROWN }: { size: number; color?: string }) {
   const strokeWidth = 5.5 * (s / 100);
