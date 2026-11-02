@@ -1055,6 +1055,20 @@ export function ThreadPane({
                                       Acceptance: {child.acceptance_criteria.join(" · ")}
                                     </p>
                                   )}
+                                {(child.test_command || child.target_files?.length > 0) && (
+                                  <div className="mt-1 flex items-center gap-2 flex-wrap">
+                                    {child.test_command && (
+                                      <span className="font-mono text-[9px] bg-accent-soft text-accent-text px-1.5 py-0.2 rounded border border-accent/20">
+                                        Gate: {child.test_command}
+                                      </span>
+                                    )}
+                                    {child.target_files?.map((f: string) => (
+                                      <span key={f} className="font-mono text-[9px] bg-surface text-muted px-1 py-0.2 rounded border border-border">
+                                        {f}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                               {child.priority && (
                                 <span className="self-center font-mono text-[9px] uppercase px-1.5 py-0.5 rounded bg-surface text-muted/70 font-semibold">

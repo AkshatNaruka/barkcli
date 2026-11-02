@@ -112,6 +112,8 @@ pub struct PlanTask {
     #[serde(default)]
     pub gate_passed: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub test_command: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
 
@@ -136,6 +138,7 @@ impl PlanTask {
             worktree: None,
             previous_run_ids: Vec::new(),
             gate_passed: false,
+            test_command: None,
             error: None,
         }
     }

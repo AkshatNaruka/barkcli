@@ -26,6 +26,27 @@ pub struct CardSpec {
     pub acceptance_criteria: Vec<String>,
     pub dependencies: Vec<String>,
     pub area: Option<String>,
+    #[serde(default)]
+    pub test_command: Option<String>,
+    #[serde(default)]
+    pub target_files: Vec<String>,
+}
+
+impl CardSpec {
+    pub fn new(title: impl Into<String>, description: impl Into<String>, priority: impl Into<String>) -> Self {
+        Self {
+            title: title.into(),
+            description: description.into(),
+            priority: priority.into(),
+            labels: Vec::new(),
+            effort: None,
+            acceptance_criteria: Vec::new(),
+            dependencies: Vec::new(),
+            area: None,
+            test_command: None,
+            target_files: Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -129,6 +150,8 @@ fn decompose_as_scrum_master(
                 acceptance_criteria: vec![ac.clone()],
                 dependencies: Vec::new(),
                 area: card.area.clone(),
+                test_command: None,
+                target_files: Vec::new(),
             });
         }
     } else {
@@ -142,6 +165,8 @@ fn decompose_as_scrum_master(
             acceptance_criteria: vec!["Feature works as described".to_string()],
             dependencies: Vec::new(),
             area: card.area.clone(),
+            test_command: None,
+            target_files: Vec::new(),
         });
 
         child_cards.push(CardSpec {
@@ -153,6 +178,8 @@ fn decompose_as_scrum_master(
             acceptance_criteria: vec!["Tests pass and cover main scenarios".to_string()],
             dependencies: vec![format!("{} - Implementation", card.title)],
             area: card.area.clone(),
+            test_command: None,
+            target_files: Vec::new(),
         });
 
         child_cards.push(CardSpec {
@@ -164,6 +191,8 @@ fn decompose_as_scrum_master(
             acceptance_criteria: vec!["Documentation is clear and complete".to_string()],
             dependencies: vec![format!("{} - Implementation", card.title)],
             area: card.area.clone(),
+            test_command: None,
+            target_files: Vec::new(),
         });
     }
 
@@ -201,6 +230,8 @@ fn decompose_as_product_owner(
         ],
         dependencies: Vec::new(),
         area: card.area.clone(),
+        test_command: None,
+        target_files: Vec::new(),
     });
 
     child_cards.push(CardSpec {
@@ -212,6 +243,8 @@ fn decompose_as_product_owner(
         acceptance_criteria: vec!["UX is smooth and intuitive".to_string()],
         dependencies: vec![format!("{} - MVP", card.title)],
         area: card.area.clone(),
+        test_command: None,
+        target_files: Vec::new(),
     });
 
     let estimated_effort = child_cards.iter().filter_map(|c| c.effort).sum();
@@ -245,6 +278,8 @@ fn decompose_as_tech_lead(
         acceptance_criteria: vec!["Design is reviewed and approved".to_string()],
         dependencies: Vec::new(),
         area: card.area.clone(),
+        test_command: None,
+        target_files: Vec::new(),
     });
 
     child_cards.push(CardSpec {
@@ -256,6 +291,8 @@ fn decompose_as_tech_lead(
         acceptance_criteria: vec!["API works correctly".to_string()],
         dependencies: vec![format!("{} - Design", card.title)],
         area: Some("backend".to_string()),
+        test_command: None,
+        target_files: Vec::new(),
     });
 
     child_cards.push(CardSpec {
@@ -267,6 +304,8 @@ fn decompose_as_tech_lead(
         acceptance_criteria: vec!["UI matches design".to_string()],
         dependencies: vec![format!("{} - Design", card.title)],
         area: Some("frontend".to_string()),
+        test_command: None,
+        target_files: Vec::new(),
     });
 
     child_cards.push(CardSpec {
@@ -281,6 +320,8 @@ fn decompose_as_tech_lead(
             format!("{} - Frontend", card.title),
         ],
         area: card.area.clone(),
+        test_command: None,
+        target_files: Vec::new(),
     });
 
     let estimated_effort = child_cards.iter().filter_map(|c| c.effort).sum();
@@ -314,6 +355,8 @@ fn decompose_as_project_manager(
         acceptance_criteria: vec!["Requirements are clear and complete".to_string()],
         dependencies: Vec::new(),
         area: card.area.clone(),
+        test_command: None,
+        target_files: Vec::new(),
     });
 
     child_cards.push(CardSpec {
@@ -325,6 +368,8 @@ fn decompose_as_project_manager(
         acceptance_criteria: vec!["Feature is implemented".to_string()],
         dependencies: vec![format!("{} - Analysis", card.title)],
         area: card.area.clone(),
+        test_command: None,
+        target_files: Vec::new(),
     });
 
     child_cards.push(CardSpec {
@@ -336,6 +381,8 @@ fn decompose_as_project_manager(
         acceptance_criteria: vec!["Code is reviewed and approved".to_string()],
         dependencies: vec![format!("{} - Development", card.title)],
         area: card.area.clone(),
+        test_command: None,
+        target_files: Vec::new(),
     });
 
     child_cards.push(CardSpec {
@@ -347,6 +394,8 @@ fn decompose_as_project_manager(
         acceptance_criteria: vec!["Feature is deployed and verified".to_string()],
         dependencies: vec![format!("{} - Review", card.title)],
         area: card.area.clone(),
+        test_command: None,
+        target_files: Vec::new(),
     });
 
     let estimated_effort = child_cards.iter().filter_map(|c| c.effort).sum();
