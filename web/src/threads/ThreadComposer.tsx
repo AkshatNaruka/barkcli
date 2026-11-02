@@ -62,6 +62,23 @@ export function ThreadComposer({
 
   return (
     <div className="thread-composer-wrap">
+      {!value.trim() && !active && !busy && (
+        <div className="composer-suggestions-bar" aria-label="Suggested prompts">
+          {SUGGESTIONS[mode]?.map((suggestion) => (
+            <button
+              key={suggestion}
+              type="button"
+              className="suggestion-chip"
+              onClick={() => {
+                onChange(suggestion);
+                textarea.current?.focus();
+              }}
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
+      )}
       <form
         className="thread-composer"
         onSubmit={(event) => {
@@ -86,32 +103,14 @@ export function ThreadComposer({
           onKeyDown={(event) => {
             if (
               !event.nativeEvent.isComposing &&
-              event.key === "Enter" &&
-              !event.shiftKey
+              ((event.key === "Enter" && !event.shiftKey) ||
+                (event.key === "Enter" && (event.metaKey || event.ctrlKey)))
             ) {
               event.preventDefault();
               if (!busy && !active && value.trim()) onSubmit();
             }
           }}
         />
-
-        {!value.trim() && !active && !busy && (
-          <div className="composer-suggestions" aria-label="Suggested prompts">
-            {SUGGESTIONS[mode]?.map((suggestion) => (
-              <button
-                key={suggestion}
-                type="button"
-                className="suggestion-chip"
-                onClick={() => {
-                  onChange(suggestion);
-                  textarea.current?.focus();
-                }}
-              >
-                {suggestion}
-              </button>
-            ))}
-          </div>
-        )}
 
         <div className="thread-composer-controls">
           <SelectMenu

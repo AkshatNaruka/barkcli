@@ -47,7 +47,7 @@ function isMessage(event: ThreadEvent): boolean {
 }
 
 /** Render provider replies as readable prose and code without raw HTML or remote images. */
-function Prose({ text }: { text: string }) {
+function Prose({ text, onRunCommand }: { text: string; onRunCommand?: (cmd: string) => void }) {
   return (
     <div className="chat-prose">
       <ReactMarkdown
@@ -62,7 +62,9 @@ function Prose({ text }: { text: string }) {
             </a>
           ),
           pre: ({ node, children, ...props }) => (
-            <CodeBlock {...props}>{children}</CodeBlock>
+            <CodeBlock onRun={onRunCommand} {...props}>
+              {children}
+            </CodeBlock>
           ),
           code: ({ node, className, children, ...props }) => {
             const isInline = !className;
@@ -96,6 +98,90 @@ function EventTime({ iso }: { iso: string }) {
     >
       {relativeTime(iso)}
     </time>
+  );
+}
+
+function splitThinkingContent(text: string): { thinking: string | null; body: string } {
+  const match = /<think(?:ing)?>([\s\S]*?)(?:<\/think(?:ing)?>|$)/i.exec(text);
+  if (!match) return { thinking: null, body: text };
+  const thinking = match[1].trim();
+  const body = text.replace(/<think(?:ing)?>[\s\S]*?(?:<\/think(?:ing)?>|$)/i, "").trim();
+  return { thinking: thinking || null, body };
+}
+
+function UserMessageCard({
+  event,
+  copied,
+  onCopy,
+  onReuse,
+}: {
+  event: ThreadEvent;
+  copied: boolean;
+  onCopy: () => void;
+  onReuse: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = event.text.length > 500 || event.text.split("\n").length > 7;
+
+  let displayText = event.text;
+  if (isLong && !expanded) {
+    const lines = event.text.split("\n");
+    if (lines.length > 7) {
+      displayText = lines.slice(0, 6).join("\n") + "…";
+    } else {
+      displayText = event.text.slice(0, 400) + "…";
+    }
+  }
+
+  return (
+    <article
+      key={`${event.id}:${event.seq}`}
+      className="chat-message chat-message-user group"
+      aria-label="Your message"
+    >
+      <div className="chat-user-header">
+        <span className="chat-user-author">You</span>
+        <div className="chat-user-actions">
+          <button
+            type="button"
+            onClick={onReuse}
+            className="chat-action-btn"
+            aria-label="Reuse prompt"
+            title="Reuse in composer"
+          >
+            <Icon name="pencil" size={11} />
+            <span>Reuse</span>
+          </button>
+          <button
+            type="button"
+            onClick={onCopy}
+            className="chat-action-btn"
+            aria-label="Copy prompt"
+            title="Copy prompt"
+          >
+            <Icon name={copied ? "check" : "copy"} size={11} />
+            <span>{copied ? "Copied" : "Copy"}</span>
+          </button>
+          <span className="chat-message-time">
+            <EventTime iso={event.created_at} />
+          </span>
+        </div>
+      </div>
+      <div className="chat-user-text">
+        {displayText}
+        {isLong && (
+          <div>
+            <button
+              type="button"
+              className="chat-user-toggle"
+              onClick={() => setExpanded((val) => !val)}
+            >
+              {expanded ? "Show less" : "Show more"}
+            </button>
+          </div>
+        )}
+      </div>
+    </article>
   );
 }
 
@@ -732,46 +818,19 @@ export function ThreadPane({
               {displayEvents.map((event) => {
                 if (event.kind === "user") {
                   return (
-                    <article
+                    <UserMessageCard
                       key={`${event.id}:${event.seq}`}
-                      className="chat-message chat-message-user group"
-                      aria-label="Your message"
-                    >
-                      <div className="chat-user-header">
-                        <span className="chat-user-author">You</span>
-                        <div className="chat-user-actions">
-                          <button
-                            type="button"
-                            onClick={() => handleReusePrompt(event.text)}
-                            className="chat-action-btn"
-                            aria-label="Reuse prompt"
-                            title="Reuse in composer"
-                          >
-                            <Icon name="pencil" size={11} />
-                            <span>Reuse</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleCopyText(event.id, event.text)}
-                            className="chat-action-btn"
-                            aria-label="Copy prompt"
-                            title="Copy prompt"
-                          >
-                            <Icon name={copiedId === event.id ? "check" : "copy"} size={11} />
-                            <span>{copiedId === event.id ? "Copied" : "Copy"}</span>
-                          </button>
-                          <span className="chat-message-time">
-                            <EventTime iso={event.created_at} />
-                          </span>
-                        </div>
-                      </div>
-                      <div className="chat-user-text">{event.text}</div>
-                    </article>
+                      event={event}
+                      copied={copiedId === event.id}
+                      onCopy={() => handleCopyText(event.id, event.text)}
+                      onReuse={() => handleReusePrompt(event.text)}
+                    />
                   );
                 }
 
                 if (event.kind === "assistant" || event.kind === "assistant_delta") {
                   const isStreaming = event.kind === "assistant_delta";
+                  const { thinking, body } = splitThinkingContent(event.text);
                   return (
                     <article
                       key={`${event.id}:${event.seq}`}
@@ -810,7 +869,21 @@ export function ThreadPane({
                           </span>
                         </div>
                       </div>
-                      <Prose text={event.text} />
+                      {thinking && (
+                        <details className="chat-thought-block" open={isStreaming}>
+                          <summary className="chat-thought-summary">
+                            <Icon name="spark" size={12} className="text-accent" />
+                            <span>Thought process</span>
+                          </summary>
+                          <div className="chat-thought-content">{thinking}</div>
+                        </details>
+                      )}
+                      <Prose
+                        text={body || (isStreaming ? "" : event.text)}
+                        onRunCommand={(cmd) => {
+                          setInput(cmd);
+                        }}
+                      />
                     </article>
                   );
                 }

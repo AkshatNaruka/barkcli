@@ -41,6 +41,7 @@ import {
   PanelLeft,
   Pencil,
   Pin,
+  Play,
   Plus,
   RefreshCcw,
   RefreshCw,
@@ -55,6 +56,7 @@ import {
   Trash2,
   TriangleAlert,
   Users,
+  WrapText,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -66,7 +68,8 @@ export type IconName =
   | "board" | "panel" | "spark" | "layers" | "cycle" | "code" | "db" | "star"
   | "chevL" | "chevR" | "flag" | "link" | "moon" | "sun" | "monitor"
   | "x" | "users" | "inbox" | "arrowUp" | "arrowFlat" | "arrowDown"
-  | "download" | "palette" | "eye" | "eyeOff" | "plus" | "stop" | "dots" | "grid" | "folder" | "filter" | "branch" | "terminal" | "list" | "sliders" | "grip";
+  | "download" | "palette" | "eye" | "eyeOff" | "plus" | "stop" | "dots" | "grid" | "folder" | "filter" | "branch" | "terminal" | "list" | "sliders" | "grip"
+  | "play" | "wrap";
 
 const GLYPHS: Record<IconName, LucideIcon> = {
   search: Search,
@@ -125,6 +128,8 @@ const GLYPHS: Record<IconName, LucideIcon> = {
   list: List,
   sliders: SlidersHorizontal,
   grip: GripVertical,
+  play: Play,
+  wrap: WrapText,
 };
 
 /**
