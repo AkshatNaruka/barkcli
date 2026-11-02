@@ -1,75 +1,84 @@
 # Getting Started
 
-Install barkcli, set up a project, and take a tour of the four surfaces: the CLI, the terminal UI, the web app, and the agent layer. This page gets you productive in about five minutes.
+Install barkcli, set up a project, and take a tour of the five surfaces: the CLI, the terminal UI, the web app, the native macOS app, and the autonomous agent layer. This guide gets you productive in under 3 minutes.
 
-## Install
+## 1. Install
 
 ```bash
-# One of these — npm, cargo, or the install script
-npm install -g barkcli
-cargo install barkcli
+# macOS & Linux (recommended one-liner)
 curl -fsSL https://raw.githubusercontent.com/AkshatNaruka/barkcli/main/install.sh | sh
+
+# macOS Desktop App (Bark.app)
+curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install-app.sh | sh
+
+# Via Cargo (Rust 1.75+)
+cargo install barkcli
+
+# Via npm
+npm install -g barkcli
 ```
 
-Requirements: Node.js 18+ (npm), or Rust 1.70+ (cargo), plus **git** if you want code context and History Bundles.
-
-## Set up your first project
+## 2. Set Up Your Repo & Living Context
 
 ```bash
-cd your-project        # any directory; barkcli keeps state in .board/
-barkcli init           # creates .board/ + a default board: todo / doing / review / done
+cd your-project        # any git repository
+barkcli init           # creates .board/, config, and default board
+barkcli context prime  # bootstrap project_context.md living context file
 ```
 
-## Create some work
+## 3. The 60-Second Autonomous Run
+
+Let AI agents work for you with deterministic test acceptance gates:
 
 ```bash
-barkcli add "Fix login redirect" -p high --area web
-barkcli add "Dark mode" -l frontend,ux --effort 3
-barkcli add "Write release notes" -p low --due 2026-11-01
-barkcli list
+# Decompose intent -> spawn 3 parallel worktrees -> test gates -> merge train
+barkcli run "Implement rate limiting middleware and unit tests" --agents 3 --yes
 ```
 
-The core six — all you need most days: `init`, `add`, `list`, `move`, `log`, `undo`.
+- **Isolated Worktrees**: Agents operate on isolated git branches without touching your uncommitted edits.
+- **Acceptance Gate**: barkcli runs your project's test suite inside each worktree.
+- **Merge Train**: Passing branches merge automatically in completion order.
 
+## 4. Pick Your Interface
+
+### The Native macOS App
+Launch `/Applications/Bark.app` for high-performance offline desktop usage.
+
+### The Web App
 ```bash
-barkcli list doing                # cards currently in doing (-c, -l, -a filters)
-barkcli move <id> in-progress     # push a card to a later column
-barkcli done <id>                 # mark a card done
-barkcli link <id> <target> --as parent   # child / parent / related / blocked-by
-barkcli tree                      # render the parent → child tree
-barkcli today                     # overdue / due-today / next-7-days agenda
-barkcli log                       # who changed what, when
-barkcli undo                      # revert the last change
+barkcli serve --open    # opens http://localhost:4321
 ```
+Kanban with drag-and-drop, dashboards, sprints, specs, collective memory, orchestration, living context editor, and built-in Docs. Live-updates across all browser tabs via WebSockets.
 
-Every mutation is safe by default: YAML writes are atomic and validated. Run `barkcli validate` any time; `barkcli doctor` auto-fixes what it finds.
-
-## Pick your interface
-
-### The web app
-
-```bash
-barkcli serve --open    # http://localhost:4321
-```
-
-Kanban with drag-and-drop, dashboards, sprints, specs, memory, orchestration, and a built-in Docs tab. Live-updates every connected tab through WebSocket. Most people run this all day and drop to the CLI for quick actions.
-
-### The terminal UI
-
+### The Terminal UI (TUI)
 ```bash
 barkcli tui
 ```
+Full-screen `ratatui` terminal interface with vim-style keybindings (`j`/`k`, `h`/`l`). Number keys `1`–`9` switch views: Board, List, Tree, Agenda, Reports, Code, Agents, Orchestrate, History.
 
-A full-screen ratatui app with vim-style navigation (`j`/`k`, `h`/`l`). Number keys `1` to `9` switch tabs: `1` Board, `2` List, `3` Tree, `4` Agenda, `5` Reports, `6` Code, `7` Agents, `8` Orchestrate, `9` History. Press `T` to cycle themes (Dark → Light → Minimal), `/` to filter, `:` for the command palette. See the [TUI guide](/docs/TUI) for the complete shortcut map.
-
-### AI agents / editors
-
+### AI Coding Agents & MCP
 ```bash
-barkcli mcp            # Model Context Protocol server for editors + agents
-barkcli hooks install  # capture sessions from opencode / claude-code
+barkcli mcp            # Model Context Protocol server (76 tools for Claude Code, Cursor, OpenCode)
 ```
 
-Point Claude Code, Cursor, Codex, or any MCP client at `barkcli mcp`. `barkcli intake "bug text"` classifies input into a card + spec, `barkcli plan <card-id>` decomposes it, and `barkcli dispatch` runs the orchestration cycle that assigns queued tasks to registered agents.
+Point Claude Code or Cursor at `barkcli mcp` to let agents read tasks, claim work, inspect memory gotchas, and report status.
+
+## 5. Everyday CLI Commands
+
+```bash
+barkcli add "Fix login redirect" -p high --area web
+barkcli list doing                # filter cards
+barkcli move <id> in-progress     # advance column
+barkcli guard                     # deterministic pre-merge security & test scan
+barkcli receipt show <id>         # audit cryptographic execution proof
+barkcli done <id>                 # mark card done
+barkcli undo                      # rollback last mutation
+```
+
+## 6. Living Context & Memory
+
+- `barkcli context digest` — refreshes `project_context.md` with git changes, board status, and symbols.
+- `barkcli memory add "gotcha: always run migrations before tests"` — stores cross-session knowledge in persistent long-term memory.
 
 ## Add History Bundles (optional, one command)
 

@@ -49,12 +49,15 @@ You decide *what* gets built. Agents propose plans, do the work, and report back
 
 ## Why barkcli?
 
-Intent in, plans out. barkcli is the management layer for AI agents: humans write intent, agents propose plans, each agent works in an isolated git worktree, your tests are the acceptance gate, and only passing branches merge. Tasks, specs, memory, skills, and agent runs live in your repo — no cloud, no accounts, no subscriptions.
+Intent in, plans out. barkcli is **the management layer for AI agents**: humans write intent, agents propose plans, each agent works in an isolated git worktree, your tests are the acceptance gate, and only passing branches merge. Tasks, specs, memory, skills, and agent runs live in your repo — no cloud, no accounts, no subscriptions.
 
-- **Tasks are files.** Boards are plain YAML committed to your repo. Diff them, merge them, grep them, roll them back — exactly like code.
-- **One binary, five interfaces.** CLI, terminal UI (ratatui), web app (axum), macOS app (Tauri), and a VS Code Custom Editor. Same data, every surface.
-- **AI agents in the loop.** 76 MCP tools let Claude Code, OpenCode, and Cursor read tasks, claim work, and update progress — with full project context.
-- **Local-first, free core.** No accounts, no subscriptions to use it. Works fully offline. MIT licensed — your data never leaves your machine. A hosted team layer (multiplayer, cloud sync, analytics) is planned at $99/month per team.
+| Serial Terminal CLIs (Claude Code, OpenCode, Codex) | barkcli Management Layer |
+|---|---|
+| **Single Working Tree**: Agents mutate your current uncommitted files directly, causing dirty diffs, conflicts, and state contamination. | **Isolated Git Worktrees**: Every agent attempt runs inside an isolated `.worktrees/` sandbox. Your active working tree remains untouched. |
+| **Self-Reported Success**: "I have fixed the issue" (often hallucinated or untested). | **Acceptance Gate as True Contract**: Done = project tests pass in the worktree (`cargo test`, `pytest`, `npm test`). No pass = no merge. |
+| **Serial Babysitting**: Runs one task at a time; you wait in a terminal loop. | **Parallel Pool & Merge Train**: `--agents N` spawns parallel worktrees. Passing branches merge in order; conflicted branches re-run solo. |
+| **Context Amnesia**: Every new chat window starts from scratch or drowns in 100k+ token dumps. | **Living Context & 4-Tier Memory**: Self-healing `project_context.md` + long-term gotchas and conventions persist across agent sessions. |
+| **Zero Audit Trail**: Cloud blackbox or lost scrollback. | **Deterministic Trust Layer**: `barkcli guard` scans for leaked secrets and hazardous patterns; SHA-256 receipts verify exactly what shipped. |
 
 ---
 
@@ -188,27 +191,44 @@ Download prebuilt binaries for macOS (Intel + Apple Silicon), Linux, and Windows
 
 ## Quick Start
 
+### 1. Zero to Autonomous Merge in 60 Seconds
+
 ```bash
-# 1. Init once per project (creates .board/, git hooks, spec sync, context autosync)
+# 1. Initialize in any Git repo (sets up .board/, config, and context engine)
 barkcli init
 
-# 2. Create a board
-barkcli create my-project
+# 2. Prime the living context file (reads code, architecture, and git facts)
+barkcli context prime
 
-# 3. Add tasks (board-agnostic by default)
-barkcli add "Fix login bug" -p high
-barkcli add "Write E2E tests" -l backend
-
-# 4. Work the board
-barkcli list              # see all tasks
-barkcli move fix-login-bug doing
-barkcli done fix-login-bug
-
-# 5. Open the web app (also daemon-safe: --open, --daemon, --stop)
-barkcli serve --open
+# 3. Autonomous run: high-level intent -> worktrees -> test gates -> merge train
+barkcli run "Add JWT auth with rate limiting and Argon2 password hashing" --agents 3 --yes
 ```
 
-That's it. Your tasks are now YAML files in `.board/` — commit them and they're version controlled.
+### 2. Interactive Management (Web, Desktop & Terminal)
+
+```bash
+# Launch browser app with live-reload WebSocket
+barkcli serve --open
+
+# Or launch as background daemon
+barkcli serve --daemon
+
+# Launch terminal TUI
+barkcli tui
+```
+
+### 3. Everyday Developer CLI Workflow
+
+```bash
+barkcli add "Fix login bug" -p high -l auth
+barkcli list
+barkcli move fix-login-bug doing
+barkcli guard                        # Deterministic security & test gate check
+barkcli receipt show fix-login-bug   # Cryptographic execution proof
+barkcli done fix-login-bug
+```
+
+That's it. Your tasks are plain YAML in `.board/` — committed and version-controlled with zero external cloud lock-in.
 
 ---
 

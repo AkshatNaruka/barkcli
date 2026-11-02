@@ -9,6 +9,23 @@ Thanks for helping make barkcli better — whether you're shipping code, writing
 - **Design** — the web app follows a written design system ([`DESIGN.md`](DESIGN.md)); visual PRs should reference its tokens
 - **Ideas & bugs** — [issues](https://github.com/AkshatNaruka/barkcli/issues) and [discussions](https://github.com/AkshatNaruka/barkcli/discussions)
 
+## Dogfooding barkcli: Autonomous Agent & Human Collaboration
+
+We use `barkcli` to develop `barkcli`! All tasks and roadmap items live in `dev.board`.
+
+### Working with Autonomous Agents
+You can use `barkcli run` to contribute features or bug fixes in isolated worktrees:
+```bash
+# Pick a task or intent, spawn an agent in a worktree, run the test gate
+barkcli run "fix(tui): handle window resize gracefully in board view" --yes
+```
+
+### Finding Something to Work On
+Look for issue tags in our repository:
+- `good-first-issue`: Starter tasks ideal for newcomers (clear scope, isolated files).
+- `help-wanted`: High-impact features, TUI improvements, or web view enhancements.
+- `agent-ready`: Pre-scoped with test acceptance commands and target files, perfect for running through `barkcli run`.
+
 ## Getting started
 
 Prerequisites: **Rust 1.75+** (`rustup`), **Node 20+**.
