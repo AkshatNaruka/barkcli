@@ -1,5 +1,5 @@
 use anyhow::Result;
-use comfy_table::Cell;
+use comfy_table::{Cell, Color};
 
 use crate::skills::{install, lock, publish, SkillRegistry};
 use crate::util::{display, style};
@@ -28,7 +28,7 @@ fn run_list(_args: &[String]) -> Result<()> {
     t.set_header(display::header(vec!["ID", "Name", "Source", "Triggers"]));
     for s in reg.list() {
         t.add_row(vec![
-            Cell::new(style::accent(&s.id)),
+            Cell::new(&s.id).fg(Color::Cyan),
             Cell::new(&s.name),
             Cell::new(s.source.to_string()),
             Cell::new(s.triggers.join(", ")),
@@ -73,10 +73,10 @@ fn run_remote(args: &[String]) -> Result<()> {
     t.set_header(display::header(vec!["ID", "Name", "Category", "License", "Author", "Triggers / Tags"]));
     for s in &remote {
         t.add_row(vec![
-            Cell::new(style::accent(&s.id)),
+            Cell::new(&s.id).fg(Color::Cyan),
             Cell::new(&s.name),
             Cell::new(&s.category),
-            Cell::new(style::ok(&s.license)),
+            Cell::new(&s.license).fg(Color::Green),
             Cell::new(&s.author),
             Cell::new(s.tags.join(", ")),
         ]);

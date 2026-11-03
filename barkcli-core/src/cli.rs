@@ -128,9 +128,19 @@ fn dispatch(cmd: &str, cmd_args: &[String]) -> Result<()> {
         "overview" => commands::overview::run_overview(cmd_args)?,
         "skills" | "skill" => commands::skills::run_skills(cmd_args)?,
         "tools" | "toolchain" => commands::toolchain::run_tools(cmd_args)?,
+        "providers" | "probe" => commands::providers::run_providers(cmd_args)?,
         "dispatch" => {
             // Alias to orchestrate cycle via agent engine
-            let board_name = resolve_board(None)?;
+            let mut board_arg = None;
+            let mut i = 0;
+            while i < cmd_args.len() {
+                if (cmd_args[i] == "--board" || cmd_args[i] == "-b") && i + 1 < cmd_args.len() {
+                    board_arg = Some(cmd_args[i + 1].as_str());
+                    break;
+                }
+                i += 1;
+            }
+            let board_name = resolve_board(board_arg)?;
             let board = crate::storage::board_file::read_board(&board_name)?;
             let mut eng = crate::agent::OrchestrationEngine::new(&board_name, crate::agent::AgentRole::ScrumMaster, board)?;
             let res = eng.run_cycle()?;

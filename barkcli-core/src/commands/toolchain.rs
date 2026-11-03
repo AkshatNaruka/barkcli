@@ -1,5 +1,5 @@
 use anyhow::Result;
-use comfy_table::Cell;
+use comfy_table::{Cell, Color};
 
 use crate::agent::toolchain::get_toolchain_packages;
 use crate::util::{display, style};
@@ -12,9 +12,9 @@ pub fn run_tools(_args: &[String]) -> Result<()> {
 
     for p in &pkgs {
         let status_cell = if p.installed {
-            Cell::new(style::ok("Installed"))
+            Cell::new("Installed").fg(Color::Green)
         } else {
-            Cell::new(style::warn("Not Found"))
+            Cell::new("Not Found").fg(Color::Yellow)
         };
 
         let ver_or_path = match (&p.version, &p.binary_path) {
@@ -30,7 +30,7 @@ pub fn run_tools(_args: &[String]) -> Result<()> {
         };
 
         t.add_row(vec![
-            Cell::new(style::accent(&p.name)),
+            Cell::new(&p.name),
             Cell::new(role_str),
             status_cell,
             Cell::new(ver_or_path),

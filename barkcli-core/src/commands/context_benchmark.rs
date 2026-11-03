@@ -230,7 +230,7 @@ fn walk_listing(root: &Path, depth: usize, notes: &mut Vec<String>) -> Vec<(Stri
             }
             if e.file_type().is_dir() {
                 let name = e.file_name().to_string_lossy();
-                return !index::SKIP_DIRS.contains(&name.as_ref());
+                return !index::is_dir_skipped(&name);
             }
             true
         });

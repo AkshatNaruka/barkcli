@@ -52,7 +52,9 @@ pub fn parse_every(value: &str) -> Result<u64> {
     if value.is_empty() {
         bail!("schedule interval is required");
     }
-    let (number, multiplier) = if value.ends_with('h') {
+    let (number, multiplier) = if value.ends_with('d') {
+        (&value[..value.len() - 1], 86400u64)
+    } else if value.ends_with('h') {
         (&value[..value.len() - 1], 3600u64)
     } else if value.ends_with('m') {
         (&value[..value.len() - 1], 60u64)

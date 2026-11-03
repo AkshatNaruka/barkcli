@@ -60,20 +60,24 @@ pub fn resolve_board(board_arg: Option<&str>) -> Result<String> {
         return Ok(name.to_string());
     }
 
+    let board_dir = find_board_dir()?;
     let def = default_board_name()?;
     if let Some(name) = def {
-        return Ok(name);
+        if crate::storage::board_file::board_exists(&name) {
+            return Ok(name);
+        }
     }
 
     let boards = list_board_files()?;
-    if boards.len() == 1 {
-        return Ok(boards[0].clone());
-    }
     if boards.is_empty() {
         bail!("No boards found. Run `barkcli init` first.");
     }
-    bail!(
-        "No default board set. Choose one: barkcli switch <name>\nAvailable: {}",
-        boards.join(", ")
-    );
+
+    // Auto-heal default_board to the first existing board file
+    let chosen = boards[0].clone();
+    let mut config = read_config(&board_dir).unwrap_or_default();
+    config.default_board = Some(chosen.clone());
+    let _ = write_config(&board_dir, &config);
+
+    Ok(chosen)
 }

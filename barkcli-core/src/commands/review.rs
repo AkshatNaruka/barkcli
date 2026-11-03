@@ -235,19 +235,9 @@ fn find_board(args: &[String]) -> Result<String> {
     let mut i = 0;
     while i < args.len() {
         if (args[i] == "--board" || args[i] == "-b") && i + 1 < args.len() {
-            return Ok(args[i + 1].clone());
+            return crate::commands::boards::resolve_board(Some(&args[i + 1]));
         }
         i += 1;
     }
-    let board_dir = crate::storage::board_dir::find_board_dir()?;
-    let config = crate::storage::config_store::read_config(&board_dir)?;
-    config.default_board
-        .or_else(|| {
-            let root = board_dir.parent()?;
-            std::fs::read_dir(root).ok()?
-                .filter_map(|e| e.ok())
-                .find(|e| e.path().extension().map(|ext| ext == "board").unwrap_or(false))
-                .map(|e| e.path().file_stem().unwrap_or_default().to_string_lossy().to_string())
-        })
-        .ok_or_else(|| anyhow::anyhow!("No boards found"))
+    crate::commands::boards::resolve_board(None)
 }

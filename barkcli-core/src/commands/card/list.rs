@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use comfy_table::Cell;
+use comfy_table::{Cell, Color};
 
 use crate::storage::board_file::read_board;
 use crate::util::{display, style};
@@ -47,12 +47,24 @@ pub fn run(name: &str, args: &[String]) -> Result<()> {
     let mut t = display::table();
     t.set_header(display::header(vec!["ID", "Title", "Column", "Priority", "Labels"]));
     for card in &cards {
+        let priority_cell = match card.priority.as_str() {
+            "high" | "critical" => Cell::new(&card.priority).fg(Color::Red),
+            "medium" => Cell::new(&card.priority).fg(Color::Yellow),
+            "low" => Cell::new(&card.priority).fg(Color::DarkGrey),
+            _ => Cell::new(&card.priority),
+        };
+        let column_cell = match card.column.as_str() {
+            "done" | "completed" => Cell::new(&card.column).fg(Color::Green),
+            "doing" | "in-progress" => Cell::new(&card.column).fg(Color::Yellow),
+            _ => Cell::new(&card.column),
+        };
+
         t.add_row(vec![
-            Cell::new(style::muted(&card.id)),
+            Cell::new(&card.id),
             Cell::new(style::title(&card.title, card.pinned)),
-            Cell::new(style::column(&card.column)),
-            Cell::new(style::priority(&card.priority)),
-            Cell::new(style::muted(&card.labels.join(", "))),
+            column_cell,
+            priority_cell,
+            Cell::new(&card.labels.join(", ")),
         ]);
     }
     println!("{t}");

@@ -1,6 +1,5 @@
 use comfy_table::presets::UTF8_FULL;
 use comfy_table::{Attribute, Cell, ContentArrangement, Table};
-use crate::util::style;
 
 /// Professional table factory — UTF8 borders, dynamic layout, styled headers.
 pub fn table() -> Table {
@@ -11,9 +10,9 @@ pub fn table() -> Table {
     t
 }
 
-/// Styled header row — bold + accent colored.
+/// Styled header row — bold.
 pub fn header(cols: Vec<&str>) -> Vec<Cell> {
     cols.into_iter()
-        .map(|c| Cell::new(style::accent(c)).add_attributes(vec![Attribute::Bold]))
+        .map(|c| Cell::new(c).add_attribute(Attribute::Bold))
         .collect()
 }

@@ -32,6 +32,7 @@ pub mod monitor;
 pub mod overview;
 pub mod plan;
 pub mod prime;
+pub mod providers;
 pub mod ready;
 pub mod rules;
 pub mod receipt;

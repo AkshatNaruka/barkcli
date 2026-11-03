@@ -103,21 +103,12 @@ pub fn run_overview(args: &[String]) -> Result<()> {
 }
 
 fn find_board(args: &[String]) -> Result<String> {
-    use crate::storage::board_file::list_board_files;
     let mut i = 0;
     while i < args.len() {
         if (args[i] == "--board" || args[i] == "-b") && i + 1 < args.len() {
-            return Ok(args[i + 1].clone());
+            return crate::commands::boards::resolve_board(Some(&args[i + 1]));
         }
         i += 1;
     }
-    let board_dir = crate::storage::board_dir::find_board_dir()?;
-    let cfg = crate::storage::config_store::read_config(&board_dir)?;
-    cfg.default_board
-        .or_else(|| {
-            let root = board_dir.parent()?;
-            std::fs::read_dir(root).ok()?.filter_map(|e| e.ok()).find(|e| e.path().extension().map(|ext| ext == "board").unwrap_or(false)).map(|e| e.path().file_stem().unwrap_or_default().to_string_lossy().to_string())
-        })
-        .or_else(|| list_board_files().ok().and_then(|v| v.first().cloned()))
-        .ok_or_else(|| anyhow::anyhow!("No boards found"))
+    crate::commands::boards::resolve_board(None)
 }

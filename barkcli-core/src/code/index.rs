@@ -37,8 +37,15 @@ pub const SOURCE_EXTS: &[&str] = &[
 pub const SKIP_DIRS: &[&str] = &[
     ".git", ".board", "target", "node_modules", "dist", "build", ".next", "out", "vendor",
     ".venv", "venv", "__pycache__", ".claude", ".opencode", ".vscode", "coverage", ".gradle",
-    ".idea", ".build", ".swiftpm", ".dart_tool", "Pods",
+    ".idea", ".build", ".swiftpm", ".dart_tool", "Pods", "ref",
 ];
+
+pub fn is_dir_skipped(name: &str) -> bool {
+    SKIP_DIRS.contains(&name)
+        || name.starts_with("target")
+        || name.starts_with('.')
+        || name == "ref"
+}
 
 /// Extensions searchable/readable by the token benchmark (source + docs;
 /// HTML page content excluded — agents don't source-hunt in page output).
@@ -70,6 +77,16 @@ pub(crate) fn ignored_by_gitignore(path: &Path, ignores: &[String]) -> bool {
         } else if let Some(stripped) = core.strip_prefix("**/") {
             if rel.ends_with(&format!("/{}", stripped)) || rel == stripped {
                 m = true;
+            }
+        } else if let Some(suffix) = core.strip_prefix('*') {
+            if !suffix.contains('*') {
+                if rel.ends_with(suffix) || name.ends_with(suffix) {
+                    return true;
+                }
+            } else if let Ok(re) = glob_to_regex(core) {
+                if re.is_match(&rel) || re.is_match(&name) {
+                    return true;
+                }
             }
         } else if core.contains('*') {
             let re = glob_to_regex(core);
@@ -134,7 +151,7 @@ pub(crate) fn load_gitignores(root: &Path) -> Vec<String> {
             }
             if entry.file_type().is_dir() {
                 let name = entry.file_name().to_string_lossy();
-                return !SKIP_DIRS.contains(&name.as_ref());
+                return !is_dir_skipped(&name);
             }
             true
         });
@@ -167,7 +184,7 @@ impl SymbolIndex {
                 }
                 if e.file_type().is_dir() {
                     let name = e.file_name().to_string_lossy();
-                    return !SKIP_DIRS.contains(&name.as_ref());
+                    return !is_dir_skipped(&name);
                 }
                 true
             });
