@@ -107,6 +107,9 @@ pub fn install_from_source(repo_ref: &str, dir: Option<&str>) -> Result<InstallR
         }
         let id = parsed.id;
         let dest = dest_dir.join(format!("{}.md", id));
+        if !dest.starts_with(&dest_dir) {
+            continue;
+        }
         let sha_before = if dest.exists() { file_sha256(&dest).ok() } else { None };
         std::fs::write(&dest, &content)?;
         let sha_after = file_sha256(&dest)?;

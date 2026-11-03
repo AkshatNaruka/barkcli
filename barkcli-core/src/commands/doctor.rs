@@ -35,6 +35,15 @@ pub fn run() -> Result<()> {
         }
     }
 
+    // Diagnose and auto-prune stale worktrees
+    match crate::agent::worktree::prune_stale_worktrees() {
+        Ok(count) if count > 0 => {
+            fixed_any = true;
+            println!("{} pruned {} orphaned/stale worktree(s)", style::ok("Fixed:"), count);
+        }
+        _ => {}
+    }
+
     if fixed_any {
         println!("{}", style::warn("Some files were fixed. Review changes with `git diff`."));
     } else {

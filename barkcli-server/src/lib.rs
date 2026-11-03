@@ -86,9 +86,32 @@ pub async fn run(
         open_browser,
         host,
         token,
-        std::future::pending::<()>(),
+        default_shutdown_signal(),
     )
     .await
+}
+
+async fn default_shutdown_signal() {
+    let ctrl_c = async {
+        let _ = tokio::signal::ctrl_c().await;
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        if let Ok(mut sig) = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+            sig.recv().await;
+        } else {
+            std::future::pending::<()>().await;
+        }
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
 }
 
 /// Same as [`run`], but stops accepting connections when `shutdown` resolves.
@@ -980,35 +1003,66 @@ async fn auth_layer(
         }
     }
 
-    // Same-origin check when exposed on a non-loopback interface.
-    let loopback = state.host == "127.0.0.1" || state.host == "localhost" || state.host == "::1";
-    if !loopback {
-        if let Some(origin) = req.headers().get(header::ORIGIN).and_then(|v| v.to_str().ok()) {
-            let origin_authority = origin
-                .trim_start_matches("https://")
-                .trim_start_matches("http://")
-                .split('/')
-                .next()
-                .unwrap_or("");
-            let host_hdr = req
-                .headers()
-                .get(header::HOST)
-                .and_then(|v| v.to_str().ok())
-                .unwrap_or("");
-            if !origin_authority.is_empty()
-                && !host_hdr.is_empty()
-                && origin_authority != host_hdr
-            {
-                return Err((
-                    StatusCode::FORBIDDEN,
-                    Json(serde_json::json!({"error": "cross-origin request rejected"})),
-                )
-                    .into_response());
-            }
+    // Same-origin check: strictly enforced whenever an Origin header is present
+    // to prevent cross-origin drive-by CSRF / execution from malicious sites targeting localhost.
+    if let Some(origin) = req.headers().get(header::ORIGIN).and_then(|v| v.to_str().ok()) {
+        let origin_authority = origin
+            .trim_start_matches("https://")
+            .trim_start_matches("http://")
+            .split('/')
+            .next()
+            .unwrap_or("");
+        let host_hdr = req
+            .headers()
+            .get(header::HOST)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
+        if !origin_authority.is_empty()
+            && !host_hdr.is_empty()
+            && !is_allowed_origin(origin_authority, host_hdr, &state.host)
+        {
+            return Err((
+                StatusCode::FORBIDDEN,
+                Json(serde_json::json!({"error": "cross-origin request rejected"})),
+            )
+                .into_response());
         }
     }
 
     Ok(next.run(req).await)
+}
+
+fn is_allowed_origin(origin_authority: &str, host_hdr: &str, server_host: &str) -> bool {
+    if origin_authority.is_empty() || host_hdr.is_empty() {
+        return false;
+    }
+    if origin_authority == host_hdr {
+        return true;
+    }
+    let (orig_host, orig_port) = split_host_port(origin_authority);
+    let (hdr_host, hdr_port) = split_host_port(host_hdr);
+
+    if orig_host == server_host && orig_port == hdr_port {
+        return true;
+    }
+
+    // Allow loopback host aliases with the same port (e.g. localhost:4321 and 127.0.0.1:4321)
+    let is_orig_loopback = orig_host == "localhost" || orig_host == "127.0.0.1" || orig_host == "::1" || orig_host == "[::1]";
+    let is_hdr_loopback = hdr_host == "localhost" || hdr_host == "127.0.0.1" || hdr_host == "::1" || hdr_host == "[::1]";
+
+    if is_orig_loopback && is_hdr_loopback {
+        return orig_port == hdr_port;
+    }
+
+    false
+}
+
+fn split_host_port(authority: &str) -> (&str, Option<&str>) {
+    if let Some((h, p)) = authority.rsplit_once(':') {
+        (h, Some(p))
+    } else {
+        (authority, None)
+    }
 }
 
 fn const_eq(a: &str, b: &str) -> bool {
@@ -1043,13 +1097,20 @@ fn percent_decode(s: &str) -> String {
 }
 
 /// Validate a board name supplied by the client. Blocks path traversal
-/// (`../`, absolute paths, null bytes) by only allowing safe characters.
+/// (`../`, absolute paths, leading/trailing dots, null bytes) by only allowing safe identifiers.
 fn sanitize_name(name: &str) -> Result<String, ServerError> {
+    let name = name.trim();
     if name.is_empty() {
         return Err(ServerError::bad("board name is empty"));
     }
     if name.len() > 64 {
         return Err(ServerError::bad("board name too long (max 64 chars)"));
+    }
+    if name.contains("..") || name.starts_with('.') || name.ends_with('.') || name.contains('/') || name.contains('\\') {
+        return Err(ServerError::bad(format!(
+            "invalid board name '{}': path traversal sequences and leading/trailing dots are not allowed",
+            name
+        )));
     }
     if !name
         .chars()
@@ -1809,9 +1870,19 @@ async fn handle_socket(socket: WebSocket, tx: broadcast::Sender<String>) {
     let recv_task = tokio::spawn(async move {
         while let Some(Ok(_)) = receiver.next().await {}
     });
-    tokio::select! { _ = send_task => {}, _ = recv_task => {} }
+    let mut send_task = send_task;
+    let mut recv_task = recv_task;
+    tokio::select! {
+        _ = &mut send_task => {
+            recv_task.abort();
+        }
+        _ = &mut recv_task => {
+            send_task.abort();
+        }
+    }
 }
 
+#[derive(Debug)]
 struct ServerError {
     message: String,
     status: StatusCode,
@@ -1856,6 +1927,11 @@ async fn watch_board_files(tx: broadcast::Sender<String>, board_name: Option<Str
             Ok(Event { kind: EventKind::Modify(_) | EventKind::Create(_) | EventKind::Remove(_), paths, .. }) => {
                 let mut should_reload = false;
                 for path in &paths {
+                    if let Some(path_str) = path.to_str() {
+                        if path_str.contains(".board/worktrees") || path_str.contains(".board/locks") {
+                            continue;
+                        }
+                    }
                     let ext = path.extension().and_then(|e| e.to_str());
                     // Board files
                     if ext == Some("board") {
@@ -1959,8 +2035,9 @@ fn walk_evidence(dir: &std::path::Path, depth: u8, h: &mut std::collections::has
             .unwrap_or("")
             .to_string();
         // Own artifacts — digest writes these; including them would make the
-        // reconciler chase its own tail.
-        if name.starts_with("context-file.") || name.starts_with("server.") {
+        // reconciler chase its own tail. Exclude worktrees and locks to prevent
+        // traversing build artifacts and ephemeral files.
+        if name == "worktrees" || name == "locks" || name.starts_with("context-file.") || name.starts_with("server.") {
             continue;
         }
         if p.is_dir() {
@@ -7855,6 +7932,46 @@ mod tests {
         assert!(body.is_empty(), "HEAD must not carry a body");
     }
 
+    #[tokio::test]
+    async fn cross_origin_csrf_rejected_on_localhost() {
+        let app = test_router(test_state(None));
+        let req = Request::builder()
+            .method("POST")
+            .uri("/api/config")
+            .header(header::HOST, "localhost:4321")
+            .header(header::ORIGIN, "http://evil.com")
+            .body(axum::body::Body::empty())
+            .unwrap();
+        let res = app.oneshot(req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[tokio::test]
+    async fn loopback_origin_accepted_on_localhost() {
+        let app = test_router(test_state(None));
+        let req = Request::builder()
+            .method("GET")
+            .uri("/api/config")
+            .header(header::HOST, "localhost:4321")
+            .header(header::ORIGIN, "http://127.0.0.1:4321")
+            .body(axum::body::Body::empty())
+            .unwrap();
+        let res = app.oneshot(req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+    }
+
+    #[test]
+    fn sanitize_name_rejects_path_traversal() {
+        assert!(sanitize_name("..").is_err());
+        assert!(sanitize_name(".").is_err());
+        assert!(sanitize_name("../board").is_err());
+        assert!(sanitize_name("board/child").is_err());
+        assert!(sanitize_name(".hidden").is_err());
+        assert!(sanitize_name("trailing.").is_err());
+        assert_eq!(sanitize_name("main").unwrap(), "main");
+        assert_eq!(sanitize_name("my-board_v1").unwrap(), "my-board_v1");
+    }
+
     #[test]
     fn ping_payload_exposes_only_liveness_fields() {
         // No board, config, or filesystem data may appear on the public route.
@@ -8333,7 +8450,7 @@ cards:
 
     #[tokio::test]
     async fn contributions_link_and_ancestry_are_real() {
-        let project = with_temp_project();
+        let _project = with_temp_project();
         let store = barkcli_core::runtime::RuntimeStore::from_project().unwrap();
         let make = |id: &str, author: &str| {
             let mut start = sm_test_start(id);

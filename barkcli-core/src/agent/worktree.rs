@@ -3,6 +3,27 @@ use std::process::Command;
 
 use anyhow::{Context, Result};
 
+pub const MAX_CONCURRENT_WORKTREES: usize = 8;
+
+/// Validate a worktree slug. Rejects path traversal (`..`, `/`, `\`),
+/// leading/trailing dots, empty strings, and non-alphanumeric chars.
+pub fn sanitize_slug(slug: &str) -> Result<String> {
+    let slug = slug.trim();
+    if slug.is_empty() {
+        anyhow::bail!("worktree slug cannot be empty");
+    }
+    if slug.len() > 64 {
+        anyhow::bail!("worktree slug is too long (max 64 chars): '{}'", slug);
+    }
+    if slug.contains("..") || slug.contains('/') || slug.contains('\\') || slug.starts_with('.') || slug.ends_with('.') {
+        anyhow::bail!("path traversal or invalid dots in worktree slug: '{}'", slug);
+    }
+    if !slug.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
+        anyhow::bail!("slug contains invalid characters (only letters, numbers, '_' and '-' allowed): '{}'", slug);
+    }
+    Ok(slug.to_string())
+}
+
 /// Root for agent worktrees: `<repo>/.board/worktrees/` (gitignored).
 pub fn worktrees_root() -> Result<PathBuf> {
     let board_dir = crate::storage::board_dir::find_board_dir()?;
@@ -63,16 +84,22 @@ fn git_in(root: &PathBuf, args: &[&str]) -> Result<String> {
 /// Acquire an isolated worktree for a task.
 ///
 /// Creates `.board/worktrees/<slug>` on a fresh branch `bark/<slug>`
-/// from clean HEAD. Fails if main is dirty or the worktree exists.
+/// from clean HEAD. Fails if main is dirty, the slug is invalid,
+/// or the worktree exists. Enforces `MAX_CONCURRENT_WORKTREES`.
 pub fn acquire_worktree(slug: &str) -> Result<PathBuf> {
+    let clean_slug = sanitize_slug(slug)?;
     let root = project_root()?;
     let wt_root = worktrees_root()?;
-    let path = wt_root.join(slug);
+    let path = wt_root.join(&clean_slug);
+
+    if !path.starts_with(&wt_root) {
+        anyhow::bail!("worktree path escapes root: {}", path.display());
+    }
 
     if path.exists() {
         anyhow::bail!(
             "worktree '{}' already acquired at {}",
-            slug,
+            clean_slug,
             path.display()
         );
     }
@@ -82,7 +109,23 @@ pub fn acquire_worktree(slug: &str) -> Result<PathBuf> {
         );
     }
 
-    let branch = format!("bark/{}", slug);
+    // Check active managed worktrees against quota
+    let active = list_worktrees().unwrap_or_default();
+    let managed_count = active.iter().filter(|(p, _, _)| is_managed_worktree(p)).count();
+    if managed_count >= MAX_CONCURRENT_WORKTREES {
+        // Try auto-pruning stale worktrees
+        let _ = prune_stale_worktrees();
+        let active_after = list_worktrees().unwrap_or_default();
+        let count_after = active_after.iter().filter(|(p, _, _)| is_managed_worktree(p)).count();
+        if count_after >= MAX_CONCURRENT_WORKTREES {
+            anyhow::bail!(
+                "maximum concurrent worktrees ({}) reached; release or clean inactive worktrees before starting new ones",
+                MAX_CONCURRENT_WORKTREES
+            );
+        }
+    }
+
+    let branch = format!("bark/{}", clean_slug);
     // Fail if branch already exists (resume path should reuse explicitly).
     let branches = git_in(&root, &["branch", "--list", &branch])?;
     if !branches.is_empty() {
@@ -102,15 +145,24 @@ pub fn acquire_worktree(slug: &str) -> Result<PathBuf> {
             &branch,
         ],
     )?;
+
+    // Configure shared build cache (e.g. symlinking target) to conserve disk and memory
+    let _ = setup_shared_build_cache(&path);
+
     Ok(path)
 }
 
 /// Release a worktree: remove it and prune git metadata.
 /// `delete_branch` also deletes `bark/<slug>` (use after successful merge).
 pub fn release_worktree(slug: &str, delete_branch: bool) -> Result<()> {
+    let clean_slug = sanitize_slug(slug)?;
     let root = project_root()?;
     let wt_root = worktrees_root()?;
-    let path = wt_root.join(slug);
+    let path = wt_root.join(&clean_slug);
+
+    if !path.starts_with(&wt_root) {
+        anyhow::bail!("worktree path escapes root: {}", path.display());
+    }
 
     if path.exists() {
         git_in(
@@ -129,7 +181,7 @@ pub fn release_worktree(slug: &str, delete_branch: bool) -> Result<()> {
     git_in(&root, &["worktree", "prune"])?;
 
     if delete_branch {
-        let branch = format!("bark/{}", slug);
+        let branch = format!("bark/{}", clean_slug);
         git_in(&root, &["branch", "-D", &branch]).ok();
     }
     Ok(())
@@ -266,20 +318,59 @@ pub fn prune_stale_worktrees() -> Result<usize> {
 
     let active_worktrees = list_worktrees().unwrap_or_default();
     let active_paths: std::collections::HashSet<PathBuf> = active_worktrees
-        .into_iter()
+        .iter()
         .map(|(p, _, _)| PathBuf::from(p))
         .collect();
 
     let mut pruned_count = 0;
+
+    // 1. Remove physical directories not registered in git's worktree list
     if let Ok(entries) = std::fs::read_dir(&wt_root) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
-                // If not in git's active worktree list, remove it
                 if !active_paths.contains(&path) {
                     if std::fs::remove_dir_all(&path).is_ok() {
                         pruned_count += 1;
                     }
+                }
+            }
+        }
+    }
+
+    // 2. Identify active worktrees that belong to completed/terminal runs or dead PIDs
+    let runs = crate::runtime::RuntimeStore::from_project()
+        .ok()
+        .and_then(|s| s.list_runs(None).ok())
+        .unwrap_or_default();
+
+    for (p, b, _) in &active_worktrees {
+        if !is_managed_worktree(p) {
+            continue;
+        }
+        let p_buf = PathBuf::from(p);
+        let slug = match p_buf.file_name().and_then(|n| n.to_str()) {
+            Some(s) => s,
+            None => continue,
+        };
+
+        let matching_run = runs.iter().find(|r| {
+            r.worktree.as_deref().map(Path::new) == Some(Path::new(p))
+                || r.branch.as_deref() == Some(b)
+        });
+
+        if let Some(run) = matching_run {
+            let is_dead = run.pid.map(|pid| !crate::agent::pid_alive(pid)).unwrap_or(true);
+            let is_stale_terminal = match run.status {
+                crate::runtime::RunStatus::Merged => true,
+                crate::runtime::RunStatus::Cancelled if is_dead => true,
+                crate::runtime::RunStatus::Failed if is_dead && run.diff_stats.files == 0 => true,
+                _ => false,
+            };
+
+            if is_stale_terminal {
+                if release_worktree(slug, true).is_ok() {
+                    pruned_count += 1;
                 }
             }
         }
@@ -299,5 +390,24 @@ mod tests {
     fn test_is_managed_worktree() {
         assert!(is_managed_worktree("/foo/bar/.board/worktrees/task-1"));
         assert!(!is_managed_worktree("/foo/bar/src/main.rs"));
+    }
+
+    #[test]
+    fn test_sanitize_slug_valid() {
+        assert_eq!(sanitize_slug("task-123").unwrap(), "task-123");
+        assert_eq!(sanitize_slug("fix_auth_bug").unwrap(), "fix_auth_bug");
+        assert_eq!(sanitize_slug("run_5ab22505").unwrap(), "run_5ab22505");
+    }
+
+    #[test]
+    fn test_sanitize_slug_rejects_traversal() {
+        assert!(sanitize_slug("../../evil").is_err());
+        assert!(sanitize_slug("..").is_err());
+        assert!(sanitize_slug("/etc/passwd").is_err());
+        assert!(sanitize_slug("foo/bar").is_err());
+        assert!(sanitize_slug("foo\\bar").is_err());
+        assert!(sanitize_slug(".hidden").is_err());
+        assert!(sanitize_slug("trailing.").is_err());
+        assert!(sanitize_slug("   ").is_err());
     }
 }

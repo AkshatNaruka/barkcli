@@ -1,6 +1,26 @@
 use super::registry::{Skill, SkillSource};
 use std::path::Path;
 
+pub fn sanitize_skill_id(raw: &str) -> Option<String> {
+    let s = raw.trim();
+    if s.is_empty() || s.len() > 64 {
+        return None;
+    }
+    if s.contains("..") || s.contains('/') || s.contains('\\') || s.starts_with('.') || s.ends_with('.') {
+        return None;
+    }
+    let sanitized: String = s
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
+        .collect();
+    let trimmed = sanitized.trim_matches('-');
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
 pub fn parse_skill(content: &str, filename: &str, source: SkillSource) -> Skill {
     let (frontmatter, body) = split_frontmatter(content);
     let mut id = None;
@@ -47,16 +67,17 @@ pub fn parse_skill(content: &str, filename: &str, source: SkillSource) -> Skill 
         .unwrap_or("skill")
         .to_string();
 
-    let final_id = id.unwrap_or_else(|| {
+    let safe_stem = sanitize_skill_id(&file_stem).unwrap_or_else(|| "skill".to_string());
+    let final_id = id.as_deref().and_then(sanitize_skill_id).unwrap_or_else(|| {
         if file_stem.eq_ignore_ascii_case("skill") {
             Path::new(filename)
                 .parent()
                 .and_then(Path::file_name)
                 .and_then(|name| name.to_str())
-                .unwrap_or(&file_stem)
-                .to_string()
+                .and_then(sanitize_skill_id)
+                .unwrap_or(safe_stem.clone())
         } else {
-            file_stem.clone()
+            safe_stem.clone()
         }
     });
     let final_name = name.unwrap_or_else(|| file_stem.clone());
@@ -119,5 +140,17 @@ mod tests {
         let s = parse_skill(c, "hello.md", SkillSource::Project);
         assert_eq!(s.id, "hello");
         assert_eq!(s.name, "hello");
+    }
+
+    #[test]
+    fn test_sanitize_skill_id_rejects_traversal() {
+        assert_eq!(sanitize_skill_id("../../etc/passwd"), None);
+        assert_eq!(sanitize_skill_id(".."), None);
+        assert_eq!(sanitize_skill_id("/absolute/path"), None);
+        assert_eq!(sanitize_skill_id("valid-skill_1"), Some("valid-skill_1".into()));
+
+        let c = "---\nid: \"../../malicious/id\"\nname: Malicious\n---\nBody";
+        let s = parse_skill(c, "safe-fallback.md", SkillSource::Project);
+        assert_eq!(s.id, "safe-fallback");
     }
 }

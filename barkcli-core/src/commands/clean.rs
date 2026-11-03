@@ -43,7 +43,7 @@ pub fn run() -> Result<()> {
         }
     }
 
-    // Clean orphaned session logs for deleted boards
+    // Clean orphaned session logs for deleted boards (<board>.jsonl)
     let sessions_dir = board_dir.join("sessions");
     if sessions_dir.is_dir() {
         let boards = list_board_files()?;
@@ -52,12 +52,23 @@ pub fn run() -> Result<()> {
             .filter_map(|e| e.ok())
         {
             let path = entry.path();
-            if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                if !boards.contains(&stem.to_string()) {
-                    std::fs::remove_file(&path)
-                        .context(format!("failed to remove {}", path.display()))?;
-                    println!("Removed orphaned sessions: {}", path.display());
-                    cleaned += 1;
+            if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
+                // Agent sessions are sess-<uuid> — do not delete active agent sessions
+                if name.starts_with("sess-") {
+                    continue;
+                }
+                if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                    if !boards.contains(&stem.to_string()) {
+                        if path.is_dir() {
+                            std::fs::remove_dir_all(&path)
+                                .context(format!("failed to remove {}", path.display()))?;
+                        } else {
+                            std::fs::remove_file(&path)
+                                .context(format!("failed to remove {}", path.display()))?;
+                        }
+                        println!("Removed orphaned sessions: {}", path.display());
+                        cleaned += 1;
+                    }
                 }
             }
         }
@@ -118,7 +129,7 @@ pub fn run() -> Result<()> {
         }
     }
 
-    // Clean orphaned context sidecars for deleted boards
+    // Clean orphaned context sidecars for deleted boards (<board>.json)
     let context_dir = board_dir.join("context");
     if context_dir.is_dir() {
         let boards = list_board_files()?;
@@ -127,15 +138,26 @@ pub fn run() -> Result<()> {
             .filter_map(|e| e.ok())
         {
             let path = entry.path();
-            if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                if !boards.contains(&stem.to_string()) {
-                    std::fs::remove_file(&path)
-                        .context(format!("failed to remove {}", path.display()))?;
-                    println!("Removed orphaned context: {}", path.display());
-                    cleaned += 1;
+            if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json") {
+                if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                    if !boards.contains(&stem.to_string()) {
+                        std::fs::remove_file(&path)
+                            .context(format!("failed to remove {}", path.display()))?;
+                        println!("Removed orphaned context: {}", path.display());
+                        cleaned += 1;
+                    }
                 }
             }
         }
+    }
+
+    // Clean stale or orphaned agent worktrees under .board/worktrees/
+    match crate::agent::worktree::prune_stale_worktrees() {
+        Ok(count) if count > 0 => {
+            println!("{} {} stale worktree(s)", style::ok("Pruned"), count);
+            cleaned += count;
+        }
+        _ => {}
     }
 
     if cleaned == 0 {
