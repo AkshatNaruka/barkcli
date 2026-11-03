@@ -58,7 +58,7 @@ const tabs = [
   { name: "Code", desc: "Search code symbols, see which cards are linked to which files" },
   { name: "Agents", desc: "Agent registry, task queue, run orchestration cycles (route: agents/orchestrate)" },
   { name: "Memory", desc: "Cross-session knowledge base, project facts" },
-  { name: "Skills", desc: "BMAD skills versioned in repo (mvp/planning/scrum-master/test)" },
+  { name: "Skills", desc: "Skills from skills.sh and repo playbooks with lockfile support" },
   { name: "Docs", desc: "Bundled markdown docs served from /api/docs" },
   { name: "Calendar", desc: "Cards organized by due date" },
   { name: "Reports", desc: "Effort by column/area, priority breakdown, sprint burndown charts" },

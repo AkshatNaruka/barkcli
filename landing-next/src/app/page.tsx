@@ -13,6 +13,7 @@ import {
   TrendingUp,
   Terminal,
   Globe,
+  Laptop,
   Code,
   Clock,
   ChevronDown,
@@ -104,10 +105,10 @@ const FEATURES = [
   },
   {
     icon: Layers,
-    title: "Skills",
+    title: "Skills & Ecosystem Tools",
     description:
-      "Reusable playbooks injected into every matched agent prompt. Install from the community registry with a sha-pinned lockfile; publish yours back as a PR.",
-    code: "$ barkcli skills install AkshatNaruka/barkcli-skills",
+      "Install remote playbooks from skills.sh with sha-pinned skills.lock files. Automatically detect, inspect, and run external agent tools including fx, deepsec, and agent-browser.",
+    code: "$ barkcli skills install owner/repo && barkcli tools list",
     gradient: "from-indigo-500/20 to-blue-500/20",
   },
   {
@@ -173,6 +174,17 @@ const STEPS = [
 
 const INTERFACES = [
   {
+    id: "desktop",
+    title: "macOS App",
+    icon: Laptop,
+    description: "Native macOS desktop application (Bark.app) with embedded runtime, dock integration, ⌘K command palette, and window controls.",
+    demo: `Applications/Bark.app
+├── Embedded local server runtime
+├── Menu bar status & system notifications
+├── Instant ⌘K command palette
+└── Real-time WebSocket sync across all workspaces`,
+  },
+  {
     id: "cli",
     title: "Command Line",
     icon: Terminal,
@@ -231,8 +243,12 @@ const CODE_FEATURES = [
 
 const FAQ = [
   {
+    question: "Is barkcli an agentic harness?",
+    answer: "Yes. An agentic harness is an automated execution environment that wraps an agent: it creates an isolated workspace, injects context and tools, streams the agent's work, and gates completion on real test passes rather than the agent's self-report. barkcli does this via git worktrees, project_context.md, 71 MCP tools, and a test acceptance gate. Beyond a pure harness, barkcli also provides the human management layer — specs, boards, memory, and multi-agent coordination.",
+  },
+  {
     question: "Is barkcli a CLI tool or a web app?",
-    answer: `Both — but think of it as a management layer, not a tool. The same data powers the CLI, terminal UI, VS Code extension, and web app. Humans manage in the web app (Mind, Board, Agents), agents work through ${MCP_TOOL_COUNT} MCP tools, and everything syncs through files in your repo.`,
+    answer: `Both, plus a native macOS desktop app — but think of it as a management layer, not a single interface. The same repository data powers the macOS app, CLI, terminal UI, VS Code extension, and browser UI. Humans manage intent on the board; agents work through ${MCP_TOOL_COUNT} MCP tools; git syncs everything.`,
   },
   {
     question: "What makes barkcli different from Jira or Linear?",
@@ -791,7 +807,7 @@ export default function Home() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8 max-w-3xl mx-auto">
             {[
               { metric: `${MCP_TOOL_COUNT}`, desc: "MCP tools for agents" },
-              { metric: "4", desc: "BMAD skills in repo" },
+              { metric: "skills.sh", desc: "skill registry + lockfile" },
               { metric: "100%", desc: "offline-capable core" },
               { metric: "MIT", desc: "open source forever" },
             ].map((s) => (

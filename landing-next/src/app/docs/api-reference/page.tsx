@@ -129,7 +129,7 @@ const sections = [
     endpoints: [
       { method: "GET", path: "/api/mind", desc: "Mind snapshot (health, blockers, next)" },
       { method: "GET", path: "/api/mind/digest", desc: "Mind digest markdown" },
-      { method: "GET", path: "/api/skills", desc: "List BMAD skills" },
+      { method: "GET", path: "/api/skills", desc: "List installed skills and playbooks" },
       { method: "GET", path: "/api/skills/:id", desc: "Get skill by id" },
       { method: "GET", path: "/api/docs", desc: "List bundled docs" },
       { method: "GET", path: "/api/docs/:file", desc: "Get doc file" },

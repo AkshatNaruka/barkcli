@@ -156,7 +156,7 @@ const structuredData = {
       featureList: [
         "Management layer for AI coding agents",
         "Mind snapshot and overview",
-        "BMAD skills in repo",
+        "skills.sh skill registry and lockfile",
         "Agent task queue with review gate",
         "CLI, Terminal UI, Web App, VS Code extension",
         "YAML-based board files with spec traceability",

@@ -148,7 +148,8 @@ barkcli code "AuthService"
 - \`barkcli dispatch\` — Run orchestration cycle
 - \`barkcli review [--all] [--auto]\` — Validate completed work
 - \`barkcli mind sync|show\` + \`barkcli overview\` — Project health
-- \`barkcli skills list|show\` — BMAD skills
+- \`barkcli skills list|show|install|search\` — Skills from skills.sh & playbooks
+- \`barkcli tools list|check|run\` — Ecosystem tool runner (fx, deepsec, agent-browser)
 - \`barkcli memory add|search|list|stats\` — 4-tier memory
 
 ### Advanced
