@@ -23,6 +23,7 @@ public enum AppNavigationTab: String, CaseIterable, Identifiable {
     case code = "Code"
     case calendar = "Calendar"
     case reports = "Reports"
+    case usage = "Usage"
     case timeline = "Timeline"
     case workspaces = "Workspaces"
 
@@ -60,6 +61,8 @@ public enum AppNavigationTab: String, CaseIterable, Identifiable {
             return "calendar"
         case .reports:
             return "chart.bar.xaxis"
+        case .usage:
+            return "gauge.with.needle.fill"
         case .timeline:
             return "timeline.selection"
         case .workspaces:
@@ -85,7 +88,7 @@ public enum TabGroup: String, CaseIterable, Identifiable {
         case .knowledge:
             return [.context, .memory, .brain, .skills, .docs]
         case .operations:
-            return [.code, .calendar, .reports, .timeline, .workspaces]
+            return [.code, .calendar, .reports, .usage, .timeline, .workspaces]
         }
     }
 }
@@ -112,6 +115,7 @@ public struct RootView: View {
     @State private var calendarStore = CalendarStore.shared
     @State private var reportsStore = ReportsStore.shared
     @State private var timelineStore = TimelineStore.shared
+    @State private var usageStore = UsageStore.shared
 
     @State private var activeProposalToReview: PlanProposal? = nil
 
@@ -149,7 +153,8 @@ public struct RootView: View {
                     docs: docsStore,
                     calendar: calendarStore,
                     reports: reportsStore,
-                    timeline: timelineStore
+                    timeline: timelineStore,
+                    usage: usageStore
                 )
         } else {
             compactPhoneLayout
@@ -171,7 +176,8 @@ public struct RootView: View {
                     docs: docsStore,
                     calendar: calendarStore,
                     reports: reportsStore,
-                    timeline: timelineStore
+                    timeline: timelineStore,
+                    usage: usageStore
                 )
         }
         #else
@@ -194,7 +200,8 @@ public struct RootView: View {
                 docs: docsStore,
                 calendar: calendarStore,
                 reports: reportsStore,
-                timeline: timelineStore
+                timeline: timelineStore,
+                usage: usageStore
             )
         #endif
     }
@@ -264,6 +271,8 @@ public struct RootView: View {
             return "Schedule agenda across overdue and upcoming tasks"
         case .reports:
             return "Delivery velocity and effort distribution"
+        case .usage:
+            return "Token consumption, cache hit rate, and API-equivalent cost"
         case .timeline:
             return "Atomic checkpoints and self healing diagnosis"
         case .workspaces:
@@ -519,6 +528,8 @@ public struct RootView: View {
                 CalendarAgendaView()
             case .reports:
                 ReportsView()
+            case .usage:
+                UsageAnalyticsView()
             case .timeline:
                 TimelineCheckpointsView()
             case .workspaces:
@@ -587,7 +598,8 @@ private extension View {
         docs: DocsStore,
         calendar: CalendarStore,
         reports: ReportsStore,
-        timeline: TimelineStore
+        timeline: TimelineStore,
+        usage: UsageStore
     ) -> some View {
         self
             .environment(workspace)
@@ -605,6 +617,7 @@ private extension View {
             .environment(calendar)
             .environment(reports)
             .environment(timeline)
+            .environment(usage)
             .environment(AppState.shared)
     }
 }

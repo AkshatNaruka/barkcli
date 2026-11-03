@@ -412,4 +412,50 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
     public func fixDoctorIssues() async throws -> [DoctorIssue] {
         store.fixDoctorIssues()
     }
+
+    public func getUsage(window: String? = nil) async throws -> UsageResponseData {
+        UsageResponseData(
+            summary: UsageSummary(
+                totalTokens: 1485600,
+                inputTokens: 1045200,
+                outputTokens: 148400,
+                cachedInputTokens: 292000,
+                cacheHitRate: 0.218,
+                totalCostUsd: 5.48,
+                standardCostUsd: 4.92,
+                premiumCostUsd: 0.56,
+                totalRuns: 46,
+                activeProviders: 4,
+                activeModels: 5
+            ),
+            models: [
+                ModelUsage(model: "claude-3-7-sonnet", provider: "claude-code", inputTokens: 580000, outputTokens: 72000, cachedInputTokens: 180000, cacheHitRate: 0.237, costUsd: 2.87, costPerMillionInput: 3.0, costPerMillionOutput: 15.0, runsCount: 22),
+                ModelUsage(model: "gpt-4o", provider: "codex", inputTokens: 240000, outputTokens: 38000, cachedInputTokens: 65000, cacheHitRate: 0.213, costUsd: 1.06, costPerMillionInput: 2.5, costPerMillionOutput: 10.0, runsCount: 11),
+                ModelUsage(model: "deepseek-coder", provider: "opencode", inputTokens: 145000, outputTokens: 24000, cachedInputTokens: 32000, cacheHitRate: 0.181, costUsd: 0.03, costPerMillionInput: 0.14, costPerMillionOutput: 0.28, runsCount: 8),
+                ModelUsage(model: "gemini-2.5-flash", provider: "antigravity", inputTokens: 60200, outputTokens: 11400, cachedInputTokens: 15000, cacheHitRate: 0.199, costUsd: 0.05, costPerMillionInput: 0.15, costPerMillionOutput: 0.60, runsCount: 4),
+                ModelUsage(model: "claude-3-5-haiku", provider: "claude-code", inputTokens: 20000, outputTokens: 3000, cachedInputTokens: 0, cacheHitRate: 0.0, costUsd: 0.03, costPerMillionInput: 0.8, costPerMillionOutput: 4.0, runsCount: 1)
+            ],
+            providers: [
+                ProviderUsage(provider: "claude-code", label: "Claude Code", inputTokens: 600000, outputTokens: 75000, cachedInputTokens: 180000, costUsd: 2.90, runsCount: 23, status: "ready"),
+                ProviderUsage(provider: "codex", label: "Codex", inputTokens: 240000, outputTokens: 38000, cachedInputTokens: 65000, costUsd: 1.06, runsCount: 11, status: "ready"),
+                ProviderUsage(provider: "opencode", label: "OpenCode", inputTokens: 145000, outputTokens: 24000, cachedInputTokens: 32000, costUsd: 0.03, runsCount: 8, status: "ready"),
+                ProviderUsage(provider: "antigravity", label: "Antigravity", inputTokens: 60200, outputTokens: 11400, cachedInputTokens: 15000, costUsd: 0.05, runsCount: 4, status: "ready")
+            ],
+            daily: [
+                DailyUsage(date: "2026-10-28", tokens: 185000, inputTokens: 135000, outputTokens: 20000, cachedInputTokens: 30000, costUsd: 0.68),
+                DailyUsage(date: "2026-10-29", tokens: 240000, inputTokens: 170000, outputTokens: 25000, cachedInputTokens: 45000, costUsd: 0.88),
+                DailyUsage(date: "2026-10-30", tokens: 195000, inputTokens: 140000, outputTokens: 18000, cachedInputTokens: 37000, costUsd: 0.72),
+                DailyUsage(date: "2026-10-31", tokens: 310000, inputTokens: 220000, outputTokens: 31000, cachedInputTokens: 59000, costUsd: 1.15),
+                DailyUsage(date: "2026-11-01", tokens: 225000, inputTokens: 160000, outputTokens: 23000, cachedInputTokens: 42000, costUsd: 0.84),
+                DailyUsage(date: "2026-11-02", tokens: 175600, inputTokens: 125200, outputTokens: 17400, cachedInputTokens: 33000, costUsd: 0.65),
+                DailyUsage(date: "2026-11-03", tokens: 155000, inputTokens: 95000, outputTokens: 14000, cachedInputTokens: 46000, costUsd: 0.56)
+            ],
+            limits: [
+                ProviderLimit(provider: "opencode", label: "OpenCode", limitType: "Tokens / min", used: 18400, limit: 120000, resetsIn: "45s", pace: "under", status: "ready"),
+                ProviderLimit(provider: "claude-code", label: "Claude Code", limitType: "5-hour allowance", used: 680000, limit: 2500000, resetsIn: "2h 15m", pace: "on", status: "ready"),
+                ProviderLimit(provider: "codex", label: "Codex", limitType: "Daily token quota", used: 45000, limit: 1000000, resetsIn: "12h 40m", pace: "under", status: "ready"),
+                ProviderLimit(provider: "antigravity", label: "Antigravity", limitType: "Session throughput", used: 250000, limit: 5000000, resetsIn: "Continuous", pace: "under", status: "ready")
+            ]
+        )
+    }
 }

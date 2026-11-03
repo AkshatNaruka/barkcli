@@ -19,6 +19,10 @@ mkdir -p "$APP_BUNDLE/Contents/Resources"
 cp "$IOS_DIR/.build/arm64-apple-macosx/debug/BarkcliApp" "$APP_BUNDLE/Contents/MacOS/BarkcliApp"
 chmod +x "$APP_BUNDLE/Contents/MacOS/BarkcliApp"
 
+if [ -f "$REPO_ROOT/desktop/icons/icon.icns" ]; then
+    cp "$REPO_ROOT/desktop/icons/icon.icns" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
+fi
+
 cat << 'EOF' > "$APP_BUNDLE/Contents/Info.plist"
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -36,6 +40,8 @@ cat << 'EOF' > "$APP_BUNDLE/Contents/Info.plist"
     <string>1.0.0</string>
     <key>CFBundleVersion</key>
     <string>1</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>NSHighResolutionCapable</key>

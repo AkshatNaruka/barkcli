@@ -261,5 +261,25 @@ final class SubsystemStoreTests: XCTestCase {
 
         let doctor = try await client.runDoctor()
         XCTAssertFalse(doctor.isEmpty)
+
+        let usage = try await client.getUsage(window: "30d")
+        XCTAssertGreaterThan(usage.summary.totalTokens, 0)
+    }
+
+    // MARK: UsageStore Tests
+
+    func testUsageStoreAndDecoding() async throws {
+        let store = UsageStore(client: MockAPIClient())
+        XCTAssertNil(store.data)
+
+        await store.loadUsage()
+        XCTAssertNotNil(store.data)
+        XCTAssertGreaterThan(store.data?.summary.totalTokens ?? 0, 0)
+        XCTAssertGreaterThan(store.data?.models.count ?? 0, 0)
+        XCTAssertGreaterThan(store.data?.daily.count ?? 0, 0)
+
+        await store.setWindow("7d")
+        XCTAssertEqual(store.selectedWindow, "7d")
+        XCTAssertNotNil(store.data)
     }
 }

@@ -1129,4 +1129,15 @@ public final class LiveAPIClient: APIClientProtocol, @unchecked Sendable {
             return DemoStore.shared.fixDoctorIssues()
         }
     }
+
+    public func getUsage(window: String? = nil) async throws -> UsageResponseData {
+        let query = window != nil ? "?window=\(window!)" : ""
+        let url = try makeURL(path: "api/usage\(query)")
+        let request = makeRequest(url: url)
+        do {
+            return try await performRequest(request)
+        } catch {
+            return try await MockAPIClient.shared.getUsage(window: window)
+        }
+    }
 }

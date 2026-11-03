@@ -88,10 +88,14 @@ public protocol APIClientProtocol: Sendable {
     func restoreCheckpoint(id: String) async throws
     func runDoctor() async throws -> [DoctorIssue]
     func fixDoctorIssues() async throws -> [DoctorIssue]
+    func getUsage(window: String?) async throws -> UsageResponseData
 }
 
 // MARK: Default Implementations and Convenience Overloads
 public extension APIClientProtocol {
+    func getUsage() async throws -> UsageResponseData {
+        try await getUsage(window: nil)
+    }
     func getBoard() async throws -> Board {
         try await getBoard(name: "dev")
     }
