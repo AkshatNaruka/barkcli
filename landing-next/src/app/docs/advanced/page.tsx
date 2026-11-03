@@ -133,7 +133,7 @@ barkcli sprint list`}</code>
             <div className="rounded-lg border border-white/10 bg-white/5 p-4">
               <h3 className="mb-2 font-semibold">AI Task Breakdown</h3>
               <pre className="text-sm text-white/80">
-                <code>barkcli ai "Break down the authentication feature"</code>
+                <code>{`barkcli ai "Break down the authentication feature"`}</code>
               </pre>
             </div>
             <div className="rounded-lg border border-white/10 bg-white/5 p-4">

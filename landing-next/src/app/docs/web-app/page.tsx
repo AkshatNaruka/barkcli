@@ -222,7 +222,7 @@ export default function WebAppGuidePage() {
         <ul className="space-y-3 text-sm text-white/60">
           <li className="flex items-start gap-2">
             <span className="text-white/40">1.</span>
-            <span>Use keyboard shortcuts — they're faster than clicking</span>
+            <span>Use keyboard shortcuts — they&apos;re faster than clicking</span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-white/40">2.</span>
