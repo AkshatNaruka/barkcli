@@ -64,6 +64,7 @@ const BASE = process.env.NEXT_PUBLIC_BASE_PATH || "";
 const NAV_LINKS = [
   { href: "#problem", label: "The Problem" },
   { href: "#solution", label: "The Harness" },
+  { href: "#capabilities", label: "Capabilities" },
   { href: "#board", label: "Board & Agents" },
   { href: "#mind", label: "Mind View" },
   { href: "#memory", label: "Collective Memory" },
@@ -317,6 +318,265 @@ function AnimatedSection({ children, className = "", delay = 0 }: { children: Re
       }}
     >
       {children}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* DEEPSEEK & XAI INSPIRED: Living Harness Capabilities (4-Card Grid)          */
+/* -------------------------------------------------------------------------- */
+
+function HarnessCapabilities() {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-left">
+      {/* ------------------------------------------------------------------ */}
+      {/* Card 1: Everything is a plugin / skill                             */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="bg-[#0B0D12] border border-white/10 rounded-3xl p-6 sm:p-8 flex flex-col justify-between hover:border-[#B8845C]/40 transition-all overflow-hidden relative group">
+        <div>
+          <h3 className="text-xl sm:text-2xl font-bold text-white mb-2">Everything is a plugin</h3>
+          <p className="text-white/50 text-xs sm:text-sm leading-relaxed mb-6">
+            Install plugins, or create them through chat in &quot;Creator mode&quot;, to extend tools, skills, and the interface.
+          </p>
+        </div>
+
+        {/* Visual UI inside card 1 */}
+        <div className="space-y-4 pt-2">
+          {/* User Request Bubble */}
+          <div className="flex justify-end">
+            <div className="bg-white/10 text-white text-xs sm:text-sm px-4 py-2.5 rounded-2xl max-w-sm backdrop-blur-md border border-white/10 shadow-sm">
+              Write a Pomodoro timer plugin for me.
+            </div>
+          </div>
+
+          {/* Time & Assistant Response */}
+          <div className="space-y-1">
+            <div className="text-[11px] font-mono text-white/40 flex items-center gap-1">
+              <span>Took 5m 24s</span>
+              <ChevronDown className="w-3 h-3 text-white/40" />
+            </div>
+            <p className="text-xs sm:text-sm text-white/80">
+              The floating Pomodoro timer is built, installed, and verified.
+            </p>
+          </div>
+
+          {/* Floating Widget: Pomodoro timer */}
+          <div className="flex justify-end pt-2">
+            <div className="w-64 bg-[#14171F] border border-white/15 rounded-2xl p-4 shadow-2xl shadow-black/80">
+              <div className="flex items-center justify-between text-xs text-white/80 font-medium mb-3">
+                <div className="flex items-center gap-1.5">
+                  <span>🍅</span>
+                  <span>Pomodoro timer</span>
+                </div>
+                <span className="text-white/40 text-xs">−</span>
+              </div>
+              <div className="flex gap-1.5 p-1 bg-black/40 rounded-lg text-[10px] font-medium mb-4">
+                <span className="px-2.5 py-1 bg-white/15 text-white rounded-md flex-1 text-center font-semibold">Focus</span>
+                <span className="px-2.5 py-1 text-white/40 flex-1 text-center">Short break</span>
+              </div>
+              <div className="text-center py-1">
+                <span className="text-3xl font-bold font-mono tracking-wider text-white">24:48</span>
+              </div>
+              <button className="w-full mt-4 py-2 rounded-xl bg-white text-black font-semibold text-xs flex items-center justify-center gap-1.5 shadow hover:bg-white/90 transition-all cursor-pointer">
+                <Play className="w-3 h-3 fill-black" />
+                Start focus
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Card 2: Complete a range of tasks                                  */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="bg-[#0B0D12] border border-white/10 rounded-3xl p-6 sm:p-8 flex flex-col justify-between hover:border-[#B8845C]/40 transition-all overflow-hidden relative group">
+        <div>
+          <h3 className="text-xl sm:text-2xl font-bold text-white mb-2">Complete a range of tasks</h3>
+          <p className="text-white/50 text-xs sm:text-sm leading-relaxed mb-6">
+            Organize documents, analyze spreadsheets, and write code. Preview the results directly and refine them through conversation.
+          </p>
+        </div>
+
+        {/* Visual UI inside card 2: File stack on left + floating diff review on right */}
+        <div className="relative min-h-[220px] flex items-center pt-2">
+          {/* File stack */}
+          <div className="space-y-2.5 w-48 shrink-0">
+            <div className="bg-white/5 border border-white/10 rounded-xl p-2.5 flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-blue-500/20 text-blue-400 font-bold text-[10px] font-mono flex items-center justify-center">
+                MD
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-white/90">README.md</div>
+                <div className="text-[10px] text-white/40">Markdown document</div>
+              </div>
+            </div>
+            <div className="bg-white/5 border border-white/10 rounded-xl p-2.5 flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-400 font-bold text-[10px] font-mono flex items-center justify-center">
+                W
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-white/90">Brief.docx</div>
+                <div className="text-[10px] text-white/40">Word document</div>
+              </div>
+            </div>
+            <div className="bg-white/5 border border-white/10 rounded-xl p-2.5 flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold text-[10px] font-mono flex items-center justify-center">
+                XLS
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-white/90">Data.xlsx</div>
+                <div className="text-[10px] text-white/40">Excel spreadsheet</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Floating Diff Modal */}
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-64 sm:w-72 bg-[#14171F] border border-white/15 rounded-2xl p-3.5 shadow-2xl shadow-black/90">
+            <div className="flex items-center justify-between text-xs text-white/80 font-medium pb-2 border-b border-white/10 mb-2.5">
+              <span>Review · turn 1</span>
+              <span className="text-white/40 text-xs">✕</span>
+            </div>
+            <div className="flex items-center justify-between text-[11px] font-mono mb-2">
+              <div className="flex items-center gap-1.5 text-blue-400">
+                <span className="bg-blue-500/20 px-1 rounded text-[9px] font-bold">TS</span>
+                <span>src/label.ts</span>
+                <ChevronDown className="w-3 h-3 text-white/40" />
+              </div>
+              <div className="flex items-center gap-1 text-[10px]">
+                <span className="text-emerald-400 font-semibold">+2</span>
+                <span className="text-red-400 font-semibold">-1</span>
+              </div>
+            </div>
+            <div className="bg-[#0A0B0E] rounded-lg p-2 font-mono text-[10px] leading-relaxed border border-white/5">
+              <div className="text-white/30 text-[9px]">@@ -8,3 +8,4 @@</div>
+              <div className="text-white/50">8  8   function label(name: string) &#123;</div>
+              <div className="bg-red-500/10 text-red-400 -mx-2 px-2">9    -   return name;</div>
+              <div className="bg-emerald-500/10 text-emerald-400 -mx-2 px-2">   9 +   const text = name.trim();</div>
+              <div className="bg-emerald-500/10 text-emerald-400 -mx-2 px-2">  10 +   return text || &apos;Untitled&apos;;</div>
+              <div className="text-white/50">10 11  &#125;</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Card 3: Adapt to your workflow                                     */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="bg-[#0B0D12] border border-white/10 rounded-3xl p-6 sm:p-8 flex flex-col justify-between hover:border-[#B8845C]/40 transition-all overflow-hidden relative group">
+        <div>
+          <h3 className="text-xl sm:text-2xl font-bold text-white mb-2">Adapt to your workflow</h3>
+          <p className="text-white/50 text-xs sm:text-sm leading-relaxed mb-6">
+            Start tasks anytime and run recurring work on schedule. Stay on top of progress and inspect tool call details when needed.
+          </p>
+        </div>
+
+        {/* Visual UI inside card 3 */}
+        <div className="space-y-4 pt-2">
+          {/* Scheduled prompt */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-xs sm:text-sm text-white/70 leading-relaxed font-mono">
+            Every Friday at 17:00 Beijing time, summarize this week&apos;s project notes in a weekly report.
+          </div>
+
+          {/* Trigger row */}
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono">
+            <span className="flex items-center gap-1.5 text-[#E5AA7A] bg-[#B8845C]/15 px-2.5 py-1 rounded-lg border border-[#B8845C]/30">
+              <Clock className="w-3.5 h-3.5 text-[#B8845C]" />
+              Cron: 0 17 * * 5
+            </span>
+            <span className="text-white/40">Next run in 14h</span>
+          </div>
+
+          {/* Execution Box */}
+          <div className="bg-black/50 border border-white/10 rounded-xl p-3.5 text-[11px] font-mono space-y-1.5">
+            <div className="text-emerald-400 flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Autonomy loop completed in isolated worktree</span>
+            </div>
+            <div className="text-white/40 text-[10px]">
+              Output: Weekly summary logged to memory and Mind overview updated.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Card 4: Developer tools                                            */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="bg-[#0B0D12] border border-white/10 rounded-3xl p-6 sm:p-8 flex flex-col justify-between hover:border-[#B8845C]/40 transition-all overflow-hidden relative group">
+        <div>
+          <h3 className="text-xl sm:text-2xl font-bold text-white mb-2">Developer tools</h3>
+          <p className="text-white/50 text-xs sm:text-sm leading-relaxed mb-6">
+            Inspect execution traces and detailed runtime information to troubleshoot issues with tool calls and task execution.
+          </p>
+        </div>
+
+        {/* Visual UI inside card 4: Telemetry Gantt chart */}
+        <div className="bg-[#14171F] border border-white/15 rounded-2xl p-4 space-y-3 font-mono text-[11px]">
+          {/* Timeline Header Tabs */}
+          <div className="flex items-center justify-between pb-2 border-b border-white/10">
+            <div className="flex items-center gap-3 text-white/70">
+              <span className="flex items-center gap-1 text-[#E5AA7A] font-semibold">
+                <Clock className="w-3 h-3" /> Duration
+              </span>
+              <span className="text-white/40">Turns ⊞</span>
+              <span className="text-white/40">Calls ⊞</span>
+            </div>
+            <div className="flex items-center gap-1 bg-black/40 px-2 py-0.5 rounded border border-white/10 text-white/40 text-[10px]">
+              <Search className="w-3 h-3" />
+              <span>Search</span>
+            </div>
+          </div>
+
+          {/* Gantt Timeline Blocks */}
+          <div className="space-y-1.5 py-1">
+            <div className="flex items-center gap-2 text-[10px]">
+              <span className="w-12 text-white/40">Input</span>
+              <div className="flex-1 flex gap-1 h-3">
+                <div className="w-8 rounded bg-cyan-500/80" />
+                <div className="w-4 rounded bg-cyan-500/80 ml-2" />
+                <div className="w-6 rounded bg-cyan-500/80 ml-8" />
+                <div className="w-3 rounded bg-cyan-500/80 ml-6" />
+                <div className="w-5 rounded bg-cyan-500/80 ml-4" />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-[10px]">
+              <span className="w-12 text-white/40">Model</span>
+              <div className="flex-1 flex gap-1 h-3">
+                <div className="w-5 rounded bg-purple-500/80 ml-3" />
+                <div className="w-10 rounded bg-purple-500/80 ml-5" />
+                <div className="w-4 rounded bg-purple-500/80 ml-4" />
+                <div className="w-8 rounded bg-purple-500/80 ml-7" />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-[10px]">
+              <span className="w-12 text-white/40">Tools</span>
+              <div className="flex-1 flex gap-1 h-3">
+                <div className="w-10 rounded bg-[#B8845C] ml-6" />
+                <div className="w-7 rounded bg-[#B8845C] ml-3" />
+                <div className="w-12 rounded bg-[#B8845C] ml-6" />
+                <div className="w-6 rounded bg-[#B8845C] ml-2" />
+              </div>
+            </div>
+          </div>
+
+          {/* Trace Rows */}
+          <div className="pt-2 border-t border-white/5 space-y-1 text-[10px]">
+            <div className="flex items-center gap-2">
+              <span className="bg-white/10 px-1.5 py-0.2 rounded text-white/70">SYSTEM</span>
+              <span className="text-white/50 truncate">Initial System Prompt (71 MCP tools enabled)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-white/30">Turn 1</span>
+              <span className="bg-blue-500/20 text-blue-300 px-1.5 py-0.2 rounded">USER</span>
+              <span className="text-white/70 truncate">First run bash to print exactly NAVIGATION_OK, then read nav...</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="bg-[#B8845C]/20 text-[#E5AA7A] px-1.5 py-0.2 rounded">CONTEXT</span>
+              <span className="text-white/50 truncate">Current runtime context: workspace policy, available skills, and...</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1188,6 +1448,33 @@ export default function Home() {
       </section>
 
       {/* -------------------------------------------------------------------- */}
+      {/* 3.5 HARNESS CAPABILITIES (DEEPSEEK & XAI 4-CARD BENTO GRID)          */}
+      {/* -------------------------------------------------------------------- */}
+      <section id="capabilities" className="py-24 px-6 border-t border-white/5 bg-gradient-to-b from-[#060709] via-black/30 to-[#060709]">
+        <div className="max-w-6xl mx-auto">
+          <AnimatedSection className="text-center mb-16">
+            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
+              Interactive Capabilities
+            </p>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4">
+              Built for autonomy.
+              <br />
+              <span className="bg-gradient-to-r from-[#F0CBA8] via-[#E5AA7A] to-[#B8845C] bg-clip-text text-transparent">
+                Crafted for engineering rigor.
+              </span>
+            </h2>
+            <p className="text-white/50 max-w-2xl mx-auto text-sm sm:text-base leading-relaxed">
+              Everything in barkcli is designed around verifiable artifacts: skills lock down external tools, worktrees host code reviews, and telemetry captures every tool invocation.
+            </p>
+          </AnimatedSection>
+
+          <AnimatedSection>
+            <HarnessCapabilities />
+          </AnimatedSection>
+        </div>
+      </section>
+
+      {/* -------------------------------------------------------------------- */}
       {/* 4. DEDICATED SURFACE 1: BOARD & AGENTS                                */}
       {/* -------------------------------------------------------------------- */}
       <section id="board" className="py-24 px-6 border-t border-white/5 bg-gradient-to-b from-white/[0.01] to-transparent">
@@ -1600,6 +1887,90 @@ export default function Home() {
               ))}
             </div>
           </AnimatedSection>
+        </div>
+      </section>
+
+      {/* -------------------------------------------------------------------- */}
+      {/* 10.5 CHOOSE HOW TO GET STARTED (XAI INSPIRED)                        */}
+      {/* -------------------------------------------------------------------- */}
+      <section className="py-24 px-6 border-t border-white/5 bg-gradient-to-b from-[#060709] via-black/40 to-[#060709]">
+        <div className="max-w-5xl mx-auto">
+          <AnimatedSection className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4">
+              Choose how to get started
+            </h2>
+            <p className="text-white/50 max-w-xl mx-auto text-sm sm:text-base">
+              Start with the free open-source core, or explore multiplayer live sessions for engineering teams.
+            </p>
+          </AnimatedSection>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+            {/* Build on your own */}
+            <AnimatedSection delay={0.1}>
+              <div className="bg-[#0B0D12] border border-white/10 rounded-3xl p-6 sm:p-8 flex flex-col justify-between h-full hover:border-[#B8845C]/40 transition-all">
+                <div>
+                  <h3 className="text-xl sm:text-2xl font-bold text-white mb-2">Build on your own</h3>
+                  <p className="text-white/50 text-xs sm:text-sm leading-relaxed mb-6">
+                    Launch your AI-powered development workflow with:
+                  </p>
+                  <ul className="space-y-3 text-xs sm:text-sm text-white/70 mb-8">
+                    {[
+                      "Access to all 71 MCP tools over standard stdio JSON-RPC",
+                      "100% offline-capable single binary with no external server required",
+                      "Isolated git worktree automation with project tests as acceptance gate",
+                      "Compatible with Claude Code, OpenCode, Cursor, and custom CLIs",
+                      "MIT licensed, free forever, zero cloud subscriptions",
+                    ].map((item, i) => (
+                      <li key={i} className="flex items-start gap-2.5">
+                        <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <a
+                  href="https://github.com/AkshatNaruka/barkcli/releases/latest/download/Bark-macOS-universal.dmg"
+                  className="w-full py-3 rounded-full bg-white text-black font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 hover:bg-white/90 transition-all shadow cursor-pointer text-center"
+                >
+                  <Download className="w-4 h-4" />
+                  Download macOS App (.dmg)
+                </a>
+              </div>
+            </AnimatedSection>
+
+            {/* For teams & multiplayer */}
+            <AnimatedSection delay={0.2}>
+              <div className="bg-[#0B0D12] border border-white/10 rounded-3xl p-6 sm:p-8 flex flex-col justify-between h-full hover:border-[#B8845C]/40 transition-all">
+                <div>
+                  <h3 className="text-xl sm:text-2xl font-bold text-white mb-2">Multiplayer &amp; Teams</h3>
+                  <p className="text-white/50 text-xs sm:text-sm leading-relaxed mb-6">
+                    Collaborative agent sessions and governance for engineering organizations:
+                  </p>
+                  <ul className="space-y-3 text-xs sm:text-sm text-white/70 mb-8">
+                    {[
+                      "Shared live agent sessions with realtime WebSocket collaboration",
+                      "Distributed git board synchronization via git push/pull",
+                      "Team-wide merge train and automated conflict resolution",
+                      "Complete audit history, blame logs, and reproducible memory facts",
+                      "Zero data leakage: all code and context stay inside your repository",
+                    ].map((item, i) => (
+                      <li key={i} className="flex items-start gap-2.5">
+                        <Check className="w-4 h-4 text-[#E5AA7A] shrink-0 mt-0.5" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <a
+                  href="/docs/team-setup"
+                  className="w-full py-3 rounded-full border border-white/20 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 hover:bg-white/10 transition-all cursor-pointer text-center"
+                >
+                  Read Team Setup Guide
+                  <ArrowRight className="w-4 h-4" />
+                </a>
+              </div>
+            </AnimatedSection>
+          </div>
         </div>
       </section>
 
