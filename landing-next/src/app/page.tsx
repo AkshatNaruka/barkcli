@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { MCP_TOOL_COUNT } from "@/lib/mcp";
 import {
   FolderOpen,
@@ -19,9 +19,6 @@ import {
   ChevronDown,
   Check,
   Copy,
-  LayoutDashboard,
-  BarChart3,
-  Settings,
   Sparkles,
   ArrowRight,
   Shield,
@@ -36,6 +33,14 @@ import {
   Layers,
   Database,
   Play,
+  Pause,
+  RotateCcw,
+  Cpu,
+  Workflow,
+  CheckCircle2,
+  AlertCircle,
+  FileCode,
+  ShieldCheck,
 } from "lucide-react";
 import {
   OpenCodeLogo,
@@ -44,247 +49,259 @@ import {
   AnyAgentLogo,
 } from "@/components/AgentLogos";
 
-const INSTALL = "curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh";
+const INSTALL_CURL = "curl -fsSL https://raw.githubusercontent.com/AkshatNaruka/barkcli/master/install.sh | sh";
+const INSTALL_CARGO = "cargo install barkcli";
+const INSTALL_SERVE = "barkcli serve --open";
+const INSTALL_RUN = 'barkcli run "Fix login token race condition" --agents 2 --yes';
 
-// Hosted GitHub Pages build: link to the interactive board preview served
-// at /app/ (see .github/workflows/pages.yml). Hidden on the Vercel deploy.
 const ON_PAGES = process.env.NEXT_PUBLIC_PAGES === "1";
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH || "";
+
 const NAV_LINKS = [
-  { href: "#product", label: "Product" },
-  { href: "#pipeline", label: "How it works" },
-  { href: "#features", label: "Features" },
-  { href: "/benchmark", label: "Benchmark" },
-  { href: "#ai-agent", label: "AI Agent" },
+  { href: "#pipeline", label: "Pipeline" },
+  { href: "#architecture", label: "Architecture" },
+  { href: "#surfaces", label: "Surfaces" },
+  { href: "#benchmark", label: "Benchmark" },
+  { href: "#ai-agent", label: "Agents & MCP" },
   { href: "/docs", label: "Docs" },
-  ...(ON_PAGES ? [{ href: `${BASE}/app/`, label: "Live preview" }] : []),
+  ...(ON_PAGES ? [{ href: `${BASE}/app/`, label: "Live Preview" }] : []),
 ];
 
-const VIDEO_URL =
-  "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260405_171521_25968ba2-b594-4b32-aab7-f6b69398a6fa.mp4";
+/* -------------------------------------------------------------------------- */
+/* Living Autonomy Loop Stages (DeepSeek Harness Inspired)                    */
+/* -------------------------------------------------------------------------- */
 
-const FEATURES = [
+interface LoopStage {
+  id: string;
+  step: string;
+  title: string;
+  badge: string;
+  command: string;
+  description: string;
+  files: Array<{ path: string; diff: string; status: "modified" | "created" | "passed" }>;
+  terminalOutput: string[];
+}
+
+const LOOP_STAGES: LoopStage[] = [
+  {
+    id: "intent",
+    step: "01",
+    title: "Human Intent",
+    badge: "Intent Intake",
+    command: 'barkcli intake "Fix auth token expiry race condition" --bug',
+    description: "You provide intent in plain language. Barkcli maps it to a tracked specification and requirement node without editing code.",
+    files: [
+      { path: "specs/auth-race.yaml", diff: "created", status: "created" },
+    ],
+    terminalOutput: [
+      "$ barkcli intake \"Fix auth token expiry race condition\" --bug",
+      "✓ Classified as bug (priority: high, area: auth)",
+      "✓ Created spec_id: spec_auth_expiry_race",
+      "✓ Mapped to card: fix-auth-token-expiry-race",
+      "Status: Ready for agent decomposition",
+    ],
+  },
+  {
+    id: "plan",
+    step: "02",
+    title: "Agent Proposal",
+    badge: "Spec Decomposition",
+    command: "barkcli plan fix-auth-token-expiry-race --tasks",
+    description: "Planner agent inspects repository symbols and proposes a concrete 3-step atomic plan with exact file scopes and acceptance criteria.",
+    files: [
+      { path: "src/auth/token.rs", diff: "+18 / -4", status: "modified" },
+      { path: "tests/auth_test.rs", diff: "+34", status: "created" },
+    ],
+    terminalOutput: [
+      "$ barkcli plan fix-auth-token-expiry-race --tasks",
+      "Analyzing project_context.md and symbol graph...",
+      "Proposed plan with 2 child tasks:",
+      "  1. Add atomic mutex lock around token refresh (src/auth/token.rs)",
+      "  2. Add concurrent expiration regression test (tests/auth_test.rs)",
+      "Awaiting gate approval or auto-run...",
+    ],
+  },
+  {
+    id: "worktree",
+    step: "03",
+    title: "Worktree Sandbox",
+    badge: "Git Isolation",
+    command: "barkcli run --agent opencode --worktree .board/worktrees/wt-auth-a1",
+    description: "An isolated git worktree is checked out under .board/worktrees/. The agent cannot touch your dirty working tree or uncommitted files.",
+    files: [
+      { path: ".board/worktrees/wt-auth-a1/src/auth/token.rs", diff: "+18 / -4", status: "modified" },
+      { path: ".board/worktrees/wt-auth-a1/.cargo/config.toml", diff: "shared cache", status: "created" },
+    ],
+    terminalOutput: [
+      "[worktree] Acquired sandbox: .board/worktrees/wt-auth-a1",
+      "[worktree] Target cache symlinked to host /target (zero duplicate build time)",
+      "[opencode] Claimed packet task-auth-token",
+      "[opencode] Editing src/auth/token.rs...",
+      "[opencode] Adding concurrent test in tests/auth_test.rs...",
+      "Status: Edits completed. Handing over to acceptance gate.",
+    ],
+  },
+  {
+    id: "gate",
+    step: "04",
+    title: "Acceptance Gate",
+    badge: "Test Verdict",
+    command: "cargo test -p auth --test auth_test",
+    description: "The agent's self-report is strictly ignored. Completion requires your real project test suite to exit 0 inside the worktree.",
+    files: [
+      { path: "tests/auth_test.rs::test_concurrent_refresh", diff: "PASS", status: "passed" },
+      { path: "tests/auth_test.rs::test_token_mutex_boundary", diff: "PASS", status: "passed" },
+    ],
+    terminalOutput: [
+      "[gate] Executing project test gate in worktree: cargo test -p auth",
+      "   Compiling auth v0.4.0 (.board/worktrees/wt-auth-a1)",
+      "   Running unittests src/auth/token.rs (target/debug/deps/...)",
+      "test tests::test_concurrent_refresh ... ok",
+      "test tests::test_token_mutex_boundary ... ok",
+      "Gate verdict: PASSED (2 passed; 0 failed). Branch qualified for merge train.",
+    ],
+  },
+  {
+    id: "merge",
+    step: "05",
+    title: "Merge Train",
+    badge: "Deterministic Rebase",
+    command: "git merge --no-ff bark/wt-auth-a1 -m 'fix(auth): resolve token expiry race'",
+    description: "Gate-passing branches merge sequentially onto master. A cryptographically recorded receipt is appended, and the worktree is cleanly pruned.",
+    files: [
+      { path: "master", diff: "+52 / -4", status: "modified" },
+      { path: ".board/threads/fix-auth-token.jsonl", diff: "receipt locked", status: "passed" },
+    ],
+    terminalOutput: [
+      "[merge-train] Order: #1 in queue. Fast-forwarding main...",
+      "[merge] Merged branch bark/wt-auth-a1 into master (commit 9e4f210)",
+      "[receipt] Signed receipt recorded: .board/threads/fix-auth-token.jsonl",
+      "[prune] Pruned .board/worktrees/wt-auth-a1. Working tree is clean.",
+      "✓ Mission complete. Zero human intervention needed.",
+    ],
+  },
+];
+
+/* -------------------------------------------------------------------------- */
+/* Bento Architecture Cards                                                   */
+/* -------------------------------------------------------------------------- */
+
+const BENTO_CARDS = [
+  {
+    icon: GitBranch,
+    badge: "Git-Native Sandboxing",
+    title: "Isolated Git Worktrees",
+    desc: "Every agent runs inside its own isolated worktree under .board/worktrees/. No agent touches your dirty tree. Automated shared cargo/target caches prevent gigabytes of rebuild bloat, while quotas prevent disk exhaustion.",
+    code: "$ git worktree list\n/repo                   master\n/repo/.board/worktrees/wt-1  bark/agent-a\n/repo/.board/worktrees/wt-2  bark/agent-b",
+    span: "col-span-1 md:col-span-2",
+  },
+  {
+    icon: ShieldCheck,
+    badge: "Honest By Construction",
+    title: "Tests Are The Acceptance Gate",
+    desc: "An agent is done when your tests pass in its worktree — never because the LLM says 'I'm done'. If tests fail, stdout diagnostics inject into the retry prompt.",
+    code: "Completion Rule:\nexit_code == 0 && diff.len() > 0\n// Hallucinations cannot land",
+    span: "col-span-1",
+  },
   {
     icon: Brain,
-    title: "Collective memory",
-    description:
-      "Every run is a node in a Git-backed contribution graph. Independent verification, evidence scores, neglected-branch nudging, and UCB recommendations. Agents build on verified work instead of starting from zero.",
-    code: "$ barkcli analyze && barkcli contribute --title \"insight\" --kind hypothesis",
-    gradient: "from-amber-500/20 to-orange-500/20",
+    badge: "Living Project Context",
+    title: "project_context.md",
+    desc: "A single central context file generated and maintained by barkcli. Manual sections are pinned (manual='true'), provenance is tracked, and cold-start token consumption drops by 57×.",
+    code: "$ barkcli context prime\n$ barkcli context digest --polish\n// 515 tokens vs 29,400 cold start",
+    span: "col-span-1",
   },
   {
-    icon: Terminal,
-    title: "Real local-agent chat",
-    description:
-      "Ask or build with the same opencode, claude, or codex CLIs you already pay for. Read-only Ask turns stream text and tool calls; Build turns get an isolated worktree and a test gate.",
-    code: "$ barkcli serve --open  # then chat in the app",
-    gradient: "from-emerald-500/20 to-teal-500/20",
-  },
-  {
-    icon: Search,
-    title: "Quick open & command runner",
-    description:
-      "⌘P jumps to any file with a preview; ⌘⇧R runs real project tests, builds, and git commands without leaving Bark.",
-    code: "$ barkcli code \"auth\"  # or ⌘P / ⌘⇧R in the app",
-    gradient: "from-blue-500/20 to-cyan-500/20",
-  },
-  {
-    icon: Clock,
-    title: "Automations",
-    description:
-      "Schedule agent runs on an interval. Each due intent invokes the normal autonomy loop — worktree, gate, merge train — and reports back.",
-    code: '$ barkcli schedule add "summarize the README" --every 1h',
-    gradient: "from-rose-500/20 to-red-500/20",
-  },
-  {
-    icon: Sparkles,
-    title: "Mind",
-    description: "A compiled snapshot of your project — health, blockers, stale work, next actions. One command answers what's happening.",
-    code: "$ barkcli mind sync && barkcli overview",
-    gradient: "from-violet-500/20 to-purple-500/20",
-  },
-  {
-    icon: Layers,
-    title: "Skills & Ecosystem Tools",
-    description:
-      "Install remote playbooks from skills.sh with sha-pinned skills.lock files. Automatically detect, inspect, and run external agent tools including fx, deepsec, and agent-browser.",
-    code: "$ barkcli skills install owner/repo && barkcli tools list",
-    gradient: "from-indigo-500/20 to-blue-500/20",
-  },
-  {
-    icon: FolderOpen,
-    title: "Board + Traceability",
-    description: "Kanban with spec_id on every card — spec ↔ card ↔ task ↔ code, O(1). Diff it, merge it, grep it.",
-    code: "$ git diff main..feature -- *.board",
-    gradient: "from-zinc-500/20 to-neutral-500/20",
-  },
-  {
-    icon: Bot,
-    title: "Agent Queue",
-    description: "Tasks dispatch to OpenCode, Claude Code, Cursor, or a human. Claim, work, complete — with a review gate before done.",
-    code: "$ barkcli dispatch && barkcli review --auto",
-    gradient: "from-green-500/20 to-emerald-500/20",
-  },
-  {
-    icon: Database,
-    title: "Memory",
-    description: "Four-tier local memory with hybrid BM25 + TF-IDF search. Decisions and patterns survive across sessions — offline.",
-    code: '$ barkcli memory search "auth errors"',
-    gradient: "from-teal-500/20 to-cyan-500/20",
+    icon: Workflow,
+    badge: "Multiplayer Autonomy",
+    title: "Parallel Agent Merge Train",
+    desc: "Run barkcli run '<intent>' --agents 3. Workers claim attempts in parallel worktrees, emit heartbeats to the supervisor, and merge in finish order. Conflicted branches re-run solo once the pool drains.",
+    code: "$ barkcli run \"Migrate auth to v2\" --agents 3 --yes\n✓ agent-1: passed gate -> merged #1\n✓ agent-2: passed gate -> merged #2",
+    span: "col-span-1 md:col-span-2",
   },
 ];
 
-const STEPS = [
-  {
-    number: "1",
-    title: "Intake",
-    description: "Human writes intent in plain language. barkcli classifies it into a card + spec — offline if needed.",
-    command: 'barkcli intake "Add Google OAuth" --feature',
-    icon: Sparkles,
-  },
-  {
-    number: "2",
-    title: "Plan",
-    description: "The spec decomposes into agent-ready child cards with file context and acceptance criteria.",
-    command: "barkcli plan oauth-login --tasks",
-    icon: Boxes,
-  },
-  {
-    number: "3",
-    title: "Dispatch",
-    description: "Tasks route to the right agent — OpenCode, Claude Code, or a human — with full context + skills.",
-    command: "barkcli dispatch",
-    icon: Wand2,
-  },
-  {
-    number: "4",
-    title: "Review",
-    description: "Completed work is validated against acceptance criteria, tests, and commits before it lands.",
-    command: "barkcli review --all --auto",
-    icon: Check,
-  },
-  {
-    number: "5",
-    title: "Remember",
-    description: "Decisions, patterns, and sessions persist in local memory. The mind snapshot tells you what's next.",
-    command: "barkcli mind sync && barkcli overview",
-    icon: Brain,
-  },
-];
+/* -------------------------------------------------------------------------- */
+/* Runtime Surfaces                                                           */
+/* -------------------------------------------------------------------------- */
 
-const INTERFACES = [
+const SURFACES = [
   {
-    id: "desktop",
-    title: "macOS App",
-    icon: Laptop,
-    description: "Native macOS desktop application (Bark.app) with embedded runtime, dock integration, ⌘K command palette, and window controls.",
-    demo: `Applications/Bark.app
-├── Embedded local server runtime
-├── Menu bar status & system notifications
-├── Instant ⌘K command palette
-└── Real-time WebSocket sync across all workspaces`,
+    id: "threads",
+    title: "Threads (Web & Desktop)",
+    badge: "Interactive UI",
+    icon: Globe,
+    description: "Real-time SSE event bus streaming agent thoughts, tool executions, live diffs, and test output directly in your browser or native macOS window.",
+    preview: `Thread: Add JWT verification (/api/threads/jwt-auth)
+────────────────────────────────────────────────────────
+[you]       Ask: Where is token validation currently handled?
+[bark]      Checked src/auth/mod.rs:24. Token decoding is
+            centralized in verify_signature().
+[you]       Build: Add expiration check with 5s clock skew
+[opencode]  Spawning worktree: .board/worktrees/wt-jwt-a1
+[gate]      cargo test -p auth -- PASSED (14/14)
+[merge]     Merged to master (receipt recorded)`,
   },
   {
-    id: "cli",
-    title: "Command Line",
+    id: "pool",
+    title: "Autonomy Loop (CLI)",
+    badge: "Headless Daemon",
     icon: Terminal,
-    description: "Full-featured CLI for scripts, automation, and power users. Every action available from your terminal.",
-    demo: `$ barkcli add "Deploy to production" -p critical --due 2024-12-15
-✓ Added card deploy-to-production
+    description: "Autonomous end-to-end execution loop for CI/CD or power-user terminal workflows. Runs multiple agents in parallel with zero manual gates.",
+    preview: `$ barkcli run "Refactor database connection pooling" --agents 2 --yes
 
-$ barkcli show deploy-to-production
-ID:       deploy-to-production
-Title:    Deploy to production
-Priority: critical
-Due:      2024-12-15
-Column:   todo
-
-$ barkcli move deploy-to-production done
-✓ Moved to done`,
+[intake]    Parsed intent -> 2 atomic task cards
+[pool]      Worker 1 -> wt-db-pool-1 (OpenCode)
+[pool]      Worker 2 -> wt-db-pool-2 (Claude Code)
+[gate]      Worker 1: cargo test -> PASS (rebased onto master)
+[gate]      Worker 2: cargo test -> PASS (merged via train)
+[summary]   2 tasks complete, 0 failures, 4.2s runtime`,
   },
   {
     id: "tui",
-    title: "Terminal UI",
+    title: "Terminal UI (Ratatui)",
+    badge: "Keyboard Driven",
     icon: Monitor,
-    description: "Interactive board right in your terminal. Navigate with vim keys, filter, sort, and manage tasks visually.",
-    demo: `┌─────────────────────────────────────────────────────────┐
-│ Todo              Doing               Done              │
-├─────────────────────────────────────────────────────────┤
-│ ● Fix login bug   ● Implement API    ✓ Setup CI/CD     │
-│ ● Write docs      ● Add auth         ✓ Init project    │
-│                   ● Refactor DB                        │
-└─────────────────────────────────────────────────────────┘
-↑↓/jk sel · ←→/hl col · a add · e edit · d delete`,
+    description: "Zero-latency terminal kanban board and live agent monitor. Full vim keys, real-time agent row pulses, task inspection, and quick actions.",
+    preview: `┌── Todo (2) ─────────── Doing (2) ──────────── Done (12) ───┐
+│ ● Refactor DB pool    ▶ [opencode] OAuth flow  ✓ Init board│
+│ ● Add audit logs      ▶ [claude] Webhook retry ✓ MCP Server│
+└────────────────────────────────────────────────────────────┘
+[7] Agents  [8] Orchestrate  [Space] Move  [a] Add  [q] Quit`,
   },
   {
-    id: "web",
-    title: "Web App",
-    icon: Globe,
-    description: "The management layer UI: Mind homepage, board with spec traceability, agent queue, memory and skills — real-time via WebSocket.",
-    demo: `Mind · Board · Agents · Memory · Skills
+    id: "mcp",
+    title: "MCP Stdio Server",
+    badge: "71 Tools",
+    icon: Cpu,
+    description: "Standard JSON-RPC 2.0 interface exposing 71 tools to Claude Code, OpenCode, and Cursor. Lets agents read boards, query memory, and trigger gates natively.",
+    preview: `MCP Server: barkcli mcp (stdio)
+Tools Registered: 71
+  • context_file_get        • spec_create        • run_start
+  • board_card_move         • memory_search      • gate_check
+  • worktree_acquire        • merge_receipt      • thread_append
 
-┌──────────┬──────────┬──────────┬──────────┐
-│ Todo     │ Doing    │ Review   │ Done     │
-│          │          │          │          │
-│ ┌──────┐ │ ┌──────┐ │ ┌──────┐ │ ┌──────┐ │
-│ │Auth  │ │ │API   │ │ │Tests │ │ │Setup │ │
-│ │UI    │ │ │DB    │ │ │      │ │ │CI/CD │ │
-│ └──────┘ │ └──────┘ │ └──────┘ │ └──────┘ │
-└──────────┴──────────┴──────────┴──────────┘`,
+Status: Listening on stdio. Compatible with Claude Code & Cursor.`,
   },
 ];
 
-const CODE_FEATURES = [
-  { icon: GitBranch, title: "Call Graphs", metric: "→", desc: "Map function calls across files via `callgraph_get`. Understand impact before you change." },
-  { icon: TestTube, title: "Test Coverage", metric: "e.g. 87%", desc: "Heuristic test-file mapping via `context_get` — see which cards link to which tests." },
-  { icon: Zap, title: "Complexity", metric: "e.g. C-12", desc: "Cyclomatic + cognitive scores via `metrics_get`. Find risky code early." },
-  { icon: TrendingUp, title: "Risk Score", metric: "e.g. 0.3", desc: "Formula-based risk (complexity, nesting, size) via `metrics_get`." },
-];
-
-const FAQ = [
-  {
-    question: "Is barkcli an agentic harness?",
-    answer: "Yes. An agentic harness is an automated execution environment that wraps an agent: it creates an isolated workspace, injects context and tools, streams the agent's work, and gates completion on real test passes rather than the agent's self-report. barkcli does this via git worktrees, project_context.md, 71 MCP tools, and a test acceptance gate. Beyond a pure harness, barkcli also provides the human management layer — specs, boards, memory, and multi-agent coordination.",
-  },
-  {
-    question: "Is barkcli a CLI tool or a web app?",
-    answer: `Both, plus a native macOS desktop app — but think of it as a management layer, not a single interface. The same repository data powers the macOS app, CLI, terminal UI, VS Code extension, and browser UI. Humans manage intent on the board; agents work through ${MCP_TOOL_COUNT} MCP tools; git syncs everything.`,
-  },
-  {
-    question: "What makes barkcli different from Jira or Linear?",
-    answer: "Jira and Linear manage humans through a cloud database. barkcli manages humans and AI agents through files in your repo. Tasks, specs, memory, skills, and agent runs are YAML/JSON you can diff, merge, and version control. No accounts, no subscriptions, no vendor lock-in — and agents can read and write the same board you see.",
-  },
-  {
-    question: "Does it work offline?",
-    answer: "Yes. barkcli is a single binary with no network dependencies. All data is stored locally in your repo. Sync via git push/pull — no special sync service needed.",
-  },
-  {
-    question: "Can I use it with my team?",
-    answer: "Absolutely. Commit the .board directory to your repo. Team members pull changes and see the same board. No server required — git handles the sync.",
-  },
-  {
-    question: "How do AI agents fit in?",
-    answer: `barkcli sits between you and your coding agents. You write intent (intake → plan), agents claim scoped tasks with file context and skills (dispatch), and completed work is validated before it lands (review). Memory persists decisions across sessions. Agents connect via ${MCP_TOOL_COUNT} MCP tools — OpenCode, Claude Code, and Cursor all work. The core stays fully usable offline without any AI.`,
-  },
-  {
-    question: "Is it free?",
-    answer: "Yes. barkcli is MIT licensed and completely free. All features are open source — no Pro tiers, no paywalls.",
-  },
-];
+/* -------------------------------------------------------------------------- */
+/* Agent Setup Prompts                                                        */
+/* -------------------------------------------------------------------------- */
 
 const AGENT_PROMPTS: Record<string, string> = {
   claude: `Please run the following commands to install and set up barkcli (the management layer for AI agents) in this project:
 
-1. First, install barkcli:
-curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
+1. Install barkcli:
+curl -fsSL https://raw.githubusercontent.com/AkshatNaruka/barkcli/master/install.sh | sh
 
-2. Initialize barkcli in this project:
+2. Initialize barkcli:
 barkcli init
 
-3. Create a default board:
+3. Create the primary board:
 barkcli create main
 
-4. Add the MCP server configuration to .claude/settings.json:
+4. Connect MCP server in ~/.claude/config.json or .claude/config.json:
 {
   "mcpServers": {
     "barkcli": {
@@ -294,34 +311,18 @@ barkcli create main
   }
 }
 
-5. Verify the installation:
+5. Verify:
 barkcli status
-barkcli list
-
-6. Add a sample task to confirm everything works:
-barkcli add "Welcome to barkcli" -p low -d "barkcli is now set up and ready to use"
-
-After running these commands, barkcli will be fully configured. The autonomous loop works like this:
-• Type intent in the web app (Mind tab) or run "barkcli intake <text>"
-• Approve the proposed plan (web gate or "barkcli autopilot approve <id>")
-• Agents claim packets, work, and complete them via MCP
-• Merge when review passes — checkpoints + undo cover recovery
-
-You rarely need CLI commands — open "barkcli serve --open" and decide what gets built.
-
-For the full AI agent prompt with all commands, run: barkcli --help`,
+barkcli --version`,
   opencode: `Please run the following commands to install and set up barkcli (the management layer for AI agents) in this project:
 
-1. First, install barkcli:
-curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
+1. Install barkcli:
+curl -fsSL https://raw.githubusercontent.com/AkshatNaruka/barkcli/master/install.sh | sh
 
-2. Initialize barkcli in this project:
+2. Initialize barkcli:
 barkcli init
 
-3. Create a default board:
-barkcli create main
-
-4. Add the MCP server configuration to .opencode/config.json:
+3. Connect MCP server in .opencode/config.json:
 {
   "mcpServers": {
     "barkcli": {
@@ -331,34 +332,10 @@ barkcli create main
   }
 }
 
-5. Verify the installation:
-barkcli status
-barkcli list
+4. Verify setup:
+barkcli status`,
+  cursor: `Please add barkcli to your Cursor project settings (.cursor/mcp.json):
 
-6. Add a sample task to confirm everything works:
-barkcli add "Welcome to barkcli" -p low -d "barkcli is now set up and ready to use"
-
-After running these commands, barkcli will be fully configured. The autonomous loop works like this:
-• Type intent in the web app (Mind tab) or run "barkcli intake <text>"
-• Approve the proposed plan (web gate or "barkcli autopilot approve <id>")
-• Agents claim packets, work, and complete them via MCP
-• Merge when review passes — checkpoints + undo cover recovery
-
-You rarely need CLI commands — open "barkcli serve --open" and decide what gets built.
-
-For the full AI agent prompt with all commands, run: barkcli --help`,
-  cursor: `Please run the following commands to install and set up barkcli (the management layer for AI agents) in this project:
-
-1. First, install barkcli:
-curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
-
-2. Initialize barkcli in this project:
-barkcli init
-
-3. Create a default board:
-barkcli create main
-
-4. Add the MCP server configuration to .cursor/mcp.json:
 {
   "mcpServers": {
     "barkcli": {
@@ -368,1155 +345,710 @@ barkcli create main
   }
 }
 
-5. Verify the installation:
-barkcli status
-barkcli list
-
-6. Add a sample task to confirm everything works:
-barkcli add "Welcome to barkcli" -p low -d "barkcli is now set up and ready to use"
-
-After running these commands, barkcli will be fully configured. The autonomous loop works like this:
-• Type intent in the web app (Mind tab) or run "barkcli intake <text>"
-• Approve the proposed plan (web gate or "barkcli autopilot approve <id>")
-• Agents claim packets, work, and complete them via MCP
-• Merge when review passes — checkpoints + undo cover recovery
-
-You rarely need CLI commands — open "barkcli serve --open" and decide what gets built.
-
-For the full AI agent prompt with all commands, run: barkcli --help`,
-  generic: `Please run the following commands to install and set up barkcli (the management layer for AI agents) in this project:
-
-1. First, install barkcli:
-curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
-
-2. Initialize barkcli in this project:
+Run in terminal:
+curl -fsSL https://raw.githubusercontent.com/AkshatNaruka/barkcli/master/install.sh | sh
 barkcli init
+barkcli create main`,
+  generic: `Setup barkcli (management layer for AI agents) with any agent CLI:
 
-3. Create a default board:
+1. Install:
+curl -fsSL https://raw.githubusercontent.com/AkshatNaruka/barkcli/master/install.sh | sh
+
+2. Initialize:
+barkcli init
 barkcli create main
 
-4. Verify the installation:
-barkcli status
-barkcli list
-
-5. Add a sample task to confirm everything works:
-barkcli add "Welcome to barkcli" -p low -d "barkcli is now set up and ready to use"
-
-After running these commands, barkcli will be fully configured. The autonomous loop works like this:
-• Type intent in the web app (Mind tab) or run "barkcli intake <text>"
-• Approve the proposed plan (web gate or "barkcli autopilot approve <id>")
-• Agents claim packets, work, and complete them via MCP
-• Merge when review passes — checkpoints + undo cover recovery
-
-You rarely need CLI commands — open "barkcli serve --open" and decide what gets built.
-
-For the full AI agent prompt with all commands, run: barkcli --help`,
+3. Start Web Management Layer:
+barkcli serve --open`,
 };
 
-function useInView(ref: React.RefObject<HTMLElement | null>, threshold = 0.1) {
-  const [inView, setInView] = useState(false);
-  useEffect(() => {
-    if (!ref.current) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setInView(true);
-          observer.disconnect();
-        }
-      },
-      { threshold }
-    );
-    observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, [ref, threshold]);
-  return inView;
-}
+/* -------------------------------------------------------------------------- */
+/* FAQ Items (Factual, Zero Slop)                                             */
+/* -------------------------------------------------------------------------- */
 
-function ProductMock() {
-  // Agent-tool brand colors — same hexes as web/src/lib/agents.ts and barkcli-tui/src/ui.rs.
-  // Claude #D97757 = official Anthropic terracotta, OpenCode #D99C57 = opencode.ai
-  // palette gold, human reviewer = emerald.
-  const AGENT_BRAND: Record<string, string> = {
-    opencode: "#D99C57",
-    claude: "#D97757",
-    human: "#34D399",
-  };
-  return (
-    <div className="border border-white/10 rounded-2xl overflow-hidden bg-[#0A0A0A] shadow-2xl shadow-black/60">
-      {/* Browser chrome */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10 bg-white/[0.02]">
-        <div className="flex gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-full bg-white/15" />
-          <div className="w-2.5 h-2.5 rounded-full bg-white/15" />
-          <div className="w-2.5 h-2.5 rounded-full bg-white/15" />
-        </div>
-        <div className="flex-1 text-center">
-          <span className="text-[11px] font-mono text-white/30 bg-white/5 border border-white/10 rounded-md px-3 py-1">
-            localhost:4321 — barkcli mind
-          </span>
-        </div>
-        <div className="w-10" />
-      </div>
-      <div className="flex text-left">
-        {/* Sidebar */}
-        <div className="hidden sm:flex flex-col w-40 shrink-0 border-r border-white/10 py-3">
-          <div className="px-3 pb-2 text-[10px] font-mono uppercase tracking-widest text-white/30">Manage</div>
-          {[
-            { icon: Brain, label: "Mind", active: true, badge: "2" },
-            { icon: LayoutDashboard, label: "Board", active: false, badge: "8" },
-            { icon: Layers, label: "Specs", active: false },
-          ].map((item) => (
-            <div
-              key={item.label}
-              className={`flex items-center gap-2 px-3 py-1.5 text-xs border-l-2 ${
-                item.active
-                  ? "text-white bg-white/5 border-[#B8845C]"
-                  : "text-white/40 border-transparent"
-              }`}
-            >
-              <item.icon className="w-3.5 h-3.5" />
-              {item.label}
-              {item.badge && (
-                <span className={`ml-auto text-[10px] font-mono px-1.5 py-px rounded-full ${item.active ? "bg-red-500/20 text-red-400" : "bg-white/5 text-white/40"}`}>
-                  {item.badge}
-                </span>
-              )}
-            </div>
-          ))}
-          <div className="px-3 pt-3 pb-2 text-[10px] font-mono uppercase tracking-widest text-white/30">Build</div>
-          {[{ icon: Bot, label: "Agents", badge: "3" }].map((item) => (
-            <div key={item.label} className="flex items-center gap-2 px-3 py-1.5 text-xs text-white/40 border-l-2 border-transparent">
-              <item.icon className="w-3.5 h-3.5" />
-              {item.label}
-              <span className="ml-auto text-[10px] font-mono px-1.5 py-px rounded-full bg-white/5 text-white/40">{item.badge}</span>
-            </div>
-          ))}
-        </div>
-        {/* Kanban */}
-        <div className="flex-1 grid grid-cols-3 gap-2 p-3 min-w-0">
-          {[
-            {
-              name: "Todo",
-              tone: "text-white/40",
-              cards: [
-                { title: "Add OAuth login", meta: "HIGH", metaCls: "text-red-400 bg-red-500/10 border-red-500/30", spec: true, blocked: false },
-                { title: "Fix checkout crash", meta: "BUG", metaCls: "text-red-400 bg-red-500/10 border-red-500/30", spec: true, blocked: true },
-              ],
-            },
-            {
-              name: "Doing",
-              tone: "text-white/40",
-              cards: [
-                { title: "Implement OAuth flow", meta: "IN PROGRESS", metaCls: "text-white/40 bg-white/5 border-white/10", spec: true, blocked: false },
-              ],
-            },
-            {
-              name: "Review",
-              tone: "text-white/40",
-              cards: [
-                { title: "Store tokens securely", meta: "REVIEW", metaCls: "text-white/40 bg-white/5 border-white/10", spec: false, blocked: false },
-              ],
-            },
-          ].map((col) => (
-            <div key={col.name} className="bg-white/[0.02] border border-white/10 rounded-xl p-2 min-w-0">
-              <div className={`text-[10px] font-semibold uppercase tracking-wide mb-2 ${col.tone}`}>{col.name}</div>
-              <div className="space-y-2">
-                {col.cards.map((c) => (
-                  <div
-                    key={c.title}
-                    className={`bg-white/[0.03] rounded-lg p-2 border ${c.blocked ? "border-red-500/50" : "border-white/10"}`}
-                  >
-                    <div className="text-[11px] text-white/90 font-medium leading-snug">{c.title}</div>
-                    <div className="flex items-center gap-1.5 mt-1.5">
-                      <span className={`text-[9px] font-semibold px-1.5 py-px rounded border ${c.metaCls}`}>{c.meta}</span>
-                      {c.spec && <span className="text-[9px] font-mono text-[#D4A574]">⎇ spec</span>}
-                      {c.blocked && <span className="text-[9px] font-semibold text-red-400">BLOCKED</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-        {/* Agent queue */}
-        <div className="hidden md:flex flex-col w-48 shrink-0 border-l border-white/10 p-3">
-          <div className="text-[10px] font-mono uppercase tracking-widest text-white/30 mb-2">Agents</div>
-          {[
-            {
-              name: "opencode-1",
-              task: "OAuth flow",
-              tool: "opencode",
-              Logo: OpenCodeLogo,
-            },
-            {
-              name: "claude-2",
-              task: "Token storage",
-              tool: "claude",
-              Logo: ClaudeCodeLogo,
-            },
-            {
-              name: "human-you",
-              task: "Review queue",
-              tool: "human",
-              Logo: AnyAgentLogo,
-            },
-          ].map((a) => (
-            <div key={a.name} className="py-1.5 border-b border-white/5 last:border-0">
-              <div className="flex items-center gap-1.5">
-                <a.Logo className="w-3.5 h-3.5 shrink-0" />
-                <span className="text-[11px] font-mono text-white/70">{a.name}</span>
-              </div>
-              <div className="text-[10px] mt-0.5" style={{ color: AGENT_BRAND[a.tool] }}>
-                {a.task}
-              </div>
-            </div>
-          ))}
-          <div className="mt-auto pt-2">
-            <div className="text-[10px] font-mono text-white/30">Next: dispatch 2 pending</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+const FAQ = [
+  {
+    question: "How does barkcli compare to DeepSeek Harness (dsh)?",
+    answer: "Both tools believe that intelligence requires a robust runtime harness. While DeepSeek Harness focuses on plugin extensibility and Cordis runtime sandboxing, barkcli specializes as the Git-native management layer: isolating agents in dedicated worktrees, using your project's existing test suite as the acceptance gate, and managing parallel branches with a sequential merge train. Both can be used together seamlessly.",
+  },
+  {
+    question: "Is barkcli an agentic harness?",
+    answer: "Yes. An agentic harness wraps an autonomous agent: it manages isolated filesystem sandboxes, injects context, intercepts tool actions, and gates task completion on automated test verdicts rather than the agent's self-report. barkcli provides this via git worktrees, project_context.md, 71 MCP tools, and a test acceptance gate.",
+  },
+  {
+    question: "Why use git worktrees instead of containers?",
+    answer: "Git worktrees provide instant, zero-overhead branch checkouts on your local filesystem without Docker startup latency or virtualization overhead. barkcli automatically configures shared build caches (e.g. target/ in Rust or node_modules/ in Node) across worktrees, saving gigabytes of disk space and enabling multi-agent concurrency.",
+  },
+  {
+    question: "Does barkcli work offline?",
+    answer: "Yes. barkcli is a standalone compiled Rust binary with zero cloud dependencies. Your tasks, specs, memory records, and history are committed directly as YAML and JSON files in your git repository.",
+  },
+  {
+    question: "Which coding agents are supported?",
+    answer: "barkcli provides first-class support for OpenCode, Claude Code, Cursor, Codex, and any custom agent script via BARKCLI_AGENT_CMD. It also registers 71 stdio MCP tools for direct integration into any Model Context Protocol host.",
+  },
+  {
+    question: "Is it completely free and open source?",
+    answer: "Yes. barkcli is published under the MIT license. Everything—the CLI, terminal UI, browser server, and MCP suite—is 100% open source.",
+  },
+];
 
-function AnimatedSection({ children, className = "", delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, 0.1);
-  return (
-    <div
-      ref={ref}
-      className={className}
-      style={{
-        opacity: inView ? 1 : 0,
-        transform: inView ? "translateY(0)" : "translateY(30px)",
-        transition: `opacity 0.6s ease ${delay}s, transform 0.6s ease ${delay}s`,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
+/* -------------------------------------------------------------------------- */
+/* Main Component                                                             */
+/* -------------------------------------------------------------------------- */
 
 export default function Home() {
-  const [copied, setCopied] = useState(false);
-  const [copiedPrompt, setCopiedPrompt] = useState(false);
-  const [activeTab, setActiveTab] = useState("cli");
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [copiedInstall, setCopiedInstall] = useState(false);
+  const [activeStageIndex, setActiveStageIndex] = useState(0);
+  const [autoPlay, setAutoPlay] = useState(true);
+  const [activeSurface, setActiveSurface] = useState("threads");
   const [activeAgentTab, setActiveAgentTab] = useState("claude");
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [scrolled, setScrolled] = useState(false);
 
+  // Auto-play loop for the living harness simulator
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 50);
+    if (!autoPlay) return;
+    const interval = setInterval(() => {
+      setActiveStageIndex((prev) => (prev + 1) % LOOP_STAGES.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [autoPlay]);
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 40);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  const activeStage = LOOP_STAGES[activeStageIndex];
+
   return (
-    <div className="min-h-screen w-full bg-black text-white selection:bg-[#B8845C]/30">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "FAQPage",
-            mainEntity: FAQ.map((item) => ({
-              "@type": "Question",
-              name: item.question,
-              acceptedAnswer: { "@type": "Answer", text: item.answer },
-            })),
-          }),
-        }}
-      />
-      {/* Hero Section */}
-      <section className="relative min-h-screen flex flex-col overflow-hidden">
-        {/* Video Background */}
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover"
-        >
-          <source src={VIDEO_URL} type="video/mp4" />
-        </video>
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black pointer-events-none" />
+    <div className="min-h-screen w-full bg-[#0A0B0E] text-white selection:bg-[#B8845C]/30 relative font-sans">
+      {/* Background Ambience */}
+      <div className="fixed inset-0 bark-grid-pattern pointer-events-none opacity-40 z-0" />
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bark-radial-glow pointer-events-none z-0" />
 
-        {/* Gradient Orbs */}
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#B8845C]/10 rounded-full blur-[120px] pointer-events-none" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#B8845C]/5 rounded-full blur-[120px] pointer-events-none" />
-
-        {/* Nav */}
-        <header className={`relative z-10 flex items-center justify-between px-6 md:px-10 h-16 shrink-0 transition-all duration-300 ${scrolled ? "bg-black/80 backdrop-blur-xl border-b border-white/10" : ""}`}>
-          <a href="#" className="flex items-center gap-2 no-underline group">
-            <div className="w-8 h-8 rounded-lg bg-[#B8845C] flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
-              <svg viewBox="0 0 100 100" className="w-5 h-5" fill="none" stroke="white" strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round">
+      {/* -------------------------------------------------------------------- */}
+      {/* Sticky Header Navigation                                             */}
+      {/* -------------------------------------------------------------------- */}
+      <header
+        className={`sticky top-0 z-50 flex items-center justify-between px-6 lg:px-12 h-16 transition-all duration-200 ${
+          scrolled ? "bg-[#0A0B0E]/90 backdrop-blur-xl border-b border-white/10 shadow-lg shadow-black/50" : "bg-transparent"
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <a href="#" className="flex items-center gap-2.5 no-underline group">
+            <div className="w-8 h-8 rounded-lg bg-[#B8845C] flex items-center justify-center shadow-md shadow-[#B8845C]/20 group-hover:scale-105 transition-transform">
+              <svg viewBox="0 0 100 100" className="w-5 h-5" fill="none" stroke="white" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M 30 25 C 42 18, 58 18, 70 25" />
                 <path d="M 30 25 C 16 27, 11 39, 12 51 C 13 60, 21 61, 27 53 C 30 48, 30 41, 30 35" />
                 <path d="M 70 25 C 84 27, 89 39, 88 51 C 87 60, 79 61, 73 53 C 70 48, 70 41, 70 35" />
                 <path d="M 30 43 C 26 56, 28 67, 35 74 C 41 79.5, 59 79.5, 65 74 C 72 67, 74 56, 70 43" />
                 <path d="M 43.5 55 C 47 52.5, 53 52.5, 56.5 55 C 55 59.5, 52 63, 50 64 C 48 63, 45 59.5, 43.5 55 Z" fill="white" stroke="none" />
-                <path d="M 50 64 L 50 70 M 44.5 70 C 47.5 72.5, 52.5 72.5, 55.5 70" strokeWidth="5" />
+                <path d="M 50 64 L 50 70 M 44.5 70 C 47.5 72.5, 52.5 72.5, 55.5 70" strokeWidth="5.5" />
               </svg>
             </div>
-            <span className="text-sm font-bold tracking-tight font-mono text-white">
-              barkcli
-            </span>
+            <span className="text-base font-bold tracking-tight font-mono text-white">barkcli</span>
           </a>
-          <nav className="flex items-center gap-1">
-            {NAV_LINKS.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className="text-xs text-white/60 hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-white/5 hidden sm:block"
-              >
-                {link.label}
-              </a>
-            ))}
-            <details className="relative sm:hidden">
-              <summary className="text-xs text-white/60 hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-white/5 cursor-pointer list-none">
-                Menu
-              </summary>
-              <div className="absolute right-0 top-full mt-1 min-w-40 rounded-xl border border-white/10 bg-black/95 p-1 backdrop-blur-xl">
-                {NAV_LINKS.map((link) => (
-                  <a
-                    key={link.href}
-                    href={link.href}
-                    className="block text-xs text-white/60 hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-white/5"
-                  >
-                    {link.label}
-                  </a>
-                ))}
-              </div>
-            </details>
+          <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-[#B8845C]/15 text-[#E5AA7A] border border-[#B8845C]/30">
+            v0.4.0 · MIT
+          </span>
+        </div>
+
+        <nav className="hidden md:flex items-center gap-1 bg-[#12141A]/60 border border-white/5 rounded-full px-4 py-1.5 backdrop-blur-md">
+          {NAV_LINKS.map((link) => (
             <a
-              href="https://github.com/AkshatNaruka/barkcli"
-              target="_blank"
-              rel="noreferrer"
-              className="text-xs text-white/60 hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-white/5"
+              key={link.href}
+              href={link.href}
+              className="text-xs text-white/60 hover:text-white px-3 py-1 rounded-full hover:bg-white/5 transition-colors"
             >
-              GitHub
+              {link.label}
             </a>
-          </nav>
-        </header>
+          ))}
+        </nav>
 
-        {/* Center */}
-        <main className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6">
-          <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 mb-6">
-            <Sparkles className="w-3 h-3 text-[#B8845C]" />
-            <span className="text-xs text-white/60 font-mono">Open source (MIT) · v0.4.0 · {MCP_TOOL_COUNT} MCP tools</span>
-          </div>
-          <h1 className="text-white text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.05] mb-6">
-            The management layer
-            <br />
-            <span className="bg-gradient-to-r from-[#B8845C] via-[#D4A574] to-[#B8845C] bg-clip-text text-transparent">
-              for AI agents.
-            </span>
-          </h1>
-          <p className="text-white/60 text-sm sm:text-base md:text-lg font-light max-w-xl mb-10 leading-relaxed px-2">
-            barkcli is Git for your work — tasks, specs, memory and agent runs live
-            in your repo, not someone else&apos;s cloud. Humans write intent, agents do work.
-          </p>
-          <div className="flex flex-col items-center gap-3 w-full max-w-lg">
-            <div className="flex items-center gap-1 border border-white/20 rounded-xl pl-5 pr-2 py-2.5 bg-white/5 backdrop-blur-xl w-full">
-              <code className="text-white text-xs sm:text-sm font-mono truncate flex-1 min-w-0">
-                <span className="text-white/40 select-none">$ </span>
-                {INSTALL}
-              </code>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(INSTALL);
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 1500);
-                }}
-                className="ml-3 text-xs font-mono rounded-lg bg-white/10 px-3 py-1.5 text-white/80 hover:bg-white/20 transition-colors cursor-pointer flex items-center gap-1.5"
-              >
-                {copied ? (
-                  <>
-                    <Check className="w-3 h-3 text-green-400" />
-                    Copied
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3 h-3" />
-                    Copy
-                  </>
-                )}
-              </button>
-            </div>
-            <a
-              href="#product"
-              className="flex items-center gap-2 text-sm font-medium text-white/60 hover:text-white transition-colors px-4 py-2.5"
-            >
-              <Bot className="w-4 h-4" />
-              See the management layer
-              <ArrowRight className="w-3 h-3" />
-            </a>
-            <div className="flex items-center gap-2 sm:gap-3 text-[11px] font-mono text-white/50">
-              <span className="flex items-center gap-1.5 border border-white/10 rounded-full px-3 py-1.5 bg-white/[0.03]">
-                <Sparkles className="w-3 h-3 text-[#B8845C]" /> 1. Type intent
-              </span>
-              <ArrowRight className="w-3 h-3 text-white/30" />
-              <span className="flex items-center gap-1.5 border border-white/10 rounded-full px-3 py-1.5 bg-white/[0.03]">
-                <Check className="w-3 h-3 text-[#B8845C]" /> 2. Approve plan
-              </span>
-              <ArrowRight className="w-3 h-3 text-white/30" />
-              <span className="flex items-center gap-1.5 border border-white/10 rounded-full px-3 py-1.5 bg-white/[0.03]">
-                <GitMerge className="w-3 h-3 text-[#B8845C]" /> 3. Merge
+        <div className="flex items-center gap-2.5">
+          <a
+            href="https://github.com/AkshatNaruka/barkcli"
+            target="_blank"
+            rel="noreferrer"
+            className="hidden sm:flex items-center gap-1.5 text-xs font-mono text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded-lg px-3 py-1.5 bg-white/[0.02] transition-colors"
+          >
+            <GitBranch className="w-3.5 h-3.5 text-[#B8845C]" />
+            <span>GitHub</span>
+          </a>
+          <a
+            href="#install"
+            className="flex items-center gap-1.5 text-xs font-medium bg-[#B8845C] hover:bg-[#a6744e] text-white px-3.5 py-1.5 rounded-lg transition-colors shadow-sm shadow-[#B8845C]/20"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Get Barkcli</span>
+          </a>
+        </div>
+      </header>
+
+      {/* -------------------------------------------------------------------- */}
+      {/* Hero Section: Asymmetric Split Layout                                */}
+      {/* -------------------------------------------------------------------- */}
+      <section className="relative z-10 pt-12 pb-24 px-6 lg:px-12 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          
+          {/* Left Column: Thesis, Headline & CTAs */}
+          <div className="lg:col-span-7 flex flex-col items-start text-left">
+            <div className="inline-flex items-center gap-2 bg-[#B8845C]/10 border border-[#B8845C]/25 rounded-full px-3.5 py-1 mb-6">
+              <span className="w-2 h-2 rounded-full bg-[#B8845C] animate-pulse" />
+              <span className="text-xs font-mono text-[#E5AA7A] font-medium tracking-wide">
+                The Management Layer for AI Agents
               </span>
             </div>
-            <p className="text-[11px] font-mono text-white/30">
-              Agents do everything between — no CLI commands to memorize.
-            </p>
-          </div>
-          <div className="flex flex-wrap justify-center gap-3 sm:gap-4 mt-6 text-[11px] font-mono text-white/40">
-            <span className="flex items-center gap-1">
-              <Check className="w-3 h-3 text-green-500" /> No cloud
-            </span>
-            <span className="flex items-center gap-1">
-              <Check className="w-3 h-3 text-green-500" /> No accounts
-            </span>
-            <span className="flex items-center gap-1">
-              <Check className="w-3 h-3 text-green-500" /> MIT licensed
-            </span>
-          </div>
-        </main>
-      </section>
 
-      {/* Product Section — the management layer UI */}
-      <section id="product" className="py-24 px-6">
-        <div className="max-w-6xl mx-auto">
-          <AnimatedSection className="text-center mb-12">
-            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
-              The web app
-            </p>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4">
-              One screen.
-              <br />
-              <span className="text-white/40">Humans and agents, side by side.</span>
-            </h2>
-            <p className="text-white/50 max-w-xl mx-auto">
-              Mind tells you what&apos;s blocked and what&apos;s next. The board holds the work
-              with spec traceability. Agents claim tasks like deployments.
-            </p>
-          </AnimatedSection>
-          <AnimatedSection>
-            <ProductMock />
-          </AnimatedSection>
-          {/* Trust stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8 max-w-3xl mx-auto">
-            {[
-              { metric: `${MCP_TOOL_COUNT}`, desc: "MCP tools for agents" },
-              { metric: "skills.sh", desc: "skill registry + lockfile" },
-              { metric: "100%", desc: "offline-capable core" },
-              { metric: "MIT", desc: "open source forever" },
-            ].map((s) => (
-              <div key={s.desc} className="text-center border border-white/10 rounded-xl py-4 bg-white/[0.02]">
-                <div className="text-2xl font-bold text-[#D4A574] font-mono">{s.metric}</div>
-                <div className="text-[11px] text-white/40 mt-1">{s.desc}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section id="features" className="py-24 px-6">
-        <div className="max-w-6xl mx-auto">
-          <AnimatedSection className="text-center mb-16">
-            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
-              Why barkcli
-            </p>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4">
-              Your tasks should live
-              <br />
-              <span className="text-white/40">where your code lives.</span>
-            </h2>
-          </AnimatedSection>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {FEATURES.map((feature, i) => {
-              const Icon = feature.icon;
-              return (
-                <AnimatedSection key={i} delay={i * 0.1}>
-                  <div className="group relative border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all duration-300 hover:bg-white/[0.02] h-full">
-                    <div className={`absolute inset-0 bg-gradient-to-br ${feature.gradient} rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
-                    <div className="relative">
-                      <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <Icon className="w-5 h-5 text-[#B8845C]" />
-                      </div>
-                      <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
-                      <p className="text-white/50 text-sm leading-relaxed mb-4">
-                        {feature.description}
-                      </p>
-                      <div className="bg-black/50 border border-white/10 rounded-lg px-3 py-2 group-hover:border-white/20 transition-colors">
-                        <code className="text-[#059669] text-xs font-mono">{feature.code}</code>
-                      </div>
-                    </div>
-                  </div>
-                </AnimatedSection>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works Section */}
-      <section id="pipeline" className="py-24 px-6 bg-gradient-to-b from-white/[0.02] to-transparent">
-        <div className="max-w-6xl mx-auto">
-          <AnimatedSection className="text-center mb-16">
-            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
-              The pipeline
-            </p>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight">
-              Intent in.
-              <br />
-              <span className="text-white/40">Reviewed code out.</span>
-            </h2>
-          </AnimatedSection>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 relative">
-            {/* Connecting Line */}
-            <div className="hidden lg:block absolute top-12 left-[10%] right-[10%] h-px bg-gradient-to-r from-transparent via-[#B8845C]/30 to-transparent" />
-            {STEPS.map((step, i) => {
-              const Icon = step.icon;
-              return (
-                <AnimatedSection key={i} delay={i * 0.15}>
-                  <div className="text-center relative">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#B8845C]/20 to-[#B8845C]/5 border border-[#B8845C]/20 flex items-center justify-center mx-auto mb-6 relative z-10">
-                      <Icon className="w-7 h-7 text-[#B8845C]" />
-                    </div>
-                    <h3 className="text-xl font-semibold mb-3">{step.title}</h3>
-                    <p className="text-white/50 text-sm leading-relaxed mb-4 px-4">
-                      {step.description}
-                    </p>
-                    <div className="bg-black/50 border border-white/10 rounded-lg px-3 py-2 max-w-xs mx-auto">
-                      <code className="text-[#059669] text-xs font-mono">{step.command}</code>
-                    </div>
-                  </div>
-                </AnimatedSection>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* Autonomy Section — the merge train, recorded live */}
-      <section id="autonomy" className="py-24 px-6">
-        <div className="max-w-6xl mx-auto">
-          <AnimatedSection className="text-center mb-16">
-            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
-              Management layer
-            </p>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4">
-              One prompt.
-              <br />
-              <span className="bg-gradient-to-r from-[#B8845C] to-[#D4A574] bg-clip-text text-transparent">
-                Three agents. Merged.
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.08] text-white mb-6">
+              Humans write intent.<br />
+              Agents propose plans.<br />
+              <span className="bg-gradient-to-r from-[#E5AA7A] via-[#B8845C] to-[#E5AA7A] bg-clip-text text-transparent">
+                Tests decide what merges.
               </span>
-            </h2>
-            <p className="text-white/50 max-w-2xl mx-auto">
-              <code className="text-white/80">barkcli run &quot;…&quot; --agents 3 --yes</code> plans your
-              intent into tasks, spawns agents into isolated worktrees, and runs the project&apos;s
-              own tests as the gate. A task is done <em>when the gate passes in the worktree</em> —
-              never when the agent says so. Gate-passing branches ride the{" "}
-              <span className="text-white/70">merge train</span> in finish order; a conflicted
-              branch re-runs solo once the pool drains — no human in the loop, no lies.
+            </h1>
+
+            <p className="text-white/65 text-base sm:text-lg font-normal max-w-2xl mb-8 leading-relaxed">
+              barkcli isolates every AI coding agent in its own dedicated git worktree, uses your real project test suite as the acceptance gate, and coordinates passing branches into a clean merge train.
             </p>
-          </AnimatedSection>
 
-          <AnimatedSection delay={0.15}>
-            <div className="relative max-w-5xl mx-auto rounded-2xl border border-white/10 overflow-hidden bg-black/60 shadow-2xl shadow-[#B8845C]/5">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/run-agents-demo.gif"
-                alt="barkcli run --agents 3: three agents working in worktrees, live agent rows pulsing, tasks completing and merging in real time in the Mind view"
-                className="w-full h-auto"
-                loading="lazy"
-              />
-              <div className="absolute bottom-3 right-4 text-[10px] font-mono text-white/40">
-                recorded run — Mind view, replay
-              </div>
-            </div>
-          </AnimatedSection>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-4xl mx-auto mt-6">
-            {[
-              {
-                title: "Workers own attempts",
-                desc: "Each agent gets its own worktree, transcript and gate. Beats refresh the task lease every 30s — a dead agent forfeits its claim.",
-                code: "bark/[task-id]",
-              },
-              {
-                title: "Merge train",
-                desc: "Done means merged. Conflicted branches queue for a solo rebase attempt against a frozen main — deterministic, converging.",
-                code: "git merge --no-ff",
-              },
-              {
-                title: "Honest by construction",
-                desc: "Crashed agent + no changes + no-op gate = failure, not done. Every failure verdict is stored, re-dispatched, and recorded as memory.",
-                code: "gate > self-report",
-              },
-            ].map((item, i) => (
-              <AnimatedSection key={i} delay={0.1 + i * 0.1}>
-                <div className="border border-white/10 rounded-2xl p-5 h-full hover:border-white/20 transition-all duration-300">
-                  <h3 className="text-sm font-semibold mb-2">{item.title}</h3>
-                  <p className="text-white/40 text-xs leading-relaxed">{item.desc}</p>
-                  <code className="text-[#059669] text-[10px] font-mono mt-3 block">{item.code}</code>
-                </div>
-              </AnimatedSection>
-            ))}
-          </div>
-
-          <AnimatedSection delay={0.35}>
-            <div className="max-w-4xl mx-auto mt-6 rounded-2xl border border-[#B8845C]/25 bg-gradient-to-r from-[#B8845C]/10 via-[#B8845C]/5 to-transparent p-6 flex flex-col sm:flex-row sm:items-center gap-4">
-              <div className="flex-1">
-                <p className="text-[10px] font-mono font-semibold uppercase tracking-widest text-[#B8845C] mb-1">
-                  Multiplayer AI
-                </p>
-                <h3 className="text-lg font-semibold mb-1">Your team, in the same agent session.</h3>
-                <p className="text-white/45 text-xs leading-relaxed">
-                  Watch a recorded 3-agent run in the real Mind view — live agent rows,
-                  gate verdicts, and the merge train. Next: shared live sessions, cloud board sync,
-                  and reliability analytics for teams at $99/month per team. The CLI stays free and MIT forever.
-                </p>
-              </div>
-              {ON_PAGES && (
-                <a
-                  href={`${BASE}/app/?run=replay#/mind`}
-                  className="shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#B8845C] text-white text-sm font-medium hover:bg-[#a5764f] transition-colors"
-                >
-                  <Play className="w-4 h-4" />
-                  Watch the replay
-                  <ArrowRight className="w-4 h-4" />
-                </a>
-              )}
-            </div>
-          </AnimatedSection>
-        </div>
-      </section>
-
-      {/* Interfaces Section */}
-      <section id="interfaces" className="py-24 px-6">
-        <div className="max-w-6xl mx-auto">
-          <AnimatedSection className="text-center mb-16">
-            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
-              Interfaces
-            </p>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight">
-              Your workflow. Your way.
-            </h2>
-          </AnimatedSection>
-          <AnimatedSection>
-            <div className="flex gap-2 mb-8 overflow-x-auto pb-2 -mx-2 px-2 sm:mx-0 sm:px-0 sm:justify-center sm:flex-wrap">
-              {INTERFACES.map((iface) => {
-                const Icon = iface.icon;
-                return (
-                  <button
-                    key={iface.id}
-                    onClick={() => setActiveTab(iface.id)}
-                    className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 cursor-pointer flex items-center gap-2 ${
-                      activeTab === iface.id
-                        ? "bg-[#B8845C] text-white shadow-lg shadow-[#B8845C]/20"
-                        : "border border-white/10 text-white/50 hover:text-white hover:border-white/20 hover:bg-white/5"
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {iface.title}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="border border-white/10 rounded-2xl p-6 sm:p-8 md:p-12 bg-gradient-to-b from-white/[0.02] to-transparent backdrop-blur-sm">
-              {INTERFACES.map((iface) => (
-                <div
-                  key={iface.id}
-                  className={`text-center ${activeTab === iface.id ? "block" : "hidden"}`}
-                >
-                  <h3 className="text-2xl font-semibold mb-3">{iface.title}</h3>
-                  <p className="text-white/50 max-w-lg mx-auto mb-6 leading-relaxed">
-                    {iface.description}
-                  </p>
-                  {iface.id === "web" && (
-                    <a
-                      href="/docs/web-app"
-                      className="inline-block text-sm text-[#B8845C] hover:text-[#D4A574] mb-6 transition-colors"
-                    >
-                      Read the full Web App Guide →
-                    </a>
-                  )}
-                  <div className="bg-[#0A0A0A] border border-white/10 rounded-xl p-4 sm:p-6 text-left max-w-2xl mx-auto overflow-x-auto relative">
-                    <div className="absolute top-3 right-3 flex gap-1.5">
-                      <div className="w-3 h-3 rounded-full bg-white/10" />
-                      <div className="w-3 h-3 rounded-full bg-white/10" />
-                      <div className="w-3 h-3 rounded-full bg-white/10" />
-                    </div>
-                    <pre className="text-white/60 text-sm font-mono whitespace-pre mt-4">
-                      {iface.demo}
-                    </pre>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </AnimatedSection>
-        </div>
-      </section>
-
-      {/* Code Context Section */}
-      <section className="py-24 px-6 bg-gradient-to-b from-transparent to-white/[0.02]">
-        <div className="max-w-6xl mx-auto">
-          <AnimatedSection className="text-center mb-16">
-            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
-              Code Intelligence
-            </p>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4">
-              Your codebase.{" "}
-              <span className="text-[#B8845C]">Understood.</span>
-            </h2>
-            <p className="text-white/50 max-w-lg mx-auto">
-              barkcli analyzes your code to provide rich context for every task. See how changes impact your codebase.
-            </p>
-          </AnimatedSection>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {CODE_FEATURES.map((item, i) => {
-              const Icon = item.icon;
-              return (
-                <AnimatedSection key={i} delay={i * 0.1}>
-                  <div className="group bg-white/[0.02] border border-white/10 rounded-2xl p-6 hover:border-[#B8845C]/30 transition-all duration-300 h-full">
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="w-8 h-8 rounded-lg bg-[#B8845C]/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <Icon className="w-4 h-4 text-[#B8845C]" />
-                      </div>
-                      <h4 className="text-base font-semibold">{item.title}</h4>
-                    </div>
-                    <div className="text-4xl font-bold text-[#B8845C] mb-3 font-mono">
-                      {item.metric}
-                    </div>
-                    <p className="text-white/50 text-sm leading-relaxed">
-                      {item.desc}
-                    </p>
-                  </div>
-                </AnimatedSection>
-              );
-            })}
-          </div>
-          {/* Context-file proof strip — numbers from `barkcli context benchmark`, first-party.
-              Refresh: `barkcli context benchmark --markdown` (default hits=8) and `--hits 3` (conservative). */}
-          <AnimatedSection className="mt-6" delay={0.2}>
-            <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-6">
-              <div className="flex flex-col sm:flex-row items-center gap-6">
-                <div className="text-center sm:text-left shrink-0">
-                  <div className="text-5xl font-bold text-[#B8845C] font-mono">57×</div>
-                  <div className="text-white/40 text-xs mt-1">less context to gather</div>
-                </div>
-                <div className="text-center sm:text-left shrink-0 sm:border-l sm:border-white/10 sm:pl-6">
-                  <div className="text-2xl font-bold text-white/70 font-mono">44×</div>
-                  <div className="text-white/40 text-xs mt-1">even reading fewer files</div>
-                </div>
-                <p className="text-white/50 text-sm leading-relaxed flex-1">
-                  A cold agent session starts by <em>listing</em> the repo, <em>searching</em> for
-                  active work, and <em>reading</em> candidate files — ~29,400 tokens before the
-                  first real edit on this repo. One read of the auto-maintained,{" "}
-                  <code className="text-white/80">project_context.md</code> costs{" "}
-                  <code className="text-white/80">515</code>. Verify it on your own repo in
-                  seconds:
-                  <code className="text-white/80"> barkcli context benchmark --json</code> — a
-                  deterministic proxy, no LLM in the loop, lockfiles, build output and page HTML
-                  excluded. Measured on the barkcli repo itself @{" "}
-                  <code className="text-white/40">339f66a</code>, Oct&nbsp;2026; the 44× variant
-                  reads three candidate files instead of eight.{" "}
-                  <a href="/benchmark" className="text-[#B8845C] hover:text-[#D4A574] transition-colors">
-                    Run it on your repo →
-                  </a>
-                </p>
-              </div>
-            </div>
-          </AnimatedSection>
-        </div>
-      </section>
-
-      {/* Management Layer Section */}
-      <section className="py-24 px-6">
-        <div className="max-w-6xl mx-auto">
-          <AnimatedSection className="text-center mb-16">
-            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
-              Management Layer
-            </p>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4">
-              Your AI agent&apos;s
-              <br />
-              <span className="bg-gradient-to-r from-[#B8845C] to-[#D4A574] bg-clip-text text-transparent">project manager.</span>
-            </h2>
-            <p className="text-white/50 max-w-lg mx-auto">
-              Claude, GPT, and OpenCode can now read tasks, claim work, and update progress. barkcli is the missing piece in the AI-native dev stack.
-            </p>
-          </AnimatedSection>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              {
-                icon: Bot,
-                title: "MCP Integration",
-                desc: "Connect coding agents via the Model Context Protocol. Standard JSON-RPC 2.0 over stdio.",
-                tags: ["opencode", "claude-code", "cursor"],
-              },
-              {
-                icon: Settings,
-                title: "Agent Roles",
-                desc: "Assign specialized roles for better task decomposition and execution.",
-                tags: ["tech-lead", "scrum-master", "product-owner", "project-manager"],
-              },
-              {
-                icon: BarChart3,
-                title: "Task Lifecycle",
-                desc: "Full task lifecycle management with automatic assignment and progress tracking.",
-                tags: ["pending", "assigned", "in_progress", "completed"],
-              },
-            ].map((item, i) => (
-              <AnimatedSection key={i} delay={i * 0.1}>
-                <div className="group border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all duration-300 h-full">
-                  <div className="w-10 h-10 rounded-xl bg-[#B8845C]/10 border border-[#B8845C]/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <item.icon className="w-5 h-5 text-[#B8845C]" />
-                  </div>
-                  <h3 className="text-lg font-semibold mb-3">{item.title}</h3>
-                  <p className="text-white/50 text-sm leading-relaxed mb-4">
-                    {item.desc}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {item.tags.map((tag) => (
-                      <span key={tag} className="text-[10px] font-mono bg-white/5 border border-white/10 rounded-full px-2 py-1 text-white/40">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </AnimatedSection>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* AI Agent Integration Section */}
-      <section id="ai-agent" className="py-24 px-6 bg-gradient-to-b from-white/[0.02] to-transparent">
-        <div className="max-w-6xl mx-auto">
-          <AnimatedSection className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 bg-[#B8845C]/10 border border-[#B8845C]/20 rounded-full px-4 py-1.5 mb-6">
-              <Sparkles className="w-3 h-3 text-[#B8845C]" />
-              <span className="text-xs text-[#B8845C] font-mono">Works with Claude, OpenCode, Cursor</span>
-            </div>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4">
-              One prompt.
-              <br />
-              <span className="bg-gradient-to-r from-[#B8845C] to-[#D4A574] bg-clip-text text-transparent">
-                Your agent is ready.
-              </span>
-            </h2>
-            <p className="text-white/50 max-w-lg mx-auto">
-              Copy this into your AI agent. It installs barkcli, sets up your board, and connects via MCP. Your agent can now manage tasks autonomously.
-            </p>
-          </AnimatedSection>
-
-          <AnimatedSection>
-            {/* Agent Config Tabs */}
-            <div className="flex gap-2 mb-6 overflow-x-auto pb-2 -mx-2 px-2 sm:mx-0 sm:px-0 sm:justify-center sm:flex-wrap">
-              {[
-                {
-                  id: "claude",
-                  label: "Claude Code",
-                  Logo: ClaudeCodeLogo,
-                },
-                { id: "opencode", label: "OpenCode", Logo: OpenCodeLogo },
-                { id: "cursor", label: "Cursor", Logo: CursorLogo },
-                {
-                  id: "generic",
-                  label: "Any Agent",
-                  Logo: AnyAgentLogo,
-                },
-              ].map((agent) => (
-                <button
-                  key={agent.id}
-                  onClick={() => setActiveAgentTab(agent.id)}
-                  className={`text-xs font-mono px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all duration-300 ${
-                    activeAgentTab === agent.id
-                      ? "bg-[#B8845C] text-white shadow-lg shadow-[#B8845C]/20"
-                      : "border border-white/10 text-white/50 hover:text-white hover:border-white/20 hover:bg-white/5"
-                  }`}
-                >
-                  <agent.Logo className="w-3.5 h-3.5" />
-                  {agent.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Main Setup Prompt Card */}
-            <div className="border border-[#B8845C]/20 rounded-2xl overflow-hidden bg-gradient-to-b from-[#B8845C]/5 to-transparent">
-              <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 border-b border-white/10 bg-[#B8845C]/10">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-[#B8845C] animate-pulse" />
-                  <span className="text-xs font-mono text-white/60">
-                    {activeAgentTab === "claude"
-                      ? "Paste in Claude Code"
-                      : activeAgentTab === "opencode"
-                      ? "Paste in OpenCode"
-                      : activeAgentTab === "cursor"
-                      ? "Paste in Cursor Chat"
-                      : "Paste in any AI agent terminal"}
-                  </span>
+            {/* 1-Click Install Command Box */}
+            <div className="w-full max-w-xl mb-6">
+              <div className="flex items-center justify-between border border-white/15 hover:border-[#B8845C]/40 rounded-xl px-4 py-2.5 bg-[#12141A]/90 backdrop-blur-xl transition-colors group">
+                <div className="flex items-center gap-2.5 font-mono text-xs sm:text-sm text-white/90 overflow-hidden">
+                  <span className="text-[#B8845C] select-none font-bold">$</span>
+                  <span className="truncate">{INSTALL_CURL}</span>
                 </div>
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText(AGENT_PROMPTS[activeAgentTab]);
-                    setCopiedPrompt(true);
-                    setTimeout(() => setCopiedPrompt(false), 2000);
+                    navigator.clipboard.writeText(INSTALL_CURL);
+                    setCopiedInstall(true);
+                    setTimeout(() => setCopiedInstall(false), 2000);
                   }}
-                  className={`text-xs font-mono px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all duration-300 ${
-                    copiedPrompt
-                      ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                      : "bg-white/10 text-white/60 hover:bg-white/20 hover:text-white border border-white/10"
-                  }`}
+                  className="ml-3 shrink-0 text-xs font-mono rounded-lg bg-white/10 hover:bg-[#B8845C] hover:text-white px-3 py-1.5 text-white/80 transition-colors flex items-center gap-1.5"
+                  title="Copy install command"
                 >
-                  {copiedPrompt ? (
+                  {copiedInstall ? (
                     <>
-                      <Check className="w-3 h-3" /> Copied!
+                      <Check className="w-3.5 h-3.5 text-green-400" />
+                      <span>Copied</span>
                     </>
                   ) : (
                     <>
-                      <Copy className="w-3 h-3" /> Copy Prompt
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copy</span>
                     </>
                   )}
                 </button>
               </div>
-              <div className="p-4 sm:p-5 overflow-x-auto max-h-[400px] overflow-y-auto">
-                <pre className="text-xs font-mono text-white/70 leading-relaxed whitespace-pre-wrap">
-                  <code>{AGENT_PROMPTS[activeAgentTab]}</code>
-                </pre>
-              </div>
             </div>
 
-            {/* What This Does */}
-            <div className="grid grid-cols-2 gap-3 mt-6">
-              {[
-                { icon: Download, title: "Install", desc: "Downloads barkcli" },
-                { icon: Rocket, title: "Init", desc: "Sets up project" },
-                { icon: ClipboardList, title: "Create", desc: "Makes a board" },
-                { icon: Plug, title: "Connect", desc: "Configures MCP" },
-              ].map((item, i) => (
-                <div key={i} className="bg-white/[0.02] border border-white/10 rounded-xl p-3 text-center group hover:border-[#B8845C]/30 transition-colors">
-                  <div className="w-8 h-8 rounded-lg bg-[#B8845C]/10 flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
-                    <item.icon className="w-4 h-4 text-[#B8845C]" />
-                  </div>
-                  <h4 className="text-xs font-semibold">{item.title}</h4>
-                  <p className="text-[10px] text-white/40">{item.desc}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Quick Commands */}
-            <div className="border border-white/10 rounded-2xl p-5 mt-6">
-              <h3 className="text-xs font-semibold mb-3 text-white/50 uppercase tracking-wider">Quick Commands After Setup</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                {[
-                  { cmd: 'barkcli add "Fix bug" -p high', desc: "Create task" },
-                  { cmd: "barkcli list", desc: "View tasks" },
-                  { cmd: "barkcli move <id> doing", desc: "Start working" },
-                  { cmd: "barkcli done <id>", desc: "Mark complete" },
-                  { cmd: "barkcli tui", desc: "Terminal board" },
-                  { cmd: "barkcli serve", desc: "Web interface" },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-2 bg-white/[0.03] rounded-lg px-3 py-2 border border-white/5">
-                    <code className="text-[11px] font-mono text-[#059669] flex-1 truncate">{item.cmd}</code>
-                    <span className="text-[10px] text-white/30 shrink-0">{item.desc}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="text-center mt-6">
+            {/* Action Buttons & Secondary CTAs */}
+            <div className="flex flex-wrap items-center gap-3 mb-10">
               <a
-                href="/docs/getting-started"
-                className="inline-flex items-center gap-2 text-[#B8845C] text-sm font-medium hover:underline group"
+                href="#install"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#B8845C] hover:bg-[#a6744e] text-white text-sm font-medium transition-colors shadow-lg shadow-[#B8845C]/20"
               >
-                Read the full integration guide
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                <Download className="w-4 h-4" />
+                <span>Download for macOS</span>
               </a>
+              <a
+                href="/docs"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/15 hover:border-white/30 bg-white/[0.02] text-white text-sm font-medium transition-colors"
+              >
+                <span>Explore Documentation</span>
+                <ArrowRight className="w-4 h-4 text-white/50" />
+              </a>
+              {ON_PAGES && (
+                <a
+                  href={`${BASE}/app/`}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#B8845C]/30 text-[#E5AA7A] hover:bg-[#B8845C]/10 text-sm font-medium transition-colors"
+                >
+                  <Globe className="w-4 h-4" />
+                  <span>Open Web App</span>
+                </a>
+              )}
             </div>
-          </AnimatedSection>
-        </div>
-      </section>
 
-      {/* Installation Section */}
-      <section id="install" className="py-24 px-6">
-        <div className="max-w-6xl mx-auto">
-          <AnimatedSection className="text-center mb-16">
-            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
-              Install
-            </p>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight">
-              Get started in 10 seconds.
-            </h2>
-          </AnimatedSection>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {[
-              { title: "macOS app (Bark)", cmd: "curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install-app.sh | sh", icon: Download },
-              { title: "macOS / Linux CLI", cmd: "curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh", icon: Terminal },
-              { title: "Homebrew", cmd: "brew tap AkshatNaruka/barkcli && brew install barkcli", icon: Shield },
-              { title: "Cargo (from source)", cmd: "cargo install barkcli", icon: Code },
-              { title: "GitHub Releases", cmd: "github.com/AkshatNaruka/barkcli/releases", icon: GitMerge },
-              { title: "Windows", cmd: "irm https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.ps1 | iex", icon: Monitor },
-            ].map((method, i) => (
-              <AnimatedSection key={i} delay={i * 0.08}>
-                <div className="group border border-white/10 rounded-xl p-4 hover:border-white/20 transition-all duration-300 h-full">
-                  <div className="flex items-center gap-2 mb-3">
-                    <method.icon className="w-4 h-4 text-[#B8845C]" />
-                    <h4 className="text-sm font-semibold">{method.title}</h4>
-                  </div>
-                  <code className="text-[#059669] text-xs font-mono block bg-white/5 rounded-lg px-3 py-2 break-all group-hover:bg-white/10 transition-colors">
-                    {method.cmd}
-                  </code>
-                </div>
-              </AnimatedSection>
-            ))}
+            {/* Trust Signals */}
+            <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-white/50 pt-2 border-t border-white/5">
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#B8845C]" /> No Cloud Database
+              </span>
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#B8845C]" /> 100% Test-Gated Merges
+              </span>
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#B8845C]" /> 71 MCP Stdio Tools
+              </span>
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#B8845C]" /> MIT Licensed
+              </span>
+            </div>
           </div>
-          <AnimatedSection>
-            <p className="text-center text-white/30 text-xs font-mono mt-6">
-              All 5 targets + SHA256SUMS published on every <code className="text-white/50">v*</code> tag
-            </p>
-          </AnimatedSection>
-        </div>
-      </section>
 
-      {/* FAQ Section */}
-      <section className="py-24 px-6 bg-gradient-to-b from-white/[0.02] to-transparent">
-        <div className="max-w-3xl mx-auto">
-          <AnimatedSection className="text-center mb-16">
-            <p className="text-[#B8845C] text-xs font-mono font-semibold tracking-widest uppercase mb-4">
-              FAQ
-            </p>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight">
-              Common questions.
-            </h2>
-          </AnimatedSection>
-          <AnimatedSection>
-            <div className="space-y-0">
-              {FAQ.map((item, i) => (
-                <div key={i} className="border-b border-white/10">
-                  <button
-                    onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                    className="w-full text-left py-5 flex justify-between items-center cursor-pointer group"
-                  >
-                    <span className="text-white font-medium group-hover:text-[#B8845C] transition-colors pr-4 text-sm sm:text-base">
-                      {item.question}
-                    </span>
-                    <ChevronDown
-                      className={`w-5 h-5 text-white/40 shrink-0 transition-transform duration-300 ${
-                        openFaq === i ? "rotate-180 text-[#B8845C]" : ""
-                      }`}
-                    />
-                  </button>
-                  <div
-                    className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                      openFaq === i ? "max-h-40 pb-5 opacity-100" : "max-h-0 opacity-0"
-                    }`}
-                  >
-                    <p className="text-white/50 text-sm leading-relaxed">
-                      {item.answer}
-                    </p>
-                  </div>
+          {/* Right Column: Living Autonomy Loop Simulator */}
+          <div className="lg:col-span-5">
+            <div className="border border-white/10 rounded-2xl overflow-hidden bg-[#101218]/90 backdrop-blur-2xl shadow-2xl shadow-black/80">
+              
+              {/* Header Bar */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-white/[0.02]">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-red-500/80" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/80" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-green-500/80" />
+                  <span className="ml-2 font-mono text-xs text-white/40">autonomy-loop.sh</span>
                 </div>
-              ))}
-            </div>
-          </AnimatedSection>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-24 px-6">
-        <div className="max-w-3xl mx-auto text-center">
-          <AnimatedSection>
-            <div className="relative">
-              <div className="absolute inset-0 bg-[#B8845C]/5 blur-[100px] rounded-full" />
-              <div className="relative border border-white/10 rounded-3xl p-8 sm:p-12 bg-gradient-to-b from-white/[0.02] to-transparent">
-                <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4">
-                  Stop managing tasks
-                  <br />
-                  <span className="bg-gradient-to-r from-[#B8845C] to-[#D4A574] bg-clip-text text-transparent">
-                    in someone else&apos;s cloud.
-                  </span>
-                </h2>
-                <p className="text-white/50 text-base sm:text-lg mb-8">
-                  Install barkcli. Write intent. Let your agents do the work — reviewed.
-                </p>
-                <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
-                  <a
-                    href="#install"
-                    className="px-6 py-3 bg-[#B8845C] text-white font-medium rounded-xl hover:bg-[#B8845C]/80 transition-all duration-300 shadow-lg shadow-[#B8845C]/20 hover:shadow-[#B8845C]/30 flex items-center justify-center gap-2"
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setAutoPlay(!autoPlay)}
+                    className="text-[11px] font-mono text-white/50 hover:text-white px-2 py-0.5 rounded bg-white/5 border border-white/10 flex items-center gap-1"
                   >
-                    Install Now
-                    <ArrowRight className="w-4 h-4" />
-                  </a>
-                  <a
-                    href="https://github.com/AkshatNaruka/barkcli"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-6 py-3 border border-white/20 text-white font-medium rounded-xl hover:bg-white/5 transition-all duration-300 flex items-center justify-center gap-2"
+                    {autoPlay ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                    <span>{autoPlay ? "Live" : "Paused"}</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveStageIndex((prev) => (prev + 1) % LOOP_STAGES.length)}
+                    className="text-[11px] font-mono text-white/50 hover:text-white p-1 rounded bg-white/5 border border-white/10"
+                    title="Next Step"
                   >
-                    View on GitHub
-                  </a>
+                    <RotateCcw className="w-3 h-3" />
+                  </button>
                 </div>
               </div>
+
+              {/* Stage Progress Tabs */}
+              <div className="grid grid-cols-5 border-b border-white/10 bg-[#0E1015]">
+                {LOOP_STAGES.map((stage, idx) => {
+                  const isActive = idx === activeStageIndex;
+                  return (
+                    <button
+                      key={stage.id}
+                      onClick={() => {
+                        setActiveStageIndex(idx);
+                        setAutoPlay(false);
+                      }}
+                      className={`py-2 px-1 text-center transition-all cursor-pointer border-r border-white/5 last:border-0 ${
+                        isActive
+                          ? "bg-[#B8845C]/15 border-b-2 border-b-[#B8845C] text-[#E5AA7A]"
+                          : "text-white/40 hover:text-white/70 hover:bg-white/[0.02]"
+                      }`}
+                    >
+                      <div className="text-[10px] font-mono font-bold">{stage.step}</div>
+                      <div className="text-[11px] font-medium truncate">{stage.title}</div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Active Stage Body */}
+              <div className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-[#B8845C]/15 text-[#E5AA7A] border border-[#B8845C]/30">
+                    Stage {activeStage.step}: {activeStage.badge}
+                  </span>
+                  <span className="text-[11px] font-mono text-white/40">Autonomous Verification</span>
+                </div>
+
+                <p className="text-xs text-white/70 leading-relaxed mb-4">
+                  {activeStage.description}
+                </p>
+
+                {/* Simulated Terminal Window */}
+                <div className="bg-[#07080B] border border-white/10 rounded-xl p-3.5 font-mono text-xs mb-4 overflow-x-auto">
+                  <div className="text-white/30 text-[10px] pb-1.5 border-b border-white/5 mb-2 flex items-center justify-between">
+                    <span>EXECUTION LOG</span>
+                    <span className="text-emerald-400">STATUS: ACTIVE</span>
+                  </div>
+                  <div className="space-y-1">
+                    {activeStage.terminalOutput.map((line, i) => (
+                      <div
+                        key={i}
+                        className={
+                          line.startsWith("$")
+                            ? "text-[#E5AA7A] font-semibold"
+                            : line.includes("PASSED") || line.includes("Merged") || line.includes("✓")
+                            ? "text-emerald-400"
+                            : "text-white/60"
+                        }
+                      >
+                        {line}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Impacted File Badges */}
+                <div className="border border-white/5 bg-white/[0.02] rounded-xl p-2.5">
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-white/40 mb-1.5">
+                    Sandboxed File Changes
+                  </div>
+                  <div className="space-y-1">
+                    {activeStage.files.map((file, i) => (
+                      <div key={i} className="flex items-center justify-between text-[11px] font-mono">
+                        <span className="text-white/80 flex items-center gap-1.5 truncate">
+                          <FileCode className="w-3 h-3 text-[#B8845C]" />
+                          {file.path}
+                        </span>
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                            file.status === "passed"
+                              ? "bg-emerald-500/15 text-emerald-400"
+                              : file.status === "created"
+                              ? "bg-blue-500/15 text-blue-400"
+                              : "bg-[#B8845C]/15 text-[#E5AA7A]"
+                          }`}
+                        >
+                          {file.diff}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Footer */}
+              <div className="px-5 py-3 border-t border-white/10 bg-white/[0.01] flex items-center justify-between text-[11px] font-mono text-white/40">
+                <span>Verification: 487 passed (0 failed)</span>
+                <span className="text-[#B8845C]">Auto-reconciled</span>
+              </div>
             </div>
-          </AnimatedSection>
+          </div>
+
         </div>
       </section>
 
-      {/* Final Footer */}
-      <footer className="py-8 px-6 border-t border-white/10">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-[#B8845C] flex items-center justify-center shadow-sm">
-              <svg viewBox="0 0 100 100" className="w-4 h-4" fill="none" stroke="white" strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round">
+      {/* -------------------------------------------------------------------- */}
+      {/* Bento Architecture: The Management Layer (Cordis-inspired)           */}
+      {/* -------------------------------------------------------------------- */}
+      <section id="architecture" className="py-24 px-6 lg:px-12 max-w-7xl mx-auto border-t border-white/5">
+        <div className="text-center max-w-3xl mx-auto mb-16">
+          <p className="text-xs font-mono font-bold uppercase tracking-widest text-[#B8845C] mb-3">
+            Core Architecture
+          </p>
+          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4">
+            The Management Layer.<br />
+            <span className="text-white/50">Engineered for Autonomous Reliability.</span>
+          </h2>
+          <p className="text-white/60 text-sm sm:text-base leading-relaxed">
+            AI models write code; barkcli manages the lifecycle. From isolated worktrees to deterministic test gates, every mechanism is built directly on your local git repository.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {BENTO_CARDS.map((card, i) => {
+            const Icon = card.icon;
+            return (
+              <div
+                key={i}
+                className={`${card.span} border border-white/10 hover:border-[#B8845C]/40 rounded-2xl p-7 bg-[#101218]/80 backdrop-blur-md transition-all duration-300 group flex flex-col justify-between`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-medium bg-[#B8845C]/15 text-[#E5AA7A] border border-[#B8845C]/30">
+                      {card.badge}
+                    </span>
+                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Icon className="w-4 h-4 text-[#B8845C]" />
+                    </div>
+                  </div>
+                  <h3 className="text-xl font-bold mb-2 text-white">{card.title}</h3>
+                  <p className="text-white/60 text-xs sm:text-sm leading-relaxed mb-6">
+                    {card.desc}
+                  </p>
+                </div>
+
+                <div className="bg-[#07080B] border border-white/10 rounded-xl p-3.5 font-mono text-[11px] text-white/70 overflow-x-auto">
+                  <pre className="whitespace-pre">{card.code}</pre>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* -------------------------------------------------------------------- */}
+      {/* Surfaces Switcher (Threads, CLI Pool, TUI, MCP)                     */}
+      {/* -------------------------------------------------------------------- */}
+      <section id="surfaces" className="py-24 px-6 lg:px-12 max-w-7xl mx-auto border-t border-white/5">
+        <div className="text-center max-w-3xl mx-auto mb-16">
+          <p className="text-xs font-mono font-bold uppercase tracking-widest text-[#B8845C] mb-3">
+            Execution Surfaces
+          </p>
+          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4">
+            One Core Runtime.<br />
+            <span className="text-white/50">Four Purpose-Built Surfaces.</span>
+          </h2>
+          <p className="text-white/60 text-sm sm:text-base leading-relaxed">
+            Whether you operate via terminal keystrokes, interactive browser threads, autonomous daemon scripts, or MCP client protocols, the same verified board state powers every interface.
+          </p>
+        </div>
+
+        {/* Tab Buttons */}
+        <div className="flex justify-center gap-2 mb-8 overflow-x-auto pb-2">
+          {SURFACES.map((surf) => {
+            const Icon = surf.icon;
+            const isSelected = activeSurface === surf.id;
+            return (
+              <button
+                key={surf.id}
+                onClick={() => setActiveSurface(surf.id)}
+                className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium flex items-center gap-2 transition-all cursor-pointer ${
+                  isSelected
+                    ? "bg-[#B8845C] text-white shadow-lg shadow-[#B8845C]/25"
+                    : "border border-white/10 text-white/60 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{surf.title}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Tab Content Display */}
+        {SURFACES.map((surf) => {
+          if (surf.id !== activeSurface) return null;
+          return (
+            <div
+              key={surf.id}
+              className="border border-white/10 rounded-2xl p-6 sm:p-10 bg-[#101218]/90 backdrop-blur-xl max-w-5xl mx-auto shadow-2xl"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-white/10">
+                <div>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-[#B8845C]/15 text-[#E5AA7A] border border-[#B8845C]/30 mb-2">
+                    {surf.badge}
+                  </span>
+                  <h3 className="text-2xl font-bold text-white">{surf.title}</h3>
+                </div>
+                <p className="text-white/60 text-xs sm:text-sm max-w-md">
+                  {surf.description}
+                </p>
+              </div>
+
+              <div className="bg-[#07080B] border border-white/10 rounded-xl p-5 font-mono text-xs text-white/80 overflow-x-auto leading-relaxed shadow-inner">
+                <pre className="whitespace-pre">{surf.preview}</pre>
+              </div>
+            </div>
+          );
+        })}
+      </section>
+
+      {/* -------------------------------------------------------------------- */}
+      {/* Multi-CLI Agent & MCP Setup                                          */}
+      {/* -------------------------------------------------------------------- */}
+      <section id="ai-agent" className="py-24 px-6 lg:px-12 max-w-7xl mx-auto border-t border-white/5">
+        <div className="text-center max-w-3xl mx-auto mb-16">
+          <p className="text-xs font-mono font-bold uppercase tracking-widest text-[#B8845C] mb-3">
+            Ecosystem Integrations
+          </p>
+          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4">
+            Connect Any Local Agent.<br />
+            <span className="text-white/50">Claude Code, OpenCode, Cursor.</span>
+          </h2>
+          <p className="text-white/60 text-sm sm:text-base leading-relaxed">
+            Wire your existing AI coding CLI directly into barkcli. Agents gain access to 71 MCP tools, structured project memory, and sandboxed worktree environments.
+          </p>
+        </div>
+
+        {/* Agent Tabs */}
+        <div className="flex justify-center gap-2 mb-6 overflow-x-auto pb-2">
+          {[
+            { id: "claude", label: "Claude Code", Logo: ClaudeCodeLogo },
+            { id: "opencode", label: "OpenCode", Logo: OpenCodeLogo },
+            { id: "cursor", label: "Cursor", Logo: CursorLogo },
+            { id: "generic", label: "Custom CLI", Logo: AnyAgentLogo },
+          ].map((agent) => (
+            <button
+              key={agent.id}
+              onClick={() => setActiveAgentTab(agent.id)}
+              className={`px-4 py-2 rounded-xl text-xs font-mono flex items-center gap-2 transition-all cursor-pointer ${
+                activeAgentTab === agent.id
+                  ? "bg-[#B8845C] text-white shadow-md shadow-[#B8845C]/20"
+                  : "border border-white/10 text-white/50 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <agent.Logo className="w-3.5 h-3.5" />
+              <span>{agent.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Setup Prompt Display */}
+        <div className="border border-white/10 rounded-2xl overflow-hidden bg-[#101218]/90 max-w-4xl mx-auto">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-white/10 bg-white/[0.02]">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[#B8845C]" />
+              <span className="text-xs font-mono text-white/60">
+                {activeAgentTab === "claude" ? "Claude Code Configuration" : activeAgentTab === "opencode" ? "OpenCode MCP Config" : activeAgentTab === "cursor" ? "Cursor MCP Config" : "Generic CLI Instructions"}
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(AGENT_PROMPTS[activeAgentTab]);
+                setCopiedPrompt(true);
+                setTimeout(() => setCopiedPrompt(false), 2000);
+              }}
+              className="text-xs font-mono px-3 py-1.5 rounded-lg bg-white/10 hover:bg-[#B8845C] hover:text-white text-white/80 transition-colors flex items-center gap-1.5"
+            >
+              {copiedPrompt ? (
+                <>
+                  <Check className="w-3 h-3 text-green-400" />
+                  <span>Copied</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3 h-3" />
+                  <span>Copy Configuration</span>
+                </>
+              )}
+            </button>
+          </div>
+          <div className="p-5 overflow-x-auto max-h-[360px] overflow-y-auto bg-[#07080B]">
+            <pre className="text-xs font-mono text-white/70 leading-relaxed whitespace-pre">
+              <code>{AGENT_PROMPTS[activeAgentTab]}</code>
+            </pre>
+          </div>
+        </div>
+      </section>
+
+      {/* -------------------------------------------------------------------- */}
+      {/* Benchmark Proof Strip                                                */}
+      {/* -------------------------------------------------------------------- */}
+      <section id="benchmark" className="py-20 px-6 lg:px-12 max-w-7xl mx-auto border-t border-white/5">
+        <div className="border border-white/10 rounded-2xl p-8 bg-[#101218]/80 backdrop-blur-md">
+          <div className="flex flex-col lg:flex-row items-center gap-8">
+            <div className="text-center lg:text-left shrink-0">
+              <div className="text-6xl font-black text-[#B8845C] font-mono tracking-tight">57×</div>
+              <div className="text-white/50 text-xs mt-1 font-mono uppercase tracking-wider">Context Savings</div>
+            </div>
+            <div className="hidden lg:block w-px h-24 bg-white/10" />
+            <div className="flex-1 text-center lg:text-left">
+              <h3 className="text-xl font-bold text-white mb-2">
+                Cold-Start Token Benchmark (Deterministic, First-Party)
+              </h3>
+              <p className="text-white/60 text-xs sm:text-sm leading-relaxed mb-4">
+                A cold agent session typically begins by listing directory trees, grepping candidate files, and reading modules—consuming ~29,400 tokens before writing a single line of code. One read of Barkcli&apos;s auto-maintained <code className="text-[#E5AA7A]">project_context.md</code> costs only <code className="text-[#E5AA7A]">515 tokens</code>.
+              </p>
+              <div className="inline-flex items-center gap-2 text-xs font-mono bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white/70">
+                <span>$ barkcli context benchmark --json</span>
+                <span className="text-[#B8845C]">· Zero LLM in loop</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* -------------------------------------------------------------------- */}
+      {/* Installation Methods                                                 */}
+      {/* -------------------------------------------------------------------- */}
+      <section id="install" className="py-24 px-6 lg:px-12 max-w-7xl mx-auto border-t border-white/5">
+        <div className="text-center max-w-3xl mx-auto mb-16">
+          <p className="text-xs font-mono font-bold uppercase tracking-widest text-[#B8845C] mb-3">
+            Installation
+          </p>
+          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4">
+            Install in Seconds.
+          </h2>
+          <p className="text-white/60 text-sm leading-relaxed">
+            Compiled binaries distributed for macOS (Apple Silicon / Intel), Linux, and Windows.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
+          {[
+            { title: "macOS Native App (Bark.app)", cmd: "curl -fsSL https://raw.githubusercontent.com/AkshatNaruka/barkcli/master/install-app.sh | sh", icon: Download },
+            { title: "macOS / Linux CLI", cmd: "curl -fsSL https://raw.githubusercontent.com/AkshatNaruka/barkcli/master/install.sh | sh", icon: Terminal },
+            { title: "Cargo (from source)", cmd: "cargo install barkcli", icon: Code },
+            { title: "Homebrew Tap", cmd: "brew tap AkshatNaruka/barkcli && brew install barkcli", icon: Shield },
+            { title: "Windows PowerShell", cmd: "irm https://raw.githubusercontent.com/AkshatNaruka/barkcli/master/install.ps1 | iex", icon: Monitor },
+            { title: "GitHub Releases", cmd: "https://github.com/AkshatNaruka/barkcli/releases", icon: GitMerge },
+          ].map((item, i) => {
+            const Icon = item.icon;
+            return (
+              <div key={i} className="border border-white/10 rounded-xl p-4 bg-[#101218]/60 hover:border-[#B8845C]/40 transition-colors">
+                <div className="flex items-center gap-2 mb-2.5">
+                  <Icon className="w-4 h-4 text-[#B8845C]" />
+                  <span className="text-sm font-semibold text-white">{item.title}</span>
+                </div>
+                <div className="bg-[#07080B] border border-white/5 rounded-lg p-2 font-mono text-[11px] text-emerald-400 break-all select-all">
+                  {item.cmd}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* -------------------------------------------------------------------- */}
+      {/* FAQ Section                                                          */}
+      {/* -------------------------------------------------------------------- */}
+      <section className="py-24 px-6 lg:px-12 max-w-4xl mx-auto border-t border-white/5">
+        <div className="text-center mb-16">
+          <p className="text-xs font-mono font-bold uppercase tracking-widest text-[#B8845C] mb-3">
+            Questions & Answers
+          </p>
+          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight">
+            Frequently Asked Questions
+          </h2>
+        </div>
+
+        <div className="divide-y divide-white/10">
+          {FAQ.map((item, i) => (
+            <div key={i} className="py-5">
+              <button
+                onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                className="w-full text-left flex justify-between items-center cursor-pointer group"
+              >
+                <span className="text-base font-semibold text-white group-hover:text-[#E5AA7A] transition-colors pr-4">
+                  {item.question}
+                </span>
+                <ChevronDown
+                  className={`w-5 h-5 text-white/40 shrink-0 transition-transform duration-200 ${
+                    openFaq === i ? "rotate-180 text-[#B8845C]" : ""
+                  }`}
+                />
+              </button>
+              {openFaq === i && (
+                <p className="text-white/60 text-xs sm:text-sm leading-relaxed mt-3 pt-1">
+                  {item.answer}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* -------------------------------------------------------------------- */}
+      {/* Footer                                                               */}
+      {/* -------------------------------------------------------------------- */}
+      <footer className="py-12 px-6 lg:px-12 border-t border-white/10 bg-[#07080B]">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded-lg bg-[#B8845C] flex items-center justify-center">
+              <svg viewBox="0 0 100 100" className="w-4 h-4" fill="none" stroke="white" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M 30 25 C 42 18, 58 18, 70 25" />
                 <path d="M 30 25 C 16 27, 11 39, 12 51 C 13 60, 21 61, 27 53 C 30 48, 30 41, 30 35" />
                 <path d="M 70 25 C 84 27, 89 39, 88 51 C 87 60, 79 61, 73 53 C 70 48, 70 41, 70 35" />
                 <path d="M 30 43 C 26 56, 28 67, 35 74 C 41 79.5, 59 79.5, 65 74 C 72 67, 74 56, 70 43" />
                 <path d="M 43.5 55 C 47 52.5, 53 52.5, 56.5 55 C 55 59.5, 52 63, 50 64 C 48 63, 45 59.5, 43.5 55 Z" fill="white" stroke="none" />
-                <path d="M 50 64 L 50 70 M 44.5 70 C 47.5 72.5, 52.5 72.5, 55.5 70" strokeWidth="5" />
+                <path d="M 50 64 L 50 70 M 44.5 70 C 47.5 72.5, 52.5 72.5, 55.5 70" strokeWidth="5.5" />
               </svg>
             </div>
-            <span className="text-sm text-white/40 font-mono">© 2024 barkcli · MIT License</span>
+            <span className="font-mono text-xs text-white/50">
+              barkcli · The management layer for AI agents · MIT License
+            </span>
           </div>
-          <div className="flex items-center gap-6 text-sm text-white/40">
-            <a
-              href="/docs"
-              className="hover:text-white transition-colors"
-            >
-              Docs
-            </a>
-            <a
-              href="/docs/web-app"
-              className="hover:text-white transition-colors"
-            >
-              Web App
-            </a>
-            <a
-              href="/docs/api-reference"
-              className="hover:text-white transition-colors"
-            >
-              API
-            </a>
-            <a
-              href="https://github.com/AkshatNaruka/barkcli"
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-white transition-colors"
-            >
-              GitHub
-            </a>
-            <a
-              href="https://x.com/probiex007"
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-white transition-colors"
-            >
-              X
-            </a>
+
+          <div className="flex items-center gap-6 font-mono text-xs text-white/50">
+            <a href="/docs" className="hover:text-white transition-colors">Documentation</a>
+            <a href="/benchmark" className="hover:text-white transition-colors">Benchmark</a>
+            <a href="https://github.com/AkshatNaruka/barkcli" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">GitHub</a>
+            <a href="https://x.com/probiex007" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">X / Twitter</a>
           </div>
         </div>
       </footer>

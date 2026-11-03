@@ -14,7 +14,33 @@ body {
 
 body {
   margin: 0;
-  background: #000000;
+  background: #0A0B0E;
   color: #ffffff;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Custom scrollbars and glowing utilities */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0A0B0E;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(184, 132, 92, 0.4);
+}
+
+.bark-grid-pattern {
+  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 36px 36px;
+}
+
+.bark-radial-glow {
+  background: radial-gradient(circle 600px at 50% 0%, rgba(184, 132, 92, 0.14), transparent 80%);
 }
