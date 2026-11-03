@@ -52,7 +52,7 @@ cd "$TMP"
 git init -q
 git config user.email "smoke@barkcli.test"
 git config user.name "Bark Smoke"
-"$SIDECAR" init >/dev/null
+"$SIDECAR" init --yes >/dev/null
 "$SIDECAR" tasks add "Smoke card" --column review >/dev/null
 ok "temp project initialized"
 
