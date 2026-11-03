@@ -377,6 +377,24 @@ export interface GateSummary {
   };
 }
 
+export type SpanPhase = "input" | "model" | "tool" | "gate";
+
+export interface TraceSpan {
+  id: string;
+  phase: SpanPhase;
+  label: string;
+  detail?: string;
+  start_ms: number;
+  duration_ms: number;
+  status: "running" | "success" | "failed";
+}
+
+export interface RunTrace {
+  run_id: string;
+  spans: TraceSpan[];
+  total_duration_ms: number;
+}
+
 export interface RunRecord {
   id: string;
   thread_id: string;
@@ -412,6 +430,7 @@ export interface RunRecord {
   author?: string;
   evidence_score?: number;
   summary?: string;
+  trace?: RunTrace;
 }
 
 export interface ProviderCapabilities {

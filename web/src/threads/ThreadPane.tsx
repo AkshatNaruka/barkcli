@@ -22,6 +22,8 @@ import { relativeTime } from "../lib/threads";
 import { isDemoMode } from "../lib/demo";
 import { ThreadComposer } from "./ThreadComposer";
 import { CodeBlock } from "./CodeBlock";
+import { ExecutionTimeline } from "../components/ExecutionTimeline";
+import { RunReviewCard } from "./RunReviewCard";
 import { useAgentSelection } from "../lib/useAgentSelection";
 import { useDraft } from "../lib/drafts";
 import { runLabel, checkState, checksPassed, isActiveRun } from "../lib/run-state";
@@ -895,6 +897,19 @@ export function ThreadPane({
                     event.kind === "approval_requested" &&
                     data.kind === "merge" &&
                     Boolean(approvalRunId);
+
+                  const matchingRun = approvalRunId ? runs.find((r) => r.id === approvalRunId) : null;
+                  if (mergeApproval && matchingRun) {
+                    return (
+                      <div key={`${event.id}:${event.seq}`} className="my-3">
+                        <RunReviewCard
+                          run={matchingRun}
+                          onApprove={() => handleApproval(event, true)}
+                          onReject={() => handleApproval(event, false)}
+                        />
+                      </div>
+                    );
+                  }
                   return (
                     <div
                       key={`${event.id}:${event.seq}`}
@@ -1220,6 +1235,11 @@ export function ThreadPane({
             >
               <Icon name="x" size={12} />
             </button>
+          </div>
+        )}
+        {!loading && !loadError && (activeRun?.trace || latestRun?.trace) && (
+          <div className="px-3 pb-2">
+            <ExecutionTimeline trace={activeRun?.trace || latestRun?.trace} />
           </div>
         )}
         {!loading && !loadError && (latestRun || chatBusy) && (
