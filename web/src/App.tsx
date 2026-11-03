@@ -28,6 +28,7 @@ import {
   type GitInfo,
 } from "./lib/api";
 import { isDesktop, isMac, onMenu, openProjectDialog, openTerminal, revealProject, switchProject } from "./lib/desktop";
+import { isDemoMode } from "./lib/demo";
 import { useRoute, useRouteState, navigate, updateRouteState, parseRouteState, type Route } from "./lib/hashnav";
 import { APP_COMMANDS, PROJECT_TOOLS, commandForKey } from "./lib/commands";
 import { ProjectsDashboard } from "./shell/ProjectsDashboard";
@@ -120,6 +121,60 @@ function InstallButton() {
       <Icon name="download" size={11} />
       install
     </button>
+  );
+}
+
+function DemoBanner() {
+  const [dismissed, setDismissed] = useState(() => {
+    try {
+      return sessionStorage.getItem("bark:dismiss-demo-banner") === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  if (!isDemoMode() || dismissed) return null;
+
+  return (
+    <div
+      role="status"
+      className="bg-[#181512] border-b border-[#B8845C]/35 px-3 py-2 text-xs text-[#E5AA7A] flex items-center justify-between gap-3 shrink-0 z-20"
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[#B8845C]/25 text-[#F0CBA8] border border-[#B8845C]/40 shrink-0">
+          STATIC DEMO
+        </span>
+        <p className="text-[11px] text-white/90 leading-tight truncate sm:whitespace-normal">
+          This web preview is an interactive overview with simulated data. To run real agents in isolated worktrees with acceptance test gates, please run the real app via CLI:
+          <code className="ml-1.5 px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-[#E5AA7A] font-mono text-[10px] select-all">
+            curl -fsSL https://raw.githubusercontent.com/AkshatNaruka/barkcli/master/install.sh | sh
+          </code>
+        </p>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <a
+          href="https://github.com/AkshatNaruka/barkcli"
+          target="_blank"
+          rel="noreferrer"
+          className="text-[11px] font-mono text-white bg-[#B8845C] hover:bg-[#a5764f] px-2.5 py-0.5 rounded transition-colors whitespace-nowrap"
+        >
+          Try Real App →
+        </a>
+        <button
+          onClick={() => {
+            setDismissed(true);
+            try {
+              sessionStorage.setItem("bark:dismiss-demo-banner", "1");
+            } catch {}
+          }}
+          className="text-white/50 hover:text-white p-0.5 rounded transition-colors cursor-pointer"
+          title="Dismiss demo banner"
+          aria-label="Dismiss demo banner"
+        >
+          <Icon name="x" size={14} />
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -734,7 +789,8 @@ export function App() {
           onNew={() => executeCommand("new-intent")} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       </div>
       <div id="workspace-main" className="flex-1 flex flex-col min-w-0">
-      {route !== "chat" && route !== "projects" && <header className="workspace-topbar">
+        <DemoBanner />
+        {route !== "chat" && route !== "projects" && <header className="workspace-topbar">
         <button className="bark-icon-button" onClick={() => executeCommand("toggle-sidebar")} aria-label="Toggle sidebar" title="Toggle sidebar"><Icon name="panel" size={16} /></button>
         <h1>{PROJECT_TOOLS.find((tool) => tool.destination.route === route && tool.destination.tool === location.tool)?.label || (location.tool === "settings" ? "Settings" : location.tool === "docs" ? "Help" : SURFACES.find((surface) => surface.id === route)?.label)}</h1>
         <div className="ml-auto flex items-center gap-1">

@@ -57,7 +57,7 @@ const NAV_LINKS = [
   { href: "/benchmark", label: "Benchmark" },
   { href: "#ai-agent", label: "AI Agent" },
   { href: "/docs", label: "Docs" },
-  ...(ON_PAGES ? [{ href: `${BASE}/app/`, label: "Live preview" }] : []),
+  ...(ON_PAGES ? [{ href: `${BASE}/app/`, label: "Web demo" }] : []),
 ];
 
 const VIDEO_URL =
@@ -702,10 +702,16 @@ export default function Home() {
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-white/15 bg-white/5 text-white/80 hover:text-white hover:bg-white/10 text-xs sm:text-sm font-medium transition-all"
                 >
                   <Play className="w-3.5 h-3.5" />
-                  Live Web Preview
+                  Interactive Web Demo
                 </a>
               )}
             </div>
+
+            {ON_PAGES && (
+              <p className="text-[11px] font-mono text-white/40 mt-1 max-w-md mx-auto">
+                Note: Web preview is an interactive demo overview. Run the real app locally via CLI to execute real agents in isolated worktrees with test gates.
+              </p>
+            )}
 
             {/* Workflow steps */}
             <div className="flex items-center gap-2 sm:gap-3 text-[11px] font-mono text-white/50 mt-3">
@@ -966,7 +972,7 @@ export default function Home() {
                   className="shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#B8845C] text-white text-sm font-medium hover:bg-[#a5764f] transition-colors"
                 >
                   <Play className="w-4 h-4" />
-                  Watch the replay
+                  Watch Demo Replay
                   <ArrowRight className="w-4 h-4" />
                 </a>
               )}
@@ -1018,7 +1024,7 @@ export default function Home() {
                   </p>
 
                   {iface.id === "web" && (
-                    <div className="mb-6 flex items-center justify-center gap-4">
+                    <div className="mb-6 flex flex-col sm:flex-row items-center justify-center gap-4">
                       <a
                         href="/docs/web-app"
                         className="text-sm text-[#E5AA7A] hover:text-white transition-colors"
@@ -1028,9 +1034,10 @@ export default function Home() {
                       {ON_PAGES && (
                         <a
                           href={`${BASE}/app/`}
-                          className="text-sm text-white/60 hover:text-white transition-colors border border-white/10 rounded-lg px-3 py-1"
+                          className="text-sm text-white/60 hover:text-white transition-colors border border-white/10 rounded-lg px-3 py-1 flex items-center gap-1.5"
                         >
-                          Open Live App ↗
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#B8845C]" />
+                          Open Web Demo (Overview Only) ↗
                         </a>
                       )}
                     </div>
