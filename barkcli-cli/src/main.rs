@@ -437,7 +437,9 @@ fn run_daemon(port: u16, board_name: Option<&str>, open_browser: bool, host: &st
 
                 if let Err(e) = result {
                     eprintln!("daemon error: {}", e);
+                    std::process::exit(1);
                 }
+                std::process::exit(0);
             }
             pid => {
                 // Parent process
