@@ -359,8 +359,6 @@ function useInView(ref: React.RefObject<HTMLDivElement | null>, threshold = 0.1)
 }
 
 function ProductMock() {
-  const [activeView, setActiveView] = useState<"board" | "mind" | "brain">("board");
-
   const AGENT_BRAND: Record<string, string> = {
     opencode: "#D99C57",
     claude: "#D97757",
@@ -369,235 +367,156 @@ function ProductMock() {
 
   return (
     <div className="border border-white/10 rounded-2xl overflow-hidden bg-[#0A0B0E] shadow-2xl shadow-black/80 transition-all duration-300">
-      {/* Browser chrome with interactive view switcher */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-white/10 bg-white/[0.02]">
-        <div className="flex items-center gap-3">
-          <div className="flex gap-1.5">
-            <div className="w-3 h-3 rounded-full bg-[#FF5F56]/80 border border-[#E0443E]/40" />
-            <div className="w-3 h-3 rounded-full bg-[#FFBD2E]/80 border border-[#DEA123]/40" />
-            <div className="w-3 h-3 rounded-full bg-[#27C93F]/80 border border-[#1AAB29]/40" />
-          </div>
-          <div className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-mono text-white/40 bg-white/5 border border-white/10 rounded-md px-3 py-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            localhost:4321 — {activeView === "board" ? "board & agents" : activeView === "mind" ? "mind overview" : "collective memory"}
-          </div>
+      {/* Browser chrome */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-white/[0.02]">
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded-full bg-[#FF5F56]/80 border border-[#E0443E]/40" />
+          <div className="w-3 h-3 rounded-full bg-[#FFBD2E]/80 border border-[#DEA123]/40" />
+          <div className="w-3 h-3 rounded-full bg-[#27C93F]/80 border border-[#1AAB29]/40" />
         </div>
-
-        {/* View switcher buttons */}
-        <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/10 text-xs font-mono">
-          <button
-            onClick={() => setActiveView("board")}
-            className={`px-3 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeView === "board"
-                ? "bg-[#B8845C] text-white shadow-sm font-semibold"
-                : "text-white/50 hover:text-white"
-            }`}
-          >
-            <LayoutDashboard className="w-3.5 h-3.5" />
-            <span>Board & Agents</span>
-          </button>
-          <button
-            onClick={() => setActiveView("mind")}
-            className={`px-3 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeView === "mind"
-                ? "bg-[#B8845C] text-white shadow-sm font-semibold"
-                : "text-white/50 hover:text-white"
-            }`}
-          >
-            <Brain className="w-3.5 h-3.5" />
-            <span>Mind View</span>
-          </button>
-          <button
-            onClick={() => setActiveView("brain")}
-            className={`px-3 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeView === "brain"
-                ? "bg-[#B8845C] text-white shadow-sm font-semibold"
-                : "text-white/50 hover:text-white"
-            }`}
-          >
-            <GitBranch className="w-3.5 h-3.5" />
-            <span>Collective Memory</span>
-          </button>
+        <div className="flex items-center gap-2 text-[11px] font-mono text-white/40">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          <span>3 agents active · 100% test gate</span>
         </div>
       </div>
 
-      {/* View Content */}
-      {activeView === "board" && (
-        <div key="board" className="flex text-left animate-fade-in">
-          {/* Sidebar */}
-          <div className="hidden sm:flex flex-col w-40 shrink-0 border-r border-white/10 py-3 bg-white/[0.01]">
-            <div className="px-3 pb-2 text-[10px] font-mono uppercase tracking-widest text-white/30">Manage</div>
-            {[
-              { icon: Brain, label: "Mind", active: false, badge: "2" },
-              { icon: LayoutDashboard, label: "Board", active: true, badge: "8" },
-              { icon: Layers, label: "Specs", active: false },
-            ].map((item) => (
-              <div
-                key={item.label}
-                className={`flex items-center gap-2 px-3 py-1.5 text-xs border-l-2 ${
-                  item.active
-                    ? "text-white bg-white/5 border-[#B8845C]"
-                    : "text-white/40 border-transparent"
-                }`}
-              >
-                <item.icon className="w-3.5 h-3.5" />
-                {item.label}
-                {item.badge && (
-                  <span className={`ml-auto text-[10px] font-mono px-1.5 py-px rounded-full ${item.active ? "bg-[#B8845C]/20 text-[#E5AA7A]" : "bg-white/5 text-white/40"}`}>
-                    {item.badge}
-                  </span>
-                )}
-              </div>
-            ))}
-            <div className="px-3 pt-3 pb-2 text-[10px] font-mono uppercase tracking-widest text-white/30">Build</div>
-            {[{ icon: Bot, label: "Agents", badge: "3" }].map((item) => (
-              <div key={item.label} className="flex items-center gap-2 px-3 py-1.5 text-xs text-white/40 border-l-2 border-transparent">
-                <item.icon className="w-3.5 h-3.5" />
-                {item.label}
-                <span className="ml-auto text-[10px] font-mono px-1.5 py-px rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">{item.badge}</span>
-              </div>
-            ))}
-          </div>
+      {/* Board & Agents View */}
+      <div className="flex text-left">
+        {/* Sidebar */}
+        <div className="hidden sm:flex flex-col w-40 shrink-0 border-r border-white/10 py-3 bg-white/[0.01]">
+          <div className="px-3 pb-2 text-[10px] font-mono uppercase tracking-widest text-white/30">Manage</div>
+          {[
+            { icon: Brain, label: "Mind", active: false, badge: "2" },
+            { icon: LayoutDashboard, label: "Board", active: true, badge: "8" },
+            { icon: Layers, label: "Specs", active: false },
+          ].map((item) => (
+            <div
+              key={item.label}
+              className={`flex items-center gap-2 px-3 py-1.5 text-xs border-l-2 ${
+                item.active
+                  ? "text-white bg-white/5 border-[#B8845C]"
+                  : "text-white/40 border-transparent"
+              }`}
+            >
+              <item.icon className="w-3.5 h-3.5" />
+              {item.label}
+              {item.badge && (
+                <span className={`ml-auto text-[10px] font-mono px-1.5 py-px rounded-full ${item.active ? "bg-[#B8845C]/20 text-[#E5AA7A]" : "bg-white/5 text-white/40"}`}>
+                  {item.badge}
+                </span>
+              )}
+            </div>
+          ))}
+          <div className="px-3 pt-3 pb-2 text-[10px] font-mono uppercase tracking-widest text-white/30">Build</div>
+          {[{ icon: Bot, label: "Agents", badge: "3" }].map((item) => (
+            <div key={item.label} className="flex items-center gap-2 px-3 py-1.5 text-xs text-white/40 border-l-2 border-transparent">
+              <item.icon className="w-3.5 h-3.5" />
+              {item.label}
+              <span className="ml-auto text-[10px] font-mono px-1.5 py-px rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">{item.badge}</span>
+            </div>
+          ))}
+        </div>
 
-          {/* Kanban Columns */}
-          <div className="flex-1 grid grid-cols-3 gap-2 p-3 min-w-0">
-            {[
-              {
-                name: "Todo",
-                tone: "text-white/40",
-                cards: [
-                  { title: "Add OAuth login", meta: "HIGH", metaCls: "text-red-400 bg-red-500/10 border-red-500/30", spec: true, blocked: false },
-                  { title: "Fix checkout crash", meta: "BUG", metaCls: "text-red-400 bg-red-500/10 border-red-500/30", spec: true, blocked: true },
-                ],
-              },
-              {
-                name: "Doing",
-                tone: "text-[#E5AA7A]",
-                cards: [
-                  { title: "Implement OAuth flow", meta: "IN PROGRESS", metaCls: "text-[#E5AA7A] bg-[#B8845C]/10 border-[#B8845C]/30", spec: true, blocked: false },
-                ],
-              },
-              {
-                name: "Review",
-                tone: "text-emerald-400",
-                cards: [
-                  { title: "Store tokens securely", meta: "TEST GATE", metaCls: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30", spec: false, blocked: false },
-                ],
-              },
-            ].map((col) => (
-              <div key={col.name} className="bg-white/[0.02] border border-white/10 rounded-xl p-2.5 min-w-0">
-                <div className={`text-[10px] font-semibold uppercase tracking-wide mb-2 flex items-center justify-between ${col.tone}`}>
-                  <span>{col.name}</span>
-                  <span className="text-[9px] font-mono opacity-60">{col.cards.length}</span>
-                </div>
-                <div className="space-y-2">
-                  {col.cards.map((c) => (
-                    <div
-                      key={c.title}
-                      className={`bg-white/[0.03] rounded-lg p-2.5 border transition-all hover:border-white/20 ${c.blocked ? "border-red-500/40 bg-red-500/[0.02]" : "border-white/10"}`}
-                    >
-                      <div className="text-[11px] text-white/90 font-medium leading-snug">{c.title}</div>
-                      <div className="flex items-center gap-1.5 mt-2">
-                        <span className={`text-[9px] font-semibold px-1.5 py-px rounded border ${c.metaCls}`}>{c.meta}</span>
-                        {c.spec && <span className="text-[9px] font-mono text-[#D4A574]">⎇ spec</span>}
-                        {c.blocked && <span className="text-[9px] font-semibold text-red-400">BLOCKED</span>}
-                      </div>
+        {/* Kanban Columns */}
+        <div className="flex-1 grid grid-cols-3 gap-2 p-3 min-w-0">
+          {[
+            {
+              name: "Todo",
+              tone: "text-white/40",
+              cards: [
+                { title: "Add OAuth login", meta: "HIGH", metaCls: "text-red-400 bg-red-500/10 border-red-500/30", spec: true, blocked: false },
+                { title: "Fix checkout crash", meta: "BUG", metaCls: "text-red-400 bg-red-500/10 border-red-500/30", spec: true, blocked: true },
+              ],
+            },
+            {
+              name: "Doing",
+              tone: "text-[#E5AA7A]",
+              cards: [
+                { title: "Implement OAuth flow", meta: "IN PROGRESS", metaCls: "text-[#E5AA7A] bg-[#B8845C]/10 border-[#B8845C]/30", spec: true, blocked: false },
+              ],
+            },
+            {
+              name: "Review",
+              tone: "text-emerald-400",
+              cards: [
+                { title: "Store tokens securely", meta: "TEST GATE", metaCls: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30", spec: false, blocked: false },
+              ],
+            },
+          ].map((col) => (
+            <div key={col.name} className="bg-white/[0.02] border border-white/10 rounded-xl p-2.5 min-w-0">
+              <div className={`text-[10px] font-semibold uppercase tracking-wide mb-2 flex items-center justify-between ${col.tone}`}>
+                <span>{col.name}</span>
+                <span className="text-[9px] font-mono opacity-60">{col.cards.length}</span>
+              </div>
+              <div className="space-y-2">
+                {col.cards.map((c) => (
+                  <div
+                    key={c.title}
+                    className={`bg-white/[0.03] rounded-lg p-2.5 border transition-all hover:border-white/20 ${c.blocked ? "border-red-500/40 bg-red-500/[0.02]" : "border-white/10"}`}
+                  >
+                    <div className="text-[11px] text-white/90 font-medium leading-snug">{c.title}</div>
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <span className={`text-[9px] font-semibold px-1.5 py-px rounded border ${c.metaCls}`}>{c.meta}</span>
+                      {c.spec && <span className="text-[9px] font-mono text-[#D4A574]">⎇ spec</span>}
+                      {c.blocked && <span className="text-[9px] font-semibold text-red-400">BLOCKED</span>}
                     </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Agent queue */}
-          <div className="hidden md:flex flex-col w-52 shrink-0 border-l border-white/10 p-3 bg-white/[0.01]">
-            <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-white/30 mb-2">
-              <span>Active Pool</span>
-              <span className="text-emerald-400 font-semibold">● 3 running</span>
-            </div>
-            {[
-              {
-                name: "opencode-1",
-                task: "OAuth flow",
-                tool: "opencode",
-                status: "worktree #4a",
-                Logo: OpenCodeLogo,
-              },
-              {
-                name: "claude-2",
-                task: "Token storage",
-                tool: "claude",
-                status: "worktree #7b",
-                Logo: ClaudeCodeLogo,
-              },
-              {
-                name: "human-you",
-                task: "Acceptance gate",
-                tool: "human",
-                status: "master gate",
-                Logo: AnyAgentLogo,
-              },
-            ].map((a) => (
-              <div key={a.name} className="py-2 border-b border-white/5 last:border-0">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <a.Logo className="w-3.5 h-3.5 shrink-0" />
-                    <span className="text-[11px] font-mono text-white/80">{a.name}</span>
                   </div>
-                  <span className="text-[9px] font-mono text-white/40">{a.status}</span>
-                </div>
-                <div className="text-[10px] mt-1 font-mono" style={{ color: AGENT_BRAND[a.tool] }}>
-                  ↳ {a.task}
-                </div>
+                ))}
               </div>
-            ))}
-            <div className="mt-auto pt-3 border-t border-white/5">
-              <div className="text-[10px] font-mono text-white/40 flex items-center justify-between">
-                <span>Gate verdict:</span>
-                <span className="text-emerald-400 font-bold">100% PASS</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Agent queue */}
+        <div className="hidden md:flex flex-col w-52 shrink-0 border-l border-white/10 p-3 bg-white/[0.01]">
+          <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-white/30 mb-2">
+            <span>Active Pool</span>
+            <span className="text-emerald-400 font-semibold">● 3 running</span>
+          </div>
+          {[
+            {
+              name: "opencode-1",
+              task: "OAuth flow",
+              tool: "opencode",
+              status: "worktree #4a",
+              Logo: OpenCodeLogo,
+            },
+            {
+              name: "claude-2",
+              task: "Token storage",
+              tool: "claude",
+              status: "worktree #7b",
+              Logo: ClaudeCodeLogo,
+            },
+            {
+              name: "human-you",
+              task: "Acceptance gate",
+              tool: "human",
+              status: "master gate",
+              Logo: AnyAgentLogo,
+            },
+          ].map((a) => (
+            <div key={a.name} className="py-2 border-b border-white/5 last:border-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <a.Logo className="w-3.5 h-3.5 shrink-0" />
+                  <span className="text-[11px] font-mono text-white/80">{a.name}</span>
+                </div>
+                <span className="text-[9px] font-mono text-white/40">{a.status}</span>
               </div>
+              <div className="text-[10px] mt-1 font-mono" style={{ color: AGENT_BRAND[a.tool] }}>
+                ↳ {a.task}
+              </div>
+            </div>
+          ))}
+          <div className="mt-auto pt-3 border-t border-white/5">
+            <div className="text-[10px] font-mono text-white/40 flex items-center justify-between">
+              <span>Gate verdict:</span>
+              <span className="text-emerald-400 font-bold">100% PASS</span>
             </div>
           </div>
         </div>
-      )}
-
-      {activeView === "mind" && (
-        <div key="mind" className="relative group bg-black/60 overflow-hidden animate-fade-in">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={`${BASE}/screenshots/mind-dark.png`}
-            alt="barkcli Mind View Dashboard — project health, active agent worktrees, blockers, and next actions"
-            className="w-full h-auto object-cover max-h-[620px] transition-transform duration-500 group-hover:scale-[1.01]"
-            loading="lazy"
-          />
-          <div className="absolute top-4 left-4 bg-black/80 backdrop-blur-md border border-white/10 rounded-xl px-3 py-1.5 flex items-center gap-2 text-xs font-mono text-white/80">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Mind View: 0 blockers · 4 active worktrees · 100% test gate passing</span>
-          </div>
-          <div className="absolute bottom-4 right-4 bg-black/80 backdrop-blur-md border border-white/10 rounded-xl px-3 py-1.5 text-[11px] font-mono text-[#E5AA7A]">
-            $ barkcli mind sync && barkcli overview
-          </div>
-        </div>
-      )}
-
-      {activeView === "brain" && (
-        <div key="brain" className="relative group bg-black/60 overflow-hidden animate-fade-in">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={`${BASE}/screenshots/brain-dark.png`}
-            alt="barkcli Collective Memory — Git-backed contribution graph, UCB score, and hypothesis exploration"
-            className="w-full h-auto object-cover max-h-[620px] transition-transform duration-500 group-hover:scale-[1.01]"
-            loading="lazy"
-          />
-          <div className="absolute top-4 left-4 bg-black/80 backdrop-blur-md border border-white/10 rounded-xl px-3 py-1.5 flex items-center gap-2 text-xs font-mono text-white/80">
-            <span className="w-2 h-2 rounded-full bg-[#B8845C] animate-pulse" />
-            <span>Collective Memory: Git-backed contribution graph · evidence scores · UCB recommendations</span>
-          </div>
-          <div className="absolute bottom-4 right-4 bg-black/80 backdrop-blur-md border border-white/10 rounded-xl px-3 py-1.5 text-[11px] font-mono text-[#E5AA7A]">
-            $ barkcli memory search &quot;auth tokens&quot;
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
