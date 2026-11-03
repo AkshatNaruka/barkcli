@@ -386,7 +386,6 @@ function ProductMock() {
         <div className="hidden sm:flex flex-col w-40 shrink-0 border-r border-white/10 py-3 bg-white/[0.01]">
           <div className="px-3 pb-2 text-[10px] font-mono uppercase tracking-widest text-white/30">Manage</div>
           {[
-            { icon: Brain, label: "Mind", active: false, badge: "2" },
             { icon: LayoutDashboard, label: "Board", active: true, badge: "8" },
             { icon: Layers, label: "Specs", active: false },
           ].map((item) => (
@@ -691,15 +690,8 @@ export default function Home() {
             {/* CTAs */}
             <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
               <a
-                href="https://github.com/AkshatNaruka/barkcli/releases/latest/download/Bark-macOS-universal.dmg"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#B8845C] text-white text-xs sm:text-sm font-medium hover:bg-[#a5764f] transition-all shadow-lg shadow-[#B8845C]/20"
-              >
-                <Download className="w-4 h-4" />
-                Download macOS (.dmg)
-              </a>
-              <a
                 href="/docs"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/15 bg-white/5 text-white/80 hover:text-white hover:bg-white/10 text-xs sm:text-sm font-medium transition-all"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#B8845C] text-white text-xs sm:text-sm font-medium hover:bg-[#a5764f] transition-all shadow-lg shadow-[#B8845C]/20"
               >
                 Explore Documentation
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -707,7 +699,7 @@ export default function Home() {
               {ON_PAGES && (
                 <a
                   href={`${BASE}/app/`}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#B8845C]/30 bg-[#B8845C]/10 text-[#E5AA7A] hover:bg-[#B8845C]/20 text-xs sm:text-sm font-medium transition-all"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-white/15 bg-white/5 text-white/80 hover:text-white hover:bg-white/10 text-xs sm:text-sm font-medium transition-all"
                 >
                   <Play className="w-3.5 h-3.5" />
                   Live Web Preview
@@ -765,8 +757,8 @@ export default function Home() {
               <span className="text-white/40">Humans and agents, side by side.</span>
             </h2>
             <p className="text-white/50 max-w-xl mx-auto">
-              Mind tells you what&apos;s blocked and what&apos;s next. The board holds the work
-              with spec traceability. Agents claim tasks like deployments.
+              The board holds the work with spec traceability. Agents claim tasks like deployments,
+              isolated in git worktrees, with your tests as the acceptance gate.
             </p>
           </AnimatedSection>
 
@@ -1024,17 +1016,7 @@ export default function Home() {
                   <p className="text-white/50 max-w-lg mx-auto mb-6 leading-relaxed">
                     {iface.description}
                   </p>
-                  {iface.id === "desktop" && (
-                    <div className="mb-6">
-                      <a
-                        href="https://github.com/AkshatNaruka/barkcli/releases/latest/download/Bark-macOS-universal.dmg"
-                        className="inline-flex items-center gap-2 text-sm text-[#E5AA7A] hover:text-white bg-white/5 border border-white/10 hover:border-[#B8845C]/40 px-4 py-2 rounded-xl transition-all"
-                      >
-                        <Download className="w-4 h-4" />
-                        Download Bark for macOS (.dmg)
-                      </a>
-                    </div>
-                  )}
+
                   {iface.id === "web" && (
                     <div className="mb-6 flex items-center justify-center gap-4">
                       <a
