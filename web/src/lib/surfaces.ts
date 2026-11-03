@@ -56,6 +56,7 @@ const LEGACY: Record<string, Surface> = {
   specs: "operations",
   calendar: "operations",
   reports: "operations",
+  usage: "operations",
   settings: "operations",
   docs: "operations",
   "agent-prompt": "operations",
@@ -84,7 +85,7 @@ export function aliasSurface(raw: string): Surface {
 /** Sub-tab for Operations, preserved from old hashes where it makes sense. */
 export function operationsTabFromLegacy(raw: string): string | null {
   const key = raw.trim().toLowerCase();
-  if (["project", "code", "timeline", "specs", "calendar", "reports", "settings", "docs", "agent-prompt", "insights"].includes(key)) {
+  if (["project", "code", "timeline", "specs", "calendar", "reports", "settings", "docs", "agent-prompt", "insights", "usage"].includes(key)) {
     return key === "project" || key === "insights" ? "workspace" : key === "agent-prompt" ? "agent" : key;
   }
   return null;

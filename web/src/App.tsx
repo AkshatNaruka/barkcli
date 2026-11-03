@@ -539,6 +539,7 @@ export function App() {
         else setSidebarCollapsed((collapsed) => { window.localStorage.setItem("bark:sidebar-collapsed", collapsed ? "0" : "1"); return !collapsed; });
         break;
       case "settings": openOperationsTab("settings"); break;
+      case "usage": openOperationsTab("usage"); break;
       case "projects": navigate("projects"); break;
       case "appearance": setCustomizeOpen(true); break;
       case "customize-sidebar": setSidebarCustomizeOpen(true); break;

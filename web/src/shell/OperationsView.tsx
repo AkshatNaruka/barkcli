@@ -9,6 +9,7 @@ import { ReportsView } from "../components/ReportsView";
 import { AgentPromptView } from "../components/AgentPromptView";
 import { DocsView } from "../components/DocsView";
 import { SettingsView } from "../components/SettingsView";
+import { UsageView } from "../components/UsageView";
 import { ShipView } from "../components/ShipView";
 import { HistoryView } from "../components/HistoryView";
 import { WorkspaceView } from "../components/WorkspaceView";
@@ -28,6 +29,7 @@ type OpTab =
   | "reports"
   | "agent"
   | "docs"
+  | "usage"
   | "settings"
   | "context"
   | "automations"
@@ -44,6 +46,7 @@ const TABS: Array<{ id: OpTab; label: string; icon: IconName }> = [
   { id: "reports", label: "Reports", icon: "chart" },
   { id: "agent", label: "Agent API", icon: "robot" },
   { id: "docs", label: "Docs", icon: "doc" },
+  { id: "usage", label: "Usage", icon: "chart" },
   { id: "settings", label: "Settings", icon: "gear" },
   { id: "context", label: "Context", icon: "doc" },
   { id: "history", label: "History", icon: "history" },
@@ -136,6 +139,7 @@ export function OperationsView({
         {tab === "reports" && board && <ReportsView board={board} sprints={sprints} />}
         {tab === "agent" && <AgentPromptView />}
         {tab === "docs" && <DocsView />}
+        {tab === "usage" && <UsageView />}
         {tab === "settings" && board && <SettingsView board={board} onSaveBoard={onSaveBoard} />}
         {tab === "context" && <ContextView boardName={boardName} />}
         {tab === "history" && (

@@ -1690,6 +1690,101 @@ export async function fetchRun(id: string): Promise<RunRecord | null> {
   }
 }
 
+export interface UsageSummary {
+  total_tokens: number;
+  input_tokens: number;
+  output_tokens: number;
+  cached_input_tokens: number;
+  cache_hit_rate: number;
+  total_cost_usd: number;
+  standard_cost_usd: number;
+  premium_cost_usd: number;
+  total_runs: number;
+  active_providers: number;
+  active_models: number;
+}
+
+export interface ModelUsage {
+  model: string;
+  provider: string;
+  input_tokens: number;
+  output_tokens: number;
+  cached_input_tokens: number;
+  cache_hit_rate: number;
+  cost_usd: number;
+  cost_per_million_input: number;
+  cost_per_million_output: number;
+  runs_count: number;
+}
+
+export interface ProviderUsage {
+  provider: string;
+  label: string;
+  input_tokens: number;
+  output_tokens: number;
+  cached_input_tokens: number;
+  cost_usd: number;
+  runs_count: number;
+  status: string;
+}
+
+export interface DailyUsage {
+  date: string;
+  tokens: number;
+  input_tokens: number;
+  output_tokens: number;
+  cached_input_tokens: number;
+  cost_usd: number;
+}
+
+export interface ProviderLimit {
+  provider: string;
+  label: string;
+  limit_type: string;
+  used: number;
+  limit: number;
+  resets_in: string;
+  pace: string;
+  status: string;
+}
+
+export interface UsageData {
+  summary: UsageSummary;
+  models: ModelUsage[];
+  providers: ProviderUsage[];
+  daily: DailyUsage[];
+  limits: ProviderLimit[];
+}
+
+export async function fetchUsage(windowOption?: string): Promise<UsageData> {
+  const query = windowOption ? `?window=${encodeURIComponent(windowOption)}` : "";
+  try {
+    const res = await fetch(`/api/usage${query}`);
+    if (!res.ok) throw new Error("Failed to fetch usage");
+    return await res.json();
+  } catch {
+    return {
+      summary: {
+        total_tokens: 0,
+        input_tokens: 0,
+        output_tokens: 0,
+        cached_input_tokens: 0,
+        cache_hit_rate: 0,
+        total_cost_usd: 0,
+        standard_cost_usd: 0,
+        premium_cost_usd: 0,
+        total_runs: 0,
+        active_providers: 0,
+        active_models: 0,
+      },
+      models: [],
+      providers: [],
+      daily: [],
+      limits: [],
+    };
+  }
+}
+
 export interface ThreadRunRequest {
     provider?: string;
     model?: string;

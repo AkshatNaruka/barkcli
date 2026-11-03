@@ -290,6 +290,10 @@ export function WorkspaceSidebar({
           <button onClick={() => go(() => onCommand("command-palette"))} title="Search or command (⌘K)" aria-label="Search or command">
             <Icon name="search" size={15} />
           </button>
+          <button onClick={() => go(() => onCommand("usage"))} title="Usage & Limits (⌘U)">
+            <Icon name="chart" size={14} />
+            Usage
+          </button>
           <button onClick={() => go(() => onCommand("settings"))}>
             <Icon name="gear" size={14} />
             Settings

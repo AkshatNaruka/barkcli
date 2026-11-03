@@ -67,6 +67,7 @@ const DEFAULT_TOOL_GROUP: Record<string, string> = {
   code: "delivery",
   history: "delivery",
   ship: "delivery",
+  usage: "delivery",
 };
 
 const FALLBACK_GROUP_BY_CATEGORY: Record<string, string> = {

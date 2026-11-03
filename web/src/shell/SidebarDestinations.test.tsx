@@ -23,6 +23,7 @@ vi.mock("../components/SpecsView", () => ({ SpecsView: () => <h1>specs renderer<
 vi.mock("../components/CalendarView", () => ({ CalendarView: () => <h1>calendar renderer</h1> }));
 vi.mock("../components/ReportsView", () => ({ ReportsView: () => <h1>reports renderer</h1> }));
 vi.mock("../components/AgentPromptView", () => ({ AgentPromptView: () => <h1>agent renderer</h1> }));
+vi.mock("../components/UsageView", () => ({ UsageView: () => <h1>usage renderer</h1> }));
 
 describe("sidebar destinations", () => {
   it.each(PROJECT_TOOLS)("round-trips $label without losing its selected tool", ({ destination }) => {

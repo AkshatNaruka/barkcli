@@ -133,6 +133,22 @@ export function AppRail({
           {labels && <kbd className="text-[9px] font-mono text-muted/60">⌘,</kbd>}
         </button>
         <button
+          onClick={() => {
+            try {
+              window.sessionStorage.setItem("bark:ops-tab", "usage");
+            } catch {}
+            window.dispatchEvent(new CustomEvent("bark-operations-tab", { detail: "usage" }));
+            onNavigate("operations");
+          }}
+          title="Usage & Limits (⌘U)"
+          className={`rounded-[10px] flex items-center text-muted hover:text-text hover:bg-white/[0.04] transition-colors ${
+            labels ? "h-9 px-2.5 gap-2.5 justify-start" : "w-10 h-10 justify-center"
+          }`}
+        >
+          <Icon name="chart" size={17} />
+          {labels && <span className="text-[12px] flex-1 text-left">Usage</span>}
+        </button>
+        <button
           onClick={() => onNavigate("operations")}
           title="Settings (Operations)"
           className={`rounded-[10px] flex items-center text-muted hover:text-text hover:bg-white/[0.04] transition-colors ${
