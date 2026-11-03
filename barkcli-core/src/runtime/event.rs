@@ -278,6 +278,8 @@ pub struct RunRecord {
     pub evidence_score: f64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trace: Option<crate::runtime::trace::RunTrace>,
 }
 
 fn default_ordinal() -> u32 {
@@ -322,6 +324,7 @@ impl RunRecord {
             author: None,
             evidence_score: 0.0,
             summary: None,
+            trace: Some(crate::runtime::trace::RunTrace::new(&start.run_id)),
         }
     }
 
@@ -419,10 +422,22 @@ impl RunRecord {
 
     pub fn apply(&mut self, event: &RuntimeEvent) {
         match event {
-            RuntimeEvent::Started { .. } => {
+            RuntimeEvent::Started { provider, model, .. } => {
                 self.status = RunStatus::Running;
                 if self.started_at.timestamp() == 0 {
                     self.started_at = Utc::now();
+                }
+                if let Some(trace) = self.trace.as_mut() {
+                    if trace.spans.is_empty() {
+                        trace.add_span(
+                            crate::runtime::trace::SpanPhase::Input,
+                            format!("Context Intake ({provider})"),
+                            model.clone(),
+                            0,
+                            150,
+                            "success",
+                        );
+                    }
                 }
             }
             RuntimeEvent::Status { status, message } => {
@@ -444,6 +459,41 @@ impl RunRecord {
                     "merged" => RunStatus::Merged,
                     _ => RunStatus::Running,
                 };
+            }
+            RuntimeEvent::Assistant { text, partial } => {
+                if !*partial {
+                    if let Some(trace) = self.trace.as_mut() {
+                        let start_ms = trace.total_duration_ms;
+                        let snippet = text.lines().next().unwrap_or("Agent generation").trim();
+                        trace.add_span(
+                            crate::runtime::trace::SpanPhase::Model,
+                            "Model Inference",
+                            Some(snippet.to_string()),
+                            start_ms,
+                            1500,
+                            "success",
+                        );
+                    }
+                }
+            }
+            RuntimeEvent::ToolCall { name, status, input, .. } => {
+                if let Some(trace) = self.trace.as_mut() {
+                    let start_ms = trace.total_duration_ms;
+                    let detail = input.get("path")
+                        .or_else(|| input.get("file"))
+                        .or_else(|| input.get("command"))
+                        .and_then(|v| v.as_str())
+                        .map(str::to_string);
+                    let span_status = if status == "error" { "failed" } else { "success" };
+                    trace.add_span(
+                        crate::runtime::trace::SpanPhase::Tool,
+                        format!("tool: {name}"),
+                        detail,
+                        start_ms,
+                        280,
+                        span_status,
+                    );
+                }
             }
             RuntimeEvent::Usage {
                 input_tokens,
@@ -519,6 +569,19 @@ impl RunRecord {
                 } else {
                     Some(Utc::now())
                 };
+                if let Some(trace) = self.trace.as_mut() {
+                    let cmd_label = command.as_deref().unwrap_or("project tests");
+                    let start_ms = trace.total_duration_ms;
+                    let span_status = if *passed { "success" } else { "failed" };
+                    trace.add_span(
+                        crate::runtime::trace::SpanPhase::Gate,
+                        format!("Acceptance Gate: {cmd_label}"),
+                        Some(summary.clone()),
+                        start_ms,
+                        850,
+                        span_status,
+                    );
+                }
             }
             RuntimeEvent::Diff {
                 files,

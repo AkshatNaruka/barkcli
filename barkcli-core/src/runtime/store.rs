@@ -286,6 +286,23 @@ impl RunRecorder {
         Ok(run.clone())
     }
 
+    pub fn record_span(
+        &self,
+        phase: crate::runtime::trace::SpanPhase,
+        label: impl Into<String>,
+        detail: Option<String>,
+        start_ms: u64,
+        duration_ms: u64,
+        status: impl Into<String>,
+    ) -> Result<()> {
+        let mut run = self.run.lock().expect("run recorder poisoned");
+        let run_id = run.id.clone();
+        let trace = run.trace.get_or_insert_with(|| crate::runtime::trace::RunTrace::new(run_id));
+        trace.add_span(phase, label, detail, start_ms, duration_ms, status);
+        self.store.save_run(&run)?;
+        Ok(())
+    }
+
     pub fn store(&self) -> &RuntimeStore {
         &self.store
     }

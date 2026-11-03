@@ -5,6 +5,7 @@ pub mod provider;
 pub mod providers;
 pub mod runner;
 pub mod store;
+pub mod trace;
 
 use std::sync::Arc;
 
@@ -21,6 +22,7 @@ pub use provider::{
 };
 pub use runner::{CreateRunRequest, MergeOutcome, RunDiff, RunService};
 pub use store::{RunRecorder, RuntimeStore};
+pub use trace::{RunTrace, SpanPhase, TraceSpan};
 
 use crate::threads::ThreadEvent;
 
