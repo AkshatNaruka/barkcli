@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { MCP_TOOL_COUNT } from "@/lib/mcp";
 import {
   FolderOpen,
@@ -79,22 +80,25 @@ const FEATURES = [
       "Every run is a node in a Git-backed contribution graph. Independent verification, evidence scores, neglected-branch nudging, and UCB recommendations. Agents build on verified work instead of starting from zero.",
     code: '$ barkcli analyze && barkcli contribute --title "insight" --kind hypothesis',
     gradient: "from-amber-500/20 to-orange-500/20",
+    href: "/features/collective-memory",
   },
   {
     icon: Terminal,
     title: "Real local-agent chat",
     description:
       "Ask or build with the same opencode, claude, or codex CLIs you already pay for. Read-only Ask turns stream text and tool calls; Build turns get an isolated worktree and a test gate.",
-    code: "$ barkcli serve --open  # then chat in the app",
+    code: "$ barkcli serve --open # then chat in the app",
     gradient: "from-emerald-500/20 to-teal-500/20",
+    href: "/features/real-local-agent-chat",
   },
   {
     icon: Search,
     title: "Quick open & command runner",
     description:
       "⌘P jumps to any file with a preview; ⌘⇧R runs real project tests, builds, and git commands without leaving Bark.",
-    code: '$ barkcli code "auth"  # or ⌘P / ⌘⇧R in the app',
+    code: '$ barkcli code "auth" # or ⌘P / ⌘⇧R in the app',
     gradient: "from-blue-500/20 to-cyan-500/20",
+    href: "/features/quick-open",
   },
   {
     icon: Clock,
@@ -103,6 +107,7 @@ const FEATURES = [
       "Schedule agent runs on an interval. Each due intent invokes the normal autonomy loop — worktree, gate, merge train — and reports back.",
     code: '$ barkcli schedule add "summarize the README" --every 1h',
     gradient: "from-rose-500/20 to-red-500/20",
+    href: "/features/automations",
   },
   {
     icon: Sparkles,
@@ -111,6 +116,7 @@ const FEATURES = [
       "A compiled snapshot of your project — health, blockers, stale work, next actions. One command answers what's happening across agents and developers.",
     code: "$ barkcli mind sync && barkcli overview",
     gradient: "from-violet-500/20 to-purple-500/20",
+    href: "/features/mind",
   },
   {
     icon: Layers,
@@ -119,6 +125,7 @@ const FEATURES = [
       "Install remote playbooks from skills.sh with sha-pinned skills.lock files. Automatically detect, inspect, and run external agent tools including fx, deepsec, and agent-browser.",
     code: "$ barkcli skills install owner/repo && barkcli tools list",
     gradient: "from-indigo-500/20 to-blue-500/20",
+    href: "/features/skills",
   },
   {
     icon: FolderOpen,
@@ -127,6 +134,7 @@ const FEATURES = [
       "Kanban with spec_id on every card — spec ↔ card ↔ task ↔ code, O(1). Diff it, merge it, grep it.",
     code: "$ git diff main..feature -- *.board",
     gradient: "from-zinc-500/20 to-neutral-500/20",
+    href: "/features/board-traceability",
   },
   {
     icon: Bot,
@@ -135,6 +143,7 @@ const FEATURES = [
       "Tasks dispatch to OpenCode, Claude Code, Cursor, or a human. Claim, work, complete — with a test review gate before done.",
     code: "$ barkcli dispatch --role builder && barkcli review",
     gradient: "from-green-500/20 to-emerald-500/20",
+    href: "/features/agent-queue",
   },
   {
     icon: Database,
@@ -143,6 +152,7 @@ const FEATURES = [
       "Four-tier local memory with hybrid BM25 + TF-IDF search. Decisions and patterns survive across sessions — offline.",
     code: '$ barkcli memory search "auth errors"',
     gradient: "from-teal-500/20 to-cyan-500/20",
+    href: "/features/memory",
   },
 ];
 
@@ -713,19 +723,22 @@ export default function Home() {
         <main className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6 py-12">
           <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 mb-6 backdrop-blur-md">
             <Sparkles className="w-3.5 h-3.5 text-[#B8845C]" />
-            <span className="text-xs text-white/75 font-mono">Open source (MIT) · {MCP_TOOL_COUNT} MCP tools · BYO Agents</span>
+            <span className="text-xs text-white/80 font-mono">Open source (MIT) · {MCP_TOOL_COUNT} MCP tools · BYO Agents</span>
           </div>
 
-          <h1 className="text-white text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.05] mb-6 max-w-5xl">
-            Management layer
+          <h1 className="text-white text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.05] mb-6 max-w-5xl uppercase">
+            THE MANAGEMENT LAYER
             <br />
             <span className="bg-gradient-to-r from-[#F0CBA8] via-[#E5AA7A] to-[#B8845C] bg-clip-text text-transparent">
-              for AI agents.
+              FOR AI AGENTS
             </span>
           </h1>
 
-          <p className="text-white/70 text-base sm:text-lg md:text-xl font-light max-w-2xl mb-8 leading-relaxed px-2">
-            You write the intent. Agents do the work. You review what&apos;s finished. No cloud, no accounts, everything in your git repo.
+          <p className="text-white text-base sm:text-lg md:text-xl font-medium max-w-2xl mb-8 leading-relaxed px-2">
+            <span className="font-semibold text-white/95">
+              barkcli plans the work, assigns it to your coding agents, has them build and test in isolated worktrees, and sends you only passing work to review.
+            </span>{" "}
+            <span className="text-[#E5AA7A] font-bold">No cloud, no accounts.</span>
           </p>
 
           <div className="flex flex-col items-center gap-3 w-full max-w-xl">
@@ -902,32 +915,44 @@ export default function Home() {
               Everything is stored as git-versioned YAML files in your repository. No vendor databases, no cloud subscriptions.
             </p>
           </AnimatedSection>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {FEATURES.map((feature, i) => {
               const Icon = feature.icon;
               return (
-                <AnimatedSection key={i} delay={i * 0.08}>
-                  <div className="group relative border border-white/10 rounded-2xl p-6 hover:border-[#B8845C]/30 transition-all duration-300 hover:bg-white/[0.02] h-full">
+                <AnimatedSection key={i} delay={i * 0.06}>
+                  <Link
+                    href={feature.href}
+                    className="group relative block border border-white/10 rounded-2xl p-6 transition-all duration-300 ease-out hover:-translate-y-2 hover:scale-[1.02] hover:border-[#B8845C]/60 hover:shadow-2xl hover:shadow-[#B8845C]/20 hover:bg-white/[0.03] cursor-pointer h-full"
+                  >
+                    {/* Glowing hover backdrop */}
                     <div
-                      className={`absolute inset-0 bg-gradient-to-br ${feature.gradient} rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none`}
+                      className={`absolute inset-0 bg-gradient-to-br ${feature.gradient} rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none blur-sm`}
                     />
-                    <div className="relative">
-                      <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
-                        <Icon className="w-5 h-5 text-[#B8845C]" />
+                    <div className="relative z-10 flex flex-col justify-between h-full">
+                      <div>
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="w-11 h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:scale-110 group-hover:bg-[#B8845C]/20 group-hover:border-[#B8845C]/40 transition-all duration-300 shadow-md">
+                            <Icon className="w-5 h-5 text-[#B8845C] group-hover:text-[#E5AA7A] transition-colors" />
+                          </div>
+                          <span className="text-[11px] font-mono text-white/40 group-hover:text-[#E5AA7A] flex items-center gap-1 transition-colors">
+                            <span>Details</span>
+                            <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                          </span>
+                        </div>
+                        <h3 className="text-lg font-semibold mb-2 text-white group-hover:text-[#F0CBA8] transition-colors">
+                          {feature.title}
+                        </h3>
+                        <p className="text-white/60 text-sm leading-relaxed mb-4 group-hover:text-white/80 transition-colors">
+                          {feature.description}
+                        </p>
                       </div>
-                      <h3 className="text-lg font-semibold mb-2">
-                        {feature.title}
-                      </h3>
-                      <p className="text-white/50 text-sm leading-relaxed mb-4">
-                        {feature.description}
-                      </p>
-                      <div className="bg-black/50 border border-white/10 rounded-lg px-3 py-2 group-hover:border-white/20 transition-colors">
-                        <code className="text-[#E5AA7A] text-xs font-mono">
+                      <div className="bg-black/60 border border-white/10 rounded-lg px-3 py-2.5 group-hover:border-[#B8845C]/30 transition-colors mt-auto">
+                        <code className="text-[#E5AA7A] text-xs font-mono break-all">
                           {feature.code}
                         </code>
                       </div>
                     </div>
-                  </div>
+                  </Link>
                 </AnimatedSection>
               );
             })}

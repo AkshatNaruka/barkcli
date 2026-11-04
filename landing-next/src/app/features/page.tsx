@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { MCP_TOOL_COUNT } from "@/lib/mcp";
+import { FEATURES_DATA } from "@/lib/features";
 import {
   Brain,
   Terminal,
@@ -96,16 +97,29 @@ export default function FeaturesPage() {
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-white mb-6">
             Supporting the loop with deep repo intelligence
           </h1>
-          <p className="text-lg md:text-xl text-white/60 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-lg md:text-xl text-white/60 max-w-2xl mx-auto leading-relaxed mb-8">
             The intent → plan → worktree → gate → review loop is powered by local memory, compiled mind snapshots, reproducible skills, and multi-surface ergonomics.
           </p>
+
+          <div className="flex flex-wrap items-center justify-center gap-2 max-w-4xl mx-auto">
+            {FEATURES_DATA.map((feat) => (
+              <Link
+                key={feat.slug}
+                href={`/features/${feat.slug}`}
+                className="text-xs font-mono px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:border-[#B8845C]/40 hover:text-[#E5AA7A] transition-all flex items-center gap-1.5"
+              >
+                <span>{feat.title}</span>
+                <span className="text-[#B8845C]">→</span>
+              </Link>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* Main Feature Grid */}
       <main className="max-w-6xl mx-auto px-6 pb-28 space-y-20">
         {/* Collective Memory */}
-        <section className="p-8 md:p-10 rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-sm relative overflow-hidden">
+        <section id="collective-memory" className="p-8 md:p-10 rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-sm relative overflow-hidden">
           <div className="flex flex-col lg:flex-row gap-8 lg:items-center justify-between">
             <div className="max-w-xl">
               <div className="flex items-center gap-2 text-xs font-mono text-[#D4A574] mb-3">
@@ -150,7 +164,7 @@ export default function FeaturesPage() {
         </section>
 
         {/* Mind & Project Intelligence */}
-        <section className="p-8 md:p-10 rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-sm relative overflow-hidden">
+        <section id="mind" className="p-8 md:p-10 rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-sm relative overflow-hidden">
           <div className="flex flex-col lg:flex-row gap-8 lg:items-center justify-between">
             <div className="max-w-xl">
               <div className="flex items-center gap-2 text-xs font-mono text-[#D4A574] mb-3">
@@ -194,7 +208,7 @@ export default function FeaturesPage() {
         </section>
 
         {/* Automations & Scheduled Runs */}
-        <section className="p-8 md:p-10 rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-sm relative overflow-hidden">
+        <section id="automations" className="p-8 md:p-10 rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-sm relative overflow-hidden">
           <div className="flex flex-col lg:flex-row gap-8 lg:items-center justify-between">
             <div className="max-w-xl">
               <div className="flex items-center gap-2 text-xs font-mono text-[#D4A574] mb-3">
@@ -234,7 +248,7 @@ export default function FeaturesPage() {
         </section>
 
         {/* Skills & Ecosystem Tools */}
-        <section className="p-8 md:p-10 rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-sm relative overflow-hidden">
+        <section id="skills" className="p-8 md:p-10 rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-sm relative overflow-hidden">
           <div className="flex flex-col lg:flex-row gap-8 lg:items-center justify-between">
             <div className="max-w-xl">
               <div className="flex items-center gap-2 text-xs font-mono text-[#D4A574] mb-3">
@@ -275,7 +289,7 @@ export default function FeaturesPage() {
         </section>
 
         {/* Code Intelligence */}
-        <section className="p-8 md:p-10 rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-sm relative overflow-hidden">
+        <section id="quick-open" className="p-8 md:p-10 rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-sm relative overflow-hidden">
           <div className="flex flex-col lg:flex-row gap-8 lg:items-center justify-between">
             <div className="max-w-xl">
               <div className="flex items-center gap-2 text-xs font-mono text-[#D4A574] mb-3">
