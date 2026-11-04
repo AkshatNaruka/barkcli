@@ -73,6 +73,18 @@ public struct ThreadTimelineView: View {
                             .background(Color.barkcliCardSubtle)
                             .clipShape(Capsule())
                     }
+
+                    HStack(spacing: 4) {
+                        Image(systemName: "square.split.diagonal.2x2")
+                            .font(.system(size: 8))
+                        Text("isolated worktree: .board/worktrees/\(detail.id.prefix(8))")
+                            .font(.system(size: 9, design: .monospaced))
+                    }
+                    .foregroundColor(.barkcliTextMuted)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.barkcliCardSubtle)
+                    .clipShape(Capsule())
                 }
 
                 Text(detail.card?.title ?? detail.id)

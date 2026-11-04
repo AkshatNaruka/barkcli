@@ -99,6 +99,33 @@ public final class BoardStore: @unchecked Sendable {
         filteredCards.filter { $0.column.lowercased() == colId.lowercased() }
     }
 
+    public var cardsInReview: [Card] {
+        cardsInColumn("review")
+    }
+
+    public var inReviewCount: Int {
+        cardsInReview.count
+    }
+
+    public func approveReviewCard(_ cardId: String) async {
+        do {
+            try await client.moveCard(boardName: boardName, cardId: cardId, toColumn: "done")
+            await loadBoard(name: boardName)
+        } catch {
+            self.lastError = error.localizedDescription
+        }
+    }
+
+    public func requestChangesForCard(_ cardId: String, reason: String) async {
+        do {
+            try await client.addCardComment(boardName: boardName, cardId: cardId, text: "Changes requested: \(reason)", author: "human")
+            try await client.moveCard(boardName: boardName, cardId: cardId, toColumn: "doing")
+            await loadBoard(name: boardName)
+        } catch {
+            self.lastError = error.localizedDescription
+        }
+    }
+
     public func countForColumn(_ colId: String) -> Int {
         if colId == "all" {
             return allCards.count

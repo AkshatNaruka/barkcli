@@ -1,70 +1,71 @@
 import SwiftUI
 
 public enum AppNavigationTab: String, CaseIterable, Identifiable {
-    // Control
-    case mind = "Mind"
-    case board = "Board"
-    case sprints = "Sprints"
-
-    // Autonomy
-    case orchestrate = "Orchestrate"
-    case specs = "Specs"
-    case history = "History"
+    // Core Loop
     case run = "Run"
+    case review = "Review"
+    case board = "Board"
+    case mind = "Mind"
 
-    // Knowledge
+    // Knowledge & Specs
     case context = "Context"
     case memory = "Memory"
-    case brain = "Brain"
+    case specs = "Specs"
+    case history = "History"
     case skills = "Skills"
+    case brain = "Brain"
     case docs = "Docs"
 
-    // Operations
+    // Workspace & Operations
+    case usage = "Usage"
+    case sprints = "Sprints"
     case code = "Code"
     case calendar = "Calendar"
     case reports = "Reports"
-    case usage = "Usage"
     case timeline = "Timeline"
+    case orchestrate = "Orchestrate"
     case workspaces = "Workspaces"
 
     public var id: String { rawValue }
 
     public var iconName: String {
         switch self {
-        case .mind:
-            return "brain.head.profile"
-        case .board:
-            return "rectangle.split.3x1.fill"
-        case .sprints:
-            return "flame.fill"
-        case .orchestrate:
-            return "cpu.fill"
-        case .specs:
-            return "list.bullet.clipboard.fill"
-        case .history:
-            return "clock.arrow.circlepath"
         case .run:
             return "play.circle.fill"
+        case .review:
+            return "checkmark.shield.fill"
+        case .board:
+            return "rectangle.split.3x1.fill"
+        case .mind:
+            return "brain.head.profile"
         case .context:
             return "doc.text.fill"
         case .memory:
             return "memorychip.fill"
-        case .brain:
-            return "network"
+        case .specs:
+            return "list.bullet.clipboard.fill"
+        case .history:
+            return "clock.arrow.circlepath"
         case .skills:
             return "wrench.and.screwdriver.fill"
+        case .brain:
+            return "network"
         case .docs:
             return "book.pages.fill"
+        case .usage:
+            return "gauge.with.needle.fill"
+        case .sprints:
+            return "flame.fill"
         case .code:
             return "chevron.left.forwardslash.chevron.right"
         case .calendar:
             return "calendar"
         case .reports:
             return "chart.bar.xaxis"
-        case .usage:
-            return "gauge.with.needle.fill"
         case .timeline:
             return "timeline.selection"
+        case .orchestrate:
+            return "cpu.fill"
         case .workspaces:
             return "macwindow"
         }
@@ -72,23 +73,20 @@ public enum AppNavigationTab: String, CaseIterable, Identifiable {
 }
 
 public enum TabGroup: String, CaseIterable, Identifiable {
-    case control = "Control"
-    case autonomy = "Autonomy"
-    case knowledge = "Knowledge"
-    case operations = "Operations"
+    case coreLoop = "Core Loop"
+    case knowledge = "Knowledge & Specs"
+    case operations = "Workspace & Ops"
 
     public var id: String { rawValue }
 
     public var tabs: [AppNavigationTab] {
         switch self {
-        case .control:
-            return [.mind, .board, .sprints]
-        case .autonomy:
-            return [.orchestrate, .specs, .history, .run]
+        case .coreLoop:
+            return [.run, .review, .board, .mind]
         case .knowledge:
-            return [.context, .memory, .brain, .skills, .docs]
+            return [.context, .memory, .specs, .history, .skills, .brain, .docs]
         case .operations:
-            return [.code, .calendar, .reports, .usage, .timeline, .workspaces]
+            return [.usage, .sprints, .code, .calendar, .reports, .timeline, .orchestrate, .workspaces]
         }
     }
 }
@@ -98,7 +96,7 @@ public struct RootView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     #endif
 
-    @State private var selectedTab: AppNavigationTab = .mind
+    @State private var selectedTab: AppNavigationTab = .run
     @State private var workspaceStore = WorkspaceStore.shared
     @State private var mindStore = MindStore.shared
     @State private var boardStore = BoardStore.shared
@@ -118,6 +116,7 @@ public struct RootView: View {
     @State private var usageStore = UsageStore.shared
 
     @State private var activeProposalToReview: PlanProposal? = nil
+    @State private var showCommandPalette: Bool = false
 
     private var proposalReviewBinding: Binding<PlanProposal?> {
         Binding(
@@ -237,10 +236,52 @@ public struct RootView: View {
         .sheet(item: proposalReviewBinding) { proposal in
             PlanProposalSheet(proposal: proposal)
         }
+        .overlay {
+            if showCommandPalette {
+                ZStack {
+                    Color.black.opacity(0.4)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            showCommandPalette = false
+                        }
+
+                    CommandPaletteView(
+                        onSelectTab: { tab in
+                            selectedTab = tab
+                            showCommandPalette = false
+                        },
+                        onNewIntent: {
+                            showCommandPalette = false
+                            selectedTab = .run
+                        },
+                        onClose: {
+                            showCommandPalette = false
+                        }
+                    )
+                }
+                .transition(.opacity.combined(with: .scale(scale: 0.98)))
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .barkcliOpenCommandPalette)) { _ in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                showCommandPalette.toggle()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .barkcliNavigateTab)) { notif in
+            if let tab = notif.object as? AppNavigationTab {
+                withAnimation {
+                    selectedTab = tab
+                }
+            }
+        }
     }
 
     private func tabSubtitle(for tab: AppNavigationTab) -> String {
         switch tab {
+        case .run:
+            return "Live worktree execution monitoring and agent chat"
+        case .review:
+            return "Finished work awaiting human verification and merge gate"
         case .mind:
             return "Central command deck and health overview"
         case .board:
@@ -253,8 +294,6 @@ public struct RootView: View {
             return "Requirements traceability and verification matrix"
         case .history:
             return "Git commit topology and diff inspection"
-        case .run:
-            return "Live worktree execution monitoring"
         case .context:
             return "Living codebase digest and token efficiency"
         case .memory:
@@ -283,6 +322,34 @@ public struct RootView: View {
     @ViewBuilder
     private var workspaceToolbarItems: some View {
         HStack(spacing: 8) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    showCommandPalette = true
+                }
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 11))
+                    Text("Search...")
+                        .font(.system(size: 11))
+                    Text("⌘K")
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(Color.white.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 3))
+                }
+                .foregroundColor(.barkcliTextSecondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.barkcliCardSubtle)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+            .buttonStyle(.plain)
+            .help("Command Palette (⌘K)")
+
+            Divider().frame(height: 14)
+
             Circle()
                 .fill(workspaceStore.isConnected ? Color.barkcliStatusActive : Color.barkcliStatusWarning)
                 .frame(width: 6, height: 6)
@@ -316,12 +383,24 @@ public struct RootView: View {
                 ) {
                     ForEach(group.tabs) { tab in
                         NavigationLink(value: tab) {
-                            Label {
-                                Text(tab.rawValue)
-                                    .font(.barkcliSubheadline)
-                            } icon: {
-                                Image(systemName: tab.iconName)
-                                    .font(.system(size: 13, weight: .medium))
+                            HStack {
+                                Label {
+                                    Text(tab.rawValue)
+                                        .font(.barkcliSubheadline)
+                                } icon: {
+                                    Image(systemName: tab.iconName)
+                                        .font(.system(size: 13, weight: .medium))
+                                }
+                                Spacer()
+                                if tab == .review && boardStore.inReviewCount > 0 {
+                                    Text("\(boardStore.inReviewCount)")
+                                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.barkcliAccent)
+                                        .clipShape(Capsule())
+                                }
                             }
                         }
                         .tag(tab)
@@ -504,6 +583,10 @@ public struct RootView: View {
     private func tabContentView(for tab: AppNavigationTab) -> some View {
         NavigationStack {
             switch tab {
+            case .run:
+                ThreadsContainerView()
+            case .review:
+                ReviewQueueView()
             case .mind:
                 MindDashboardView()
             case .board:
@@ -516,8 +599,6 @@ public struct RootView: View {
                 SpecsMatrixView()
             case .history:
                 GitHistoryView()
-            case .run:
-                ThreadsContainerView()
             case .context, .memory:
                 ContextMemoryView()
             case .brain:
