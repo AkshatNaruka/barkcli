@@ -4,7 +4,7 @@
 //
 // Do NOT hardcode counts anywhere — import MCP_TOOL_COUNT instead.
 
-export const MCP_TOOL_COUNT = 71;
+export const MCP_TOOL_COUNT = 83;
 
 export const MCP_TOOLS = [
   "agent_heartbeat",
@@ -41,7 +41,12 @@ export const MCP_TOOLS = [
   "context_file_get",
   "context_get",
   "context_scan",
+  "contribution_add",
+  "contribution_analysis",
+  "contribution_link",
+  "contribution_verify",
   "fleet_status",
+  "guard_scan",
   "handoff",
   "history_scan",
   "intake",
@@ -59,6 +64,13 @@ export const MCP_TOOLS = [
   "prime",
   "progress_note",
   "ready",
+  "receipt_get",
+  "receipt_list",
+  "receipt_verify",
+  "review_queue",
+  "rules_add",
+  "rules_get",
+  "rules_list",
   "session_kill",
   "session_list",
   "session_logs",

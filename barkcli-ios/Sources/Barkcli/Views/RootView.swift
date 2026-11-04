@@ -455,6 +455,10 @@ public struct RootView: View {
 
     private func handleIntentSubmit(prompt: String, kind: IntentKind) async {
         do {
+            if selectedTab == .run, let currentThreadId = ThreadStore.shared.selectedThreadId {
+                await ThreadStore.shared.sendMessage(id: currentThreadId, text: prompt)
+                return
+            }
             _ = try await mindStore.submitIntent(prompt: prompt, kind: kind.apiValue)
             if let proposal = mindStore.activeProposal {
                 activeProposalToReview = proposal
@@ -513,7 +517,7 @@ public struct RootView: View {
             case .history:
                 GitHistoryView()
             case .run:
-                CodeSearchView()
+                ThreadsContainerView()
             case .context, .memory:
                 ContextMemoryView()
             case .brain:

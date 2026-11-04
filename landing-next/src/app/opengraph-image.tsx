@@ -1,12 +1,13 @@
 import { ImageResponse } from "next/og";
 import fs from "node:fs";
 import path from "node:path";
+import { MCP_TOOL_COUNT } from "@/lib/mcp";
 
 // Required for `output: "export"` (GitHub Pages) — the image is only re-rendered statically.
 export const dynamic = "force-static";
 
 export const alt =
-  "barkcli — The management layer for AI agents: intent → plan → worktree → gate → merge.";
+  "barkcli — The management layer for AI agents: You write the intent. Agents do the work. You review what's finished.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -127,12 +128,12 @@ export default function OgImage() {
               style={{
                 fontSize: 27,
                 lineHeight: 1.35,
-                color: "rgba(255, 255, 255, 0.82)",
+                color: "rgba(255, 255, 255, 0.88)",
                 fontWeight: 400,
                 maxWidth: 680,
               }}
             >
-              Intent in · Plans out · Isolated worktrees · Tests as the gate · Merge train.
+              You write the intent. Agents do the work. You review what&apos;s finished.
             </div>
 
             {/* Supported Interfaces Pills */}
@@ -150,7 +151,7 @@ export default function OgImage() {
               <span style={{ padding: "4px 10px", borderRadius: 6, backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}>TUI</span>
               <span style={{ padding: "4px 10px", borderRadius: 6, backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}>macOS App</span>
               <span style={{ padding: "4px 10px", borderRadius: 6, backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}>Web</span>
-              <span style={{ padding: "4px 10px", borderRadius: 6, backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}>71 MCP Tools</span>
+              <span style={{ padding: "4px 10px", borderRadius: 6, backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}>{MCP_TOOL_COUNT} MCP Tools</span>
             </div>
           </div>
         </div>
