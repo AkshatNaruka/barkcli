@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { MCP_TOOL_COUNT } from "@/lib/mcp";
 import { FEATURES_DATA } from "@/lib/features";
+import { Footer } from "@/components/Footer";
 import {
   Brain,
   Terminal,
@@ -437,17 +438,7 @@ export default function FeaturesPage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-white/10 py-12 px-6 text-center text-sm text-white/40">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <p>© {new Date().getFullYear()} barkcli. Free and open source under MIT License.</p>
-          <div className="flex items-center gap-6">
-            <Link href="/" className="hover:text-white transition-colors">Product</Link>
-            <Link href="/docs" className="hover:text-white transition-colors">Docs</Link>
-            <Link href="/benchmark" className="hover:text-white transition-colors">Benchmark</Link>
-            <a href="https://github.com/AkshatNaruka/barkcli" className="hover:text-white transition-colors">GitHub</a>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

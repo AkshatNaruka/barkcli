@@ -50,6 +50,7 @@ import {
   CodexLogo,
   AnyAgentLogo,
 } from "@/components/AgentLogos";
+import { Footer } from "@/components/Footer";
 
 const INSTALL =
   "curl -fsSL https://raw.githubusercontent.com/AkshatNaruka/barkcli/master/install.sh | sh";
@@ -1647,67 +1648,7 @@ export default function Home() {
       </section>
 
       {/* Final Footer */}
-      <footer className="py-8 px-6 border-t border-white/10 bg-[#060709]">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-6 h-6 rounded-md bg-[#B8845C] flex items-center justify-center shadow-sm">
-              <svg
-                viewBox="0 0 100 100"
-                className="w-4 h-4"
-                fill="none"
-                stroke="white"
-                strokeWidth="5.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M 30 25 C 42 18, 58 18, 70 25" />
-                <path d="M 30 25 C 16 27, 11 39, 12 51 C 13 60, 21 61, 27 53 C 30 48, 30 41, 30 35" />
-                <path d="M 70 25 C 84 27, 89 39, 88 51 C 87 60, 79 61, 73 53 C 70 48, 70 41, 70 35" />
-                <path d="M 30 43 C 26 56, 28 67, 35 74 C 41 79.5, 59 79.5, 65 74 C 72 67, 74 56, 70 43" />
-                <path
-                  d="M 43.5 55 C 47 52.5, 53 52.5, 56.5 55 C 55 59.5, 52 63, 50 64 C 48 63, 45 59.5, 43.5 55 Z"
-                  fill="white"
-                  stroke="none"
-                />
-                <path
-                  d="M 50 64 L 50 70 M 44.5 70 C 47.5 72.5, 52.5 72.5, 55.5 70"
-                  strokeWidth="5"
-                />
-              </svg>
-            </div>
-            <span className="text-sm text-white/40 font-mono">
-              © 2026 barkcli · MIT License
-            </span>
-          </div>
-          <div className="flex items-center gap-6 text-sm text-white/40">
-            <a href="/features" className="hover:text-white transition-colors">
-              Features
-            </a>
-            <a href="/docs" className="hover:text-white transition-colors">
-              Docs
-            </a>
-            <a href="/benchmark" className="hover:text-white transition-colors">
-              Benchmark
-            </a>
-            <a
-              href="https://github.com/AkshatNaruka/barkcli"
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-white transition-colors"
-            >
-              GitHub
-            </a>
-            <a
-              href="https://x.com/probiex007"
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-white transition-colors"
-            >
-              X
-            </a>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
