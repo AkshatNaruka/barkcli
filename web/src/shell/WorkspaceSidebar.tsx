@@ -189,6 +189,12 @@ export function WorkspaceSidebar({
             </div>
           ) : (
             <>
+              <div className="flex items-center gap-2 px-3 py-2 text-[12px] font-medium text-text border-b border-border/40 select-none">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="font-mono font-semibold tracking-tight">barkcli</span>
+                <span className="text-muted/40">•</span>
+                <span className="font-mono text-[10.5px] text-muted-strong">v0.8.0</span>
+              </div>
               <button className="sidebar-all-projects" onClick={() => go(() => navigate("projects"))}>
                 <Icon name="grid" size={14} />
                 All projects
@@ -274,7 +280,7 @@ export function WorkspaceSidebar({
                         >
                           <Icon name={item.icon} size={15} />
                           <span>{item.label}</span>
-                          {item.id === "review" && reviewCount > 0 && (
+                          {item.id === "chat" && reviewCount > 0 && (
                             <span className="sidebar-count" aria-label={`${reviewCount} awaiting review`}>{reviewCount}</span>
                           )}
                         </a>
@@ -285,6 +291,10 @@ export function WorkspaceSidebar({
               </nav>
             </>
           )}
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 border-t border-border/40 text-[10.5px] font-mono text-muted/70 select-none">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+          <span>Autonomous Fleet Nominal</span>
         </div>
         <footer>
           <button onClick={() => go(() => onCommand("command-palette"))} title="Search or command (⌘K)" aria-label="Search or command">

@@ -14,7 +14,8 @@ interface Props {
   boardName: string | null;
 }
 
-function formatInterval(seconds: number): string {
+function formatInterval(seconds: number | undefined): string {
+  if (!seconds) return "0s";
   if (seconds % 3600 === 0) return `${seconds / 3600}h`;
   if (seconds % 60 === 0) return `${seconds / 60}m`;
   return `${seconds}s`;

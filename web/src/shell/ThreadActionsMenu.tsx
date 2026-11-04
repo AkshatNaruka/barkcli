@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { deleteThread, forkThread, updateThread } from "../lib/api";
 import { AccessibleDialog } from "../components/AccessibleDialog";
 import { Icon } from "../components/Icon";
+import { loadFolderState, moveThreadsToFolder, createFolder } from "../lib/threadFolders";
 
 export interface ThreadActionTarget {
   id: string;
@@ -55,12 +56,15 @@ export function ThreadActionsMenu({
   onForked,
   onDeleted,
 }: ThreadActionsMenuProps) {
-  const [dialog, setDialog] = useState<"rename" | "delete" | null>(null);
+  const [dialog, setDialog] = useState<"rename" | "delete" | "folder" | null>(null);
   const [title, setTitle] = useState(target.title);
+  const [newFolderName, setNewFolderName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const menu = useRef<HTMLDivElement>(null);
+  const folderState = loadFolderState(boardName || "default");
+  const currentFolderId = folderState.threadFolderMap[target.id] || null;
 
   useEffect(() => {
     if (dialog) return;
@@ -211,6 +215,18 @@ export function ThreadActionsMenu({
             <Icon name="pencil" size={14} />
             Rename thread…
           </button>
+          <button
+            type="button"
+            role="menuitem"
+            disabled={busy}
+            onClick={() => {
+              setError(null);
+              setDialog("folder");
+            }}
+          >
+            <Icon name="folder" size={14} />
+            Move to folder…
+          </button>
           <button type="button" role="menuitem" disabled={busy} onClick={() => void fork()}>
             <Icon name="branch" size={14} />
             Fork thread
@@ -270,6 +286,92 @@ export function ThreadActionsMenu({
               </button>
             </div>
           </form>
+        </AccessibleDialog>
+      )}
+
+      {dialog === "folder" && (
+        <AccessibleDialog label="Move to folder" onClose={() => setDialog(null)} className="thread-dialog-shell">
+          <div className="thread-dialog">
+            <h2>Move to folder</h2>
+            <div className="flex flex-col gap-1.5 my-2 max-h-60 overflow-y-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  moveThreadsToFolder(boardName || "default", [target.id], null);
+                  onChanged();
+                  setDialog(null);
+                  onClose();
+                }}
+                className={`flex items-center justify-between p-2 rounded-lg text-[12px] border transition-colors ${
+                  !currentFolderId ? "border-accent bg-accent-soft text-accent-text font-medium" : "border-border hover:bg-surface text-muted-strong"
+                }`}
+              >
+                <span>(No folder / Default)</span>
+                {!currentFolderId && <Icon name="check" size={13} />}
+              </button>
+              {folderState.folders.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => {
+                    moveThreadsToFolder(boardName || "default", [target.id], f.id);
+                    onChanged();
+                    setDialog(null);
+                    onClose();
+                  }}
+                  className={`flex items-center justify-between p-2 rounded-lg text-[12px] border transition-colors ${
+                    currentFolderId === f.id ? "border-accent bg-accent-soft text-accent-text font-medium" : "border-border hover:bg-surface text-muted-strong"
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <Icon name="folder" size={13} />
+                    <span>{f.name}</span>
+                  </span>
+                  {currentFolderId === f.id && <Icon name="check" size={13} />}
+                </button>
+              ))}
+            </div>
+
+            <div className="pt-2 border-t border-border flex items-center gap-2">
+              <input
+                className="bark-field flex-1 text-[11.5px]"
+                placeholder="Create new folder…"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newFolderName.trim()) {
+                    e.preventDefault();
+                    const created = createFolder(boardName || "default", newFolderName.trim());
+                    moveThreadsToFolder(boardName || "default", [target.id], created.id);
+                    onChanged();
+                    setDialog(null);
+                    onClose();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                disabled={!newFolderName.trim()}
+                onClick={() => {
+                  if (!newFolderName.trim()) return;
+                  const created = createFolder(boardName || "default", newFolderName.trim());
+                  moveThreadsToFolder(boardName || "default", [target.id], created.id);
+                  onChanged();
+                  setDialog(null);
+                  onClose();
+                }}
+                className="bark-primary text-[11px] px-2.5 py-1 disabled:opacity-40"
+              >
+                Create & Move
+              </button>
+            </div>
+
+            <div className="thread-dialog-actions mt-3">
+              <button type="button" className="bark-button" onClick={() => setDialog(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
         </AccessibleDialog>
       )}
 

@@ -131,8 +131,6 @@ fn main() {
         fatal(&format!("Failed to start barkcli: {}", e));
     });
 
-    // Typical start is < 1s. Blocking here (before the event loop) is
-    // deliberate: the first window the user sees is already the app.
     if let Err(e) = wait_for_server(&mut child, port, Duration::from_secs(20)) {
         fatal(&e);
     }
@@ -1025,7 +1023,26 @@ fn pipe_logs<R: std::io::Read + Send + 'static>(reader: R, label: &'static str) 
     });
 }
 
+fn cleanup_stale_app_server(project: &Path) {
+    let pid_file = project.join(".board").join("server-app.pid");
+    let info_file = project.join(".board").join("server-app.json");
+    if let Ok(text) = fs::read_to_string(&pid_file) {
+        if let Ok(pid) = text.trim().parse::<i32>() {
+            if pid > 1 && pid != std::process::id() as i32 {
+                #[cfg(unix)]
+                unsafe {
+                    libc_kill(pid);
+                }
+                std::thread::sleep(Duration::from_millis(120));
+            }
+        }
+    }
+    let _ = fs::remove_file(&pid_file);
+    let _ = fs::remove_file(&info_file);
+}
+
 fn spawn_server(bin: &Path, project: &Path, port: u16, token: &str) -> std::io::Result<Child> {
+    cleanup_stale_app_server(project);
     let port_arg = port.to_string();
     let mut cmd = Command::new(bin);
     cmd.args([
@@ -1039,6 +1056,7 @@ fn spawn_server(bin: &Path, project: &Path, port: u16, token: &str) -> std::io::
         token,
     ])
     .current_dir(project)
+    .env("BARKCLI_PROJECT", project)
     .env("PATH", augmented_path())
     // Keep the pipes drained; a full stdout buffer would stall the server.
     .stdout(Stdio::piped())

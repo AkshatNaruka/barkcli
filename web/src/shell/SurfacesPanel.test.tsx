@@ -67,4 +67,40 @@ describe("SurfacesPanel", () => {
     await user.click(screen.getByRole("button", { name: "Close thread panel" }));
     expect(handlers.onClose).toHaveBeenCalledTimes(1);
   });
+
+  it("renders quick actions: Review, Open File, Terminal, Browser", async () => {
+    const handlers = renderPanel();
+    const user = userEvent.setup();
+
+    expect(screen.getByText("Review")).toBeInTheDocument();
+    expect(screen.getByText("Open File")).toBeInTheDocument();
+    expect(screen.getByText("Terminal")).toBeInTheDocument();
+    expect(screen.getByText("Browser")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Review/i }));
+    expect(handlers.onSelectThread).toHaveBeenCalledWith("diff");
+
+    await user.click(screen.getByRole("button", { name: /Terminal/i }));
+    expect(handlers.onSelectThread).toHaveBeenCalledWith("eval");
+  });
+
+  it("renders artifacts, subagents, and background tasks sections with counts", () => {
+    renderPanel();
+
+    expect(screen.getByText("Artifacts")).toBeInTheDocument();
+    expect(screen.getByText("Subagents")).toBeInTheDocument();
+    expect(screen.getByText("Background Tasks")).toBeInTheDocument();
+    expect(screen.getByText("Mac App Ui Ux Modernization Plan")).toBeInTheDocument();
+  });
+
+  it("filters items when typing in the search bar", async () => {
+    renderPanel();
+    const user = userEvent.setup();
+
+    const searchInput = screen.getByPlaceholderText("Search or enter a URL");
+    await user.type(searchInput, "Modernization");
+
+    expect(screen.getByText("Mac App Ui Ux Modernization Plan")).toBeInTheDocument();
+    expect(screen.queryByText("Checks")).not.toBeInTheDocument();
+  });
 });

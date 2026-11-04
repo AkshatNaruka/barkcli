@@ -5,6 +5,13 @@ use anyhow::{Context, Result};
 pub const BOARD_DIR_NAME: &str = ".board";
 
 pub fn find_board_dir_opt() -> Result<Option<PathBuf>> {
+    if let Ok(project) = std::env::var("BARKCLI_PROJECT") {
+        let p = PathBuf::from(project);
+        let candidate = p.join(BOARD_DIR_NAME);
+        if candidate.is_dir() {
+            return Ok(Some(candidate));
+        }
+    }
     let cwd = std::env::current_dir().context("failed to get current directory")?;
     let mut current: Option<&Path> = Some(cwd.as_path());
     while let Some(dir) = current {
@@ -37,6 +44,12 @@ pub fn ensure_board_dir() -> Result<PathBuf> {
 }
 
 pub fn find_project_root() -> Result<PathBuf> {
+    if let Ok(project) = std::env::var("BARKCLI_PROJECT") {
+        let p = PathBuf::from(project);
+        if p.is_dir() {
+            return Ok(p);
+        }
+    }
     let board_dir = find_board_dir()?;
     board_dir
         .parent()

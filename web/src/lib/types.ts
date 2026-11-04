@@ -121,7 +121,7 @@ export interface Board {
   cards: Card[];
 }
 
-export type ViewMode = "board" | "table" | "calendar" | "list";
+export type ViewMode = "board" | "table" | "calendar" | "list" | "specs";
 
 // ── New types for Phase 1+ features ──
 

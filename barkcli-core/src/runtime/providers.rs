@@ -164,7 +164,23 @@ fn opencode_models() -> Vec<String> {
         Ok(output) if output.status.success() => output,
         _ => return Vec::new(),
     };
-    parse_model_lines(&String::from_utf8_lossy(&output.stdout))
+    let mut models = parse_model_lines(&String::from_utf8_lossy(&output.stdout));
+    // Prioritize high-availability free & standard models at the front
+    let priority = [
+        "opencode/pulse-alpha-free",
+        "opencode/crouton-alpha-free",
+        "opencode/flint-40b-free",
+        "opencode/nemotron-3.5-lightning-free",
+        "openai/gpt-4o",
+        "anthropic/claude-sonnet-4-6",
+    ];
+    for p in priority.iter().rev() {
+        if let Some(pos) = models.iter().position(|m| m == p) {
+            let m = models.remove(pos);
+            models.insert(0, m);
+        }
+    }
+    models
 }
 
 /// Parse the newline-delimited model ids a CLI prints. Blank lines, comments,
@@ -209,8 +225,13 @@ fn opencode_capabilities() -> ProviderCapabilities {
 }
 
 fn claude_models() -> Vec<String> {
-    // No machine-readable installed catalog: offer CLI default and custom id.
-    Vec::new()
+    vec![
+        "claude-haiku-5.5".to_string(),
+        "claude-3-7-sonnet".to_string(),
+        "claude-3-5-sonnet".to_string(),
+        "claude-opus-4-6".to_string(),
+        "gpt-4o".to_string(),
+    ]
 }
 
 fn codex_models() -> Vec<String> {
@@ -305,10 +326,12 @@ impl ProviderAdapter for OpencodeProvider {
         if let Some(model) = req.model.as_deref().filter(|m| !m.is_empty()) {
             cmd.arg("--model").arg(model);
         }
-        if let Some(session) = req.provider_session_id.as_deref() {
+        if let Some(session) = req
+            .provider_session_id
+            .as_deref()
+            .filter(|s| !s.trim().is_empty() && !s.starts_with("ses_bark_"))
+        {
             cmd.arg("--session").arg(session);
-        } else {
-            cmd.arg("--session").arg(opencode_session_id(&req.run_id));
         }
         if req.permission_mode == "plan" {
             // Read-only conversation. OpenCode's built-in plan agent has no

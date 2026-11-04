@@ -1,5 +1,19 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
   fetchUsage,
   type DailyUsage,
   type ModelUsage,
@@ -561,61 +575,239 @@ export function UsageView() {
           </div>
         </section>
 
-        {/* Daily Usage Chart (t3.codes UsageProviderChart style) */}
-        <section className="rounded-xl border border-border bg-surface p-5 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
-                Activity Timeline
-              </h3>
-              <p className="text-[11px] text-muted">
-                {metricMode === "tokens" ? "Tokens consumed per day" : "Estimated cost per day"}
-              </p>
-            </div>
-            {hoveredBar && (
-              <div className="rounded-lg border border-border bg-card px-2.5 py-1 font-mono text-xs shadow-md">
-                <span className="text-muted">{hoveredBar.date}: </span>
-                <span className="font-bold text-text">
+        {/* Daily Usage Chart + Provider Share (Recharts Analytics) */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          <section className="lg:col-span-2 rounded-xl border border-border bg-surface p-5 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
+                  Activity Timeline
+                </h3>
+                <p className="text-[11px] text-muted">
                   {metricMode === "tokens"
-                    ? `${hoveredBar.tokens.toLocaleString()} tokens`
-                    : formatUsd(hoveredBar.cost_usd)}
-                </span>
-                <span className="text-muted text-[10px] ml-1.5">
-                  (In: {formatTokens(hoveredBar.input_tokens)} · Out: {formatTokens(hoveredBar.output_tokens)} · Cache: {formatTokens(hoveredBar.cached_input_tokens)})
-                </span>
+                    ? "Stacked input, cached prompt, and output tokens per day"
+                    : "Estimated API-equivalent cost ($) per day"}
+                </p>
               </div>
-            )}
-          </div>
-
-          {/* Bar Chart Container */}
-          <div className="flex h-36 items-end gap-2 border-b border-border/80 pb-2 pt-4">
-            {data.daily.map((day) => {
-              const val = metricMode === "tokens" ? day.tokens : Math.round(day.cost_usd * 100);
-              const heightPct = Math.max(8, Math.round((val / maxDailyValue) * 100));
-              const isHovered = hoveredBar?.date === day.date;
-              return (
-                <div
-                  key={day.date}
-                  className="group relative flex flex-1 flex-col items-center h-full justify-end"
-                  onMouseEnter={() => setHoveredBar(day)}
-                  onMouseLeave={() => setHoveredBar(null)}
-                >
-                  <div
-                    className={`w-full max-w-[42px] rounded-t transition-all ${
-                      isHovered
-                        ? "bg-accent shadow-lg shadow-accent/20"
-                        : "bg-accent/80 hover:bg-accent"
-                    }`}
-                    style={{ height: `${heightPct}%` }}
-                  />
-                  <span className="mt-2 text-[10px] font-mono text-muted truncate max-w-full">
-                    {day.date.slice(5)}
+              {hoveredBar && (
+                <div className="rounded-lg border border-border bg-card px-2.5 py-1 font-mono text-xs shadow-md">
+                  <span className="text-muted">{hoveredBar.date}: </span>
+                  <span className="font-bold text-text">
+                    {metricMode === "tokens"
+                      ? `${hoveredBar.tokens.toLocaleString()} tokens`
+                      : formatUsd(hoveredBar.cost_usd)}
                   </span>
                 </div>
-              );
-            })}
-          </div>
-        </section>
+              )}
+            </div>
+
+            <div className="h-56 w-full" data-testid="usage-activity-rechart">
+              <ResponsiveContainer
+                width="100%"
+                height="100%"
+                initialDimension={{ width: 640, height: 220 }}
+              >
+                {metricMode === "tokens" ? (
+                  <AreaChart
+                    data={data.daily.map((d) => ({
+                      ...d,
+                      shortDate: d.date.slice(5),
+                    }))}
+                    margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
+                  >
+                    <defs>
+                      <linearGradient id="gradInput" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.02} />
+                      </linearGradient>
+                      <linearGradient id="gradCache" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
+                      </linearGradient>
+                      <linearGradient id="gradOutput" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#a855f7" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#a855f7" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                    <XAxis
+                      dataKey="shortDate"
+                      tick={{ fill: "#8b93a7", fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tickFormatter={(v: number) => formatTokens(v)}
+                      tick={{ fill: "#8b93a7", fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                      width={48}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#14171f",
+                        borderColor: "rgba(255,255,255,0.12)",
+                        borderRadius: "10px",
+                        fontSize: "11px",
+                        color: "#f3f4f6",
+                      }}
+                      formatter={(value: unknown, name: unknown) => [
+                        typeof value === "number" ? value.toLocaleString() : String(value ?? ""),
+                        String(name ?? ""),
+                      ]}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="input_tokens"
+                      name="Input"
+                      stackId="1"
+                      stroke="#3b82f6"
+                      strokeWidth={2}
+                      fill="url(#gradInput)"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="cached_input_tokens"
+                      name="Cached"
+                      stackId="1"
+                      stroke="#10b981"
+                      strokeWidth={2}
+                      fill="url(#gradCache)"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="output_tokens"
+                      name="Output"
+                      stackId="1"
+                      stroke="#a855f7"
+                      strokeWidth={2}
+                      fill="url(#gradOutput)"
+                    />
+                  </AreaChart>
+                ) : (
+                  <BarChart
+                    data={data.daily.map((d) => ({
+                      ...d,
+                      shortDate: d.date.slice(5),
+                    }))}
+                    margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                    <XAxis
+                      dataKey="shortDate"
+                      tick={{ fill: "#8b93a7", fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tickFormatter={(v: number) => `$${v.toFixed(2)}`}
+                      tick={{ fill: "#8b93a7", fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                      width={48}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#14171f",
+                        borderColor: "rgba(255,255,255,0.12)",
+                        borderRadius: "10px",
+                        fontSize: "11px",
+                        color: "#f3f4f6",
+                      }}
+                      formatter={(value: unknown) => [
+                        typeof value === "number" ? formatUsd(value) : String(value ?? ""),
+                        "Est. Cost",
+                      ]}
+                    />
+                    <Bar dataKey="cost_usd" name="Cost ($)" fill="#6366f1" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                )}
+              </ResponsiveContainer>
+            </div>
+          </section>
+
+          {/* Provider Share Donut Chart */}
+          <section className="rounded-xl border border-border bg-surface p-5 shadow-sm space-y-4">
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
+                Provider Share
+              </h3>
+              <p className="text-[11px] text-muted">
+                Distribution across agent runtimes
+              </p>
+            </div>
+            <div className="h-44 w-full" data-testid="usage-provider-pie">
+              <ResponsiveContainer
+                width="100%"
+                height="100%"
+                initialDimension={{ width: 260, height: 176 }}
+              >
+                <PieChart>
+                  <Pie
+                    data={data.providers.map((p) => ({
+                      name: p.label,
+                      value:
+                        metricMode === "tokens"
+                          ? p.input_tokens + p.output_tokens + p.cached_input_tokens
+                          : Number(p.cost_usd.toFixed(2)),
+                    }))}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={42}
+                    outerRadius={68}
+                    paddingAngle={3}
+                  >
+                    {data.providers.map((p, idx) => {
+                      const palette = ["#6366f1", "#10b981", "#f59e0b", "#ec4899", "#3b82f6"];
+                      return <Cell key={p.provider} fill={palette[idx % palette.length]} />;
+                    })}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#14171f",
+                      borderColor: "rgba(255,255,255,0.12)",
+                      borderRadius: "10px",
+                      fontSize: "11px",
+                      color: "#f3f4f6",
+                    }}
+                    formatter={(value: unknown) => [
+                      typeof value === "number"
+                        ? metricMode === "tokens"
+                          ? `${formatTokens(value)} tokens`
+                          : formatUsd(value)
+                        : String(value ?? ""),
+                      metricMode === "tokens" ? "Tokens" : "Cost",
+                    ]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="space-y-1.5 text-xs">
+              {data.providers.map((p, idx) => {
+                const palette = ["#6366f1", "#10b981", "#f59e0b", "#ec4899", "#3b82f6"];
+                const totalP = p.input_tokens + p.output_tokens + p.cached_input_tokens;
+                return (
+                  <div key={p.provider} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="h-2.5 w-2.5 rounded-full"
+                        style={{ backgroundColor: palette[idx % palette.length] }}
+                      />
+                      <span className="text-text font-medium">
+                        {p.label} ({p.runs_count} runs)
+                      </span>
+                    </div>
+                    <span className="font-mono text-muted">
+                      {metricMode === "tokens" ? formatTokens(totalP) : formatUsd(p.cost_usd)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        </div>
 
         {/* Model Breakdown Table */}
         <section className="rounded-xl border border-border bg-surface p-5 shadow-sm space-y-4">

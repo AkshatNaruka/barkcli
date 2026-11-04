@@ -661,32 +661,89 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
         {location.run && !latestRun && !runs.length && <p role="status" className="p-4 text-muted">Loading the selected run…</p>}
         {location.run && runs.length > 0 && !latestRun && <p role="alert" className="p-4 text-warning">That run is unavailable. Return to the thread to choose another attempt.</p>}
         {tab === "plan" && (
-          <div className="p-4"><p className="text-sm text-muted">Review and approve the current plan in the thread. Bark’s offline plan is a proposal, not execution evidence.</p><button className="bark-button mt-3" onClick={onClose}>Back to the plan</button><details className="mt-5"><summary className="text-xs text-muted cursor-pointer">Team & advanced planning</summary>
-            <div className="flex items-start gap-2">
-              <div className="min-w-0 flex-1">
-                <SectionLabel>Card</SectionLabel>
-                <h2 className="mt-1 text-[13px] font-medium leading-snug text-text">
-                  {card?.title || "No card selected"}
-                </h2>
-                <div className="mt-1 flex items-center gap-2 font-mono text-[9.5px] text-muted/65">
-                  <span>{card?.id || "—"}</span>
-                  <span className="text-muted/35">·</span>
-                  <span>{card?.column || "draft"}</span>
-                  {card?.assignee && (
-                    <>
-                      <span className="text-muted/35">·</span>
-                      <span>{card.assignee}</span>
-                    </>
+          <div className="p-4 space-y-4">
+            <section aria-label="Plan Decomposition">
+              <span className="font-mono text-[9px] uppercase tracking-wider text-muted font-semibold">
+                Plan Decomposition
+              </span>
+              <div className="mt-2 rounded-xl border border-border/80 bg-surface/50 p-3.5">
+                <h3 className="text-[13.5px] font-semibold text-text">
+                  {card?.title || "Plan Decomposition"}
+                </h3>
+                <p className="mt-1 text-[12px] leading-relaxed text-muted">
+                  {card?.description || "Requirements analyzed and slice plan generated."}
+                </p>
+              </div>
+            </section>
+
+            <section aria-label="Child Tasks">
+              <span className="font-mono text-[9px] uppercase tracking-wider text-muted font-semibold">
+                Child Tasks
+              </span>
+              <div className="mt-2 space-y-2">
+                <div className="rounded-xl border border-border/80 bg-card p-3 shadow-xs">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-semibold text-text">Proposed Plan</span>
+                    <span className="font-mono text-[9.5px] text-muted/60">
+                      {new Date().toISOString().slice(0, 19)}Z
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[11.5px] text-muted">
+                    Proposed plan with atomic tasks.
+                  </p>
+                  {Array.isArray(proposal?.children) && proposal.children.length > 0 && (
+                    <div className="mt-2.5 space-y-1.5 border-t border-border/40 pt-2">
+                      {proposal.children.map((child: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between text-[11px]">
+                          <span className="text-text font-medium">{i + 1}. {child.title}</span>
+                          {child.effort && <span className="font-mono text-[9.5px] text-muted">{child.effort}h</span>}
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>
+            </section>
+
+            <div className="pt-2 border-t border-border/50">
+              <p className="text-xs text-muted">
+                Review and approve the current plan in the thread. Bark’s offline plan is a proposal, not execution evidence.
+              </p>
+              <button className="bark-button mt-2 text-xs" onClick={onClose}>
+                Back to the plan
+              </button>
             </div>
 
-            {card?.description && (
-              <p className="mt-3 whitespace-pre-wrap text-[11.5px] leading-relaxed text-muted">
-                {card.description}
-              </p>
-            )}
+            <details className="mt-3">
+              <summary className="text-xs text-muted cursor-pointer hover:text-text">
+                Team & advanced planning
+              </summary>
+              <div className="mt-3 space-y-3">
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <SectionLabel>Card</SectionLabel>
+                    <h2 className="mt-1 text-[13px] font-medium leading-snug text-text">
+                      {card?.title || "No card selected"}
+                    </h2>
+                    <div className="mt-1 flex items-center gap-2 font-mono text-[9.5px] text-muted/65">
+                      <span>{card?.id || "—"}</span>
+                      <span className="text-muted/35">·</span>
+                      <span>{card?.column || "draft"}</span>
+                      {card?.assignee && (
+                        <>
+                          <span className="text-muted/35">·</span>
+                          <span>{card.assignee}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {card?.description && (
+                  <p className="whitespace-pre-wrap text-[11.5px] leading-relaxed text-muted">
+                    {card.description}
+                  </p>
+                )}
 
             <div className="mt-4 rounded-md border border-border/70 bg-surface/35 p-2.5">
               <div className="flex items-center justify-between">
@@ -932,7 +989,9 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
                 </ul>
               </div>
             )}
-          </details></div>
+            </div>
+          </details>
+        </div>
         )}
 
         {tab === "diff" && (

@@ -22,8 +22,8 @@ describe("ProjectHub", () => {
     const user = userEvent.setup();
     render(<ProjectHub projectName="barkcli" projectRoot="/Users/me/barkcli" boardName="dev" />);
 
-    await user.type(screen.getByLabelText("Search project tools"), "commit");
-    expect(screen.getByText("Ship")).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Search project tools"), "undo");
+    expect(screen.getByText("Checkpoints")).toBeInTheDocument();
     expect(screen.queryByText("Rules")).not.toBeInTheDocument();
 
     await user.clear(screen.getByLabelText("Search project tools"));

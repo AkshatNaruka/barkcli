@@ -42,7 +42,7 @@ describe("sidebar layout", () => {
     const layout = normalizeSidebarLayout({
       groups: [
         { id: "plan", label: "  Ship it  ", items: ["board", "board", "ghost"] },
-        { id: "custom-1", label: "Mine", items: ["review"] },
+        { id: "custom-1", label: "Mine", items: ["chat"] },
       ],
       hidden: ["board", "nope"],
     });
@@ -55,8 +55,8 @@ describe("sidebar layout", () => {
       "knowledge",
       "delivery",
     ]);
-    expect(layout.groups[0]).toMatchObject({ id: "plan", label: "Ship it", items: ["board", "specs", "sprints", "calendar", "reports"] });
-    expect(layout.groups[1].items).toEqual(["review"]);
+    expect(layout.groups[0]).toMatchObject({ id: "plan", label: "Ship it", items: ["board", "sprints", "calendar", "reports"] });
+    expect(layout.groups[1].items).toEqual(["chat"]);
     expect(layout.hidden).toEqual(["board"]);
     expect(layout.groups.flatMap((group) => group.items)).toHaveLength(SIDEBAR_TOOLS.length);
   });
@@ -72,8 +72,8 @@ describe("sidebar layout", () => {
     const movedGroup = moveGroup(layout, "delivery", -1);
     expect(movedGroup.groups.map((group) => group.id)).toEqual(["build", "plan", "agents", "delivery", "knowledge"]);
 
-    const movedTool = moveItem(layout, "plan", "specs", -1);
-    expect(movedTool.groups[1].items.slice(0, 2)).toEqual(["specs", "board"]);
+    const movedTool = moveItem(layout, "plan", "sprints", -1);
+    expect(movedTool.groups[1].items.slice(0, 2)).toEqual(["sprints", "board"]);
   });
 
   it("moves a tool between groups at a chosen position", () => {
@@ -87,7 +87,7 @@ describe("sidebar layout", () => {
   it("drops before the indicated row when moving downward in the same group", () => {
     const layout = moveItemToGroup(defaultSidebarLayout(), "board", "plan", 2);
     expect(layout.groups.find((group) => group.id === "plan")?.items).toEqual([
-      "specs", "board", "sprints", "calendar", "reports",
+      "sprints", "board", "calendar", "reports",
     ]);
   });
 
@@ -111,10 +111,10 @@ describe("sidebar layout", () => {
   });
 
   it("hides tools without losing their position", () => {
-    const hidden = setItemHidden(defaultSidebarLayout(), "review", true);
-    expect(visibleSidebarGroups(hidden).flatMap((group) => group.tools.map((tool) => tool.id))).not.toContain("review");
-    const shown = setItemHidden(hidden, "review", false);
-    expect(visibleSidebarGroups(shown)[0].tools.map((tool) => tool.id)).toEqual(["chat", "review"]);
+    const hidden = setItemHidden(defaultSidebarLayout(), "board", true);
+    expect(visibleSidebarGroups(hidden).flatMap((group) => group.tools.map((tool) => tool.id))).not.toContain("board");
+    const shown = setItemHidden(hidden, "board", false);
+    expect(visibleSidebarGroups(shown)[1].tools.map((tool) => tool.id)).toContain("board");
   });
 
   it("renames groups and keeps a fallback label", () => {

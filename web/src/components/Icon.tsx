@@ -10,8 +10,11 @@ import {
   Bot,
   Calendar,
   Check,
+  CheckSquare,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Clock3,
   Code2,
   Columns3,
@@ -20,10 +23,13 @@ import {
   Download,
   Eye,
   EyeOff,
+  FilePlus,
   FileText,
   Flag,
   Folder,
+  FolderPlus,
   GitBranch,
+  Globe,
   GripVertical,
   History,
   Inbox,
@@ -66,10 +72,10 @@ export type IconName =
   | "comment" | "blocked" | "clock" | "calendar" | "warn" | "subtasks"
   | "check" | "refresh" | "bell" | "gear" | "robot" | "doc" | "chart"
   | "board" | "panel" | "spark" | "layers" | "cycle" | "code" | "db" | "star"
-  | "chevL" | "chevR" | "flag" | "link" | "moon" | "sun" | "monitor"
+  | "chevL" | "chevR" | "chevDown" | "chevUp" | "flag" | "link" | "moon" | "sun" | "monitor"
   | "x" | "users" | "inbox" | "arrowUp" | "arrowFlat" | "arrowDown"
   | "download" | "palette" | "eye" | "eyeOff" | "plus" | "stop" | "dots" | "grid" | "folder" | "filter" | "branch" | "terminal" | "list" | "sliders" | "grip"
-  | "play" | "wrap";
+  | "play" | "wrap" | "globe" | "filePlus" | "checkSquare" | "folderPlus";
 
 const GLYPHS: Record<IconName, LucideIcon> = {
   search: Search,
@@ -102,6 +108,8 @@ const GLYPHS: Record<IconName, LucideIcon> = {
   star: Star,
   chevL: ChevronLeft,
   chevR: ChevronRight,
+  chevDown: ChevronDown,
+  chevUp: ChevronUp,
   flag: Flag,
   link: Link2,
   moon: Moon,
@@ -130,6 +138,10 @@ const GLYPHS: Record<IconName, LucideIcon> = {
   grip: GripVertical,
   play: Play,
   wrap: WrapText,
+  globe: Globe,
+  filePlus: FilePlus,
+  checkSquare: CheckSquare,
+  folderPlus: FolderPlus,
 };
 
 /**

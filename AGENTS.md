@@ -32,11 +32,23 @@ project/
 ├── barkcli-tui/         # ratatui terminal board
 ├── barkcli-server/      # axum browser server
 ├── web/                 # React + Vite web frontend
+├── desktop/             # macOS desktop app (Tauri v2 + web SPA, official non-Swift desktop app)
+├── barkcli-ios/         # ARCHIVED/FROZEN Swift prototype (DO NOT TOUCH OR DEVELOP)
 ├── vscode-extension/    # VS Code Custom Editor extension
 ├── landing-next/        # Next.js marketing site
 └── docs/                # Fumadocs docs site (content/docs/**/*.mdx) + flat
                          # agent/CLI reference set served in-app (content/*.md)
 ```
+
+## macOS App Development Rule (STRICT)
+
+- **The ONLY official macOS desktop app is the non-Swift app (`desktop/` + `web/`)**:
+  - `desktop/` is a lightweight Tauri v2 shell packaging `web/` with native macOS window controls and menu integration, backed by `barkcli serve --app`.
+  - All desktop features, UI improvements, and agent workflows MUST target `desktop/` and `web/`.
+- **`barkcli-ios/` is ARCHIVED and FROZEN**:
+  - Do NOT modify, build, or upgrade any code in `barkcli-ios/`.
+  - Do NOT launch `build/Barkcli.app`.
+  - All AI agents by default work on the non-Swift Mac app.
 
 ## Quick Start for AI Agents
 

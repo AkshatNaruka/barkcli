@@ -17,15 +17,13 @@ pub fn board_dir() -> Result<PathBuf> {
 pub fn list_board_files() -> Result<Vec<String>> {
     let root = find_project_root()?;
     let mut boards = Vec::new();
-    for entry in walkdir::WalkDir::new(&root)
-        .max_depth(1)
-        .into_iter()
-        .filter_map(|e| e.ok())
-    {
-        let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) == Some("board") {
-            if let Some(name) = path.file_stem().and_then(|s| s.to_str()) {
-                boards.push(name.to_string());
+    if let Ok(entries) = std::fs::read_dir(&root) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) == Some("board") {
+                if let Some(name) = path.file_stem().and_then(|s| s.to_str()) {
+                    boards.push(name.to_string());
+                }
             }
         }
     }

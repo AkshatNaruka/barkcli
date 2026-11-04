@@ -89,8 +89,16 @@ export function ThreadsShell({ boardName, projectRoot = "current-project", proje
           onBack={() => updateRouteState({ panel: undefined, file: undefined })}
           onClose={onToggleSurfaces} />
       ) : (
-        <SurfacesPanel boardName={boardName || project?.active_board || null} activePanel={activeTab} showThread={Boolean(selectedId)}
-          onSelectThread={openPanel} onClose={onToggleSurfaces} />
+        <SurfacesPanel
+          boardName={boardName || project?.active_board || null}
+          activePanel={activeTab}
+          showThread={Boolean(selectedId)}
+          thread={activeThread}
+          threadId={selectedId || undefined}
+          project={project}
+          onSelectThread={openPanel}
+          onClose={onToggleSurfaces}
+        />
       )}
     </div>}
     {threadMenu && <ThreadActionsMenu

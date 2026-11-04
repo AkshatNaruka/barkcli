@@ -31,6 +31,7 @@ export function ContextView({ boardName }: { boardName: string | null }) {
   const [msg, setMsg] = useState("");
   const [digesting, setDigesting] = useState(false);
   const [open, setOpen] = useState<Set<string>>(new Set(DEFAULT_OPEN));
+  const [copied, setCopied] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -113,13 +114,11 @@ export function ContextView({ boardName }: { boardName: string | null }) {
   }
 
   const blocks = data.blocks || [];
-  const flagged = blocks.filter(b => !b.manual && b.staleness >= 0.4);
+  const flagged = blocks.filter(b => !b.manual && (b.staleness || 0) >= 0.4);
   const tokenPct = data.budget_tokens
     ? Math.min(100, Math.round(((data.total_tokens || 0) / data.budget_tokens) * 100))
     : 0;
   const tokenColor = tokenPct >= 100 ? "#f87171" : tokenPct >= 85 ? "#facc15" : "#4ade80";
-
-  const [copied, setCopied] = useState(false);
 
   const handleCopyPack = async () => {
     if (!data.file) return;
@@ -252,14 +251,15 @@ function ContextBlockCard({
   open: boolean;
   onToggle: () => void;
 }) {
-  const color = stalenessColor(block.staleness);
+  const staleness = block.staleness ?? 0;
+  const color = stalenessColor(staleness);
   return (
     <div className="bg-surface rounded-lg overflow-hidden shrink-0">
       {/* Heat bar */}
       <div className="h-0.5 w-full bg-card">
         <div
           className="h-full transition-all"
-          style={{ width: `${Math.round(block.staleness * 100)}%`, backgroundColor: color }}
+          style={{ width: `${Math.round(staleness * 100)}%`, backgroundColor: color }}
         />
       </div>
       <button onClick={onToggle} className="w-full text-left px-3 py-2 hover:bg-card/50 transition-colors">
@@ -273,7 +273,7 @@ function ContextBlockCard({
             className="px-1.5 py-0.5 rounded text-[10px] font-medium"
             style={{ backgroundColor: `${color}22`, color }}
           >
-            {(block.staleness || 0).toFixed(2)} · {stalenessLabel(block.staleness || 0)}
+            {staleness.toFixed(2)} · {stalenessLabel(staleness)}
           </span>
           {block.manual && (
             <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-white/10 text-zinc-300 border border-white/15">

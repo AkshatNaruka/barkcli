@@ -1,4 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
+import {
+  Bar as RechartsBar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import type { Board as BoardType, Card, Sprint } from "../lib/types";
 import { fetchReportsData } from "../lib/api";
 import { Icon } from "./Icon";
@@ -391,6 +403,124 @@ export function ReportsView({ board, sprints }: { board: BoardType; sprints: Spr
             })
           )}
         </Section>
+
+        {/* Interactive Recharts Analytics Overview */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2 bg-surface rounded-2xl p-5 border border-border shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xs font-bold text-text uppercase tracking-wider">
+                  Column Throughput & Effort Chart
+                </h3>
+                <p className="text-[11px] text-muted">
+                  Interactive comparison of card count and story point effort per board column
+                </p>
+              </div>
+            </div>
+            <div className="h-56 w-full" data-testid="reports-column-rechart">
+              <ResponsiveContainer
+                width="100%"
+                height="100%"
+                initialDimension={{ width: 640, height: 220 }}
+              >
+                <BarChart
+                  data={(board.columns || []).map((col) => ({
+                    name: col.name,
+                    cards: report.colEffort[col.id]?.count || 0,
+                    effort: report.colEffort[col.id]?.effort || 0,
+                  }))}
+                  margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fill: "#8b93a7", fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fill: "#8b93a7", fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={36}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#14171f",
+                      borderColor: "rgba(255,255,255,0.12)",
+                      borderRadius: "10px",
+                      fontSize: "11px",
+                      color: "#f3f4f6",
+                    }}
+                  />
+                  <RechartsBar dataKey="cards" name="Cards" fill="#10b981" radius={[5, 5, 0, 0]} />
+                  <RechartsBar dataKey="effort" name="Effort (pts)" fill="#6366f1" radius={[5, 5, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="bg-surface rounded-2xl p-5 border border-border shadow-sm space-y-3">
+            <div>
+              <h3 className="text-xs font-bold text-text uppercase tracking-wider">
+                Priority Distribution
+              </h3>
+              <p className="text-[11px] text-muted">
+                Share of high, medium, and low priority cards
+              </p>
+            </div>
+            <div className="h-44 w-full" data-testid="reports-priority-pie">
+              <ResponsiveContainer
+                width="100%"
+                height="100%"
+                initialDimension={{ width: 260, height: 176 }}
+              >
+                <PieChart>
+                  <Pie
+                    data={(["high", "medium", "low"] as const).map((p) => ({
+                      name: p.toUpperCase(),
+                      value: report.prioCount[p] || 0,
+                    }))}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={40}
+                    outerRadius={66}
+                    paddingAngle={3}
+                  >
+                    <Cell fill="#f43f5e" />
+                    <Cell fill="#f59e0b" />
+                    <Cell fill="#64748b" />
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#14171f",
+                      borderColor: "rgba(255,255,255,0.12)",
+                      borderRadius: "10px",
+                      fontSize: "11px",
+                      color: "#f3f4f6",
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex items-center justify-around text-xs pt-1">
+              <span className="flex items-center gap-1.5 text-muted">
+                <span className="h-2.5 w-2.5 rounded-full bg-rose-500" />
+                High ({report.prioCount.high || 0})
+              </span>
+              <span className="flex items-center gap-1.5 text-muted">
+                <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+                Med ({report.prioCount.medium || 0})
+              </span>
+              <span className="flex items-center gap-1.5 text-muted">
+                <span className="h-2.5 w-2.5 rounded-full bg-slate-500" />
+                Low ({report.prioCount.low || 0})
+              </span>
+            </div>
+          </div>
+        </div>
 
         {/* Detailed Effort & Priority Grid */}
         <div className="grid md:grid-cols-2 gap-6">

@@ -10,7 +10,11 @@ export function useAgentSelection(scope: string) {
     try { return JSON.parse(readLocal(key) || "{}").backend || ""; } catch { return ""; }
   });
   const [model, changeModel] = useState(() => {
-    try { return JSON.parse(readLocal(key) || "{}").model || ""; } catch { return ""; }
+    try {
+      const saved = JSON.parse(readLocal(key) || "{}").model || "";
+      if (saved === "opencode/deepseek-v4.1-flash-free") return "opencode/pulse-alpha-free";
+      return saved;
+    } catch { return ""; }
   });
   const [role, setRole] = useState(() => { try { return JSON.parse(readLocal(key) || "{}").role || "builder"; } catch { return "builder"; } });
   const [testCommand, setTestCommand] = useState(() => { try { return JSON.parse(readLocal(key) || "{}").testCommand || ""; } catch { return ""; } });

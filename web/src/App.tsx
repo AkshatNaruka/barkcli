@@ -39,6 +39,7 @@ import { Icon } from "./components/Icon";
 import { BoardView } from "./components/BoardView";
 import { TableView } from "./components/TableView";
 import { ListView } from "./components/ListView";
+import { SpecsView } from "./components/SpecsView";
 import {
   ReviewQueueButton,
   ReviewQueuePanel,
@@ -48,6 +49,7 @@ import { CommandPalette } from "./components/CommandPalette";
 import { QuickOpen } from "./components/QuickOpen";
 import { CommandRunner } from "./components/CommandRunner";
 import { ServerStatus } from "./components/ServerStatus";
+import { GlobalStatusBar } from "./components/GlobalStatusBar";
 const HistoryView = lazy(() => import("./components/HistoryView").then((m) => ({ default: m.HistoryView })));
 const SkillsView = lazy(() => import("./components/SkillsView").then((m) => ({ default: m.SkillsView })));
 import { ThreadsShell } from "./shell/ThreadsShell";
@@ -58,6 +60,7 @@ import { InspectorRail } from "./shell/InspectorRail";
 const OperationsView = lazy(() => import("./shell/OperationsView").then((m) => ({ default: m.OperationsView })));
 import { BrainSurface } from "./shell/BrainSurface";
 import { AgentsSurface } from "./shell/AgentsSurface";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { CustomizePanel } from "./shell/CustomizePanel";
 import { SidebarCustomizePanel } from "./shell/SidebarCustomizePanel";
 import { useTheme } from "./lib/theme";
@@ -801,6 +804,7 @@ export function App() {
       </header>}
       <div className="flex-1 flex min-h-0">
         <main id="main-content" tabIndex={-1} className="flex-1 overflow-hidden min-w-0">
+          <ErrorBoundary>
           {route === "projects" && (
             <ProjectsDashboard
               currentRoot={projectInfo?.root}
@@ -905,8 +909,10 @@ export function App() {
             />
             </Suspense>
           )}
+          </ErrorBoundary>
         </main>
       </div>
+      <GlobalStatusBar project={projectInfo} boardName={boardName} />
 
       {/* Modals */}
       {form && board && (
@@ -1052,7 +1058,7 @@ function BoardPage({
     <div className="h-full flex flex-col">
       <div className="flex items-center gap-2 px-4 pt-2 pb-0 shrink-0">
         <div className="flex bg-surface rounded-md p-0.5">
-          {(["board", "table", "list"] as ViewMode[]).map((v) => (
+          {(["board", "table", "list", "specs"] as ViewMode[]).map((v) => (
             <button
               key={v}
               onClick={() => setView(v)}
@@ -1106,6 +1112,11 @@ function BoardPage({
             onDeleteCard={onDeleteCard}
             onMoveCard={onMoveCard}
           />
+        )}
+        {view === "specs" && (
+          <div className="h-full overflow-y-auto p-4 bg-bg">
+            <SpecsView boardName={boardName ?? null} />
+          </div>
         )}
       </div>
       <ReviewQueuePanel

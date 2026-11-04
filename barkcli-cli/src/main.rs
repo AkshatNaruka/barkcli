@@ -473,23 +473,24 @@ fn run_app(mut port: u16, board_name: Option<&str>, host: &str, token: Option<St
     // app gets a private port and token, while board writes remain protected
     // by the existing file locks.
     if let Some(pid) = read_pid_at(&serve_app_pid_path()) {
-        if process_alive(pid) {
-            let known_port = std::fs::read_to_string(serve_app_info_path())
-                .ok()
-                .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
-                .and_then(|value| value.get("port").and_then(|port| port.as_u64()))
-                .and_then(|port| u16::try_from(port).ok())
-                .unwrap_or(DEFAULT_SERVE_PORT);
-            println!(
-                "{}",
-                serde_json::json!({
-                    "status": "already_running",
-                    "pid": pid,
-                    "port": known_port,
-                    "url": format!("http://localhost:{}", known_port),
-                })
-            );
-            std::process::exit(3);
+        if process_alive(pid) && pid != std::process::id() {
+            #[cfg(unix)]
+            unsafe {
+                let _ = libc::kill(pid as i32, libc::SIGTERM);
+            }
+            for _ in 0..10 {
+                if !process_alive(pid) {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
+            #[cfg(unix)]
+            if process_alive(pid) {
+                unsafe {
+                    let _ = libc::kill(pid as i32, libc::SIGKILL);
+                }
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
         }
         remove_app_serve_files();
     }
@@ -543,8 +544,11 @@ fn run_app(mut port: u16, board_name: Option<&str>, host: &str, token: Option<St
             std::thread::sleep(std::time::Duration::from_millis(1000));
             let now = unsafe { libc::getppid() };
             if parent_pid != 1 && (now != parent_pid || now == 1) {
+                remove_app_serve_files();
                 shutdown.notify_one();
-                break;
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                remove_app_serve_files();
+                std::process::exit(0);
             }
         });
     }
@@ -566,6 +570,12 @@ fn run_app(mut port: u16, board_name: Option<&str>, host: &str, token: Option<St
                     }
                     _ => shutdown.notified().await,
                 }
+                remove_app_serve_files();
+                std::thread::spawn(|| {
+                    std::thread::sleep(std::time::Duration::from_millis(400));
+                    remove_app_serve_files();
+                    std::process::exit(0);
+                });
             }
         };
         #[cfg(not(unix))]

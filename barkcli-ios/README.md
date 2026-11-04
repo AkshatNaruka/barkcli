@@ -1,6 +1,16 @@
-# barkcli for Apple Platforms
+# ⚠️ ARCHIVED / FROZEN PROTOTYPE — DO NOT UPGRADE OR DEVELOP
 
-Native Swift client and developer interface for `barkcli`, the management layer for AI agents.
+> **NOTICE FOR AI AGENTS & CONTRIBUTORS:**
+> This Swift/SwiftUI client (`barkcli-ios/`) is an archived, experimental prototype.
+> **DO NOT** update, refactor, build, or develop in this directory.
+>
+> The official, fully functional macOS desktop app for barkcli is **non-Swift**:
+> - Located in `desktop/` (Tauri v2 runtime shell) + `web/` (React SPA) + `barkcli-server`/`barkcli-core` (Rust daemon).
+> - All agentic features, thread execution, live AI chat, git worktrees, and test gates are developed exclusively in `desktop/` and `web/`.
+
+---
+
+# barkcli for Apple Platforms (Archived Prototype)
 
 Designed for iOS 17 and macOS 14 using Swift 6, SwiftUI, and the modern Observation framework.
 

@@ -1,10 +1,12 @@
-import React, { useEffect, useId, useRef } from "react";
+import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Icon } from "../components/Icon";
 import type { AgentSelection } from "../lib/useAgentSelection";
 import { navigate } from "../lib/hashnav";
 import { AgentPicker } from "./AgentPicker";
 import type { ComposerMode } from "../lib/composer";
 import { SelectMenu } from "../components/SelectMenu";
+import { SlashCommandMenu } from "./SlashCommandMenu";
+import { matchSlashCommands, type SlashCommand } from "../lib/slashCommands";
 
 const MODES = [
   { value: "build", label: "Build", hint: "Make changes with your agent in an isolated worktree" },
@@ -25,11 +27,13 @@ export function ThreadComposer({
   onModeChange,
   agent,
   onSubmit,
+  onQueue,
   busy = false,
   active = false,
   onStop,
   error,
   autoFocus = false,
+  onAction,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -37,14 +41,18 @@ export function ThreadComposer({
   onModeChange: (mode: ComposerMode) => void;
   agent: AgentSelection;
   onSubmit: () => void;
+  onQueue?: () => void;
   busy?: boolean;
   active?: boolean;
   onStop?: () => void;
   error?: string | null;
   autoFocus?: boolean;
+  onAction?: (action: string) => void;
 }) {
   const id = useId();
   const textarea = useRef<HTMLTextAreaElement>(null);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [dismissedSlash, setDismissedSlash] = useState(false);
 
   useEffect(() => {
     const node = textarea.current;
@@ -53,15 +61,85 @@ export function ThreadComposer({
     node.style.height = `${Math.min(node.scrollHeight || 0, 240)}px`;
   }, [value]);
 
+  const isSlashActive =
+    value.startsWith("/") &&
+    !dismissedSlash &&
+    (!value.includes(" ") || value.indexOf(" ") === -1);
+
+  const matchedCommands = useMemo(
+    () => (isSlashActive ? matchSlashCommands(value) : []),
+    [isSlashActive, value]
+  );
+
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [value]);
+
+  useEffect(() => {
+    if (!value.startsWith("/")) {
+      setDismissedSlash(false);
+    }
+  }, [value]);
+
+  const handleSelectSlashCommand = (cmd: SlashCommand) => {
+    if (!cmd) return;
+    if (cmd.actionType === "mode") {
+      onModeChange(cmd.payload as ComposerMode);
+      onChange(`${cmd.name} `);
+      textarea.current?.focus();
+    } else if (cmd.actionType === "agent") {
+      if (cmd.payload) {
+        agent.restoreChoice(cmd.payload, "");
+      }
+      onChange("");
+      textarea.current?.focus();
+    } else if (cmd.actionType === "skill") {
+      onChange(`${cmd.name} `);
+      textarea.current?.focus();
+    } else if (cmd.actionType === "action") {
+      if (cmd.payload === "open-agent-picker") {
+        onChange("");
+        document.querySelector<HTMLButtonElement>(".agent-trigger")?.click();
+      } else if (cmd.payload === "open-skills") {
+        onChange("");
+        navigate("operations", { tool: "skills" });
+      } else if (cmd.payload === "context") {
+        onChange("");
+        navigate("operations", { tool: "context" });
+      } else if (cmd.payload === "doctor") {
+        onChange("");
+        navigate("operations", { tool: "doctor" });
+      } else if (cmd.payload === "clear") {
+        onChange("");
+      } else if (
+        cmd.payload === "help" ||
+        cmd.payload === "gate" ||
+        cmd.payload === "diff" ||
+        cmd.payload === "review"
+      ) {
+        onChange("");
+        onAction?.(cmd.payload);
+      }
+    }
+  };
+
   const placeholder =
     mode === "ask"
-      ? "Ask anything about this project, architecture, or codebase…"
+      ? "Ask anything about this project, architecture, or codebase… (Type / for commands)"
       : mode === "plan"
-      ? "Describe what you want to plan… The agent will break it into steps."
-      : "What would you like to build? (e.g. 'Add dark mode toggle to navbar')";
+      ? "Describe what you want to plan… (Type / for commands)"
+      : "What would you like to build? (Type / for commands, agents, skills)";
 
   return (
-    <div className="thread-composer-wrap">
+    <div className="thread-composer-wrap relative">
+      {isSlashActive && matchedCommands.length > 0 && (
+        <SlashCommandMenu
+          query={value}
+          selectedIndex={selectedIndex}
+          onSelect={handleSelectSlashCommand}
+          onClose={() => setDismissedSlash(true)}
+        />
+      )}
       {!value.trim() && !active && !busy && (
         <div className="composer-suggestions-bar" aria-label="Suggested prompts">
           {SUGGESTIONS[mode]?.map((suggestion) => (
@@ -83,7 +161,12 @@ export function ThreadComposer({
         className="thread-composer"
         onSubmit={(event) => {
           event.preventDefault();
-          if (!busy && !active && value.trim()) onSubmit();
+          if (!value.trim()) return;
+          if (active && onQueue) {
+            onQueue();
+          } else if (!busy && !active) {
+            onSubmit();
+          }
         }}
       >
         <label className="sr-only" htmlFor={`${id}-prompt`}>
@@ -101,13 +184,43 @@ export function ThreadComposer({
           aria-describedby={`${id}-hint`}
           placeholder={placeholder}
           onKeyDown={(event) => {
+            if (isSlashActive && matchedCommands.length > 0) {
+              if (event.key === "ArrowDown") {
+                event.preventDefault();
+                setSelectedIndex((prev) => (prev + 1) % matchedCommands.length);
+                return;
+              }
+              if (event.key === "ArrowUp") {
+                event.preventDefault();
+                setSelectedIndex(
+                  (prev) => (prev - 1 + matchedCommands.length) % matchedCommands.length
+                );
+                return;
+              }
+              if (event.key === "Tab" || (event.key === "Enter" && !event.shiftKey)) {
+                event.preventDefault();
+                handleSelectSlashCommand(matchedCommands[selectedIndex]);
+                return;
+              }
+              if (event.key === "Escape") {
+                event.preventDefault();
+                setDismissedSlash(true);
+                return;
+              }
+            }
+
             if (
               !event.nativeEvent.isComposing &&
               ((event.key === "Enter" && !event.shiftKey) ||
                 (event.key === "Enter" && (event.metaKey || event.ctrlKey)))
             ) {
               event.preventDefault();
-              if (!busy && !active && value.trim()) onSubmit();
+              if (!value.trim()) return;
+              if (active && onQueue) {
+                onQueue();
+              } else if (!busy && !active) {
+                onSubmit();
+              }
             }
           }}
         />
@@ -135,8 +248,20 @@ export function ThreadComposer({
 
           <div className="composer-actions-right">
             <span className="composer-hint-key" aria-hidden="true">
-              ↵ send · ⇧↵ newline
+              {active ? "↵ queue · ⇧↵ newline" : "↵ send · ⇧↵ newline"}
             </span>
+            {active && value.trim() && onQueue && (
+              <button
+                type="button"
+                onClick={onQueue}
+                aria-label="Queue message"
+                title="Queue message to send after agent finishes"
+                className="flex h-7 items-center gap-1 rounded-md border border-border/80 bg-surface px-2 text-[11px] font-medium text-text hover:bg-card transition-colors"
+              >
+                <Icon name="clock" size={11} className="text-accent" />
+                <span>Queue</span>
+              </button>
+            )}
             {active ? (
               <button
                 className="bark-button composer-submit composer-stop"

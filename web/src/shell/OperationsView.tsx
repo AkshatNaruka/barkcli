@@ -38,10 +38,8 @@ type OpTab =
 
 const TABS: Array<{ id: OpTab; label: string; icon: IconName }> = [
   { id: "workspace", label: "Workspace", icon: "layers" },
-  { id: "ship", label: "Ship", icon: "branch" },
   { id: "code", label: "Code", icon: "code" },
   { id: "timeline", label: "Timeline", icon: "clock" },
-  { id: "specs", label: "Specs", icon: "doc" },
   { id: "calendar", label: "Calendar", icon: "calendar" },
   { id: "reports", label: "Reports", icon: "chart" },
   { id: "agent", label: "Agent API", icon: "robot" },

@@ -27,13 +27,19 @@ function modelLabel(id: string) {
 
 function modelBadge(id: string): { label?: string; tone?: string } {
   const lower = id.toLowerCase();
+  if (lower.includes("free") || lower.includes("pulse-alpha") || lower.includes("crouton-alpha") || lower.includes("flint-40b")) {
+    return { label: "Free & Fast", tone: "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20" };
+  }
   if (lower.includes("gemini-2.5") || lower.includes("gemini-2.0") || lower.includes("flash")) {
     return { label: "Fast / High Token Budget", tone: "text-[#38bdf8] bg-[#38bdf8]/10" };
   }
-  if (lower.includes("gemini-1.5-pro") || lower.includes("claude-3-7-sonnet") || lower.includes("claude-3-5-sonnet")) {
+  if (lower.includes("haiku")) {
+    return { label: "Fast & Lightweight", tone: "text-amber-400 bg-amber-500/10 border border-amber-500/20" };
+  }
+  if (lower.includes("gemini-1.5-pro") || lower.includes("claude-3-7-sonnet") || lower.includes("claude-3-5-sonnet") || lower.includes("gpt-4o")) {
     return { label: "Reasoning & Coding", tone: "text-[#a78bfa] bg-[#a78bfa]/10" };
   }
-  if (lower.includes("o3") || lower.includes("o1")) {
+  if (lower.includes("o3") || lower.includes("o1") || lower.includes("opus")) {
     return { label: "Deep Reasoning", tone: "text-[#34d399] bg-[#34d399]/10" };
   }
   return {};

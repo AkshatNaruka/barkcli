@@ -274,9 +274,17 @@ export function UnifiedDiff({
               >
                 {file.path}
               </button>
-              <span className="flex shrink-0 items-center gap-2 font-mono text-[9.5px]">
-                {file.additions > 0 && <span className="text-success">+{file.additions}</span>}
-                {file.deletions > 0 && <span className="text-danger">−{file.deletions}</span>}
+              <span className="flex shrink-0 items-center gap-1.5 font-mono text-[9.5px]">
+                {file.additions > 0 && (
+                  <span className="text-emerald-400 font-semibold bg-emerald-500/10 px-1 py-0.2 rounded">
+                    +{file.additions}
+                  </span>
+                )}
+                {file.deletions > 0 && (
+                  <span className="text-rose-400 font-semibold bg-rose-500/10 px-1 py-0.2 rounded">
+                    −{file.deletions}
+                  </span>
+                )}
               </span>
               {onAddComment && (
                 <button
@@ -396,18 +404,32 @@ export function UnifiedDiff({
                       {block.lines.map((line, lineIndex) => {
                         const tone =
                           line.kind === "add"
-                            ? "bg-success/[0.08]"
+                            ? "bg-emerald-500/[0.13] border-l-2 border-emerald-500"
                             : line.kind === "delete"
-                              ? "bg-danger/[0.08]"
-                              : "";
+                              ? "bg-rose-500/[0.13] border-l-2 border-rose-500"
+                              : "border-l-2 border-transparent";
                         const sign =
                           line.kind === "add" ? "+" : line.kind === "delete" ? "−" : " ";
                         const signTone =
                           line.kind === "add"
-                            ? "text-success"
+                            ? "text-emerald-400 font-bold"
                             : line.kind === "delete"
-                              ? "text-danger"
+                              ? "text-rose-400 font-bold"
                               : "text-muted/45";
+                        const codeTone =
+                          line.kind === "add"
+                            ? "text-emerald-200"
+                            : line.kind === "delete"
+                              ? "text-rose-300 opacity-90 line-through/50"
+                              : "text-text";
+                        const oldNumTone =
+                          line.kind === "delete"
+                            ? "text-rose-400/70"
+                            : "text-muted/45";
+                        const newNumTone =
+                          line.kind === "add"
+                            ? "text-emerald-400/70"
+                            : "text-muted/45";
                         const lineNumber = line.newNumber ?? line.oldNumber;
                         const side = line.kind === "delete" ? "old" : "new";
                         return (
@@ -415,16 +437,16 @@ export function UnifiedDiff({
                             <div
                               className={`group relative grid grid-cols-[2.5rem_2.5rem_1.25rem_minmax(0,1fr)] font-mono text-[11px] leading-[1.65] ${tone}`}
                             >
-                              <span className="select-none pr-2 text-right text-[9.5px] text-muted/45">
+                              <span className={`select-none pr-2 text-right text-[9.5px] ${oldNumTone}`}>
                                 {line.oldNumber ?? ""}
                               </span>
-                              <span className="select-none pr-2 text-right text-[9.5px] text-muted/45">
+                              <span className={`select-none pr-2 text-right text-[9.5px] ${newNumTone}`}>
                                 {line.newNumber ?? ""}
                               </span>
                               <span className={`select-none text-center ${signTone}`}>
                                 {sign}
                               </span>
-                              <code className="whitespace-pre pr-10 text-text">
+                              <code className={`whitespace-pre pr-10 ${codeTone}`}>
                                 {line.text.length ? line.text : "\u00a0"}
                               </code>
                               {onAddComment && (

@@ -16,7 +16,6 @@ export const PROJECT_TOOLS: ProjectTool[] = [
   { id: "rules", label: "Rules", group: "Agent setup", icon: "doc", destination: { route: "operations", tool: "rules" }, hint: "Instructions injected into every agent context." },
   { id: "automations", label: "Automations", group: "History & maintenance", icon: "clock", destination: { route: "operations", tool: "automations" }, hint: "Scheduled intents and recurring runs." },
   { id: "board", label: "Board", group: "Planning", icon: "board", destination: { route: "board" }, hint: "Cards, columns, and gates." },
-  { id: "specs", label: "Specs", group: "Planning", icon: "doc", destination: { route: "operations", tool: "specs" }, hint: "Requirements and traceability." },
   { id: "sprints", label: "Sprints", group: "Planning", icon: "cycle", destination: { route: "agents", tool: "sprints" }, hint: "Cycle planning and delivery." },
   { id: "calendar", label: "Calendar", group: "Planning", icon: "calendar", destination: { route: "operations", tool: "calendar" }, hint: "Due dates and reminders." },
   { id: "reports", label: "Reports", group: "Planning", icon: "chart", destination: { route: "operations", tool: "reports" }, hint: "Velocity, burndown, and summaries." },
@@ -30,7 +29,6 @@ export const PROJECT_TOOLS: ProjectTool[] = [
   { id: "history", label: "History", group: "History & maintenance", icon: "history", destination: { route: "history" }, hint: "Runs, gates, diffs, and sessions." },
   { id: "timeline", label: "Checkpoints", group: "History & maintenance", icon: "clock", destination: { route: "operations", tool: "timeline" }, keywords: "undo diff blame timeline", hint: "Undo, diffs, and restore points." },
   { id: "code", label: "Code search", group: "History & maintenance", icon: "code", destination: { route: "operations", tool: "code" }, hint: "Symbols and file references." },
-  { id: "ship", label: "Ship", group: "History & maintenance", icon: "branch", destination: { route: "operations", tool: "ship" }, hint: "Commit, push, merge, and pull requests." },
   { id: "usage", label: "Usage & Limits", group: "History & maintenance", icon: "chart", destination: { route: "operations", tool: "usage" }, keywords: "tokens cost analytics models limits", hint: "Token consumption, cache savings, model breakdowns, and estimated cost." },
   { id: "agent-api", label: "Agent API", group: "Agent setup", icon: "robot", destination: { route: "operations", tool: "agent" }, keywords: "mcp instructions", hint: "Local API and MCP access." },
 ];

@@ -49,7 +49,6 @@ const GROUP_LABELS: Record<(typeof DEFAULT_GROUP_IDS)[number], string> = {
 /** Where a project tool belongs when the user has not moved it. */
 const DEFAULT_TOOL_GROUP: Record<string, string> = {
   board: "plan",
-  specs: "plan",
   sprints: "plan",
   calendar: "plan",
   reports: "plan",
@@ -66,7 +65,6 @@ const DEFAULT_TOOL_GROUP: Record<string, string> = {
   timeline: "delivery",
   code: "delivery",
   history: "delivery",
-  ship: "delivery",
   usage: "delivery",
 };
 
@@ -94,7 +92,6 @@ function toolItem(tool: (typeof PROJECT_TOOLS)[number]): SidebarTool {
 
 export const SIDEBAR_TOOLS: SidebarTool[] = [
   { id: "chat", label: "Build", icon: "comment", href: "#/chat", route: "chat", group: "build" },
-  { id: "review", label: "Review", icon: "eye", href: "#/review", route: "review", group: "build" },
   ...PROJECT_TOOLS.map(toolItem),
 ];
 
