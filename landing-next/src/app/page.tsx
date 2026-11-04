@@ -711,21 +711,21 @@ export default function Home() {
 
         {/* Center Hero */}
         <main className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6 py-12">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full border border-[#B8845C]/30 bg-[#B8845C]/10 text-xs font-mono text-[#E5AA7A] mb-8">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#E5AA7A]" />
-            THE MANAGEMENT LAYER FOR AI AGENTS
+          <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 mb-6 backdrop-blur-md">
+            <Sparkles className="w-3.5 h-3.5 text-[#B8845C]" />
+            <span className="text-xs text-white/75 font-mono">Open source (MIT) · {MCP_TOOL_COUNT} MCP tools · BYO Agents</span>
           </div>
 
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 max-w-4xl leading-[1.08]">
-            You write the intent. <br className="hidden sm:block" />
-            Agents do the work. <br className="hidden sm:block" />
+          <h1 className="text-white text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.05] mb-6 max-w-5xl">
+            Management layer
+            <br />
             <span className="bg-gradient-to-r from-[#F0CBA8] via-[#E5AA7A] to-[#B8845C] bg-clip-text text-transparent">
-              You review what&apos;s finished.
+              for AI agents.
             </span>
           </h1>
 
-          <p className="text-white/65 text-sm sm:text-base md:text-lg font-light max-w-2xl mb-8 leading-relaxed px-2">
-            barkcli plans the work, assigns it to your coding agents, has them build and test in isolated worktrees, and sends you only passing work to review. No cloud, no accounts.
+          <p className="text-white/70 text-base sm:text-lg md:text-xl font-light max-w-2xl mb-8 leading-relaxed px-2">
+            You write the intent. Agents do the work. You review what&apos;s finished. No cloud, no accounts, everything in your git repo.
           </p>
 
           <div className="flex flex-col items-center gap-3 w-full max-w-xl">
