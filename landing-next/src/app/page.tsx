@@ -68,6 +68,9 @@ const NAV_LINKS = [
   ...(ON_PAGES ? [{ href: `${BASE}/app/`, label: "Web demo" }] : []),
 ];
 
+const VIDEO_URL =
+  "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260405_171521_25968ba2-b594-4b32-aab7-f6b69398a6fa.mp4";
+
 const FEATURES = [
   {
     icon: Brain,
@@ -614,7 +617,7 @@ export default function Home() {
       />
       {/* Hero Section */}
       <section className="relative min-h-screen flex flex-col overflow-hidden">
-        {/* Video Background — lightweight local recording */}
+        {/* Video Background */}
         <video
           autoPlay
           loop
@@ -622,10 +625,9 @@ export default function Home() {
           playsInline
           className="absolute inset-0 w-full h-full object-cover"
         >
-          <source src="/run-agents-demo.webm" type="video/webm" />
-          <source src="/run-agents-demo.mp4" type="video/mp4" />
+          <source src={VIDEO_URL} type="video/mp4" />
         </video>
-        <div className="absolute inset-0 bg-gradient-to-b from-[#060709]/85 via-[#060709]/60 to-[#060709] pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#060709]/80 via-[#060709]/55 to-[#060709] pointer-events-none" />
         <div className="absolute inset-0 bark-grid-pattern opacity-40 pointer-events-none" />
 
         {/* Gradient Glow Orbs */}
