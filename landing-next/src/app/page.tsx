@@ -922,31 +922,27 @@ export default function Home() {
                 <AnimatedSection key={i} delay={i * 0.06}>
                   <Link
                     href={feature.href}
-                    className="group relative block border border-white/10 rounded-2xl p-6 transition-all duration-300 ease-out hover:-translate-y-2 hover:scale-[1.02] hover:border-[#B8845C]/60 hover:shadow-2xl hover:shadow-[#B8845C]/20 hover:bg-white/[0.03] cursor-pointer h-full"
+                    className="group relative block border border-white/10 rounded-2xl p-6 transition-all duration-300 ease-out hover:-translate-y-1.5 hover:border-white/25 bg-white/[0.015] hover:bg-white/[0.03] cursor-pointer h-full"
                   >
-                    {/* Glowing hover backdrop */}
-                    <div
-                      className={`absolute inset-0 bg-gradient-to-br ${feature.gradient} rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none blur-sm`}
-                    />
                     <div className="relative z-10 flex flex-col justify-between h-full">
                       <div>
                         <div className="flex items-center justify-between mb-4">
-                          <div className="w-11 h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:scale-110 group-hover:bg-[#B8845C]/20 group-hover:border-[#B8845C]/40 transition-all duration-300 shadow-md">
-                            <Icon className="w-5 h-5 text-[#B8845C] group-hover:text-[#E5AA7A] transition-colors" />
+                          <div className="w-11 h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:bg-[#B8845C]/20 group-hover:border-[#B8845C]/70 group-hover:shadow-[0_0_20px_rgba(184,132,92,0.4)]">
+                            <Icon className="w-5 h-5 text-[#B8845C] group-hover:text-[#F0CBA8] transition-all duration-300 drop-shadow-[0_0_8px_rgba(240,203,168,0.5)]" />
                           </div>
                           <span className="text-[11px] font-mono text-white/40 group-hover:text-[#E5AA7A] flex items-center gap-1 transition-colors">
                             <span>Details</span>
                             <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
                           </span>
                         </div>
-                        <h3 className="text-lg font-semibold mb-2 text-white group-hover:text-[#F0CBA8] transition-colors">
+                        <h3 className="text-lg font-semibold mb-2 text-white transition-colors">
                           {feature.title}
                         </h3>
-                        <p className="text-white/60 text-sm leading-relaxed mb-4 group-hover:text-white/80 transition-colors">
+                        <p className="text-white/60 text-sm leading-relaxed mb-4">
                           {feature.description}
                         </p>
                       </div>
-                      <div className="bg-black/60 border border-white/10 rounded-lg px-3 py-2.5 group-hover:border-[#B8845C]/30 transition-colors mt-auto">
+                      <div className="bg-black/60 border border-white/10 rounded-lg px-3 py-2.5 group-hover:border-white/20 transition-colors mt-auto">
                         <code className="text-[#E5AA7A] text-xs font-mono break-all">
                           {feature.code}
                         </code>
