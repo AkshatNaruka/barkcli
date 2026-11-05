@@ -34,8 +34,8 @@ describe("appearance serialization", () => {
       hidden: SURFACES.map((surface) => surface.id),
     });
 
-    expect(app.theme).toBe("black");
-    expect(app.accent).toBe("copper");
+    expect(app.theme).toBe("graphite");
+    expect(app.accent).toBe("mono");
     expect(app.railOrder.map((id) => id).sort()).toEqual(
       DEFAULT_APPEARANCE.railOrder.map((id) => id).sort()
     );

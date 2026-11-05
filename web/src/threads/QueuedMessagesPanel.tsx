@@ -79,7 +79,7 @@ export function QueuedMessagesPanel({
             >
               {/* Mini preview card icon matching screenshot */}
               <div
-                className="flex h-7 w-9 shrink-0 flex-col justify-between rounded-md border border-white/10 bg-[#0a0908] p-1 text-[6px] font-mono text-muted/50 shadow-inner select-none overflow-hidden"
+                className="flex h-7 w-9 shrink-0 flex-col justify-between rounded-md border border-white/10 bg-bg p-1 text-[6px] font-mono text-muted/50 shadow-inner select-none overflow-hidden"
                 aria-hidden="true"
               >
                 <div className="flex items-center gap-0.5">

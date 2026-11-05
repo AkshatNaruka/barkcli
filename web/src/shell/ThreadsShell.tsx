@@ -23,10 +23,13 @@ interface ThreadsShellProps {
   onConsumeSeed?: () => void;
   surfacesOpen: boolean;
   onToggleSurfaces: () => void;
+  listOpen?: boolean;
+  onCloseList?: () => void;
+  listCollapsed?: boolean;
   seed?: { text: string; nonce: number; mode?: "chat" | "plan_first" | "plan_and_run" } | null;
 }
 
-export function ThreadsShell({ boardName, projectRoot = "current-project", project, seed, onConsumeSeed, surfacesOpen, onToggleSurfaces }: ThreadsShellProps) {
+export function ThreadsShell({ boardName, projectRoot = "current-project", project, seed, onConsumeSeed, surfacesOpen, onToggleSurfaces, listOpen = false, onCloseList, listCollapsed = false }: ThreadsShellProps) {
   const location = useRouteState();
   const selectedId = location.thread || null;
   const scope = storageScope(projectRoot, boardName);
@@ -72,7 +75,8 @@ export function ThreadsShell({ boardName, projectRoot = "current-project", proje
     onConsumeSeed?.(); navigate("chat", { thread: id, board: boardName || undefined });
   };
   return <div ref={container} className={`threads-shell ${focused ? "artifact-focused" : ""}`}>
-    <ThreadList boardName={boardName} />
+    {listOpen && <button className="thread-list-scrim" aria-label="Close threads" onClick={onCloseList} />}
+    <ThreadList boardName={boardName} open={listOpen} onClose={onCloseList} collapsed={listCollapsed} />
     <div className="thread-document" hidden={focused}>
       {selectedId ? <ThreadPane key={`${scope}:${selectedId}:${threadRevision}`} threadId={selectedId} boardName={boardName || undefined} scope={scope} project={project}
         inspectorOpen={surfacesOpen} onThreadChange={setActiveThread}

@@ -15,8 +15,9 @@ import {
   type ThreadFolder,
 } from "../lib/threadFolders";
 import { AccessibleDialog } from "../components/AccessibleDialog";
+import { ProviderIcon } from "../components/ProviderIcon";
 
-export function ThreadList({ boardName }: { boardName: string | null }) {
+export function ThreadList({ boardName, open = false, onClose, collapsed = false }: { boardName: string | null; open?: boolean; onClose?: () => void; collapsed?: boolean }) {
   const location = useRouteState();
   const scope = boardName || "default";
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
@@ -213,45 +214,49 @@ export function ThreadList({ boardName }: { boardName: string | null }) {
               className={current ? "thread-list-row is-current" : "thread-list-row"}
               aria-current={current ? "page" : undefined}
               title={thread.title}
-              onClick={() =>
-                navigate("chat", { board: boardName || undefined, thread: thread.id })
-              }
+              onClick={() => {
+                navigate("chat", { board: boardName || undefined, thread: thread.id });
+                onClose?.();
+              }}
               onContextMenu={(event) => {
                 event.preventDefault();
                 openMenu(thread, event.clientX, event.clientY);
               }}
             >
+              <span className="thread-row-avatar" aria-hidden="true">
+                <ProviderIcon id={thread.backend || "agent"} name={thread.backend || "agent"} size={13} />
+              </span>
               <span className="thread-list-copy">
-                <strong>
+                <span className="thread-row-top">
+                  <span className={`thread-row-status is-${status.tone}`}>
+                    <span className={`thread-list-dot is-${status.tone}`} />
+                    {status.label}
+                  </span>
+                  <time dateTime={thread.updated_at}>{relativeTime(thread.updated_at)}</time>
+                </span>
+                <strong className="thread-row-title">
                   {thread.pinned && <Icon name="pin" size={10} className="thread-list-pin" />}
                   <span>{thread.title}</span>
                 </strong>
-                <small>
-                  <span className={`thread-list-dot is-${status.tone}`} />
-                  <span className="truncate">{thread.id}</span>
-                  {thread.backend && (
-                    <>
-                      <span className="thread-list-sep">·</span>
-                      <span>{thread.backend}</span>
-                    </>
-                  )}
-                  <span className="thread-list-sep">·</span>
-                  {relativeTime(thread.updated_at)}
+                <small className="thread-row-meta">
+                  {thread.backend && <span>{thread.backend}</span>}
+                  {thread.backend && thread.id && <span className="thread-list-sep">·</span>}
+                  <span className="thread-row-id">{thread.id}</span>
                 </small>
               </span>
             </button>
-            <div className="absolute top-1.5 right-1 flex items-center gap-0.5 opacity-0 group-hover/row:opacity-100 transition-opacity">
+            <div className="thread-row-actions">
               <button
                 type="button"
                 onClick={(e) => handleTogglePin(e, thread)}
-                className="w-5 h-5 flex items-center justify-center rounded text-muted hover:text-accent hover:bg-card cursor-pointer"
+                className="thread-row-action"
                 title={thread.pinned ? "Unpin thread" : "Pin thread"}
               >
                 <Icon name="pin" size={11} className={thread.pinned ? "text-accent" : ""} />
               </button>
               <button
                 type="button"
-                className="w-5 h-5 flex items-center justify-center rounded text-muted hover:text-text hover:bg-card cursor-pointer"
+                className="thread-row-action"
                 aria-label={`Actions for ${thread.title}`}
                 title="Thread actions"
                 onClick={(event) => {
@@ -269,56 +274,59 @@ export function ThreadList({ boardName }: { boardName: string | null }) {
   };
 
   return (
-    <aside className="thread-list flex flex-col h-full bg-[#0a0908] border-r border-border/70 select-none overflow-hidden" aria-label="Threads">
+    <aside className={`thread-list ${open ? "is-open" : ""} ${collapsed ? "is-collapsed" : ""}`} aria-label="Threads">
       {/* Header with Title and Management Actions */}
-      <header className="thread-list-head flex items-center justify-between px-3.5 py-2.5 border-b border-border/50">
-        <div className="flex items-center gap-2">
-          <span className="text-[13px] font-semibold text-text">Inbox</span>
+      <header className="thread-list-head">
+        <div className="thread-list-title">
+          <span>Threads</span>
+          <span className="thread-list-total">{total}</span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="thread-list-head-actions">
+          {onClose && (
+            <button type="button" className="thread-list-icon is-mobile" onClick={onClose} aria-label="Close threads" title="Close">
+              <Icon name="x" size={14} />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => navigate("chat", { draft: "1", board: boardName || undefined })}
-            className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-white/[0.08] hover:bg-white/[0.14] border border-border/60 text-text transition-colors cursor-pointer"
+            className="thread-list-new"
             title="New thread (⌘N)"
           >
-            <Icon name="plus" size={11} />
+            <Icon name="plus" size={12} />
             <span>New</span>
           </button>
-          {/* New Folder Button */}
           <button
             type="button"
             onClick={() => {
               setShowNewFolder(!showNewFolder);
               setNewFolderName("");
             }}
-            className="w-6 h-6 flex items-center justify-center rounded text-muted hover:text-text hover:bg-white/[0.06] transition-colors cursor-pointer"
+            className="thread-list-icon"
             title="Create new folder"
+            aria-label="Create new folder"
           >
-            <Icon name="folderPlus" size={13} />
+            <Icon name="folderPlus" size={14} />
           </button>
-          {/* Multi-Select Toggle */}
           <button
             type="button"
             onClick={() => {
               setSelectionMode(!selectionMode);
               setSelectedIds(new Set());
             }}
-            className={`w-6 h-6 flex items-center justify-center rounded transition-colors cursor-pointer ${
-              selectionMode
-                ? "bg-accent-soft text-accent-text"
-                : "text-muted hover:text-text hover:bg-white/[0.06]"
-            }`}
+            className={`thread-list-icon ${selectionMode ? "is-active" : ""}`}
             title={selectionMode ? "Exit multi-select" : "Select multiple threads"}
+            aria-label={selectionMode ? "Exit multi-select" : "Select multiple threads"}
+            aria-pressed={selectionMode}
           >
-            <Icon name="checkSquare" size={13} />
+            <Icon name="checkSquare" size={14} />
           </button>
         </div>
       </header>
 
       {/* Inline Create Folder Form */}
       {showNewFolder && (
-        <form onSubmit={handleCreateFolder} className="p-2 border-b border-border/50 bg-[#14120e] flex items-center gap-1.5">
+        <form onSubmit={handleCreateFolder} className="p-2 border-b border-border/50 bg-surface flex items-center gap-1.5">
           <Icon name="folder" size={13} className="text-accent shrink-0 ml-1" />
           <input
             autoFocus
@@ -346,7 +354,7 @@ export function ThreadList({ boardName }: { boardName: string | null }) {
       )}
 
       {/* Search Input */}
-      <label className="thread-list-search flex items-center gap-2 mx-2.5 my-2 px-2.5 py-1.5 rounded-lg border border-border/60 bg-[#14120e] text-muted focus-within:border-accent/80 transition-colors">
+      <label className="thread-list-search flex items-center gap-2 mx-2.5 my-2 px-2.5 py-1.5 rounded-lg border border-border/60 bg-bg text-muted focus-within:border-accent/80 transition-colors">
         <Icon name="search" size={12} className="shrink-0" />
         <input
           value={search}
@@ -364,7 +372,7 @@ export function ThreadList({ boardName }: { boardName: string | null }) {
 
       {/* Multi-Select Action Toolbar */}
       {selectionMode && (
-        <div className="mx-2 mb-2 p-2 rounded-lg bg-[#161410] border border-border/80 flex flex-col gap-1.5 shadow-sm">
+        <div className="mx-2 mb-2 p-2 rounded-lg bg-surface border border-border/80 flex flex-col gap-1.5 shadow-sm">
           <div className="flex items-center justify-between text-[11px] font-mono text-muted-strong">
             <span>{selectedIds.size} of {filtered.length} selected</span>
             <div className="flex items-center gap-1.5">
@@ -462,7 +470,7 @@ export function ThreadList({ boardName }: { boardName: string | null }) {
                               setEditingFolderId(null);
                             }
                           }}
-                          className="w-full bg-[#14120e] px-1 py-0.5 rounded border border-accent text-[11px] text-text"
+                          className="w-full bg-bg px-1 py-0.5 rounded border border-accent text-[11px] text-text"
                         />
                       ) : (
                         <span className="truncate font-medium text-text">{folder.name}</span>

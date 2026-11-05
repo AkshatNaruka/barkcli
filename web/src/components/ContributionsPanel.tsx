@@ -566,7 +566,7 @@ export function ContributionsPanel() {
   const metrics = data?.metrics;
 
   return (
-    <div className="h-full flex flex-col min-h-0">
+    <div className="h-full min-h-0 w-full max-w-[1080px] mx-auto flex flex-col">
       {/* Header: title + metric chips + refresh */}
       <div className="shrink-0 flex items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-2 min-w-0">

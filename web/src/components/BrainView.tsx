@@ -171,11 +171,12 @@ export function BrainView({ boardName, initialMode = "graph" }: { boardName: str
       {/* Command header */}
       <div className="flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2 text-xs text-muted">
-          <span className="font-medium text-text text-sm">Brain</span>
-          {mode === "graph" && (
+          {mode === "graph" ? (
             <span>
               {filteredNodeMap.size} of {nodes.length} nodes · {layouted.edges.length} links
             </span>
+          ) : (
+            <span>Run ancestry and evidence links.</span>
           )}
         </div>
         {/* Graph | Contributions segmented control */}

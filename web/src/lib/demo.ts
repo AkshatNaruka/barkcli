@@ -878,6 +878,73 @@ function createDemoThread(text: string, name?: string | null): { thread_id: stri
   return { thread_id: id };
 }
 
+function demoReviewQueue() {
+  const now = Date.now();
+  const ago = (hours: number) => new Date(now - hours * 3600_000).toISOString();
+  return [
+    {
+      card_id: "store-tokens",
+      title: "Store tokens securely",
+      column: "review",
+      branch: "bark/store-tokens",
+      receipt_id: "rcpt-store-tokens",
+      files: 4,
+      additions: 128,
+      deletions: 22,
+      risk: {
+        tier: "should",
+        score: 58,
+        reasons: [{ signal: "auth", points: 18, detail: "Token storage and sign-in paths changed — check secrets handling." }],
+      },
+      checks: { gate_passed: true, gate_skipped: false, gate_command: "cargo test", guard_errors: 0, guard_warnings: 1, receipt_verified: true, confidence: "high" },
+      updated_at: ago(5),
+    },
+    {
+      card_id: "demo-mode",
+      title: "Static demo hosting",
+      column: "doing",
+      branch: "bark/demo-mode",
+      receipt_id: "rcpt-demo-mode",
+      files: 12,
+      additions: 486,
+      deletions: 94,
+      risk: {
+        tier: "must",
+        score: 76,
+        reasons: [{ signal: "breadth", points: 26, detail: "Touches the fetch shim and every demo fixture." }],
+      },
+      checks: { gate_passed: false, gate_skipped: false, gate_command: "cargo test", guard_errors: 1, guard_warnings: 0, receipt_verified: false, confidence: "medium" },
+      updated_at: ago(9),
+    },
+    {
+      card_id: "add-oauth",
+      title: "Add OAuth login",
+      column: "todo",
+      branch: null,
+      receipt_id: null,
+      files: 0,
+      additions: 0,
+      deletions: 0,
+      risk: { tier: "unknown", score: 0, reasons: [] },
+      checks: null,
+      updated_at: ago(120),
+    },
+    {
+      card_id: "kiosk-mode",
+      title: "Kiosk mode for wall displays",
+      column: "done",
+      branch: null,
+      receipt_id: null,
+      files: 0,
+      additions: 0,
+      deletions: 0,
+      risk: { tier: "unknown", score: 0, reasons: [] },
+      checks: null,
+      updated_at: ago(48),
+    },
+  ];
+}
+
 function postDemoThreadMessage(id: string, text: string): ThreadEvent | null {
   const s = getStore();
   const record = s.threads.find((thread) => thread.detail.id === id);
@@ -901,6 +968,46 @@ function postDemoThreadMessage(id: string, text: string): ThreadEvent | null {
 }
 
 const ROUTES: Route[] = [
+  // Project snapshot: the static demo opens inside a believable project so the
+  // threads surface is explorable instead of stopping at "choose a folder".
+  {
+    method: "GET",
+    re: /^\/api\/project$/,
+    handle: () => ({
+      root: "/demo/barkcli",
+      name: "barkcli",
+      board_dir: "/demo/barkcli/.board",
+      boards: ["dev", "roadmap"],
+      active_board: "dev",
+      is_git: true,
+      git: {
+        branch: "main",
+        head: "e730c74",
+        upstream: "origin/main",
+        ahead: 2,
+        behind: 0,
+        clean: true,
+        changes: 0,
+      },
+      context: {
+        exists: true,
+        file: "project_context.md",
+        tokens: 4180,
+        blocks: 6,
+        stale_blocks: 0,
+        last_run: h(1),
+        budget_tokens: 12000,
+      },
+      hooks: { opencode: true, claude_code: true, spec_sync: true },
+      setup: { board: true, context: true, team: true, hooks: true, complete: true },
+      counts: { cards: 24, done: 12, doing: 4, specs: 3, sessions: 7, agents: 5 },
+      commands: [
+        { id: "test", label: "Acceptance gate", command: "cargo test" },
+        { id: "web", label: "Web dev server", command: "cd web && npm run dev" },
+      ],
+      verification_command: "cargo test",
+    }),
+  },
   // Threads (the Chat surface; also used by the workbench)
   { method: "GET", re: /^\/api\/threads$/, handle: (_m, { q }) => listDemoThreads(q.get("name")) },
   { method: "GET", re: /^\/api\/threads\/([^/]+)$/, handle: (m, { q }) => getDemoThread(m[1], q.get("name")) },
@@ -921,6 +1028,20 @@ const ROUTES: Route[] = [
     }),
   },
   { method: "POST", re: /^\/api\/sessions\/([^/]+)\/(stop|steer|fork)$/, handle: () => ({ ok: true }) },
+  { method: "GET", re: /^\/api\/review\/queue$/, handle: () => ({ items: demoReviewQueue() }) },
+  {
+    method: "GET", re: /^\/api\/contributions$/, handle: () => ({
+      nodes: [], edges: [], duplicates: [], leading: [], neglected: [], contested: [],
+      open_hypotheses: [], recommendations: [],
+      metrics: {
+        total_nodes: 0, edges: 0, verified_nodes: 0, verification_rate: 0,
+        neglected_nodes: 0, contested_nodes: 0, open_hypotheses: 0, reuse_rate: 0,
+        largest_lineage_share: 0, contributions_last_7d: 0, active_authors: 0,
+      },
+      generated_at: new Date().toISOString(),
+    }),
+  },
+  { method: "GET", re: /^\/api\/contributions\/duplicates$/, handle: () => ({ duplicates: [] }) },
 
   // Boards: list / create / delete
   { method: "GET", re: /^\/api\/boards$/, handle: () => ({ boards: getStore().boardNames }) },

@@ -10,7 +10,7 @@ import {
   type BoardConfig,
 } from "../lib/api";
 import { isDesktop, openLogs, openProviderLogin, openTerminal } from "../lib/desktop";
-import { useTheme, type Theme } from "../lib/theme";
+import { THEMES, useTheme } from "../lib/theme";
 import { navigate } from "../lib/hashnav";
 import { Icon, type IconName } from "./Icon";
 import { ProviderIcon } from "./ProviderIcon";
@@ -29,13 +29,6 @@ const SECTIONS: Array<{
   { id: "diagnostics", label: "Diagnostics", icon: "pulse", hint: "Health, logs, and access" },
 ];
 
-const THEMES: Array<{ id: Theme; label: string; note: string }> = [
-  { id: "black", label: "Bark", note: "Warm charcoal and copper" },
-  { id: "slate", label: "Slate", note: "Cool neutral dark" },
-  { id: "neon", label: "Terminal", note: "High-contrast dark" },
-  { id: "light", label: "Paper", note: "Light, warm neutral" },
-  { id: "system", label: "Auto", note: "Follow the system appearance" },
-];
 
 function Section({
   title,
@@ -235,8 +228,8 @@ export function SettingsView({
     <div className="settings-shell">
       <nav className="settings-nav" aria-label="Settings sections">
         <div className="settings-nav-head">
-          <strong>Settings</strong>
-          <span>Applies to this project</span>
+          <span className="settings-nav-eyebrow">Project settings</span>
+          <strong>{board.title || "This project"}</strong>
         </div>
         {SECTIONS.map((item) => {
           const active = section === item.id;
@@ -385,10 +378,14 @@ export function SettingsView({
                     className={theme === item.id ? "is-active" : ""}
                     onClick={() => setTheme(item.id)}
                   >
-                    <span className={`settings-theme-swatch is-${item.id}`} aria-hidden="true" />
+                    <span className="settings-theme-swatch" aria-hidden="true">
+                      {item.preview.map((color, index) => (
+                        <i key={index} style={{ background: color }} />
+                      ))}
+                    </span>
                     <span>
                       <strong>{item.label}</strong>
-                      <small>{item.note}</small>
+                      <small>{item.hint}</small>
                     </span>
                     {theme === item.id && <Icon name="check" size={13} />}
                   </button>

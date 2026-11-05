@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Icon } from "../components/Icon";
 import { SURFACES, type Surface } from "../lib/surfaces";
 import { useTheme } from "../lib/theme";
+import { isDesktop, recentProjects, switchProject, type DesktopProject } from "../lib/desktop";
 
 export interface RailCounts {
   chat: number;
@@ -10,9 +11,12 @@ export interface RailCounts {
 }
 
 /**
- * The rail is the app's spine. It can be icons-only (default) or labelled,
- * and users can reorder/hide surfaces from Appearance. Digit shortcuts follow
- * the visible order, so the rail and keyboard never disagree.
+ * The app's left spine. One narrow rail owns global navigation, the project
+ * switcher, and the utility actions — so every surface gets the full width of
+ * the window instead of stacking sidebars.
+ *
+ * Digit shortcuts follow the visible order, so the rail and keyboard never
+ * disagree. Labels are opt-in from Appearance.
  */
 export function AppRail({
   surface,
@@ -20,15 +24,47 @@ export function AppRail({
   onCustomize,
   counts,
   projectName,
+  projectRoot,
+  projectReady,
+  onAllProjects,
+  onOpenProject,
+  onCommand,
+  onNew,
 }: {
   surface: Surface;
   onNavigate: (s: Surface) => void;
   onCustomize: () => void;
   counts: RailCounts;
   projectName?: string | null;
+  projectRoot?: string;
+  projectReady?: boolean;
+  onAllProjects: () => void;
+  onOpenProject: () => void;
+  onCommand: (id: string) => void;
+  onNew: () => void;
 }) {
   const { railStyle, railOrder, hidden } = useTheme();
   const labels = railStyle === "labels";
+  const [projectOpen, setProjectOpen] = useState(false);
+  const [recent, setRecent] = useState<DesktopProject[]>([]);
+  const popover = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!projectOpen) return;
+    if (isDesktop()) void recentProjects().then(setRecent);
+    const onPointer = (event: MouseEvent) => {
+      if (!popover.current?.contains(event.target as Node)) setProjectOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setProjectOpen(false);
+    };
+    window.addEventListener("mousedown", onPointer);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onPointer);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [projectOpen]);
 
   const items = railOrder
     .map((id) => SURFACES.find((s) => s.id === id))
@@ -48,115 +84,169 @@ export function AppRail({
         ? "bg-warning/20 text-warning"
         : "bg-white/[0.07] text-muted-strong";
 
+  const initial = (projectName || "b").replace(/[^a-z0-9]/gi, "").slice(0, 1).toLowerCase() || "b";
+
+  const pickProject = async (project: DesktopProject) => {
+    setProjectOpen(false);
+    if (project.path === projectRoot) {
+      onNavigate("chat");
+      return;
+    }
+    const opened = await switchProject(project.path);
+    if (!opened) onOpenProject();
+  };
+
   return (
     <aside
-      className={`shrink-0 flex flex-col bg-bg border-r border-border/80 py-3 gap-1 select-none transition-[width] duration-150 ${
-        labels ? "w-[188px] px-2 items-stretch" : "w-[56px] items-center"
-      }`}
+      className={`app-rail ${labels ? "is-labelled" : ""}`}
+      aria-label="App navigation"
     >
-      <button
-        onClick={() => onNavigate("chat")}
-        title={projectName ? `${projectName} — barkcli` : "barkcli"}
-        className={`group relative rounded-[10px] bg-accent text-white flex items-center font-mono text-[15px] font-semibold shadow-[0_0_0_1px_rgba(255,255,255,0.06)_inset] ${
-          labels ? "h-9 px-2.5 gap-2.5 justify-start" : "w-9 h-9 justify-center mb-2"
-        }`}
-      >
-        <span className="w-[22px] text-center">b</span>
-        {labels && (
-          <span className="text-[12.5px] font-sans font-medium tracking-tight">barkcli</span>
-        )}
-        <span className="absolute inset-0 rounded-[10px] ring-1 ring-white/10" />
-      </button>
-
-      <div className={`h-px bg-border/70 ${labels ? "my-2 mx-1" : "w-6 mb-2"}`} />
-
-      {items.map((s, index) => {
-        const active = surface === s.id;
-        const n = badge(s.id);
-        return (
-          <button
-            key={s.id}
-            onClick={() => onNavigate(s.id)}
-            title={`${s.label} — ${s.hint} (${index + 1})`}
-            aria-current={active ? "page" : undefined}
-            aria-label={s.label}
-            className={`group relative rounded-[10px] flex items-center transition-colors ${
-              labels
-                ? `h-9 px-2.5 gap-2.5 justify-start ${active ? "bg-accent-soft text-accent-text" : "text-muted hover:text-text hover:bg-white/[0.04]"}`
-                : `w-10 h-10 justify-center ${active ? "bg-accent-soft text-accent-text" : "text-muted hover:text-text hover:bg-white/[0.04]"}`
-            }`}
-          >
-            {active && (
-              <span
-                className={`absolute top-1/2 -translate-y-1/2 h-5 w-[2px] rounded-full bg-accent ${
-                  labels ? "left-0" : "-left-2"
-                }`}
-              />
-            )}
-            <Icon name={s.icon} size={18} />
-            {labels && <span className="text-[12px] flex-1 text-left">{s.label}</span>}
-            {n > 0 &&
-              (labels ? (
-                <span className={`min-w-[17px] h-[16px] px-1 rounded-full text-[9px] font-mono leading-[16px] text-center ${badgeTone(s.id)}`}>
-                  {n > 99 ? "99" : n}
-                </span>
-              ) : (
-                <span
-                  className={`absolute top-1.5 right-1.5 min-w-[14px] h-[14px] px-[3px] rounded-full text-[9px] font-mono leading-[14px] text-center ${badgeTone(s.id)}`}
-                >
-                  {n > 99 ? "99" : n}
-                </span>
-              ))}
-            {!labels && (
-              <span className="pointer-events-none absolute left-[48px] z-50 hidden group-hover:flex items-center gap-2 whitespace-nowrap rounded-md border border-border bg-card px-2.5 py-1.5 text-[11px] text-text shadow-xl">
-                {s.label}
-                <kbd className="text-[9px] font-mono text-muted border border-border rounded px-1">
-                  {index + 1}
-                </kbd>
-              </span>
-            )}
-          </button>
-        );
-      })}
-
-      <div className={`mt-auto flex flex-col gap-1 ${labels ? "" : "items-center"}`}>
-        <span className={`h-px bg-border/70 mb-1 ${labels ? "mx-1" : "w-6"}`} />
+      <div className="app-rail-project">
         <button
-          onClick={onCustomize}
-          title="Appearance (⌘,)"
-          className={`rounded-[10px] flex items-center text-muted hover:text-text hover:bg-white/[0.04] transition-colors ${
-            labels ? "h-9 px-2.5 gap-2.5 justify-start" : "w-10 h-10 justify-center"
-          }`}
+          type="button"
+          className="app-rail-brand"
+          aria-haspopup="menu"
+          aria-expanded={projectOpen}
+          title={projectName ? `${projectName} — switch project` : "Choose a project"}
+          onClick={() => setProjectOpen((open) => !open)}
         >
-          <Icon name="palette" size={17} />
-          {labels && <span className="text-[12px] flex-1 text-left">Appearance</span>}
-          {labels && <kbd className="text-[9px] font-mono text-muted/60">⌘,</kbd>}
+          <span className="app-rail-mark">{initial}</span>
+          <span className="app-rail-presence" aria-hidden="true" />
+        </button>
+        {labels && (
+          <button type="button" className="app-rail-project-copy" onClick={() => setProjectOpen((open) => !open)}>
+            <strong>{projectName || (projectReady ? "Current project" : "No project")}</strong>
+            <small>{projectRoot || "Choose a code folder"}</small>
+          </button>
+        )}
+
+        {projectOpen && (
+          <div ref={popover} className="app-rail-popover" role="menu" aria-label="Projects">
+            <header>
+              <span className="app-rail-mark">{initial}</span>
+              <div>
+                <strong>{projectName || "No project open"}</strong>
+                <small>{projectRoot || "Choose a code folder to begin"}</small>
+              </div>
+            </header>
+            <div className="app-rail-popover-actions">
+              <button type="button" role="menuitem" onClick={() => { setProjectOpen(false); onNew(); }}>
+                <Icon name="plus" size={14} /> New thread
+              </button>
+              <button type="button" role="menuitem" onClick={() => { setProjectOpen(false); onAllProjects(); }}>
+                <Icon name="grid" size={14} /> All projects
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => { setProjectOpen(false); onOpenProject(); }}
+                disabled={!isDesktop()}
+                title={isDesktop() ? "Open a code folder" : "Available in the Bark desktop app"}
+              >
+                <Icon name="folder" size={14} /> Open folder…
+              </button>
+            </div>
+            {recent.length > 0 && (
+              <section className="app-rail-recent">
+                <h3>Recent</h3>
+                {recent.slice(0, 6).map((project) => (
+                  <button
+                    key={project.path}
+                    type="button"
+                    role="menuitem"
+                    className={project.path === projectRoot ? "is-current" : ""}
+                    title={project.path}
+                    onClick={() => void pickProject(project)}
+                  >
+                    <Icon name="folder" size={12} />
+                    <span>
+                      <strong>{project.name}</strong>
+                      <small>{project.path}</small>
+                    </span>
+                  </button>
+                ))}
+              </section>
+            )}
+          </div>
+        )}
+      </div>
+
+      <nav className="app-rail-nav" aria-label="Surfaces">
+        {items.map((s, index) => {
+          const active = surface === s.id;
+          const n = badge(s.id);
+          return (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => onNavigate(s.id)}
+              title={`${s.label} — ${s.hint} (${index + 1})`}
+              aria-current={active ? "page" : undefined}
+              aria-label={s.label}
+              className={`app-rail-item ${active ? "is-active" : ""}`}
+            >
+              <Icon name={s.icon} size={18} />
+              {labels && <span className="app-rail-item-label">{s.label}</span>}
+              {n > 0 && (
+                <span className={`app-rail-badge ${badgeTone(s.id)}`}>
+                  {n > 99 ? "99" : n}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </nav>
+
+      <div className="app-rail-foot">
+        <button
+          type="button"
+          className="app-rail-item"
+          onClick={() => onCommand("quick-open")}
+          title="Quick open a file (⌘P)"
+          aria-label="Quick open a file"
+        >
+          <Icon name="doc" size={17} />
+          {labels && <span className="app-rail-item-label">Quick open</span>}
         </button>
         <button
-          onClick={() => {
-            try {
-              window.sessionStorage.setItem("bark:ops-tab", "usage");
-            } catch {}
-            window.dispatchEvent(new CustomEvent("bark-operations-tab", { detail: "usage" }));
-            onNavigate("operations");
-          }}
-          title="Usage & Limits (⌘U)"
-          className={`rounded-[10px] flex items-center text-muted hover:text-text hover:bg-white/[0.04] transition-colors ${
-            labels ? "h-9 px-2.5 gap-2.5 justify-start" : "w-10 h-10 justify-center"
-          }`}
+          type="button"
+          className="app-rail-item"
+          onClick={() => onCommand("command-palette")}
+          title="Search or command (⌘K)"
+          aria-label="Search or command"
+        >
+          <Icon name="search" size={17} />
+          {labels && <span className="app-rail-item-label">Search</span>}
+        </button>
+        <button
+          type="button"
+          className="app-rail-item"
+          onClick={() => onCommand("usage")}
+          title="Usage & limits (⌘U)"
+          aria-label="Usage and limits"
         >
           <Icon name="chart" size={17} />
-          {labels && <span className="text-[12px] flex-1 text-left">Usage</span>}
+          {labels && <span className="app-rail-item-label">Usage</span>}
         </button>
         <button
-          onClick={() => onNavigate("operations")}
-          title="Settings (Operations)"
-          className={`rounded-[10px] flex items-center text-muted hover:text-text hover:bg-white/[0.04] transition-colors ${
-            labels ? "h-9 px-2.5 gap-2.5 justify-start" : "w-10 h-10 justify-center"
-          }`}
+          type="button"
+          className="app-rail-item"
+          onClick={onCustomize}
+          title="Appearance (⌘,)"
+          aria-label="Appearance"
+        >
+          <Icon name="palette" size={17} />
+          {labels && <span className="app-rail-item-label">Appearance</span>}
+        </button>
+        <button
+          type="button"
+          className="app-rail-item"
+          onClick={() => onCommand("settings")}
+          title="Settings"
+          aria-label="Settings"
         >
           <Icon name="gear" size={17} />
-          {labels && <span className="text-[12px] flex-1 text-left">Settings</span>}
+          {labels && <span className="app-rail-item-label">Settings</span>}
         </button>
       </div>
     </aside>

@@ -78,35 +78,35 @@ export function GlobalStatusBar({ project }: GlobalStatusBarProps) {
 
   return (
     <footer
-      className="global-status-bar h-7 border-t border-border/80 bg-[#0c0b09] px-3.5 flex items-center justify-between text-[11px] font-mono text-muted select-none shrink-0 z-30"
+      className="global-status-bar h-7 border-t border-border/80 px-3.5 flex items-center justify-between text-[11px] font-mono text-muted select-none shrink-0 z-30"
       aria-label="System status"
     >
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1.5 text-zinc-300">
+      <div className="global-status-bar-main">
+        <div className="global-status-bar-item text-zinc-300">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
           <span>
             daemon: {port} ({latency != null ? `${latency}ms` : "offline"})
           </span>
         </div>
 
-        <span className="text-border/80">|</span>
+        <span className="global-status-bar-sep text-border/80">|</span>
 
-        <div className="flex items-center gap-1.5 text-muted-strong">
+        <div className="global-status-bar-item global-status-bar-git text-muted-strong">
           <Icon name="branch" size={11} className="text-muted/70" />
           <span>
             branch: {branch} ({clean ? "clean" : "changes"})
           </span>
         </div>
 
-        <span className="text-border/80">|</span>
+        <span className="global-status-bar-sep text-border/80">|</span>
 
-        <div className="flex items-center gap-1.5 text-muted-strong">
+        <div className="global-status-bar-item global-status-bar-git text-muted-strong">
           <Icon name="layers" size={11} className="text-muted/70" />
           <span>worktrees: {worktreesCount} active</span>
         </div>
       </div>
 
-      <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
+      <div className="global-status-bar-gate text-emerald-400 font-medium">
         <Icon name="check" size={12} className="text-emerald-400" />
         <span>
           acceptance gate: {gatePassing ? "passing" : "failing"} ({gateCommand})

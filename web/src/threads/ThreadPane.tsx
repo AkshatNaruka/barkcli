@@ -950,26 +950,24 @@ export function ThreadPane({
                 new CustomEvent("bark-command", { detail: "toggle-sidebar" })
               )
             }
-            aria-label="Toggle sidebar"
+            aria-label="Toggle thread list"
+            title="Thread list"
           >
             <Icon name="panel" size={15} />
           </button>
-          <span className="thread-header-divider" aria-hidden="true" />
-          <div className="thread-identity">
-            <span className={`thread-status-dot${activeRun ? " is-live" : ""}`} aria-hidden="true" />
-            <span className="thread-id-chip" title={card?.id || threadId}>
-              {card?.id || threadId}
+          <div className="thread-breadcrumb">
+            <span className="thread-crumb-project">{project?.name || "barkcli"}</span>
+            <Icon name="chevR" size={11} className="thread-crumb-sep" />
+            <span className="thread-crumb-title" title={card?.title || threadId}>
+              {card?.title || threadId}
             </span>
+            <span className={`thread-status-dot${activeRun ? " is-live" : ""}`} aria-hidden="true" />
+          </div>
+          <span className="thread-header-meta" title={`isolated worktree: .board/worktrees/${card?.id || threadId}`}>
             <span className={`thread-column-chip is-${card?.column || "todo"}`}>
               {card?.column || "todo"}
             </span>
-          </div>
-          <span
-            className="thread-worktree"
-            title={`isolated worktree: .board/worktrees/${card?.id || threadId}`}
-          >
-            <Icon name="branch" size={10} />
-            <span>isolated worktree: .board/worktrees/{card?.id || threadId}</span>
+            <span className="thread-meta-id">{card?.id || threadId}</span>
           </span>
         </div>
 
@@ -981,7 +979,7 @@ export function ThreadPane({
               onClick={onReview}
               aria-label="Inspect thread changes"
               title="Inspect thread changes and diff"
-              className="flex h-7 items-center gap-1.5 px-2.5 rounded-lg border border-border/80 bg-surface/70 hover:bg-surface text-text text-[11.5px] font-medium transition-colors"
+              className="thread-action-changes flex h-7 items-center gap-1.5 px-2.5 rounded-lg border border-border/80 bg-surface/70 hover:bg-surface text-text text-[11.5px] font-medium transition-colors"
             >
               <Icon name="code" size={13} className="text-muted" />
               <span>Changes</span>
@@ -998,7 +996,7 @@ export function ThreadPane({
           )}
 
           {/* Thread Git Workflow Dropdown (t3.codes style) */}
-          <div className="relative">
+          <div className="thread-action-git relative">
             <button
               type="button"
               onClick={() => setGitMenuOpen((prev) => !prev)}
@@ -1095,7 +1093,7 @@ export function ThreadPane({
               aria-label={inspectorOpen ? "Hide thread panel" : "Show thread panel"}
               aria-pressed={inspectorOpen}
               title={inspectorOpen ? "Hide thread panel (⌘J)" : "Show thread panel (⌘J)"}
-              className={`flex h-7 items-center gap-1.5 px-2.5 rounded-lg border text-[11.5px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
+              className={`thread-action-inspector flex h-7 items-center gap-1.5 px-2.5 rounded-lg border text-[11.5px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
                 inspectorOpen
                   ? "bg-white/[0.1] border-border-strong text-text shadow-xs"
                   : "bg-surface/80 border-border/70 text-muted hover:bg-surface hover:text-text"
@@ -1152,20 +1150,10 @@ export function ThreadPane({
           )}
 
           {!loading && !loadError && thread?.events.length === 0 && !chatBusy && !activeRun && (
-            <div className="py-16 text-center text-[12px] text-muted">
-              <span className="flex h-10 w-10 mx-auto items-center justify-center rounded-xl bg-surface text-muted mb-3">
-                <Icon name="robot" size={20} />
-              </span>
-              <p className="font-medium text-text text-[13px]">No messages yet</p>
-              <p className="mt-1 text-muted text-[11.5px]">Choose Build, Plan, or Ask below to start.</p>
-            </div>
-          )}
-
-          {!loading && !loadError && (
-            <div className="mb-4 pt-1 border-b border-border/40 pb-2.5">
-              <h1 className="text-[18px] font-semibold text-text tracking-tight">
-                {card?.title || threadId}
-              </h1>
+            <div className="thread-empty">
+              <span className="thread-empty-mark"><Icon name="spark" size={18} /></span>
+              <p className="thread-empty-title">Start the thread</p>
+              <p className="thread-empty-copy">Describe what you want to build, plan, or ask about.</p>
             </div>
           )}
 
@@ -1347,7 +1335,7 @@ export function ThreadPane({
                     return (
                       <div
                         key={`${event.id}:${event.seq}`}
-                        className="my-3 flex flex-col gap-3 rounded-xl border border-border/80 bg-[#14120e] p-4 text-[12px] shadow-sm"
+                        className="my-3 flex flex-col gap-3 rounded-xl border border-border/80 bg-card p-4 text-[12px] shadow-sm"
                         role="alert"
                       >
                         <div className="flex items-center gap-2">

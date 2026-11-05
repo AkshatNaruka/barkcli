@@ -276,7 +276,7 @@ export function SurfacesPanel({
 
   return (
     <aside
-      className="surfaces-list flex flex-col h-full bg-[#0a0908] border-l border-border/70 text-text select-none overflow-hidden"
+      className="surfaces-list flex flex-col h-full bg-bg border-l border-border/70 text-text select-none overflow-hidden"
       aria-label="Thread surfaces"
     >
       {/* Search Bar at Top matching screenshot */}
@@ -290,7 +290,7 @@ export function SurfacesPanel({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search or enter a URL"
-            className="w-full h-8 pl-8 pr-7 bg-[#14120e] hover:bg-[#1a1713] focus:bg-[#161410] border border-border/70 focus:border-accent/80 rounded-full text-[12px] text-text placeholder:text-muted/60 outline-none transition-all shadow-inner"
+            className="w-full h-8 pl-8 pr-7 bg-bg hover:bg-card focus:bg-surface border border-border/70 focus:border-accent/80 rounded-full text-[12px] text-text placeholder:text-muted/60 outline-none transition-all shadow-inner"
           />
           <button
             type="button"
@@ -490,7 +490,7 @@ export function SurfacesPanel({
         )}
       </div>
 
-      <footer className="surfaces-list-foot flex items-center justify-between px-3.5 py-2 border-t border-border/50 text-[10.5px] text-muted/70 bg-[#0e0d0b]">
+      <footer className="surfaces-list-foot flex items-center justify-between px-3.5 py-2 border-t border-border/50 text-[10.5px] text-muted/70 bg-[var(--surface)]">
         <span className="truncate">{boardName ? `${boardName}.board` : "Project"}</span>
         <span>⌘J to close</span>
       </footer>

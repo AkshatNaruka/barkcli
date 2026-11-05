@@ -198,7 +198,7 @@ export function TeamView({ boardName }: { boardName: string | null }) {
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-[17px] font-medium tracking-tight text-text">Team</h2>
+              <h2 className="text-[17px] font-medium tracking-tight text-text">Agent team</h2>
               <span className="text-[10px] uppercase tracking-[0.12em] text-muted">
                 {activeCount} active · {profiles.length} hired
               </span>

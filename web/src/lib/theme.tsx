@@ -15,8 +15,8 @@ import { SURFACES, type Surface } from "./surfaces";
  * user owns. Everything is one JSON object so it can be shared as a link.
  */
 
-export type Theme = "black" | "slate" | "neon" | "light" | "system";
-export type AccentId = "copper" | "amber" | "moss" | "sky" | "iris" | "rose" | "steel";
+export type Theme = "graphite" | "black" | "slate" | "neon" | "light" | "system";
+export type AccentId = "mono" | "copper" | "amber" | "moss" | "sky" | "iris" | "rose" | "steel";
 export type RailStyle = "icons" | "labels";
 
 export interface Appearance {
@@ -45,7 +45,23 @@ interface Palette {
   shadow: string;
 }
 
-const PALETTES: Record<"black" | "slate" | "neon" | "light", Palette> = {
+const PALETTES: Record<"graphite" | "black" | "slate" | "neon" | "light", Palette> = {
+  // Default. Neutral graphite: the canvas disappears, hierarchy comes from
+  // hairlines and type weight, color is reserved for status.
+  graphite: {
+    bg: "#080808",
+    surface: "#0d0d0d",
+    card: "#141414",
+    cardHover: "#1b1b1b",
+    border: "#232323",
+    borderStrong: "#383838",
+    text: "#ededed",
+    muted: "#8a8a8a",
+    mutedStrong: "#b8b8b8",
+    scrollbar: "#333333",
+    scrim: "rgba(0, 0, 0, 0.72)",
+    shadow: "0 16px 42px rgba(0, 0, 0, 0.6)",
+  },
   black: {
     bg: "#0a0908",
     surface: "#100e0c",
@@ -112,6 +128,12 @@ export const THEMES: Array<{
   system?: boolean;
 }> = [
   {
+    id: "graphite",
+    label: "Graphite",
+    hint: "Neutral, monochrome",
+    preview: ["#080808", "#141414", "#e6e6e6"],
+  },
+  {
     id: "black",
     label: "Bark",
     hint: "Warm charcoal, copper",
@@ -132,19 +154,20 @@ export const THEMES: Array<{
   {
     id: "light",
     label: "Paper",
-    hint: "Warm light, ink",
-    preview: ["#fbfaf8", "#ffffff", "#a95d2e"],
+    hint: "Neutral light, ink",
+    preview: ["#fbfbfb", "#ffffff", "#1a1a1a"],
   },
   {
     id: "system",
     label: "Auto",
     hint: "Follow the OS",
-    preview: ["#0a0908", "#fbfaf8", "#9aa3ad"],
+    preview: ["#080808", "#fbfbfb", "#9aa3ad"],
     system: true,
   },
 ];
 
 const ACCENTS: Record<AccentId, { label: string; dark: string; light: string }> = {
+  mono: { label: "Mono", dark: "#e6e6e6", light: "#1a1a1a" },
   copper: { label: "Copper", dark: "#c2703d", light: "#a95d2e" },
   amber: { label: "Amber", dark: "#d9a03c", light: "#9f640d" },
   moss: { label: "Moss", dark: "#8fae5e", light: "#5c7a2e" },
@@ -165,16 +188,17 @@ export function accentColor(id: AccentId, mode: "dark" | "light"): string {
 }
 
 const DEFAULT_ACCENT: Record<Theme, AccentId> = {
+  graphite: "mono",
   black: "copper",
   slate: "sky",
   neon: "moss",
-  light: "copper",
-  system: "copper",
+  light: "mono",
+  system: "mono",
 };
 
 export const DEFAULT_APPEARANCE: Appearance = {
-  theme: "system",
-  accent: "copper",
+  theme: "graphite",
+  accent: "mono",
   railStyle: "icons",
   railOrder: SURFACES.map((s) => s.id),
   hidden: [],
@@ -188,7 +212,7 @@ function isSurfaceId(value: unknown): value is Surface {
 
 export function normalizeAppearance(input: unknown): Appearance {
   const data = (input ?? {}) as Partial<Appearance>;
-  const theme = THEMES.some((t) => t.id === data.theme) ? (data.theme as Theme) : "black";
+  const theme = THEMES.some((t) => t.id === data.theme) ? (data.theme as Theme) : "graphite";
   const accent = ACCENT_IDS.includes(data.accent as AccentId)
     ? (data.accent as AccentId)
     : DEFAULT_ACCENT[theme];
@@ -326,7 +350,9 @@ function applyAppearance(app: Appearance) {
         ? "slate"
         : app.theme === "neon"
           ? "neon"
-          : "black";
+          : app.theme === "black"
+            ? "black"
+            : "graphite";
   const palette = PALETTES[paletteKey];
 
   root.dataset.theme = mode === "light" ? "light" : "black";
@@ -366,7 +392,10 @@ function applyAppearance(app: Appearance) {
   vars["--accent-rgb"] = `${r} ${g} ${b}`;
   vars["--accent-hover"] = accentHover;
   vars["--accent-hover-rgb"] = rgbTriplet(accentHover);
-  vars["--accent-soft"] = `rgba(${r}, ${g}, ${b}, ${mode === "light" ? 0.12 : 0.14})`;
+  // Monochrome accents read as a quiet wash, not a highlight. Colored accents
+  // keep the stronger tint that makes status links legible.
+  const softAlpha = app.accent === "mono" ? (mode === "light" ? 0.06 : 0.08) : mode === "light" ? 0.12 : 0.14;
+  vars["--accent-soft"] = `rgba(${r}, ${g}, ${b}, ${softAlpha})`;
   vars["--accent-text"] = accentText;
   vars["--accent-text-rgb"] = rgbTriplet(accentText);
 
