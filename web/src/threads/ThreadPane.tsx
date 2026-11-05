@@ -941,8 +941,8 @@ export function ThreadPane({
 
   return (
     <section className="flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-bg">
-      <header className="thread-header flex items-center justify-between px-3.5 py-2 border-b border-border/60 bg-bg/95">
-        <div className="flex items-center gap-2 min-w-0">
+      <header className="thread-header">
+        <div className="thread-header-lead">
           <button
             className="bark-icon-button"
             onClick={() =>
@@ -954,19 +954,26 @@ export function ThreadPane({
           >
             <Icon name="panel" size={15} />
           </button>
-          <span className="rounded bg-white/[0.06] border border-border/80 px-2 py-0.5 font-mono text-[11px] font-semibold text-text">
-            {card?.id || threadId}
-          </span>
-          <span className="rounded bg-surface border border-border/80 px-1.5 py-0.5 font-mono text-[10px] text-muted-strong uppercase tracking-wider">
-            {card?.column || "todo"}
-          </span>
-          <span className="hidden md:inline-flex items-center gap-1 font-mono text-[10.5px] text-muted/70">
-            <Icon name="branch" size={10} className="text-muted/50" />
+          <span className="thread-header-divider" aria-hidden="true" />
+          <div className="thread-identity">
+            <span className={`thread-status-dot${activeRun ? " is-live" : ""}`} aria-hidden="true" />
+            <span className="thread-id-chip" title={card?.id || threadId}>
+              {card?.id || threadId}
+            </span>
+            <span className={`thread-column-chip is-${card?.column || "todo"}`}>
+              {card?.column || "todo"}
+            </span>
+          </div>
+          <span
+            className="thread-worktree"
+            title={`isolated worktree: .board/worktrees/${card?.id || threadId}`}
+          >
+            <Icon name="branch" size={10} />
             <span>isolated worktree: .board/worktrees/{card?.id || threadId}</span>
           </span>
         </div>
 
-        <div className="ml-auto flex shrink-0 items-center gap-1.5">
+        <div className="thread-header-actions" role="toolbar" aria-label="Thread actions">
           {/* Thread Changes Pill (t3.codes style) */}
           {onReview && (
             <button

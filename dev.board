@@ -144,7 +144,11 @@ cards:
   updated_at: 2026-10-26T12:27:24.916467Z
 - id: create-ping-uptime-endpoint
   title: Create ping uptime endpoint
-  description: Create ping uptime endpoint
+  description: |-
+    Create ping uptime endpoint
+
+    Change request:
+    just improve the overall UI of thread , its top and right bars of this bark app
   column: todo
   priority: medium
   labels: []
@@ -155,9 +159,9 @@ cards:
   attachments: []
   spec_id: create-ping-uptime-endpoint
   pinned: false
-  version: 2
+  version: 3
   created_at: 2026-10-26T12:27:33.557032Z
-  updated_at: 2026-10-26T12:27:33.560656Z
+  updated_at: 2026-11-04T19:18:12.983535Z
 - id: add-ping-endpoint-returning-timestamp
   title: Add ping endpoint returning timestamp
   description: Add ping endpoint returning timestamp
