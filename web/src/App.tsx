@@ -30,7 +30,7 @@ import {
 import { isDesktop, isMac, onMenu, openProjectDialog, openTerminal, revealProject, switchProject } from "./lib/desktop";
 import { isDemoMode } from "./lib/demo";
 import { useRoute, useRouteState, navigate, updateRouteState, parseRouteState, type Route } from "./lib/hashnav";
-import { APP_COMMANDS, PROJECT_TOOLS, commandForKey } from "./lib/commands";
+import { APP_COMMANDS, commandForKey } from "./lib/commands";
 import { ProjectsDashboard } from "./shell/ProjectsDashboard";
 import { ProjectHub } from "./shell/ProjectHub";
 import { ProjectRequired } from "./shell/ProjectRequired";
@@ -54,7 +54,6 @@ const HistoryView = lazy(() => import("./components/HistoryView").then((m) => ({
 const SkillsView = lazy(() => import("./components/SkillsView").then((m) => ({ default: m.SkillsView })));
 import { ThreadsShell } from "./shell/ThreadsShell";
 import { AccessibleDialog } from "./components/AccessibleDialog";
-import { WorkspaceSidebar } from "./shell/WorkspaceSidebar";
 const ReviewSurface = lazy(() => import("./shell/ReviewSurface").then((module) => ({ default: module.ReviewSurface })));
 import { InspectorRail } from "./shell/InspectorRail";
 const OperationsView = lazy(() => import("./shell/OperationsView").then((m) => ({ default: m.OperationsView })));
@@ -62,9 +61,9 @@ import { BrainSurface } from "./shell/BrainSurface";
 import { AgentsSurface } from "./shell/AgentsSurface";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { CustomizePanel } from "./shell/CustomizePanel";
-import { SidebarCustomizePanel } from "./shell/SidebarCustomizePanel";
 import { useTheme } from "./lib/theme";
 import { SURFACES } from "./lib/surfaces";
+import { AppRail } from "./shell/AppRail";
 
 function isBlockedCard(c: Card): boolean {
   return Boolean(c.blocked_by) || c.links.some((l) => l.ty === "blocked-by");
@@ -139,29 +138,21 @@ function DemoBanner() {
   if (!isDemoMode() || dismissed) return null;
 
   return (
-    <div
-      role="status"
-      className="bg-[#181512] border-b border-[#B8845C]/35 px-3 py-2 text-xs text-[#E5AA7A] flex items-center justify-between gap-3 shrink-0 z-20"
-    >
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[#B8845C]/25 text-[#F0CBA8] border border-[#B8845C]/40 shrink-0">
-          STATIC DEMO
-        </span>
-        <p className="text-[11px] text-white/90 leading-tight truncate sm:whitespace-normal">
-          This web preview is an interactive overview with simulated data. To run real agents in isolated worktrees with acceptance test gates, please run the real app via CLI:
-          <code className="ml-1.5 px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-[#E5AA7A] font-mono text-[10px] select-all">
-            curl -fsSL https://raw.githubusercontent.com/AkshatNaruka/barkcli/master/install.sh | sh
-          </code>
+    <div role="status" className="demo-banner">
+      <div className="demo-banner-copy">
+        <span className="demo-banner-tag">STATIC DEMO</span>
+        <p>
+          This web preview is an interactive overview with simulated data. To run real agents in isolated worktrees with acceptance test gates, run the real app via CLI:
+          <code>curl -fsSL https://raw.githubusercontent.com/AkshatNaruka/barkcli/master/install.sh | sh</code>
         </p>
       </div>
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="demo-banner-actions">
         <a
           href="https://github.com/AkshatNaruka/barkcli"
           target="_blank"
           rel="noreferrer"
-          className="text-[11px] font-mono text-white bg-[#B8845C] hover:bg-[#a5764f] px-2.5 py-0.5 rounded transition-colors whitespace-nowrap"
         >
-          Try Real App →
+          Try Real App
         </a>
         <button
           onClick={() => {
@@ -170,7 +161,7 @@ function DemoBanner() {
               sessionStorage.setItem("bark:dismiss-demo-banner", "1");
             } catch {}
           }}
-          className="text-white/50 hover:text-white p-0.5 rounded transition-colors cursor-pointer"
+          className="demo-banner-dismiss"
           title="Dismiss demo banner"
           aria-label="Dismiss demo banner"
         >
@@ -277,22 +268,16 @@ export function App() {
   const [route, setRoute] = useRoute();
   const location = useRouteState();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => window.localStorage.getItem("bark:sidebar-collapsed") === "1");
+  const [listCollapsed, setListCollapsed] = useState(false);
   const [projectRoot, setProjectRoot] = useState<string | null>(null);
   const [projectInfo, setProjectInfo] = useState<ProjectSnapshot | null>(null);
   const [projectLoading, setProjectLoading] = useState(true);
   const projectReady = !projectLoading && Boolean(projectInfo?.root);
-  useEffect(() => {
-    const apply = () => { const main = document.getElementById("workspace-main"); if (main) main.inert = sidebarOpen && window.innerWidth < 900; };
-    apply(); window.addEventListener("resize", apply);
-    return () => { window.removeEventListener("resize", apply); const main = document.getElementById("workspace-main"); if (main) main.inert = false; };
-  }, [sidebarOpen]);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [quickOpenOpen, setQuickOpenOpen] = useState(false);
   const [commandRunnerOpen, setCommandRunnerOpen] = useState(false);
   const [projectName, setProjectName] = useState<string | null>(null);
   const [customizeOpen, setCustomizeOpen] = useState(false);
-  const [sidebarCustomizeOpen, setSidebarCustomizeOpen] = useState(false);
   const [composeSeed, setComposeSeed] = useState<{
     text: string;
     nonce: number;
@@ -539,13 +524,13 @@ export function App() {
         break;
       case "toggle-sidebar":
         if (window.innerWidth < 900) setSidebarOpen((open) => !open);
-        else setSidebarCollapsed((collapsed) => { window.localStorage.setItem("bark:sidebar-collapsed", collapsed ? "0" : "1"); return !collapsed; });
+        else setListCollapsed((collapsed) => !collapsed);
         break;
       case "settings": openOperationsTab("settings"); break;
       case "usage": openOperationsTab("usage"); break;
       case "projects": navigate("projects"); break;
       case "appearance": setCustomizeOpen(true); break;
-      case "customize-sidebar": setSidebarCustomizeOpen(true); break;
+      case "customize-sidebar": setCustomizeOpen(true); break;
       case "help": setHelpOpen(true); break;
     }
   }, [handleOpenProject, notify, openOperationsTab, route, toggleInspector]);
@@ -787,21 +772,21 @@ export function App() {
   return (
     <div className={`${isDesktop() && isMac() ? "bark-desktop-shell" : "h-screen"} flex bg-bg`}>
       <a href="#main-content" className="skip-link">Skip to content</a>
-      <div className={`sidebar-slot ${sidebarCollapsed ? "is-collapsed" : ""}`}>
-        <WorkspaceSidebar projectName={projectName} projectRoot={projectInfo?.root || ""} projectReady={projectReady}
-          boardName={boardName} boards={boardList} onSwitchBoard={switchBoard} onCommand={executeCommand}
-          onNew={() => executeCommand("new-intent")} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      </div>
+      <AppRail
+        surface={route}
+        onNavigate={(next) => { setSidebarOpen(false); navigate(next, { board: boardName || undefined }); }}
+        onCustomize={() => setCustomizeOpen(true)}
+        counts={{ chat: 0, board: boardOpen, agents: projectInfo?.counts.agents || 0 }}
+        projectName={projectName}
+        projectRoot={projectInfo?.root || projectRoot || ""}
+        projectReady={projectReady}
+        onAllProjects={() => { setSidebarOpen(false); navigate("projects"); }}
+        onOpenProject={() => void handleOpenProject()}
+        onCommand={executeCommand}
+        onNew={() => executeCommand("new-intent")}
+      />
       <div id="workspace-main" className="flex-1 flex flex-col min-w-0">
         <DemoBanner />
-        {route !== "chat" && route !== "projects" && <header className="workspace-topbar">
-        <button className="bark-icon-button" onClick={() => executeCommand("toggle-sidebar")} aria-label="Toggle sidebar" title="Toggle sidebar"><Icon name="panel" size={16} /></button>
-        <h1>{PROJECT_TOOLS.find((tool) => tool.destination.route === route && tool.destination.tool === location.tool)?.label || (location.tool === "settings" ? "Settings" : location.tool === "docs" ? "Help" : SURFACES.find((surface) => surface.id === route)?.label)}</h1>
-        <div className="ml-auto flex items-center gap-1">
-          <button className="bark-icon-button" onClick={() => executeCommand("quick-open")} aria-label="Quick open file" title="Quick open file (⌘P)"><Icon name="doc" size={16} /></button>
-          <button className="bark-icon-button" onClick={() => executeCommand("command-palette")} aria-label="Search or command" title="Search or command (⌘K)"><Icon name="search" size={16} /></button>
-        </div>
-      </header>}
       <div className="flex-1 flex min-h-0">
         <main id="main-content" tabIndex={-1} className="flex-1 overflow-hidden min-w-0">
           <ErrorBoundary>
@@ -831,6 +816,9 @@ export function App() {
               onOpenCardForm={(card) => handleOpenForm({ card })}
               surfacesOpen={inspectorOpen}
               onToggleSurfaces={toggleInspector}
+              listOpen={sidebarOpen}
+              onCloseList={() => setSidebarOpen(false)}
+              listCollapsed={listCollapsed}
             />
           )}
 
@@ -961,11 +949,10 @@ export function App() {
         onClose={() => setCommandRunnerOpen(false)}
       />
       <CustomizePanel open={customizeOpen} onClose={() => setCustomizeOpen(false)} />
-      <SidebarCustomizePanel open={sidebarCustomizeOpen} onClose={() => setSidebarCustomizeOpen(false)} />
 
       {/* Toasts */}
       {toast && (
-        <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 bg-card border border-border rounded-lg px-3 py-2 shadow-lg">
+        <div role="status" aria-live="polite" className="fixed bottom-4 right-4 z-50 flex items-center gap-2 bg-card border border-border rounded-lg px-3 py-2 shadow-lg">
           <span className="text-xs text-text">{toast.message}</span>
           {toast.action && (
             <button
