@@ -1024,14 +1024,20 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
 
         {tab === "diff" && (
           <div>
-            {(latestRun || diffCount > 0 || reviewFiles.length > 0) && <div className="border-b border-border/60 px-4 py-2.5">
+            {(latestRun || diffCount > 0 || reviewFiles.length > 0) && <div className="sticky top-0 z-10 border-b border-border/60 bg-bg/95 px-4 py-2.5 backdrop-blur-sm">
               <div className="flex items-start gap-2">
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-mono text-[10px] text-text">
-                    {diffData?.branch || taskEvent?.data?.branch || "worktree"}
+                    {diffData?.branch || taskEvent?.data?.branch || latestRun?.branch || "worktree"}
                   </div>
                   <div className="mt-0.5 flex flex-wrap items-center gap-2 font-mono text-[9px] text-muted/60">
                     <span>{currentTaskId || "no worker"}</span>
+                    {latestRun?.head_sha ? (
+                      <>
+                        <span className="text-muted/30">·</span>
+                        <span title={`Head ${latestRun.head_sha}`}>@ {latestRun.head_sha.slice(0, 8)}</span>
+                      </>
+                    ) : null}
                     {diffCount > 0 && (
                       <>
                         <span className="text-muted/30">·</span>
