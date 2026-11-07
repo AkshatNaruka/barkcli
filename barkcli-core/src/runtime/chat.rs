@@ -71,6 +71,11 @@ pub fn prepare_chat(request: &ChatRequest) -> Result<PreparedChat> {
     prepare_chat_at(&root, request, read_session(&request.card_id).ok().flatten())
 }
 
+/// Build the provider prompt and start record for one read-only chat turn in an explicit root directory.
+pub fn prepare_chat_in_root(root: &Path, request: &ChatRequest) -> Result<PreparedChat> {
+    prepare_chat_at(root, request, read_session(&request.card_id).ok().flatten())
+}
+
 fn prepare_chat_at(
     root: &Path,
     request: &ChatRequest,

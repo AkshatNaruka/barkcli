@@ -14,9 +14,6 @@ export const WORKBENCH_SURFACES: WorkbenchSurface[] = [
   { id: "plan", label: "Plan", icon: "doc", letter: "P" },
   { id: "diff", label: "Changes", icon: "code", letter: "C" },
   { id: "gate", label: "Checks", icon: "check", letter: "K" },
-  { id: "receipt", label: "Evidence", icon: "layers", letter: "E" },
-  { id: "eval", label: "Diagnostics", icon: "pulse", letter: "D" },
-  { id: "context", label: "Context", icon: "db", letter: "X" },
 ];
 
 /** Route panel names are longer than the internal tab ids. */

@@ -487,7 +487,7 @@ export function UsageView() {
           </div>
         </div>
 
-        {/* Share Distribution Bar (t3.codes UsageShareBar style) */}
+        {/* Share Distribution Bar */}
         <section className="rounded-xl border border-border bg-surface p-5 shadow-sm space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
@@ -990,7 +990,7 @@ export function UsageView() {
           </div>
         </section>
 
-        {/* Provider Limits & Quotas (t3.codes UsageLimits style) */}
+        {/* Provider Limits & Quotas */}
         <section className="rounded-xl border border-border bg-surface p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <div>

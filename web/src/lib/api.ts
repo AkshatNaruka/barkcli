@@ -1463,6 +1463,9 @@ export async function createThread(payload: {
   model?: string;
   mode?: string;
   board?: string;
+  project_root?: string;
+  project_name?: string;
+  workspace_strategy?: string;
 }): Promise<any | null> {
   return postJson("/api/threads", payload);
 }

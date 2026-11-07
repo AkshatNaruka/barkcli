@@ -37,6 +37,8 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [bulkMoveFolderOpen, setBulkMoveFolderOpen] = useState(false);
+  const [settledCollapsed, setSettledCollapsed] = useState(false);
+  const [projectFilter, setProjectFilter] = useState<string>("all");
 
   useEffect(() => {
     let cancelled = false;
@@ -62,7 +64,21 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
     };
   }, [boardName, scope]);
 
-  const filtered = useMemo(() => filterThreads(threads, search), [threads, search]);
+  const distinctProjects = useMemo(() => {
+    const names = new Set<string>();
+    for (const t of threads) {
+      if (t.project_name && t.project_name.trim()) {
+        names.add(t.project_name.trim());
+      }
+    }
+    return Array.from(names);
+  }, [threads]);
+
+  const filtered = useMemo(() => {
+    const bySearch = filterThreads(threads, search);
+    if (projectFilter === "all") return bySearch;
+    return bySearch.filter((t) => (t.project_name || "").trim() === projectFilter);
+  }, [threads, search, projectFilter]);
 
   // Group threads into:
   // 1. Pinned threads
@@ -239,6 +255,20 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
                   <span>{thread.title}</span>
                 </strong>
                 <small className="thread-row-meta">
+                  {thread.project_name && (
+                    <>
+                      <span className="thread-row-project" title={thread.project_root || thread.project_name}>
+                        {thread.project_name}
+                      </span>
+                      <span className="thread-list-sep">·</span>
+                    </>
+                  )}
+                  {thread.workspace_strategy === "worktree" && (
+                    <>
+                      <span className="thread-row-worktree">worktree</span>
+                      <span className="thread-list-sep">·</span>
+                    </>
+                  )}
                   {thread.backend && <span>{thread.backend}</span>}
                   {thread.backend && thread.id && <span className="thread-list-sep">·</span>}
                   <span className="thread-row-id">{thread.id}</span>
@@ -369,6 +399,41 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
           </button>
         )}
       </label>
+
+      {/* Cross-Project Filter Chips */}
+      {distinctProjects.length > 1 && (
+        <div
+          className="mx-2.5 mb-2 flex items-center gap-1 overflow-x-auto pb-0.5"
+          role="group"
+          aria-label="Filter threads by project"
+        >
+          <button
+            type="button"
+            onClick={() => setProjectFilter("all")}
+            className={`shrink-0 rounded-md px-2 py-0.5 text-[10.5px] font-medium transition-colors ${
+              projectFilter === "all"
+                ? "bg-accent/15 text-accent border border-accent/30"
+                : "bg-surface/60 text-muted hover:text-text border border-border/50"
+            }`}
+          >
+            All projects
+          </button>
+          {distinctProjects.map((projName) => (
+            <button
+              key={projName}
+              type="button"
+              onClick={() => setProjectFilter(projName)}
+              className={`shrink-0 rounded-md px-2 py-0.5 text-[10.5px] font-medium transition-colors ${
+                projectFilter === projName
+                  ? "bg-accent/15 text-accent border border-accent/30"
+                  : "bg-surface/60 text-muted hover:text-text border border-border/50"
+              }`}
+            >
+              {projName}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Multi-Select Action Toolbar */}
       {selectionMode && (
@@ -524,17 +589,39 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
             })}
 
             {/* 3. UNFILED DEFAULT GROUPS */}
-            {unfiledGroups.filter((g) => g.items.length > 0 && g.key !== "pinned").map((group) => (
-              <section key={group.key} className="thread-list-group">
-                <header className="flex items-center justify-between px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-muted font-medium">
-                  <span>{group.key === "running" ? "Working" : group.key === "drafts" ? "Recent" : group.label}</span>
-                  <span>{group.items.length}</span>
-                </header>
-                <div className="space-y-0.5">
-                  {group.items.map((thread) => renderThreadRow(thread))}
-                </div>
-              </section>
-            ))}
+            {unfiledGroups.filter((g) => g.items.length > 0 && g.key !== "pinned").map((group) => {
+              const isSettled = group.key === "settled";
+              const isGroupCollapsed = isSettled && settledCollapsed;
+              return (
+                <section key={group.key} className="thread-list-group">
+                  <header
+                    onClick={isSettled ? () => setSettledCollapsed((prev) => !prev) : undefined}
+                    className={`flex items-center justify-between px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-muted font-medium ${
+                      isSettled ? "cursor-pointer select-none rounded hover:bg-white/[0.03] hover:text-muted-strong" : ""
+                    }`}
+                  >
+                    <span className="flex items-center gap-1">
+                      {isSettled && (
+                        <span className="text-[9px] text-muted">{isGroupCollapsed ? "▸" : "▾"}</span>
+                      )}
+                      <span>
+                        {group.key === "running"
+                          ? "Working"
+                          : group.key === "drafts"
+                            ? "Recent"
+                            : group.label}
+                      </span>
+                    </span>
+                    <span>{group.items.length}</span>
+                  </header>
+                  {!isGroupCollapsed && (
+                    <div className="space-y-0.5">
+                      {group.items.map((thread) => renderThreadRow(thread))}
+                    </div>
+                  )}
+                </section>
+              );
+            })}
           </>
         )}
       </div>

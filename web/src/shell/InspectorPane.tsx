@@ -73,7 +73,14 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 export function InspectorPane({ card, events, threadId, onClose, onBack }: InspectorPaneProps) {
   const location = useRouteState();
-  const tab: WorkbenchTab = PANEL_TO_TAB[location.panel || "plan"] || "plan";
+  const rawTab: WorkbenchTab = PANEL_TO_TAB[location.panel || "plan"] || "plan";
+  const [runs, setRuns] = useState<RunRecord[]>([]);
+  const tab: WorkbenchTab =
+    rawTab === "context" || rawTab === "eval"
+      ? runs.length > 0
+        ? "diff"
+        : "plan"
+      : rawTab;
   const setTab = (next: WorkbenchTab) => updateRouteState({ panel: TAB_TO_PANEL[next] });
   const [diffData, setDiffData] = useState<TaskDiff | RunDiff | null>(null);
   const [loadingDiff, setLoadingDiff] = useState(false);
@@ -81,7 +88,6 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
   const [evalData, setEvalData] = useState<any | null>(null);
   const [loadingEval, setLoadingEval] = useState(false);
   const [evalError, setEvalError] = useState(false);
-  const [runs, setRuns] = useState<RunRecord[]>([]);
   const [runDiff, setRunDiff] = useState<RunDiff | null>(null);
   const [runGate, setRunGate] = useState<RunGate | null>(null);
   const [loadingRunGate, setLoadingRunGate] = useState(false);
@@ -251,7 +257,7 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
   const gateOutput = runGate?.log || gateData?.output || "";
   const gateTime =
     latestRun?.gate?.finished_at || gateEvent?.created_at || latestRun?.ended_at;
-  const visibleTabs = TABS.filter((item) => item.id === tab || (item.id === "gate" && Boolean(latestRun || gateVerdict)) || (item.id === "diff" && Boolean(latestRun || taskEvent)) || (item.id === "plan" && Boolean(proposal)));
+  const visibleTabs = TABS;
 
   useEffect(() => {
     setPreviewPack(null);
@@ -335,25 +341,6 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
     };
   }, [tab, latestRun?.id, latestRun?.gate?.finished_at]);
 
-  useEffect(() => {
-    if (tab !== "context" || !latestRun) {
-      setRunContext(null);
-      return;
-    }
-    let cancelled = false;
-    setLoadingRunContext(true);
-    fetchRunContext(latestRun.id)
-      .then((next) => {
-        if (!cancelled) setRunContext(next);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingRunContext(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [tab, latestRun?.id, latestRun?.context_manifest_id]);
-
   // Match the reference: the artifact is the default panel once a worker exists.
   useEffect(() => {
     if (tab !== "diff") return;
@@ -386,27 +373,6 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
       cancelled = true;
     };
   }, [tab, currentTaskId, latestRun?.id, latestRun?.head_sha, latestRun?.gate?.finished_at]);
-
-  useEffect(() => {
-    if (tab !== "eval" || !currentSessionId) return;
-    let cancelled = false;
-    setEvalData(null);
-    setEvalError(false);
-    setLoadingEval(true);
-    evalSession(currentSessionId)
-      .then((res) => {
-        if (!cancelled) setEvalData(res);
-      })
-      .catch(() => {
-        if (!cancelled) setEvalError(true);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingEval(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [tab, currentSessionId]);
 
   const refreshReview = async () => {
     if (!reviewId) return;
@@ -565,27 +531,58 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
       className="workbench-pane flex h-full w-full min-w-0 flex-col overflow-hidden bg-bg"
       aria-label="Workbench"
     >
-      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border/80 px-3.5">
-        {onBack && (
+      <div className="flex h-10 shrink-0 items-center gap-1.5 border-b border-border/80 bg-bg px-2.5">
+        <div className="flex items-center gap-1">
+          <span className="flex h-6 items-center gap-1.5 rounded-md border border-border/80 bg-surface px-2.5 text-[11.5px] font-medium text-text shadow-xs">
+            <Icon
+              name={
+                tab === "diff"
+                  ? "code"
+                  : tab === "plan"
+                    ? "doc"
+                    : tab === "gate"
+                      ? "check"
+                      : "layers"
+              }
+              size={12}
+              className="text-muted-strong"
+            />
+            <span>
+              {tab === "diff"
+                ? "Diff"
+                : TABS.find((item) => item.id === tab)?.label || "Workbench"}
+            </span>
+          </span>
           <button
             type="button"
-            onClick={onBack}
+            onClick={() => {
+              if (onBack) onBack();
+              else updateRouteState({ panel: undefined, file: undefined });
+            }}
             aria-label="All surfaces"
-            title="All surfaces"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-white/[0.05] hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+            title="Open a surface"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface/60 hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
           >
-            <Icon name="grid" size={15} />
+            <Icon name="plus" size={13} />
           </button>
-        )}
-        <span className="text-[12.5px] font-medium text-text">{tab === "diff" ? "Review changes" : TABS.find((item) => item.id === tab)?.label || "Workbench"}</span>
+        </div>
+        <span className="sr-only">
+          {tab === "diff"
+            ? "Review changes"
+            : TABS.find((item) => item.id === tab)?.label || "Workbench"}
+        </span>
         <div className="ml-auto flex items-center gap-1">
           {gateVerdict && (
             <span
-              className={`hidden items-center gap-1 font-mono text-[9px] sm:flex ${
+              className={`hidden items-center gap-1 font-mono text-[9.5px] sm:flex ${
                 checksPassed(gateVerdict) ? "text-success" : "text-warning"
               }`}
             >
-              <span className={`h-1 w-1 rounded-full ${checksPassed(gateVerdict) ? "bg-success" : "bg-warning"}`} />
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  checksPassed(gateVerdict) ? "bg-success" : "bg-warning"
+                }`}
+              />
               {checkState(gateVerdict).label}
             </span>
           )}
@@ -595,9 +592,9 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
               onClick={onClose}
               title="Close surfaces (⌘J)"
               aria-label="Close surfaces"
-              className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-white/[0.05] hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+              className="flex h-6 w-6 items-center justify-center rounded-md text-muted transition-colors hover:bg-white/[0.05] hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
             >
-              <Icon name="x" size={15} />
+              <Icon name="panel" size={13} />
             </button>
           )}
         </div>
@@ -607,7 +604,7 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
         <div
           role="tablist"
           aria-label="Workbench tabs"
-          className="flex h-9 shrink-0 items-stretch gap-0 border-b border-border/70 px-2"
+          className="sr-only"
         >
           {visibleTabs.map((item) => {
           const active = tab === item.id;
@@ -657,19 +654,16 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
         </div>
       )}
 
-      <details className="workbench-more">
+      <details className="workbench-more sr-only">
         <summary>Evidence & tools</summary>
         <div role="group" aria-label="Evidence and tools">
-          {TABS.filter((item) => ["receipt", "eval", "context"].includes(item.id)).map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setTab(item.id)}
-              aria-current={tab === item.id ? "page" : undefined}
-            >
-              {item.label}
-            </button>
-          ))}
+          <button
+            type="button"
+            onClick={() => setTab("receipt")}
+            aria-current={tab === "receipt" ? "page" : undefined}
+          >
+            Evidence
+          </button>
           {runs.length > 1 && (
             <label className="inline-flex items-center gap-1.5 text-[11px] text-muted">
               <span>Attempt</span>
@@ -717,11 +711,13 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="font-semibold text-text">Proposed Plan</span>
                     <span className="font-mono text-[9.5px] text-muted/60">
-                      {new Date().toISOString().slice(0, 19)}Z
+                      {(planEvent?.created_at || new Date().toISOString()).slice(0, 19)}Z
                     </span>
                   </div>
                   <p className="mt-1 text-[11.5px] text-muted">
-                    Proposed plan with atomic tasks.
+                    {Array.isArray(proposal?.children) && proposal.children.length > 0
+                      ? `${proposal.children.length} proposed task slices ready for execution.`
+                      : "Proposed plan with atomic tasks."}
                   </p>
                   {Array.isArray(proposal?.children) && proposal.children.length > 0 && (
                     <div className="mt-2.5 space-y-1.5 border-t border-border/40 pt-2">
@@ -731,6 +727,25 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
                           {child.effort && <span className="font-mono text-[9.5px] text-muted">{child.effort}h</span>}
                         </div>
                       ))}
+                    </div>
+                  )}
+                  {proposal && !planApproved && card?.id && (
+                    <div className="mt-3 flex items-center gap-2 border-t border-border/40 pt-2.5">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!card?.id) return;
+                          await startThreadRun(card.id, {
+                            plan_event_id: planEvent?.id,
+                            prompt: proposal?.rationale || card.title,
+                          });
+                          window.dispatchEvent(new CustomEvent("bark-thread-updated", { detail: card.id }));
+                        }}
+                        className="inline-flex items-center gap-1 rounded bg-accent px-2.5 py-1 text-[10.5px] font-medium text-white hover:bg-accent-hover transition-colors"
+                      >
+                        <Icon name="check" size={11} />
+                        Approve &amp; Build
+                      </button>
                     </div>
                   )}
                 </div>
@@ -1312,370 +1327,8 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
             onVerify={handleVerifyReceipt}
           />
         )}
-
-        {tab === "eval" && (
-          <div className="p-4">
-            <SectionLabel>Session quality</SectionLabel>
-            {loadingEval ? (
-              <div className="space-y-3 pt-4">
-                <div className="h-7 w-24 animate-pulse rounded bg-surface" />
-                <div className="h-3 w-full animate-pulse rounded bg-surface/70" />
-                <div className="h-3 w-3/4 animate-pulse rounded bg-surface/60" />
-              </div>
-            ) : evalError ? (
-              <Empty>Could not load evaluation metrics for this session.</Empty>
-            ) : evalData ? (
-              <div className="mt-4">
-                <div className="flex items-end gap-2">
-                  <span className="font-mono text-[30px] leading-none text-text">
-                    {Math.round((evalData.quality_score ?? 0.9) * 100)}
-                  </span>
-                  <span className="pb-0.5 text-[10px] text-muted">/ 100 quality</span>
-                </div>
-                <div className="mt-5 divide-y divide-border/60 border-y border-border/60">
-                  {[
-                    ["Test gate", evalData.test_gate_passed ? "passed" : "failed"],
-                    ["Backend", evalData.backend || "opencode"],
-                    [
-                      "Duration",
-                      evalData.duration_ms ? `${Math.round(evalData.duration_ms / 1000)}s` : "n/a",
-                    ],
-                    ["Files modified", String(evalData.files_changed_count ?? 0)],
-                  ].map(([label, value]) => (
-                    <div key={label} className="flex items-center justify-between py-2.5 text-[11px]">
-                      <span className="text-muted">{label}</span>
-                      <span
-                        className={`font-mono text-[10px] ${
-                          label === "Test gate"
-                            ? evalData.test_gate_passed
-                              ? "text-success"
-                              : "text-danger"
-                            : "text-text"
-                        }`}
-                      >
-                        {value}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <Empty>No evaluation metrics for this session yet.</Empty>
-            )}
-          </div>
-        )}
-
-        {tab === "context" && (
-          <div className="p-4">
-            <div className="flex items-center justify-between gap-2">
-              <SectionLabel>Thread context</SectionLabel>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!card || previewing) return;
-                    const lastUser = [...events].reverse().find((event) => event.kind === "user")?.text;
-                    setPreviewing(true);
-                    try {
-                      const pack = await previewContext({
-                        card_id: card.id,
-                        prompt: lastUser,
-                        role: latestRun?.role,
-                        provider: latestRun?.provider || "opencode",
-                      });
-                      setPreviewPack(pack);
-                    } finally {
-                      setPreviewing(false);
-                    }
-                  }}
-                  disabled={!card || previewing}
-                  className="flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[9px] text-muted transition-colors hover:bg-white/[0.05] hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent disabled:opacity-40"
-                  aria-label="Preview next run context"
-                >
-                  <Icon name={previewing ? "refresh" : "eye"} size={10} className={previewing ? "animate-spin" : ""} />
-                  preview
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const summary = [
-                      `# ${card?.title || "Thread"}`,
-                      `Card: ${card?.id || "none"}`,
-                      `Column: ${card?.column || "draft"}`,
-                      `Events: ${events.length}`,
-                      contextPack ? `Context: ${contextPack.reuse.reason}` : "",
-                      proposal?.rationale ? `Plan: ${proposal.rationale}` : "",
-                    ]
-                      .filter(Boolean)
-                      .join("\n");
-                    try {
-                      await navigator.clipboard.writeText(summary);
-                      setCopied(true);
-                      window.setTimeout(() => setCopied(false), 1500);
-                    } catch {
-                      // Clipboard access is permission-gated; the panel remains readable.
-                    }
-                  }}
-                  className="flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[9px] text-muted transition-colors hover:bg-white/[0.05] hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-                  aria-label="Copy thread context"
-                >
-                  <Icon name={copied ? "check" : "copy"} size={10} />
-                  {copied ? "copied" : "copy"}
-                </button>
-              </div>
-            </div>
-            {previewPack && (
-              <div className="mt-2 rounded border border-accent/25 bg-accent-soft px-2.5 py-2 text-[10px] leading-relaxed text-accent-text">
-                Previewing the next run before it starts. {previewPack.reuse.reason}
-              </div>
-            )}
-            <div className="mt-3 divide-y divide-border/60 border-y border-border/60">
-              {[
-                ["Card", card?.id || "none"],
-                ["Column", card?.column || "draft"],
-                ["Assignee", card?.assignee || "unassigned"],
-                ["Thread", events.length ? `${events.length} events` : "empty"],
-              ].map(([label, value]) => (
-                <div key={label} className="flex items-center justify-between gap-3 py-2.5 text-[11px]">
-                  <span className="text-muted">{label}</span>
-                  <span className="truncate font-mono text-[10px] text-text">{value}</span>
-                </div>
-              ))}
-            </div>
-
-            {loadingRunContext && (
-              <div className="mt-5 flex items-center gap-2 text-[10.5px] text-muted">
-                <Icon name="refresh" size={11} className="animate-spin" />
-                Loading context pack…
-              </div>
-            )}
-
-            {!loadingRunContext && !contextPack && (
-              <div className="mt-5 rounded-lg border border-dashed border-border/80 px-3 py-4">
-                <p className="text-[10.5px] leading-relaxed text-muted">
-                  No context pack for this thread yet. Start a run and Bark will compile a
-                  bounded prompt with a reusable stable prefix.
-                </p>
-              </div>
-            )}
-
-            {contextPack && contextManifest && (
-              <>
-                <div className="mt-5">
-                  <SectionLabel>Context pack</SectionLabel>
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    <span
-                      className={`rounded border px-1.5 py-0.5 font-mono text-[9px] ${
-                        contextPack.reuse.reused
-                          ? "border-success/30 bg-success/10 text-success"
-                          : "border-accent/30 bg-accent-soft text-accent-text"
-                      }`}
-                    >
-                      {contextPack.reuse.reused ? "reused prefix" : "rebuilt"}
-                    </span>
-                    <span className="font-mono text-[9px] text-muted/70">
-                      {contextManifest.estimated_tokens.toLocaleString()} /{" "}
-                      {contextManifest.budget_tokens.toLocaleString()} tok
-                    </span>
-                    <span className="font-mono text-[9px] text-muted/50">
-                      {contextManifest.sections.filter((s) => s.kind === "stable").length} stable ·{" "}
-                      {contextManifest.sections.filter((s) => s.kind === "dynamic").length} dynamic
-                    </span>
-                  </div>
-                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 font-mono text-[8.5px] text-muted/50">
-                    <span>{contextPack.reuse.stable_prefix_tokens.toLocaleString()} stable tok</span>
-                    <span>{contextPack.reuse.dynamic_tokens.toLocaleString()} dynamic tok</span>
-                    {contextPack.reuse.reused && (
-                      <span className="text-success/80">
-                        {contextPack.reuse.reused_tokens?.toLocaleString() || 0} reused
-                      </span>
-                    )}
-                    <span>{contextPack.reuse.cache_hits || 0} cache hit</span>
-                  </div>
-                  <div className="mt-2 h-1 overflow-hidden rounded-full bg-surface">
-                    <div
-                      className={`h-full rounded-full ${
-                        contextPct > 90 ? "bg-warning" : "bg-accent/70"
-                      }`}
-                      style={{ width: `${Math.max(2, contextPct)}%` }}
-                    />
-                  </div>
-                  <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
-                    {contextPack.reuse.reason}
-                  </p>
-                  {contextPack.reuse.invalidations.length > 0 && (
-                    <ul className="mt-2 space-y-1 border-l border-warning/40 pl-2.5">
-                      {contextPack.reuse.invalidations.map((reason, index) => (
-                        <li key={index} className="text-[9.5px] leading-relaxed text-warning/90">
-                          {reason}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 font-mono text-[8.5px] text-muted/50">
-                    <span title={contextManifest.id}>pack {contextManifest.id.slice(0, 10)}</span>
-                    <span title={contextManifest.stable_hash}>
-                      prefix {contextManifest.stable_hash.slice(0, 10)}
-                    </span>
-                    {contextManifest.head_sha && (
-                      <span title={contextManifest.head_sha}>
-                        head {contextManifest.head_sha.slice(0, 8)}
-                      </span>
-                    )}
-                    {contextPack.reuse.resume_candidate && <span>session resume ready</span>}
-                  </div>
-                </div>
-
-                <div className="mt-5">
-                  <SectionLabel>Sections</SectionLabel>
-                  <div className="mt-2 divide-y divide-border/60 border-y border-border/60">
-                    {contextManifest.sections.map((section) => (
-                      <div
-                        key={section.id}
-                        className="flex items-center justify-between gap-3 py-2 text-[10.5px]"
-                      >
-                        <span className="min-w-0 truncate text-text">
-                          {section.title}
-                          <span className="ml-1.5 font-mono text-[8.5px] uppercase text-muted/50">
-                            {section.kind}
-                          </span>
-                        </span>
-                        <span className="shrink-0 font-mono text-[9px] text-muted/70">
-                          {section.tokens.toLocaleString()} tok
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-5">
-                  <SectionLabel>Skills attached</SectionLabel>
-                  {contextManifest.skills.length === 0 ? (
-                    <p className="mt-2 text-[10px] leading-relaxed text-muted/70">
-                      No skill matched this task.
-                    </p>
-                  ) : (
-                    <div className="mt-2 space-y-2">
-                      {contextManifest.skills.map((skill) => (
-                        <div key={skill.id} className="border-l-2 border-accent/40 pl-2.5">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[11px] font-medium text-text">{skill.name}</span>
-                            <span className="font-mono text-[8.5px] text-muted/55">
-                              {skill.reason}
-                            </span>
-                          </div>
-                          <div className="mt-0.5 font-mono text-[8.5px] text-muted/50">
-                            {skill.id} · {skill.source} · {skill.tokens.toLocaleString()} tok
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-5">
-                  <SectionLabel>Files in context</SectionLabel>
-                  {contextManifest.files.length === 0 ? (
-                    <p className="mt-2 text-[10px] text-muted/70">No file bodies selected.</p>
-                  ) : (
-                    <div className="mt-2 divide-y divide-border/60 border-y border-border/60">
-                      {contextManifest.files.map((file) => (
-                        <div key={file.path} className="py-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="min-w-0 truncate font-mono text-[9.5px] text-text">
-                              {file.path}
-                            </span>
-                            <span className="shrink-0 font-mono text-[8.5px] text-muted/55">
-                              {file.tokens.toLocaleString()} tok
-                            </span>
-                          </div>
-                          <div className="mt-0.5 font-mono text-[8.5px] text-muted/45">
-                            {file.reason}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {contextManifest.exclusions.length > 0 && (
-                  <div className="mt-5">
-                    <SectionLabel>Excluded</SectionLabel>
-                    <div className="mt-2 space-y-1.5">
-                      {contextManifest.exclusions.slice(0, 10).map((exclusion) => (
-                        <div
-                          key={`${exclusion.path}-${exclusion.reason}`}
-                          className="flex items-start justify-between gap-2 text-[9.5px]"
-                        >
-                          <span className="min-w-0 truncate font-mono text-muted/70">
-                            {exclusion.path}
-                          </span>
-                          <span className="shrink-0 text-muted/50">{exclusion.reason}</span>
-                        </div>
-                      ))}
-                      {contextManifest.exclusions.length > 10 && (
-                        <p className="text-[9px] text-muted/50">
-                          +{contextManifest.exclusions.length - 10} more omitted
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-
-            {latestRun && (
-              <div className="mt-5">
-                <SectionLabel>Latest run</SectionLabel>
-                <div className="mt-2 divide-y divide-border/60 border-y border-border/60">
-                  {[
-                    ["Run", latestRun.id],
-                    ["Status", latestRun.status],
-                    ["Provider", latestRun.provider],
-                    ["Branch", latestRun.branch || "—"],
-                    ["Worktree", latestRun.worktree?.split("/").slice(-2).join("/") || "—"],
-                    ["Diff", `${latestRun.diff_stats.files} files, +${latestRun.diff_stats.additions} −${latestRun.diff_stats.deletions}`],
-                    ["Tokens", `${latestRun.usage.input_tokens} in / ${latestRun.usage.output_tokens} out`],
-                  ].map(([label, value]) => (
-                    <div key={label} className="flex items-center justify-between gap-3 py-2 text-[10.5px]">
-                      <span className="text-muted">{label}</span>
-                      <span className="truncate font-mono text-[9.5px] text-text">{value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {card?.labels && card.labels.length > 0 && (
-              <div className="mt-5">
-                <SectionLabel>Labels</SectionLabel>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {card.labels.map((label, index) => (
-                    <span
-                      key={index}
-                      className="rounded border border-border/70 bg-surface/50 px-1.5 py-0.5 font-mono text-[9px] text-muted"
-                    >
-                      {label}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {mergeEvent && (
-              <div className="mt-5 border-t border-border/60 pt-4">
-                <SectionLabel>Merge</SectionLabel>
-                <div className="mt-2 flex items-start gap-2 text-[11px] leading-relaxed text-accent-text">
-                  <Icon name="branch" size={12} className="mt-0.5 shrink-0" />
-                  {mergeEvent.text}
-                </div>
-              </div>
-            )}
-
-            {!card && <Empty>Select a thread to see its context.</Empty>}
-          </div>
-        )}
       </div>
     </aside>
   );
 }
+

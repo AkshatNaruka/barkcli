@@ -164,6 +164,94 @@ pub struct ThreadSummary {
     /// Kept at the top of the navigator until unpinned.
     #[serde(default)]
     pub pinned: bool,
+    /// Project root directory associated with this thread (per-thread project binding).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project_root: Option<String>,
+    /// Display name of the project associated with this thread.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project_name: Option<String>,
+    /// Workspace strategy for this thread: "root", "worktree", or "scratch".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workspace_strategy: Option<String>,
+}
+
+/// Extract `(project_root, project_name, workspace_strategy)` from thread events and card labels,
+/// falling back to `fallback_root`.
+pub fn extract_thread_project_metadata(
+    card: Option<&Card>,
+    events: &[ThreadEvent],
+    fallback_root: Option<&std::path::Path>,
+) -> (Option<String>, Option<String>, Option<String>) {
+    let mut project_root: Option<String> = None;
+    let mut project_name: Option<String> = None;
+    let mut workspace_strategy: Option<String> = None;
+
+    for ev in events {
+        if let Some(data) = &ev.data {
+            if project_root.is_none() {
+                project_root = data
+                    .get("project_root")
+                    .and_then(|v| v.as_str())
+                    .filter(|s| !s.trim().is_empty())
+                    .map(|s| s.to_string());
+            }
+            if project_name.is_none() {
+                project_name = data
+                    .get("project_name")
+                    .and_then(|v| v.as_str())
+                    .filter(|s| !s.trim().is_empty())
+                    .map(|s| s.to_string());
+            }
+            if workspace_strategy.is_none() {
+                workspace_strategy = data
+                    .get("workspace_strategy")
+                    .and_then(|v| v.as_str())
+                    .filter(|s| !s.trim().is_empty())
+                    .map(|s| s.to_string());
+            }
+            if project_root.is_some() && project_name.is_some() && workspace_strategy.is_some() {
+                break;
+            }
+        }
+    }
+
+    if let Some(c) = card {
+        for label in &c.labels {
+            if project_name.is_none() {
+                if let Some(name) = label.strip_prefix("project:") {
+                    if !name.trim().is_empty() {
+                        project_name = Some(name.to_string());
+                    }
+                }
+            }
+            if workspace_strategy.is_none() {
+                if let Some(ws) = label.strip_prefix("workspace:") {
+                    if !ws.trim().is_empty() {
+                        workspace_strategy = Some(ws.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    if project_root.is_none() && workspace_strategy.as_deref() != Some("scratch") {
+        if let Some(root) = fallback_root {
+            project_root = Some(root.display().to_string());
+        }
+    }
+
+    if project_name.is_none() {
+        if workspace_strategy.as_deref() == Some("scratch") && project_root.is_none() {
+            project_name = Some("Scratch".to_string());
+        } else if let Some(ref root_str) = project_root {
+            let p = std::path::Path::new(root_str);
+            if let Some(name) = p.file_name().and_then(|n| n.to_str()) {
+                project_name = Some(name.to_string());
+            }
+        }
+    }
+
+    (project_root, project_name, workspace_strategy)
 }
 
 pub fn threads_dir() -> Result<PathBuf> {
@@ -342,6 +430,7 @@ pub fn classify_status_group(card: &Card, board_name: &str) -> String {
 pub fn list_threads(board_name: &str) -> Result<Vec<ThreadSummary>> {
     let board = read_board(board_name)?;
     let live = BoardLiveness::load(board_name);
+    let default_root = crate::storage::board_dir::find_project_root().ok();
     let mut summaries = Vec::new();
     // `doctor` flags duplicate ids, but a malformed board must not leak two
     // rows with the same React key into the navigator.
@@ -360,6 +449,8 @@ pub fn list_threads(board_name: &str) -> Result<Vec<ThreadSummary>> {
                 .find(|l| l.starts_with("agent:"))
                 .map(|l| l.trim_start_matches("agent:").to_string())
         });
+        let (project_root, project_name, workspace_strategy) =
+            extract_thread_project_metadata(Some(card), &events, default_root.as_deref());
         summaries.push(ThreadSummary {
             id: card.id.clone(),
             title: card.title.clone(),
@@ -374,9 +465,19 @@ pub fn list_threads(board_name: &str) -> Result<Vec<ThreadSummary>> {
                 .map(|t| t.to_rfc3339())
                 .or_else(|| Some(card.updated_at.to_rfc3339())),
             pinned: card.pinned,
+            project_root,
+            project_name,
+            workspace_strategy,
         });
     }
 
+    sort_thread_summaries(&mut summaries);
+
+    Ok(summaries)
+}
+
+/// Sort thread summaries cleanly by pinned status, status priority, and updated_at.
+pub fn sort_thread_summaries(summaries: &mut [ThreadSummary]) {
     summaries.sort_by(|a, b| {
         let prio = |sg: &str| match sg {
             "needs_you" => 0,
@@ -391,7 +492,78 @@ pub fn list_threads(board_name: &str) -> Result<Vec<ThreadSummary>> {
             .then_with(|| prio(&a.status_group).cmp(&prio(&b.status_group)))
             .then_with(|| b.updated_at.cmp(&a.updated_at))
     });
+}
 
+/// List threads stored inside a specific `project_root` directory across its `.board` files.
+pub fn list_threads_in_project(project_root: &std::path::Path) -> Result<Vec<ThreadSummary>> {
+    let mut board_paths = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(project_root) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) == Some("board") {
+                board_paths.push(path);
+            }
+        }
+    }
+    board_paths.sort();
+    let threads_dir = project_root.join(".board").join("threads");
+    let mut summaries = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    for bp in board_paths {
+        let Ok(content) = std::fs::read_to_string(&bp) else {
+            continue;
+        };
+        let Ok(board) = serde_yaml::from_str::<crate::models::Board>(&content) else {
+            continue;
+        };
+        for card in &board.cards {
+            if !seen.insert(card.id.clone()) {
+                continue;
+            }
+            let events = read_events_from_dir(&threads_dir, &card.id).unwrap_or_default();
+            let last_event = events.last().cloned();
+            let count = events.len();
+            let col = card.column.to_lowercase();
+            let status_group = if col == "done" {
+                "settled".to_string()
+            } else if col == "doing" {
+                let age = Utc::now().signed_duration_since(card.updated_at);
+                if age < Duration::minutes(crate::agent::liveness::STALL_AFTER_MINUTES) {
+                    "running".to_string()
+                } else {
+                    "stalled".to_string()
+                }
+            } else {
+                "features".to_string()
+            };
+            let backend = card.assignee.clone().or_else(|| {
+                card.labels
+                    .iter()
+                    .find(|l| l.starts_with("agent:"))
+                    .map(|l| l.trim_start_matches("agent:").to_string())
+            });
+            let (project_root_str, project_name, workspace_strategy) =
+                extract_thread_project_metadata(Some(card), &events, Some(project_root));
+            summaries.push(ThreadSummary {
+                id: card.id.clone(),
+                title: card.title.clone(),
+                status_group,
+                event_count: count,
+                last_event,
+                updated_at: card.updated_at.to_rfc3339(),
+                column: card.column.clone(),
+                backend,
+                last_seen: Some(card.updated_at.to_rfc3339()),
+                pinned: card.pinned,
+                project_root: project_root_str,
+                project_name,
+                workspace_strategy,
+            });
+        }
+    }
+
+    sort_thread_summaries(&mut summaries);
     Ok(summaries)
 }
 

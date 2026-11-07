@@ -34,15 +34,16 @@ import {
   mergeRun,
   openInEditor,
 } from "../lib/api";
-import { notify as desktopNotify } from "../lib/desktop";
+import { notify as desktopNotify, revealProject } from "../lib/desktop";
 import { activeChatTurn, useComposerMode } from "../lib/composer";
 import { Icon } from "../components/Icon";
 import { relativeTime, formatElapsed } from "../lib/threads";
 import { isDemoMode } from "../lib/demo";
-import { navigate } from "../lib/hashnav";
+import { navigate, updateRouteState } from "../lib/hashnav";
 import { ThreadComposer } from "./ThreadComposer";
 import { AssistantMessageCard, LiveAgentWorkingBubble, useElapsedSeconds } from "./AssistantMessageCard";
 import { StepExplorer } from "./StepExplorer";
+import { DiffSummaryCard } from "./DiffSummaryCard";
 import { QueuedMessagesPanel, type QueuedMessage } from "./QueuedMessagesPanel";
 import { CodeBlock } from "./CodeBlock";
 import { ExecutionTimeline } from "../components/ExecutionTimeline";
@@ -541,15 +542,17 @@ export function ThreadPane({
       if (latestRun) void handleVerifyRun(latestRun);
       else setActionStatus("No active run to verify yet. Start a build first.");
     } else if (action === "diff") {
-      if (onOpenInspector) {
-        onOpenInspector();
-        window.dispatchEvent(new CustomEvent("bark-open-inspector-tab", { detail: "diff" }));
-      } else {
-        navigate("operations", { tool: "diff" });
-      }
+      if (!inspectorOpen) onOpenInspector?.();
+      updateRouteState({ panel: "changes" });
+    } else if (action === "context") {
+      if (!inspectorOpen) onOpenInspector?.();
+      updateRouteState({ panel: "context" });
     } else if (action === "review") {
       if (onReview) onReview();
-      else navigate("operations", { tool: "review" });
+      else {
+        if (!inspectorOpen) onOpenInspector?.();
+        updateRouteState({ panel: "changes" });
+      }
     } else if (action === "help") {
       setActionStatus(
         "Available slash commands: /build, /plan, /ask, /claude, /opencode, /codex, /agent, /tdd, /mvp, /review, /security, /refactor, /skills, /gate, /diff, /context, /doctor, /clear, /help"
@@ -655,16 +658,13 @@ export function ThreadPane({
         return;
       } else if (commandName === "/diff") {
         setInput("");
-        if (onOpenInspector) {
-          onOpenInspector();
-          window.dispatchEvent(new CustomEvent("bark-open-inspector-tab", { detail: "diff" }));
-        } else {
-          navigate("operations", { tool: "diff" });
-        }
+        if (!inspectorOpen) onOpenInspector?.();
+        updateRouteState({ panel: "changes" });
         return;
       } else if (commandName === "/context" || commandName === "/digest") {
         setInput("");
-        navigate("operations", { tool: "context" });
+        if (!inspectorOpen) onOpenInspector?.();
+        updateRouteState({ panel: "context" });
         return;
       } else if (commandName === "/doctor") {
         setInput("");
@@ -676,7 +676,10 @@ export function ThreadPane({
       } else if (commandName === "/review") {
         setInput("");
         if (onReview) onReview();
-        else navigate("operations", { tool: "review" });
+        else {
+          if (!inspectorOpen) onOpenInspector?.();
+          updateRouteState({ panel: "changes" });
+        }
         return;
       } else if (commandName === "/help") {
         setInput("");
@@ -738,12 +741,17 @@ export function ThreadPane({
         refreshInboxRef.current?.();
         return;
       }
+      setChatBusy(true);
       const event = await postThreadMessage(threadId, text, {
         author: "you",
         backend, model: model.trim() || undefined, mode: "plan_first",
         board: boardName,
       });
-      if (!event) { setActionStatus("Could not prepare the plan. Your draft is saved; check the server and retry."); return; }
+      if (!event) {
+        setChatBusy(false);
+        setActionStatus("Could not prepare the plan. Your draft is saved; check the server and retry.");
+        return;
+      }
       setInput("");
       const refreshed = await fetchThread(threadId, boardName);
       if (refreshed) setThread(refreshed);
@@ -754,6 +762,7 @@ export function ThreadPane({
           return { ...prev, events: [...prev.events, event] };
         });
       }
+      setChatBusy(false);
       refreshInboxRef.current?.();
     } catch (error) {
       setInput(text);
@@ -949,6 +958,7 @@ export function ThreadPane({
 
   const handleApprovePlan = async () => {
     const plan = [...(thread?.events || [])].reverse().find((event) => event.kind === "plan_proposed");
+    setChatMode("build");
     if (plan) await handleStartRun(undefined, plan.id);
   };
 
@@ -1012,7 +1022,17 @@ export function ThreadPane({
             <Icon name="panel" size={15} />
           </button>
           <div className="thread-breadcrumb">
-            <span className="thread-crumb-project">{project?.name || "barkcli"}</span>
+            <span
+              className="thread-crumb-project"
+              title={thread?.project_root || project?.root || undefined}
+            >
+              {thread?.project_name || project?.name || "barkcli"}
+            </span>
+            {thread?.workspace_strategy === "worktree" && (
+              <span className="ml-1 rounded border border-border/70 bg-surface/60 px-1 py-0.2 font-mono text-[9.5px] text-muted">
+                worktree
+              </span>
+            )}
             <Icon name="chevR" size={11} className="thread-crumb-sep" />
             <span className="thread-crumb-title" title={card?.title || threadId}>
               {card?.title || threadId}
@@ -1028,7 +1048,7 @@ export function ThreadPane({
         </div>
 
         <div className="thread-header-actions" role="toolbar" aria-label="Thread actions">
-          {/* Thread Changes Pill (t3.codes style) */}
+          {/* Thread Changes Pill */}
           {onReview && (
             <button
               type="button"
@@ -1051,58 +1071,71 @@ export function ThreadPane({
             </button>
           )}
 
-          {/* Thread Git Workflow Dropdown (t3.codes style) */}
+          {/* Thread Workspace & Git Popover */}
           <div className="thread-action-git relative">
             <button
               type="button"
               onClick={() => setGitMenuOpen((prev) => !prev)}
               aria-label="Git workflow options"
-              title="Git worktree & branch workflow"
-              className="flex h-7 items-center gap-1.5 px-2 rounded-lg border border-border/80 bg-surface/70 hover:bg-surface text-text text-[11.5px] font-medium transition-colors"
+              title="Project & Git workflow"
+              className={`flex h-7 items-center gap-1.5 rounded-lg border px-2 text-[11.5px] font-medium transition-colors ${
+                gitMenuOpen
+                  ? "border-border-strong bg-surface text-text"
+                  : "border-border/80 bg-surface/70 text-text hover:bg-surface"
+              }`}
             >
-              <Icon name="branch" size={12} className="text-accent" />
-              <span className="font-mono text-[11px] max-w-[100px] truncate">
-                {card?.id || threadId}
+              <Icon name="sliders" size={12} className="text-muted-strong" />
+              <span className="max-w-[100px] truncate font-mono text-[11px]">
+                {latestRun?.branch || "master"}
               </span>
               <Icon name="chevDown" size={10} className="text-muted/60" />
             </button>
             {gitMenuOpen && (
               <div
-                className="absolute right-0 top-8 z-50 w-52 rounded-lg border border-border bg-card p-1 shadow-xl text-xs"
+                className="absolute right-0 top-8 z-50 w-60 rounded-xl border border-border/90 bg-card/98 p-1.5 text-[12px] shadow-2xl backdrop-blur-md"
                 onClick={() => setGitMenuOpen(false)}
               >
+                {/* Row 1: Local Machine + Reveal in Finder */}
+                <div className="flex items-center justify-between rounded-lg px-2.5 py-1.5 text-text">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Icon name="terminal" size={13} className="shrink-0 text-muted" />
+                    <span className="truncate font-medium">
+                      {thread?.project_name || project?.name
+                        ? `${thread?.project_name || project?.name} · Local`
+                        : "MacBook Pro"}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setGitMenuOpen(false);
+                      void revealProject(thread?.project_root || project?.root || ".");
+                    }}
+                    title="Reveal project in Finder"
+                    aria-label="Reveal project in Finder"
+                    className="flex h-6 w-6 items-center justify-center rounded-md border border-border/70 bg-surface/60 text-muted hover:text-text"
+                  >
+                    <Icon name="folder" size={12} />
+                  </button>
+                </div>
+
+                {/* Row 2: Open in VS Code / Editor */}
                 <button
                   type="button"
                   onClick={() => {
-                    const msg = prompt("Commit message:", `feat(${card?.id || threadId}): update`);
-                    if (msg) void gitCommit(msg, [], card?.id || threadId || undefined);
+                    void openInEditor(thread?.project_root || project?.root || ".", undefined, latestRun?.id);
                   }}
-                  className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left text-muted-strong hover:bg-surface hover:text-text transition-colors"
+                  className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-muted-strong transition-colors hover:bg-surface hover:text-text"
                 >
-                  <Icon name="check" size={12} />
-                  <span>Commit changes…</span>
+                  <span className="flex items-center gap-2">
+                    <Icon name="code" size={13} className="text-accent" />
+                    <span>Open in VS Code</span>
+                  </span>
+                  <Icon name="chevDown" size={11} className="text-muted/60" />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (latestRun?.id) void mergeRun(latestRun.id, true);
-                  }}
-                  className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left text-muted-strong hover:bg-surface hover:text-text transition-colors"
-                >
-                  <Icon name="cycle" size={12} />
-                  <span>Merge worktree to main</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (latestRun) void handleVerifyRun(latestRun);
-                  }}
-                  className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left text-muted-strong hover:bg-surface hover:text-text transition-colors"
-                >
-                  <Icon name="pulse" size={12} />
-                  <span>Run acceptance gate</span>
-                </button>
-                <div className="my-1 border-t border-border/50" />
+
+                {/* Row 3: Add / Run project script */}
                 <button
                   type="button"
                   onClick={() => {
@@ -1110,10 +1143,65 @@ export function ThreadPane({
                       new CustomEvent("bark-command", { detail: "open-terminal" })
                     );
                   }}
-                  className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left text-muted-strong hover:bg-surface hover:text-text transition-colors"
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-muted-strong transition-colors hover:bg-surface hover:text-text"
                 >
-                  <Icon name="terminal" size={12} />
-                  <span>Open terminal in worktree</span>
+                  <Icon name="plus" size={13} className="text-muted" />
+                  <span>Add project script</span>
+                </button>
+
+                <div className="my-1 border-t border-border/60" />
+
+                {/* Row 4: Active Git Branch */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (latestRun?.id) void mergeRun(latestRun.id, true);
+                  }}
+                  className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-muted-strong transition-colors hover:bg-surface hover:text-text"
+                >
+                  <span className="flex items-center gap-2 font-mono text-[11.5px]">
+                    <Icon name="branch" size={13} className="text-muted" />
+                    <span className="truncate">{latestRun?.branch || "master"}</span>
+                  </span>
+                  <Icon name="chevDown" size={11} className="text-muted/60" />
+                </button>
+
+                {/* Row 5: Commit & push */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const msg = prompt("Commit message:", `feat(${card?.id || threadId}): update`);
+                    if (msg) void gitCommit(msg, [], card?.id || threadId || undefined);
+                  }}
+                  className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-muted-strong transition-colors hover:bg-surface hover:text-text"
+                >
+                  <span className="flex items-center gap-2">
+                    <Icon name="arrowUp" size={13} className="text-muted" />
+                    <span>Commit &amp; push</span>
+                  </span>
+                  <Icon name="chevDown" size={11} className="text-muted/60" />
+                </button>
+
+                {/* Row 6: Changes +additions -deletions */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onReview?.();
+                  }}
+                  className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-muted-strong transition-colors hover:bg-surface hover:text-text"
+                >
+                  <span className="flex items-center gap-2">
+                    <Icon name="filePlus" size={13} className="text-muted" />
+                    <span>Changes</span>
+                  </span>
+                  <span className="flex items-center gap-1.5 font-mono text-[11px]">
+                    <span className="font-semibold text-emerald-400">
+                      +{latestRun?.diff_stats?.additions ?? 0}
+                    </span>
+                    <span className="font-semibold text-rose-400">
+                      -{latestRun?.diff_stats?.deletions ?? 0}
+                    </span>
+                  </span>
                 </button>
               </div>
             )}
@@ -1599,6 +1687,16 @@ export function ThreadPane({
                         <div className="mt-3.5 flex items-center justify-end gap-2">
                           <button
                             type="button"
+                            onClick={() => {
+                              if (!inspectorOpen) onOpenInspector?.();
+                              updateRouteState({ panel: "plan" });
+                            }}
+                            className="h-8 rounded-lg border border-border bg-surface/60 hover:bg-surface px-3 text-[12px] font-medium text-muted-strong hover:text-text transition-colors cursor-pointer"
+                          >
+                            Inspect Plan
+                          </button>
+                          <button
+                            type="button"
                             onClick={handleApprovePlan}
                             disabled={startingRun || !agent.ready || Boolean(activeRun)}
                             className="h-8 rounded-lg bg-white hover:bg-zinc-200 px-4 text-[12px] font-semibold text-black transition-all disabled:opacity-40 shadow-xs cursor-pointer"
@@ -1663,6 +1761,20 @@ export function ThreadPane({
             </div>
           )}
 
+          {!loading && !loadError && latestRun && !activeRun && (latestRun.diff_stats?.files ?? 0) > 0 && (
+            <DiffSummaryCard
+              run={latestRun}
+              onOpenDiff={() => {
+                if (onReview) onReview();
+                else {
+                  if (!inspectorOpen) onOpenInspector?.();
+                  updateRouteState({ panel: "changes" });
+                }
+              }}
+              onCopy={(text) => handleCopyText(`diff-${latestRun.id}`, text)}
+            />
+          )}
+
           {!loading && !loadError && (latestRun || activityEvents.length > 0 || chatBusy || activeRun) && (() => {
             const stepCount = activityEvents.filter(
               (e) => e.kind === "tool_call" || e.kind === "file_change" || e.kind === "gate"
@@ -1714,7 +1826,9 @@ export function ThreadPane({
                           events={activityEvents}
                           intent={thread?.card?.title || ""}
                           onOpenFile={(path, line) => {
-                            void openInEditor(path, line);
+                            if (!inspectorOpen) onOpenInspector?.();
+                            updateRouteState({ panel: "changes", file: path });
+                            if (line != null) void openInEditor(path, line);
                           }}
                         />
                       </section>

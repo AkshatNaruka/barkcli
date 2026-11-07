@@ -115,10 +115,17 @@ h1, h2, h3 {
 
 /* Keyboard-first: focus must always be visible (DESIGN.md §4)
    Soft accent edge instead of a hard bright frame — still unmistakable. */
-:focus-visible {
-  outline: 1.5px solid color-mix(in srgb, var(--accent) 75%, transparent);
+:focus-visible:not(input):not(textarea) {
+  outline: 1.5px solid color-mix(in srgb, var(--accent) 55%, transparent);
   outline-offset: 1px;
   border-radius: 6px;
+}
+
+input:focus,
+input:focus-visible,
+textarea:focus,
+textarea:focus-visible {
+  outline: none;
 }
 
 /* Multi-layer dialog shadow for palette + drawers (DESIGN.md §4) */
@@ -289,11 +296,7 @@ select option { background: var(--card); color: var(--text); }
   .text-\[10px\], .text-\[10\.5px\] { font-size: 11px; }
 }
 
-/* ── Accessibility: focus + reduced motion ── */
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
+/* ── Accessibility: reduced motion ── */
 
 @media (prefers-reduced-motion: reduce) {
   *,

@@ -61,6 +61,32 @@ describe("ThreadList", () => {
     render(<ThreadList boardName="dev" />);
     await screen.findByText("Integration tests");
     await user.type(screen.getByRole("textbox", { name: "Search threads" }), "history");
+    await waitFor(() => expect(screen.queryByText("Integration tests") ).not.toBeInTheDocument());
+    expect(screen.getByText("History logging")).toBeInTheDocument();
+  });
+
+  it("displays per-thread project badges and filters across projects", async () => {
+    fetchThreads.mockResolvedValueOnce([
+      {
+        ...threads[0],
+        project_name: "barkcli",
+        project_root: "/Users/dev/barkcli",
+        workspace_strategy: "root",
+      },
+      {
+        ...threads[1],
+        project_name: "acme-web",
+        project_root: "/Users/dev/acme-web",
+        workspace_strategy: "worktree",
+      },
+    ]);
+    const user = userEvent.setup();
+    render(<ThreadList boardName="dev" />);
+    expect(await screen.findByText("Integration tests")).toBeInTheDocument();
+    expect(screen.getByText("worktree")).toBeInTheDocument();
+    const filterGroup = screen.getByRole("group", { name: "Filter threads by project" });
+    expect(filterGroup).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "acme-web" }));
     await waitFor(() => expect(screen.queryByText("Integration tests")).not.toBeInTheDocument());
     expect(screen.getByText("History logging")).toBeInTheDocument();
   });

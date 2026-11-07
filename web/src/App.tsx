@@ -296,15 +296,23 @@ export function App() {
     return initial.route === "chat" && Boolean(initial.panel);
   });
   const toggleInspector = useCallback(() => {
-    setInspectorOpen((open) => !open);
+    setInspectorOpen((open) => {
+      const next = !open;
+      if (!next && parseRouteState(window.location.hash).panel) {
+        updateRouteState({ panel: undefined, file: undefined });
+      }
+      return next;
+    });
   }, []);
   useEffect(() => {
     if (route !== "chat") {
       setInspectorOpen(false);
       return;
     }
-    setInspectorOpen(Boolean(location.panel));
-  }, [route, location.thread, location.panel]);
+    if (location.panel) {
+      setInspectorOpen(true);
+    }
+  }, [route, location.panel]);
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const boardRef = useRef(board);
   boardRef.current = board;

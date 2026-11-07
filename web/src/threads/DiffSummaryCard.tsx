@@ -1,17 +1,18 @@
+import { useState } from "react";
 import type { RunRecord } from "../lib/types";
 import { Icon } from "../components/Icon";
 
 function groupByDir(files: string[]): Array<{ dir: string; files: string[] }> {
   if (files.length === 0) return [];
-  const parts = files.map((f) => f.split("/"));
-  let prefix = parts[0].slice(0, -1);
-  for (const p of parts.slice(1)) {
-    let i = 0;
-    while (i < prefix.length && i < p.length - 1 && prefix[i] === p[i]) i++;
-    prefix = prefix.slice(0, i);
+  const map = new Map<string, string[]>();
+  for (const f of files) {
+    const parts = f.split("/");
+    const dir = parts.length > 2 ? parts.slice(0, 2).join("/") : parts.slice(0, -1).join("/") || ".";
+    const existing = map.get(dir) || [];
+    existing.push(f);
+    map.set(dir, existing);
   }
-  const dir = prefix.join("/") || ".";
-  return [{ dir, files }];
+  return Array.from(map.entries()).map(([dir, list]) => ({ dir, files: list }));
 }
 
 export function DiffSummaryCard({
@@ -28,39 +29,102 @@ export function DiffSummaryCard({
   const adds = run.diff_stats?.additions ?? 0;
   const dels = run.diff_stats?.deletions ?? 0;
   const groups = groupByDir(run.files_touched || []);
+  const [collapsedDirs, setCollapsedDirs] = useState<Record<string, boolean>>({});
   const time = run.ended_at
     ? new Date(run.ended_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
     : null;
   return (
-    <section className="my-2 rounded-lg border border-border/70 bg-surface/25 p-3" aria-label="Changed files summary">
+    <section
+      className="my-2 rounded-xl border border-border/80 bg-surface/25 p-3"
+      aria-label="Changed files summary"
+    >
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-[13px]">
-          <span className="font-medium text-text">{files} changed file{files === 1 ? "" : "s"}</span>
-          <span className="font-mono text-[12px] text-success">+{adds}</span>
-          <span className="font-mono text-[12px] text-danger">−{dels}</span>
+        <div className="flex items-center gap-2 text-[12.5px]">
+          <span className="font-semibold text-text">
+            {files} changed file{files === 1 ? "" : "s"}
+          </span>
+          <span className="font-mono text-[11.5px] font-semibold text-emerald-400">+{adds}</span>
+          <span className="font-mono text-[11.5px] font-semibold text-rose-400">−{dels}</span>
         </div>
-        <button type="button" onClick={onOpenDiff} className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] text-muted hover:bg-white/[0.04] hover:text-text">
-          <Icon name="doc" size={12} />
+        <button
+          type="button"
+          onClick={onOpenDiff}
+          className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/60 px-2 py-0.5 text-[11px] font-medium text-muted-strong transition-colors hover:bg-surface hover:text-text"
+        >
+          <Icon name="doc" size={11} />
           Open diff
         </button>
       </div>
       {groups.length > 0 && (
-        <div className="mt-2 space-y-1">
-          {groups.map((g) => (
-            <div key={g.dir} className="flex items-center justify-between gap-2 rounded-md bg-white/[0.03] px-2 py-1.5 font-mono text-[11.5px] text-muted-strong">
-              <span className="truncate"><span className="text-muted">▸ </span>{g.dir}</span>
-              <span className="shrink-0 text-[11px]"><span className="text-success">+{adds}</span> <span className="text-danger">−{dels}</span></span>
-            </div>
-          ))}
+        <div className="mt-2.5 space-y-1">
+          {groups.map((g) => {
+            const isCollapsed = Boolean(collapsedDirs[g.dir]);
+            return (
+              <div key={g.dir} className="rounded-lg border border-border/50 bg-white/[0.02]">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCollapsedDirs((prev) => ({ ...prev, [g.dir]: !prev[g.dir] }))
+                  }
+                  className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left font-mono text-[11.5px] text-muted-strong hover:text-text"
+                >
+                  <span className="flex min-w-0 items-center gap-1.5 truncate">
+                    <span className="text-[10px] text-muted">{isCollapsed ? "▸" : "▾"}</span>
+                    <Icon name="folder" size={12} className="shrink-0 text-muted" />
+                    <span className="truncate">{g.dir}</span>
+                  </span>
+                  <span className="shrink-0 text-[10.5px] text-muted">
+                    {g.files.length} file{g.files.length === 1 ? "" : "s"}
+                  </span>
+                </button>
+                {!isCollapsed && (
+                  <div className="border-t border-border/40 px-3 py-1 space-y-0.5">
+                    {g.files.map((filePath) => {
+                      const rel = filePath.startsWith(`${g.dir}/`)
+                        ? filePath.slice(g.dir.length + 1)
+                        : filePath;
+                      return (
+                        <button
+                          key={filePath}
+                          type="button"
+                          onClick={onOpenDiff}
+                          className="flex w-full items-center justify-between gap-2 rounded px-1.5 py-1 text-left font-mono text-[11px] text-muted transition-colors hover:bg-white/[0.04] hover:text-text"
+                        >
+                          <span className="flex min-w-0 items-center gap-1.5 truncate">
+                            <Icon name="doc" size={11} className="shrink-0 text-muted/70" />
+                            <span className="truncate">{rel}</span>
+                          </span>
+                          <span className="shrink-0 text-[10.5px]">
+                            <span className="text-emerald-400">+{Math.max(1, Math.round(adds / Math.max(1, files)))}</span>{" "}
+                            <span className="text-rose-400">−{Math.round(dels / Math.max(1, files))}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
       <div className="mt-2 flex items-center gap-2 text-[10.5px] text-muted">
         {onCopy && (
-          <button type="button" className="hover:text-text" onClick={() => onCopy(`+${adds} -${dels} in ${files} files`)} title="Copy summary">
+          <button
+            type="button"
+            className="hover:text-text"
+            onClick={() => onCopy(`+${adds} -${dels} in ${files} files`)}
+            title="Copy summary"
+          >
             <Icon name="copy" size={11} />
           </button>
         )}
-        {run.branch ? <span className="truncate font-mono" title={run.branch}><Icon name="branch" size={11} className="inline mr-1 opacity-70" />{run.branch}</span> : null}
+        {run.branch ? (
+          <span className="truncate font-mono" title={run.branch}>
+            <Icon name="branch" size={11} className="mr-1 inline opacity-70" />
+            {run.branch}
+          </span>
+        ) : null}
         {time ? <span className="ml-auto">{time}</span> : null}
       </div>
     </section>

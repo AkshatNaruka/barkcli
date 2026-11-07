@@ -328,6 +328,12 @@ export interface ThreadSummary {
   last_seen?: string;
   /** Kept at the top of the navigator until unpinned. */
   pinned?: boolean;
+  /** Bound project root path for this thread (per-thread project binding). */
+  project_root?: string | null;
+  /** Bound project display name for this thread. */
+  project_name?: string;
+  /** Workspace strategy for this thread: "root", "worktree", or "scratch". */
+  workspace_strategy?: "root" | "worktree" | "scratch" | string;
 }
 
 export interface ThreadDetail {
@@ -335,6 +341,9 @@ export interface ThreadDetail {
   card?: Card;
   events: ThreadEvent[];
   runs?: RunRecord[];
+  project_root?: string;
+  project_name?: string;
+  workspace_strategy?: "root" | "worktree" | "scratch" | string;
 }
 
 export type RunStatus =

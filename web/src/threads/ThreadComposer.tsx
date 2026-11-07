@@ -1,7 +1,7 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Icon } from "../components/Icon";
 import type { AgentSelection } from "../lib/useAgentSelection";
-import { navigate } from "../lib/hashnav";
+import { navigate, updateRouteState } from "../lib/hashnav";
 import { AgentPicker } from "./AgentPicker";
 import type { ComposerMode } from "../lib/composer";
 import { SelectMenu } from "../components/SelectMenu";
@@ -20,6 +20,17 @@ const SUGGESTIONS: Record<ComposerMode, string[]> = {
   ask: ["Explain project architecture", "Where are runs stored?", "How do gates work?"],
 };
 
+export interface ComposerProjectOption {
+  value: string;
+  label: string;
+  hint?: string;
+}
+
+const WORKSPACE_STRATEGIES = [
+  { value: "root", label: "Project root", hint: "Bind thread directly to the project directory" },
+  { value: "worktree", label: "Worktree", hint: "Isolate agent changes in a dedicated git worktree" },
+];
+
 export function ThreadComposer({
   value,
   onChange,
@@ -34,6 +45,11 @@ export function ThreadComposer({
   error,
   autoFocus = false,
   onAction,
+  projectOptions,
+  selectedProject,
+  onProjectChange,
+  workspaceStrategy,
+  onWorkspaceStrategyChange,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -48,6 +64,11 @@ export function ThreadComposer({
   error?: string | null;
   autoFocus?: boolean;
   onAction?: (action: string) => void;
+  projectOptions?: ComposerProjectOption[];
+  selectedProject?: string;
+  onProjectChange?: (value: string) => void;
+  workspaceStrategy?: "root" | "worktree" | "scratch";
+  onWorkspaceStrategyChange?: (value: "root" | "worktree" | "scratch") => void;
 }) {
   const id = useId();
   const textarea = useRef<HTMLTextAreaElement>(null);
@@ -105,7 +126,8 @@ export function ThreadComposer({
         navigate("operations", { tool: "skills" });
       } else if (cmd.payload === "context") {
         onChange("");
-        navigate("operations", { tool: "context" });
+        onAction?.("context");
+        updateRouteState({ panel: "context" });
       } else if (cmd.payload === "doctor") {
         onChange("");
         navigate("operations", { tool: "doctor" });
@@ -236,9 +258,38 @@ export function ThreadComposer({
           />
           <AgentPicker agent={agent} mode={mode} />
 
+          {projectOptions && projectOptions.length > 0 && onProjectChange && (
+            <SelectMenu
+              className="composer-project-select"
+              value={selectedProject ?? ""}
+              options={projectOptions}
+              ariaLabel="Thread project"
+              disabled={busy}
+              onChange={(val) => onProjectChange(val)}
+            />
+          )}
+
+          {workspaceStrategy &&
+            selectedProject !== "__scratch__" &&
+            onWorkspaceStrategyChange && (
+              <SelectMenu
+                className="composer-workspace-select"
+                value={workspaceStrategy === "scratch" ? "root" : workspaceStrategy}
+                options={WORKSPACE_STRATEGIES}
+                ariaLabel="Workspace strategy"
+                disabled={busy}
+                onChange={(val) =>
+                  onWorkspaceStrategyChange(val as "root" | "worktree" | "scratch")
+                }
+              />
+            )}
+
           <button
             type="button"
-            onClick={() => navigate("operations", { tool: "context" })}
+            onClick={() => {
+              onAction?.("context");
+              updateRouteState({ panel: "context" });
+            }}
             className="hidden sm:inline-flex items-center gap-1 rounded px-1.5 py-1 text-[10.5px] text-muted/60 hover:text-muted hover:bg-surface/40 transition-colors"
             title="Inspect project context pack and active rules (AGENTS.md)"
             aria-label="Context Primed"

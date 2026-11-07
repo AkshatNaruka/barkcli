@@ -1914,7 +1914,7 @@ fn estimate_model_rates(model: &str) -> (f64, f64, f64) {
 }
 
 /// Global token consumption, cache savings, model breakdowns, and estimated
-/// API-equivalent cost across all agent runs (t3.codes-style usage).
+/// API-equivalent cost across all agent runs.
 async fn usage_handler(
     Query(query): Query<UsageQuery>,
 ) -> Result<Json<UsageResponse>, ServerError> {
@@ -5539,15 +5539,74 @@ struct CreateThreadRequest {
     model: Option<String>,
     mode: Option<String>,
     board: Option<String>,
+    #[serde(default)]
+    project_root: Option<String>,
+    #[serde(default)]
+    project_name: Option<String>,
+    #[serde(default)]
+    workspace_strategy: Option<String>,
+}
+
+/// Read recent project paths saved by the desktop shell (`~/Library/Application Support/barkcli/app.json`).
+fn read_desktop_recent_project_roots() -> Vec<std::path::PathBuf> {
+    let mut roots = Vec::new();
+    let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) else {
+        return roots;
+    };
+    let candidates = [
+        home.join("Library")
+            .join("Application Support")
+            .join("barkcli")
+            .join("app.json"),
+        home.join(".config").join("barkcli").join("app.json"),
+    ];
+    for candidate in candidates {
+        if let Ok(content) = std::fs::read_to_string(&candidate) {
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(recent) = json.get("recent").and_then(|v| v.as_array()) {
+                    for entry in recent {
+                        if let Some(p) = entry.get("path").and_then(|v| v.as_str()) {
+                            let pb = std::path::PathBuf::from(p);
+                            if pb.is_dir() && !roots.contains(&pb) {
+                                roots.push(pb);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    roots
 }
 
 async fn list_threads_handler(
     State(state): State<Arc<AppState>>,
     Query(params): Query<BoardQuery>,
 ) -> Result<Json<serde_json::Value>, ServerError> {
+    let explicit_board = params.name.is_some();
     let board_name = resolve_board_name(&state, params.name)?;
-    let summaries = barkcli_core::threads::list_threads(&board_name)
+    let mut summaries = barkcli_core::threads::list_threads(&board_name)
         .map_err(|e| ServerError::internal(e.to_string()))?;
+
+    if !explicit_board {
+        let current_root = project_root_or_cwd();
+        let mut seen: std::collections::HashSet<String> =
+            summaries.iter().map(|s| s.id.clone()).collect();
+        for recent_root in read_desktop_recent_project_roots() {
+            if recent_root == current_root {
+                continue;
+            }
+            if let Ok(other_threads) = barkcli_core::threads::list_threads_in_project(&recent_root) {
+                for ts in other_threads {
+                    if seen.insert(ts.id.clone()) {
+                        summaries.push(ts);
+                    }
+                }
+            }
+        }
+        barkcli_core::threads::sort_thread_summaries(&mut summaries);
+    }
+
     Ok(Json(serde_json::to_value(&summaries).unwrap_or(serde_json::json!([]))))
 }
 
@@ -5558,14 +5617,52 @@ async fn get_thread_handler(
 ) -> Result<Json<serde_json::Value>, ServerError> {
     let board_name = resolve_board_name(&state, params.name)?;
     let board = read_board(&board_name).map_err(|e| ServerError::internal(e.to_string()))?;
-    let card = board.cards.into_iter().find(|c| c.id == card_id);
+    let mut card = board.cards.into_iter().find(|c| c.id == card_id);
+    let mut fallback_root = Some(project_root_or_cwd());
+
     let events = if let Some(ref c) = card {
         barkcli_core::threads::load_or_init_thread(&board_name, c)
             .map_err(|e| ServerError::internal(e.to_string()))?
     } else {
-        barkcli_core::threads::read_events(&card_id)
-            .map_err(|e| ServerError::internal(e.to_string()))?
+        let mut found_events = barkcli_core::threads::read_events(&card_id).unwrap_or_default();
+        if found_events.is_empty() {
+            for recent_root in read_desktop_recent_project_roots() {
+                if let Ok(entries) = std::fs::read_dir(&recent_root) {
+                    for entry in entries.flatten() {
+                        let path = entry.path();
+                        if path.extension().and_then(|e| e.to_str()) == Some("board") {
+                            if let Ok(content) = std::fs::read_to_string(&path) {
+                                if let Ok(other_board) = serde_yaml::from_str::<Board>(&content) {
+                                    if let Some(other_card) =
+                                        other_board.cards.into_iter().find(|c| c.id == card_id)
+                                    {
+                                        card = Some(other_card);
+                                        fallback_root = Some(recent_root.clone());
+                                        let tdir = recent_root.join(".board").join("threads");
+                                        found_events = barkcli_core::threads::read_events_from_dir(
+                                            &tdir, &card_id,
+                                        )
+                                        .unwrap_or_default();
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if card.is_some() {
+                    break;
+                }
+            }
+        }
+        found_events
     };
+    let (project_root, project_name, workspace_strategy) =
+        barkcli_core::threads::extract_thread_project_metadata(
+            card.as_ref(),
+            &events,
+            fallback_root.as_deref(),
+        );
     let runs = barkcli_core::runtime::RuntimeStore::from_project()
         .and_then(|store| store.list_runs(Some(&card_id)))
         .unwrap_or_default();
@@ -5574,6 +5671,9 @@ async fn get_thread_handler(
         "card": card,
         "events": events,
         "runs": runs,
+        "project_root": project_root,
+        "project_name": project_name,
+        "workspace_strategy": workspace_strategy,
     })))
 }
 
@@ -7545,7 +7645,22 @@ async fn chat_thread_handler(
         persist_chat_event(&card_id, &state.thread_tx, &user_ev);
     }
 
-    let prepared = barkcli_core::runtime::chat::prepare_chat(
+    let card_ref = board.cards.iter().find(|c| c.id == card_id);
+    let existing_events = barkcli_core::threads::read_events(&card_id).unwrap_or_default();
+    let default_root = project_root_or_cwd();
+    let (thread_project_root, _, _) = barkcli_core::threads::extract_thread_project_metadata(
+        card_ref,
+        &existing_events,
+        Some(&default_root),
+    );
+    let chat_root = thread_project_root
+        .as_deref()
+        .map(std::path::PathBuf::from)
+        .filter(|p| p.is_dir())
+        .unwrap_or(default_root);
+
+    let prepared = barkcli_core::runtime::chat::prepare_chat_in_root(
+        &chat_root,
         &barkcli_core::runtime::ChatRequest {
             card_id: card_id.clone(),
             text: text.clone(),
@@ -7976,6 +8091,44 @@ async fn create_thread_handler(
     let b_name = req.backend.unwrap_or_else(|| "board".to_string()).to_lowercase();
     let k_name = req.kind.unwrap_or_else(|| "feature".to_string()).to_lowercase();
     let mode = req.mode.unwrap_or_else(|| "plan_first".to_string()).to_lowercase();
+    let workspace_strategy = req
+        .workspace_strategy
+        .as_deref()
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "root".to_string());
+
+    let default_root = project_root_or_cwd();
+    let resolved_project_root = if workspace_strategy == "scratch" && req.project_root.is_none() {
+        None
+    } else {
+        Some(
+            req.project_root
+                .as_deref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| default_root.display().to_string()),
+        )
+    };
+    let resolved_project_name = req
+        .project_name
+        .as_deref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .or_else(|| {
+            if workspace_strategy == "scratch" && resolved_project_root.is_none() {
+                Some("Scratch".to_string())
+            } else {
+                resolved_project_root.as_deref().and_then(|r| {
+                    std::path::Path::new(r)
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .map(|s| s.to_string())
+                })
+            }
+        });
 
     let mut card_id = String::new();
     barkcli_core::storage::board_file::update_board(&board_name, |b| {
@@ -7985,7 +8138,12 @@ async fn create_thread_handler(
         let mut card = barkcli_core::models::card::Card::new(&fresh_id, text, "todo");
         card.description = Some(text.to_string());
         card.assignee = Some(b_name.clone());
-        card.labels = vec![format!("agent:{}", b_name), format!("type:{}", k_name)];
+        let mut labels = vec![format!("agent:{}", b_name), format!("type:{}", k_name)];
+        if let Some(ref pname) = resolved_project_name {
+            labels.push(format!("project:{}", pname));
+        }
+        labels.push(format!("workspace:{}", workspace_strategy));
+        card.labels = labels;
         b.cards.push(card);
         Ok(())
     }).map_err(|e| ServerError::internal(e.to_string()))?;
@@ -8000,6 +8158,9 @@ async fn create_thread_handler(
             "model": req.model,
             "kind": k_name,
             "mode": mode,
+            "project_root": resolved_project_root,
+            "project_name": resolved_project_name,
+            "workspace_strategy": workspace_strategy,
         })),
     );
     let _ = barkcli_core::threads::append_event(&card_id, &user_event);
@@ -8039,6 +8200,9 @@ async fn create_thread_handler(
         "board": board_name,
         "backend": b_name,
         "status": "created",
+        "project_root": resolved_project_root,
+        "project_name": resolved_project_name,
+        "workspace_strategy": workspace_strategy,
     })))
 }
 

@@ -132,20 +132,17 @@ describe("SurfacesPanel", () => {
     expect(handlers.onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("renders quick actions: Review, Open File, Terminal, Browser", async () => {
-    const handlers = renderPanel();
+  it("renders quick actions: Terminal and Browser (without Review or Open File)", async () => {
+    renderPanel();
     const user = userEvent.setup();
 
-    expect(screen.getByText("Review")).toBeInTheDocument();
-    expect(screen.getByText("Open File")).toBeInTheDocument();
+    expect(screen.queryByText("Review")).not.toBeInTheDocument();
+    expect(screen.queryByText("Open File")).not.toBeInTheDocument();
     expect(screen.getByText("Terminal")).toBeInTheDocument();
     expect(screen.getByText("Browser")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /Review/i }));
-    expect(handlers.onSelectThread).toHaveBeenCalledWith("diff");
-
     await user.click(screen.getByRole("button", { name: /Terminal/i }));
-    expect(handlers.onSelectThread).toHaveBeenCalledWith("eval");
+    expect(screen.getByLabelText("Terminal command input")).toBeInTheDocument();
   });
 
   it("renders real artifacts, subagents, and background tasks from thread data without mocks", () => {

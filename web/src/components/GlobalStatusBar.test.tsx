@@ -15,7 +15,7 @@ describe("GlobalStatusBar", () => {
     vi.clearAllMocks();
   });
 
-  it("renders daemon port, branch, worktrees, and acceptance gate info", async () => {
+  it("renders daemon port, worktrees, and acceptance gate info without branch indicator", async () => {
     render(
       <GlobalStatusBar
         project={
@@ -32,8 +32,8 @@ describe("GlobalStatusBar", () => {
     );
 
     expect(screen.getByText(/daemon:/i)).toBeInTheDocument();
+    expect(screen.queryByText(/branch:/i)).not.toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByText(/branch: feature\/auth \(clean\)/i)).toBeInTheDocument();
       expect(screen.getByText(/worktrees: 2 active/i)).toBeInTheDocument();
       expect(screen.getByText(/acceptance gate: passing \(npm test\)/i)).toBeInTheDocument();
     });

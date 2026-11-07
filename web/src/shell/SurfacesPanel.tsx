@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { WORKBENCH_SURFACES, type WorkbenchTab } from "../lib/workbench";
 import { Icon, type IconName } from "../components/Icon";
 import type { ReviewState, RunGate, ThreadDetail, ProjectSnapshot } from "../lib/types";
-import { fetchReview, fetchRunGate } from "../lib/api";
-import { canReviewMerge, checkState, isActiveRun } from "../lib/run-state";
+import { fetchReview, fetchRunGate, runProjectCommand } from "../lib/api";
+import { checkState, isActiveRun } from "../lib/run-state";
 
 interface SurfacesPanelProps {
   boardName: string | null;
@@ -48,6 +48,16 @@ interface TaskItem {
   meta?: string;
 }
 
+interface TerminalEntry {
+  id: string;
+  command: string;
+  output: string;
+  exitCode: number;
+  running?: boolean;
+}
+
+type DockView = "launcher" | "browser" | "terminal";
+
 function humanAuthor(author: string): string {
   if (!author) return "Agent";
   if (author === "you") return "You";
@@ -74,6 +84,26 @@ export function SurfacesPanel({
   const [search, setSearch] = useState("");
   const [showAllArtifacts, setShowAllArtifacts] = useState(false);
   const [showAllTasks, setShowAllTasks] = useState(false);
+  const [dockView, setDockView] = useState<DockView>("launcher");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Embedded Browser Surface state
+  const [browserInput, setBrowserInput] = useState("");
+  const [browserUrl, setBrowserUrl] = useState<string | null>(null);
+  const [browserKey, setBrowserKey] = useState(0);
+
+  // Embedded Terminal Surface state
+  const [terminalTabs, setTerminalTabs] = useState<Array<{ id: number; label: string }>>([
+    { id: 1, label: "Terminal 1" },
+  ]);
+  const [activeTermTab, setActiveTermTab] = useState(1);
+  const [termCommand, setTermCommand] = useState("");
+  const [termEntriesByTab, setTermEntriesByTab] = useState<Record<number, TerminalEntry[]>>({});
+  const [termHistory, setTermHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState<number>(-1);
+  const [termRunning, setTermRunning] = useState(false);
+  const termInputRef = useRef<HTMLInputElement>(null);
+  const termEntries = termEntriesByTab[activeTermTab] || [];
 
   const runs = thread?.runs || [];
   const latestRun = runs[runs.length - 1] || null;
@@ -122,45 +152,27 @@ export function SurfacesPanel({
   const actions: ActionItem[] = useMemo(
     () => [
       {
-        id: "review",
-        label: "Review",
-        icon: "filePlus",
-        action: () => onSelectThread("diff"),
-        isActive: activePanel === "diff",
-        title: "Open changes and review",
-      },
-      {
-        id: "open-file",
-        label: "Open File",
-        icon: "doc",
-        action: () => onSelectThread("diff"),
-        isActive: false,
-        title: "Open changed files in the workbench",
-      },
-      {
         id: "terminal",
         label: "Terminal",
         icon: "terminal",
         action: () => {
-          window.dispatchEvent(new CustomEvent("bark-open-terminal", { detail: threadId }));
-          onSelectThread("eval");
+          setDockView("terminal");
         },
-        isActive: activePanel === "eval",
-        title: "Open terminal context",
+        isActive: dockView === "terminal",
+        title: "Open embedded terminal",
       },
       {
         id: "browser",
         label: "Browser",
         icon: "globe",
         action: () => {
-          const port = window.location.port || "4321";
-          window.open(`http://localhost:${port}`, "_blank", "noopener,noreferrer");
+          setDockView("browser");
         },
-        isActive: false,
-        title: "Open local app in browser",
+        isActive: dockView === "browser",
+        title: "Open embedded browser preview",
       },
     ],
-    [activePanel, onSelectThread, threadId]
+    [dockView]
   );
 
   const artifacts: ArtifactItem[] = useMemo(() => {
@@ -203,37 +215,9 @@ export function SurfacesPanel({
         tab: "gate",
         meta: check?.label || latestRun?.status,
       });
-      if (canReviewMerge(latestRun) || latestRun?.gate || latestRun?.worktree) {
-        push({
-          id: "evidence",
-          title: "Evidence",
-          icon: "layers",
-          tab: "receipt",
-          meta: latestRun?.context_manifest_id ? "context recorded" : "run evidence",
-        });
-      }
-    }
-
-    if ((thread.events || []).length > 0) {
-      push({
-        id: "context",
-        title: "Thread context",
-        icon: "db",
-        tab: "context",
-        meta: `${thread.events.length} events`,
-      });
-    }
-    if (project?.name) {
-      push({
-        id: "project",
-        title: project.name,
-        icon: "folder",
-        tab: "context",
-        meta: project.active_board ? `${project.active_board}.board` : "project",
-      });
     }
     return list;
-  }, [thread, runs, latestRun, project]);
+  }, [thread, runs, latestRun]);
 
   const subagents: SubagentItem[] = useMemo(() => {
     if (!thread) return [];
@@ -323,9 +307,88 @@ export function SurfacesPanel({
     const value = search.trim();
     if (!value) return;
     if (value.startsWith("http://") || value.startsWith("https://")) {
-      window.open(value, "_blank", "noopener,noreferrer");
+      setBrowserInput(value);
+      setBrowserUrl(value);
+      setDockView("browser");
     } else if (value.startsWith("localhost:") || value.startsWith("127.0.0.1:")) {
-      window.open(`http://${value}`, "_blank", "noopener,noreferrer");
+      const normalized = `http://${value}`;
+      setBrowserInput(normalized);
+      setBrowserUrl(normalized);
+      setDockView("browser");
+    }
+  };
+
+  const handleBrowserNavigate = (e: React.FormEvent) => {
+    e.preventDefault();
+    const raw = browserInput.trim();
+    if (!raw) {
+      setBrowserUrl(null);
+      return;
+    }
+    const normalized =
+      raw.startsWith("http://") || raw.startsWith("https://")
+        ? raw
+        : raw.startsWith("localhost") || raw.startsWith("127.0.0.1") || raw.includes(":")
+          ? `http://${raw}`
+          : `https://${raw}`;
+    setBrowserInput(normalized);
+    setBrowserUrl(normalized);
+  };
+
+  const handleTerminalRun = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cmd = termCommand.trim();
+    if (!cmd || termRunning) return;
+    setTermCommand("");
+    setTermHistory((prev) => [cmd, ...prev.filter((item) => item !== cmd)].slice(0, 50));
+    setHistoryIndex(-1);
+    const tabId = activeTermTab;
+    if (cmd === "clear") {
+      setTermEntriesByTab((prev) => ({ ...prev, [tabId]: [] }));
+      return;
+    }
+    const entryId = `cmd-${Date.now()}`;
+    setTermRunning(true);
+    setTermEntriesByTab((prev) => ({
+      ...prev,
+      [tabId]: [
+        ...(prev[tabId] || []),
+        { id: entryId, command: cmd, output: "", exitCode: 0, running: true },
+      ],
+    }));
+    try {
+      const res = await runProjectCommand(cmd);
+      const combined = [res?.stdout, res?.stderr].filter(Boolean).join("\n").trim();
+      setTermEntriesByTab((prev) => ({
+        ...prev,
+        [tabId]: (prev[tabId] || []).map((item) =>
+          item.id === entryId
+            ? {
+                ...item,
+                output: combined,
+                exitCode: typeof res?.exit_code === "number" ? res.exit_code : 0,
+                running: false,
+              }
+            : item
+        ),
+      }));
+    } catch (err: any) {
+      setTermEntriesByTab((prev) => ({
+        ...prev,
+        [tabId]: (prev[tabId] || []).map((item) =>
+          item.id === entryId
+            ? {
+                ...item,
+                output: err?.message || "Command execution failed",
+                exitCode: 1,
+                running: false,
+              }
+            : item
+        ),
+      }));
+    } finally {
+      setTermRunning(false);
+      setTimeout(() => termInputRef.current?.focus(), 20);
     }
   };
 
@@ -351,38 +414,326 @@ export function SurfacesPanel({
   const needsReviewAction =
     Boolean(latestRun) && !activeRun && latestRun?.status !== "merged" && (openReviewComments > 0 || revisionStale || latestCheck?.tone === "danger");
 
+  const projectLabel = project?.name || boardName || "barkcli";
+
   return (
     <aside
       className="surfaces-list flex h-full min-h-0 flex-col overflow-hidden border-l border-border/70 bg-bg text-text select-none"
       aria-label="Thread surfaces"
     >
-      <div className="border-b border-border/50 p-3 pb-2">
-        <form onSubmit={handleSearchSubmit} className="relative flex items-center">
-          <span className="pointer-events-none absolute left-3 text-muted/70">
-            <Icon name="search" size={13} />
-          </span>
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search surfaces or enter a URL"
-            aria-label="Search surfaces"
-            className="h-8 w-full rounded-full border border-border/70 bg-bg pl-8 pr-8 text-[12px] text-text shadow-inner outline-none transition-colors placeholder:text-muted/60 hover:bg-card focus:border-accent/80 focus:bg-surface"
-          />
+      {/* Top Surface Tab & Dock Controls Bar */}
+      <div className="flex h-9 shrink-0 items-center justify-between border-b border-border/60 bg-bg px-2">
+        <div className="flex items-center gap-1 overflow-x-auto">
+          {dockView === "browser" && (
+            <button
+              type="button"
+              onClick={() => setDockView("browser")}
+              className="flex h-6 items-center gap-1.5 rounded-md bg-surface px-2.5 text-[11.5px] font-medium text-text"
+            >
+              <Icon name="globe" size={12} className="text-muted-strong" />
+              <span>Browser</span>
+            </button>
+          )}
+          {dockView === "terminal" &&
+            terminalTabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTermTab(tab.id)}
+                className={`flex h-6 items-center gap-1.5 rounded-md px-2.5 text-[11.5px] font-medium transition-colors ${
+                  activeTermTab === tab.id
+                    ? "bg-surface text-text"
+                    : "text-muted hover:bg-surface/40 hover:text-text"
+                }`}
+              >
+                <Icon name="terminal" size={12} className="text-muted-strong" />
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          <button
+            type="button"
+            onClick={() => {
+              setDockView("launcher");
+              setSearch("");
+              setTimeout(() => searchInputRef.current?.focus(), 20);
+            }}
+            title="Open a surface"
+            aria-label="Open a surface"
+            className={`flex h-6 w-6 items-center justify-center rounded-md transition-colors ${
+              dockView === "launcher"
+                ? "bg-surface/80 text-text"
+                : "text-muted hover:bg-surface/60 hover:text-text"
+            }`}
+          >
+            <Icon name="plus" size={13} />
+          </button>
+        </div>
+
+        <div className="flex items-center gap-0.5">
+          <button
+            type="button"
+            onClick={() => setDockView(dockView === "terminal" ? "launcher" : "terminal")}
+            title="Toggle shell dock (T)"
+            aria-label="Toggle shell dock"
+            className={`flex h-6 w-6 items-center justify-center rounded-md transition-colors ${
+              dockView === "terminal"
+                ? "bg-surface text-text"
+                : "text-muted hover:bg-surface/60 hover:text-text"
+            }`}
+          >
+            <Icon name="terminal" size={12} />
+          </button>
           <button
             type="button"
             onClick={onClose}
-            className="absolute right-2 rounded p-0.5 text-muted hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+            className="flex h-6 w-6 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface/60 hover:text-text"
             aria-label="Close thread panel"
             title="Close thread panel (⌘J)"
           >
-            <Icon name="x" size={13} />
+            <Icon name="panel" size={13} />
           </button>
-        </form>
+        </div>
       </div>
 
+      {/* Search bar (kept accessible for filtering & entering URLs directly) */}
+      {dockView === "launcher" && (
+        <div className="border-b border-border/40 px-3 py-2">
+          <form onSubmit={handleSearchSubmit} className="relative flex items-center">
+            <span className="pointer-events-none absolute left-3 text-muted/70">
+              <Icon name="search" size={13} />
+            </span>
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search surfaces or enter a URL"
+              aria-label="Search surfaces"
+              className="h-7 w-full rounded-lg border border-border/60 bg-surface/30 pl-8 pr-7 text-[11.5px] text-text outline-none transition-colors placeholder:text-muted/60 hover:bg-surface/50 focus:border-border-strong focus:bg-surface"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2 rounded p-0.5 text-muted hover:text-text"
+                aria-label="Clear search"
+              >
+                <Icon name="x" size={12} />
+              </button>
+            )}
+          </form>
+        </div>
+      )}
+
+      {/* EMBEDDED BROWSER SURFACE */}
+      {dockView === "browser" && (
+        <div className="flex min-h-0 flex-1 flex-col bg-bg">
+          <div className="flex h-9 shrink-0 items-center gap-1.5 border-b border-border/50 px-2.5">
+            <button
+              type="button"
+              onClick={() => setBrowserKey((k) => k + 1)}
+              className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface hover:text-text"
+              title="Back"
+            >
+              <Icon name="chevL" size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setBrowserKey((k) => k + 1)}
+              className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface hover:text-text"
+              title="Forward"
+            >
+              <Icon name="chevR" size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setBrowserKey((k) => k + 1)}
+              className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface hover:text-text"
+              title="Reload preview"
+            >
+              <Icon name="refresh" size={12} />
+            </button>
+
+            <form onSubmit={handleBrowserNavigate} className="min-w-0 flex-1">
+              <input
+                type="text"
+                value={browserInput}
+                onChange={(e) => setBrowserInput(e.target.value)}
+                placeholder="Search or enter URL"
+                aria-label="Browser URL"
+                className="h-6 w-full rounded-md border border-transparent bg-surface/40 px-2.5 text-[11.5px] text-text outline-none transition-colors placeholder:text-muted/60 hover:border-border/60 focus:border-border-strong focus:bg-surface"
+              />
+            </form>
+
+            <button
+              type="button"
+              onClick={() => {
+                const port = window.location.port || "5173";
+                const url = browserUrl || `http://localhost:${port}`;
+                window.open(url, "_blank", "noopener,noreferrer");
+              }}
+              className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface hover:text-text"
+              title="Open in external browser"
+            >
+              <Icon name="link" size={12} />
+            </button>
+          </div>
+
+          {browserUrl ? (
+            <iframe
+              key={`${browserUrl}:${browserKey}`}
+              src={browserUrl}
+              title="Surface browser preview"
+              className="h-full w-full flex-1 border-0 bg-white"
+            />
+          ) : (
+            <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+              <div className="relative mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-border/70 bg-surface/50 text-muted shadow-inner">
+                <Icon name="globe" size={22} />
+              </div>
+              <h3 className="text-[14px] font-semibold text-text">No preview yet</h3>
+              <p className="mt-1.5 max-w-[260px] text-[12px] leading-relaxed text-muted">
+                Type a URL above, or run a dev script. Local servers this thread starts will show up here automatically.
+              </p>
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5">
+                {["http://localhost:5173", "http://localhost:3000", "http://localhost:4321"].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => {
+                      setBrowserInput(preset);
+                      setBrowserUrl(preset);
+                    }}
+                    className="rounded-md border border-border/60 bg-surface/30 px-2.5 py-1 font-mono text-[10.5px] text-muted-strong transition-colors hover:border-border-strong hover:bg-surface hover:text-text"
+                  >
+                    {preset.replace("http://", "")}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* EMBEDDED TERMINAL SURFACE */}
+      {dockView === "terminal" && (
+        <div
+          className="terminal-surface relative flex min-h-0 flex-1 cursor-text flex-col bg-bg font-mono text-[12px] text-text select-text"
+          onClick={() => termInputRef.current?.focus()}
+        >
+          {/* Floating Top-Right Pill Toolbar */}
+          <div className="absolute right-3 top-2.5 z-10 flex items-center gap-0.5 rounded-lg border border-border/60 bg-surface/90 p-0.5 shadow-sm backdrop-blur-md select-none">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                const nextId = (terminalTabs[terminalTabs.length - 1]?.id || 1) + 1;
+                setTerminalTabs((prev) => [...prev, { id: nextId, label: `Terminal ${nextId}` }]);
+                setActiveTermTab(nextId);
+                setTimeout(() => termInputRef.current?.focus(), 20);
+              }}
+              title="New terminal tab"
+              className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-white/[0.06] hover:text-text"
+            >
+              <Icon name="plus" size={12} />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.dispatchEvent(new CustomEvent("bark-command", { detail: "open-terminal" }));
+              }}
+              title="Open native macOS Terminal"
+              className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-white/[0.06] hover:text-text"
+            >
+              <Icon name="terminal" size={12} />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setTermEntriesByTab((prev) => ({ ...prev, [activeTermTab]: [] }));
+                setTimeout(() => termInputRef.current?.focus(), 20);
+              }}
+              title="Clear terminal output"
+              className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-white/[0.06] hover:text-danger"
+            >
+              <Icon name="trash" size={12} />
+            </button>
+          </div>
+
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3.5">
+            {termEntries.map((item) => (
+              <div key={item.id} className="space-y-1">
+                <div className="flex items-center gap-1.5 text-[12px] leading-snug">
+                  <span className="shrink-0 text-muted-strong">{projectLabel} %</span>
+                  <span className="text-text">{item.command}</span>
+                </div>
+                {item.running ? (
+                  <div className="text-[11.5px] text-muted">…</div>
+                ) : item.output ? (
+                  <pre
+                    className={`whitespace-pre-wrap break-words font-mono text-[11.5px] leading-relaxed ${
+                      item.exitCode !== 0 ? "text-danger" : "text-muted-strong"
+                    }`}
+                  >
+                    {item.output}
+                  </pre>
+                ) : null}
+              </div>
+            ))}
+
+            <form onSubmit={handleTerminalRun} className="flex items-center gap-1.5 text-[12px] leading-snug">
+              <span className="shrink-0 text-muted-strong">{projectLabel} %</span>
+              <input
+                ref={termInputRef}
+                type="text"
+                value={termCommand}
+                onChange={(e) => setTermCommand(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    if (termHistory.length === 0) return;
+                    const nextIdx = Math.min(historyIndex + 1, termHistory.length - 1);
+                    setHistoryIndex(nextIdx);
+                    setTermCommand(termHistory[nextIdx] || "");
+                  } else if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    if (historyIndex <= 0) {
+                      setHistoryIndex(-1);
+                      setTermCommand("");
+                    } else {
+                      const nextIdx = historyIndex - 1;
+                      setHistoryIndex(nextIdx);
+                      setTermCommand(termHistory[nextIdx] || "");
+                    }
+                  } else if (e.ctrlKey && e.key.toLowerCase() === "l") {
+                    e.preventDefault();
+                    setTermEntriesByTab((prev) => ({ ...prev, [activeTermTab]: [] }));
+                  } else if (e.ctrlKey && e.key.toLowerCase() === "c") {
+                    e.preventDefault();
+                    setTermCommand("");
+                    setHistoryIndex(-1);
+                  }
+                }}
+                aria-label="Terminal command input"
+                spellCheck={false}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                className="min-w-0 flex-1 border-0 bg-transparent p-0 font-mono text-[12px] text-text caret-text outline-none ring-0 focus:border-0 focus:outline-none focus:ring-0 focus-visible:outline-none"
+                autoFocus
+              />
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* OPEN A SURFACE LAUNCHER */}
       <div
-        className="surfaces-list-body min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-2"
+        className={`surfaces-list-body min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3 ${
+          dockView !== "launcher" ? "hidden" : ""
+        }`}
         onKeyDown={(event) => {
           const target = event.target as HTMLElement;
           if (target.closest("input, textarea, select, [contenteditable=true]")) return;
@@ -392,7 +743,18 @@ export function SurfacesPanel({
             return;
           }
           if (event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey) {
-            const surface = WORKBENCH_SURFACES.find((entry) => entry.letter === event.key.toUpperCase());
+            const upper = event.key.toUpperCase();
+            if (upper === "B" && hasOpenThread) {
+              event.preventDefault();
+              setDockView("browser");
+              return;
+            }
+            if (upper === "T" && hasOpenThread) {
+              event.preventDefault();
+              setDockView("terminal");
+              return;
+            }
+            const surface = WORKBENCH_SURFACES.find((entry) => entry.letter === upper);
             if (surface && hasOpenThread) {
               event.preventDefault();
               onSelectThread(surface.id);
@@ -491,43 +853,24 @@ export function SurfacesPanel({
               </section>
             ) : null}
 
-            {(!hasSearch || actions.some((a) => a.label.toLowerCase().includes(q))) && (
-              <section aria-label="Quick actions" className="flex flex-col gap-0.5">
-                {actions
-                  .filter((a) => !hasSearch || a.label.toLowerCase().includes(q))
-                  .map((act) => (
-                    <button
-                      key={act.id}
-                      type="button"
-                      onClick={act.action}
-                      title={act.title}
-                      className={`flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-left text-[12.5px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
-                        act.isActive
-                          ? "bg-accent-soft font-medium text-accent-text"
-                          : "text-muted-strong hover:bg-surface/60 hover:text-text"
-                      }`}
-                    >
-                      <Icon name={act.icon} size={14} className="shrink-0 text-muted" />
-                      <span>{act.label}</span>
-                    </button>
-                  ))}
-              </section>
-            )}
-
+            {/* Centered "Open a surface" Menu */}
             {filteredSurfaces.length > 0 && (
-              <section className="border-t border-border/40 pt-2" aria-label="Surfaces">
-                <h2 className="px-3 pb-1 font-mono text-[11px] font-semibold uppercase tracking-wider text-muted/70">
-                  Surfaces
-                </h2>
+              <section className="mx-auto w-full max-w-[270px] py-2" aria-label="Surfaces">
+                <div className="flex items-center justify-between px-2.5 pb-1.5">
+                  <span className="text-[11.5px] font-medium text-muted">Open a surface</span>
+                  <h2 className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted/60">
+                    Surfaces
+                  </h2>
+                </div>
                 <div className="flex flex-col gap-0.5">
                   {filteredSurfaces.map((surface) => (
                     <button
                       key={surface.id}
                       type="button"
-                      className={`flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-[12.5px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
+                      className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[12.5px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
                         activePanel === surface.id
                           ? "bg-accent-soft font-medium text-accent-text"
-                          : "text-muted-strong hover:bg-surface/60 hover:text-text"
+                          : "text-text/90 hover:bg-surface/60 hover:text-text"
                       }`}
                       aria-current={activePanel === surface.id ? "page" : undefined}
                       onClick={() => onSelectThread(surface.id)}
@@ -540,6 +883,43 @@ export function SurfacesPanel({
                     </button>
                   ))}
                 </div>
+              </section>
+            )}
+
+            {/* Quick actions */}
+            {(!hasSearch || actions.some((a) => a.label.toLowerCase().includes(q))) && (
+              <section aria-label="Quick actions" className="mx-auto flex w-full max-w-[270px] flex-col gap-0.5 border-t border-border/40 pt-2">
+                {actions
+                  .filter((a) => !hasSearch || a.label.toLowerCase().includes(q))
+                  .map((act) => {
+                    const shortcut =
+                      act.id === "browser"
+                        ? "B"
+                        : act.id === "terminal"
+                          ? "T"
+                          : act.id === "open-file"
+                            ? "F"
+                            : "R";
+                    return (
+                      <button
+                        key={act.id}
+                        type="button"
+                        onClick={act.action}
+                        title={act.title}
+                        className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[12.5px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
+                          act.isActive
+                            ? "bg-accent-soft font-medium text-accent-text"
+                            : "text-muted-strong hover:bg-surface/60 hover:text-text"
+                        }`}
+                      >
+                        <Icon name={act.icon} size={14} className="shrink-0 text-muted" />
+                        <span className="flex-1">{act.label}</span>
+                        <kbd className="flex h-5 w-5 items-center justify-center rounded border border-border/70 bg-surface/40 font-mono text-[9.5px] font-semibold uppercase text-muted">
+                          {shortcut}
+                        </kbd>
+                      </button>
+                    );
+                  })}
               </section>
             )}
 
@@ -676,3 +1056,4 @@ export function SurfacesPanel({
     </aside>
   );
 }
+
