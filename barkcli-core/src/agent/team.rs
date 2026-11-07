@@ -14,6 +14,7 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::orchestra::ModelPolicy;
 use crate::storage::board_dir::find_board_dir;
 
 /// A product role. Roles are policy profiles, not running processes.
@@ -339,6 +340,9 @@ pub struct AgentProfile {
     pub provider: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
+    /// Orchestra 2.0: dynamic model selection policy (additive, backward-compatible).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_policy: Option<ModelPolicy>,
     #[serde(default = "default_capacity")]
     pub capacity: u32,
     #[serde(default = "default_permission_mode")]
@@ -380,6 +384,8 @@ struct ProfileFrontmatter {
     provider: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    model_policy: Option<ModelPolicy>,
     #[serde(default = "default_capacity")]
     capacity: u32,
     #[serde(default = "default_permission_mode")]
@@ -404,6 +410,7 @@ impl AgentProfile {
             role: role.into(),
             provider: default_provider(),
             model: None,
+            model_policy: None,
             capacity: 1,
             permission_mode: default_permission_mode(),
             skills: Vec::new(),
@@ -426,6 +433,7 @@ impl AgentProfile {
             role: self.role.clone(),
             provider: self.provider.clone(),
             model: self.model.clone(),
+            model_policy: self.model_policy.clone(),
             capacity: self.capacity,
             permission_mode: self.permission_mode.clone(),
             skills: self.skills.clone(),
@@ -573,6 +581,7 @@ fn read_profile_file(path: &Path) -> Result<AgentProfile> {
         role: fm.role,
         provider: fm.provider,
         model: fm.model,
+        model_policy: fm.model_policy,
         capacity: fm.capacity.max(1),
         permission_mode: fm.permission_mode,
         skills: fm.skills,
@@ -637,6 +646,38 @@ mod tests {
         assert_eq!(loaded.skills, vec!["rust", "tests"]);
         assert!(loaded.prompt.contains("smallest thing"));
         assert_eq!(loaded.status, ProfileStatus::Active);
+        let _ = std::fs::remove_dir_all(&board);
+    }
+
+    #[test]
+    fn profile_deserializes_without_model_policy_backward_compat() {
+        let board = temp_board();
+        std::fs::create_dir_all(board.join("agents")).unwrap();
+        let legacy = "---\nid: legacy-builder\nname: Legacy Builder\nrole: builder\nprovider: opencode\ncapacity: 1\npermission_mode: auto\nskills: []\nmemory_scope: project\nstatus: active\n---\n\nLegacy prompt\n";
+        std::fs::write(board.join("agents/legacy-builder.md"), legacy).unwrap();
+        let store = ProfileStore::new(board.join("agents"));
+        let loaded = store.load("legacy-builder").unwrap();
+        assert_eq!(loaded.id, "legacy-builder");
+        assert!(loaded.model_policy.is_none());
+        let _ = std::fs::remove_dir_all(&board);
+    }
+
+    #[test]
+    fn profile_roundtrips_model_policy() {
+        let board = temp_board();
+        let store = ProfileStore::new(board.join("agents"));
+        let mut profile = AgentProfile::new("policy-builder", "Policy Builder", "builder");
+        profile.model_policy = Some(crate::orchestra::ModelPolicy {
+            strategy: crate::orchestra::SelectionStrategy::FreeOnly,
+            allow_paid_models: false,
+            pinned_model: Some("openai/gpt-4o-mini".into()),
+            ..Default::default()
+        });
+        store.save(profile).unwrap();
+        let loaded = store.load("policy-builder").unwrap();
+        let policy = loaded.model_policy.expect("policy");
+        assert_eq!(policy.strategy, crate::orchestra::SelectionStrategy::FreeOnly);
+        assert_eq!(policy.pinned_model.as_deref(), Some("openai/gpt-4o-mini"));
         let _ = std::fs::remove_dir_all(&board);
     }
 

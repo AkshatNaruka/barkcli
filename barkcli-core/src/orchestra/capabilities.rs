@@ -37,7 +37,7 @@ impl ModelCapabilitiesInfo {
     }
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModelRequirement {
     #[serde(default)]
     pub tool_calling: bool,

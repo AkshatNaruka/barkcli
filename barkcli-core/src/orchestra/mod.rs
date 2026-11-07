@@ -8,8 +8,10 @@ pub mod capabilities;
 pub mod catalog;
 pub mod discovery;
 pub mod health;
+pub mod policy;
 
 pub use capabilities::{ModelCapabilitiesInfo, ModelRequirement};
 pub use catalog::{CatalogEntry, CatalogSource, ModelRef};
 pub use discovery::{DiscoveryOptions, DiscoveryReport, ModelDiscovery};
 pub use health::ModelAvailability;
+pub use policy::{EligibilityDecision, ModelPolicy, SelectionStrategy, evaluate_eligibility};
