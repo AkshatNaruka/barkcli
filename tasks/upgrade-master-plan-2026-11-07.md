@@ -46,7 +46,7 @@ Supervise multiple coding agents confidently — *correct execution, useful cont
 - [~] **B1 Canonical `RunService`/lifecycle (P0,L)** — B1.1 call graph, B1.2 schema mapping, B1.3 probe-only conformance, B1.4a server dual-path audit (`RunService` + `run_cmd::run` + `dispatch_backend_plan`) documented. Next: B1.4 server handler unification via canonical launcher/facade, B1.5 CLI compat wrap, full parity/dup-launch/capability gating. *Deps:* A2,A3.
 - [~] **B5 Centralized authz (P0,L)** — B5.1 N5/N6, B5.2 N7 + `AUTHZ_MATRIX.md`, B5.3 classifier/tests, B5.4 auth-layer negative tests on representative high-risk surfaces (`/api/exec`, repo, git push) pass. Next: real handler policy (exec/cwd/path confinement, B6), WS upgrade/action authz (N9), scoped tokens/roles, full route registry enforcement. *Deps:* A4.
 - [ ] **B2 Durable state/reconciliation (P0,L)** — *Deps:* A3,B1.
-- [ ] **B4 Gate/guard/merge SHA integrity (P0,M)** — *Deps:* A4,B2.
+- [~] **B4 Gate/guard/merge SHA integrity (P0,M)** — B4.1 audit: `RunService::merge` has strong controls (explicit approval, merge-train lock, `GateSummary::verified` + `CheckVerification`, tested/target head binding, run head/dirty checks, recheck HEAD). Gaps: caller-bound approval not SHA-attested in API, server handler parity, request-changes/approval state, untracked policy, concurrent race tests. `docs/engineering/GATE_MERGE_INTEGRITY_B4.md`. *Deps:* A4,B2 (partial progress now).
 - [ ] **B6 Path/exec/prompt-output hardening (P0,M)** — *Deps:* A4,B5.
 - [ ] **B3 Scheduler/worktree discipline (P0,M)**, **B7 Provider conformance (P1,M)**.
 
