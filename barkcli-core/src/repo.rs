@@ -641,4 +641,34 @@ mod tests {
         assert!(commands.iter().any(|item| item.command == "git status --short"));
         let _ = fs::remove_dir_all(root);
     }
+
+    /// B6.1 / N12: repo path access must not escape the project root.
+    #[test]
+    fn repo_paths_reject_traversal() {
+        let root = temp_root();
+        fs::write(root.join("ok.txt"), "ok\n").unwrap();
+        assert!(normalize_relative("../etc/passwd").is_err());
+        assert!(normalize_relative("/etc/passwd").is_err());
+        assert!(normalize_relative("sub/../../etc/passwd").is_err());
+        assert!(safe_join(&root, "../etc/passwd", false).is_err());
+        assert!(read_file(&root, "../etc/passwd", 1024).is_err());
+        let ok = read_file(&root, "ok.txt", 1024).unwrap();
+        assert!(ok.content.contains("ok"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn repo_paths_reject_symlink_escape() {
+        use std::os::unix::fs::symlink;
+        let root = temp_root();
+        let outside = std::env::temp_dir().join(format!("bark-outside-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(outside.join("secret.txt"), "secret\n").unwrap();
+        symlink(&outside, root.join("escape")).unwrap();
+        let err = read_file(&root, "escape/secret.txt", 1024);
+        assert!(err.is_err(), "symlink escape must be rejected: {:?}", err);
+        let _ = fs::remove_dir_all(root);
+        let _ = fs::remove_dir_all(outside);
+    }
 }

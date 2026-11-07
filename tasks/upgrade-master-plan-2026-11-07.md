@@ -47,7 +47,7 @@ Supervise multiple coding agents confidently — *correct execution, useful cont
 - [~] **B5 Centralized authz (P0,L)** — B5.1 N5/N6, B5.2 N7 + `AUTHZ_MATRIX.md`, B5.3 classifier/tests, B5.4 auth-layer negative tests on representative high-risk surfaces (`/api/exec`, repo, git push) pass. Next: real handler policy (exec/cwd/path confinement, B6), WS upgrade/action authz (N9), scoped tokens/roles, full route registry enforcement. *Deps:* A4.
 - [ ] **B2 Durable state/reconciliation (P0,L)** — *Deps:* A3,B1.
 - [~] **B4 Gate/guard/merge SHA integrity (P0,M)** — B4.1 audit: `RunService::merge` has strong controls (explicit approval, merge-train lock, `GateSummary::verified` + `CheckVerification`, tested/target head binding, run head/dirty checks, recheck HEAD). Gaps: caller-bound approval not SHA-attested in API, server handler parity, request-changes/approval state, untracked policy, concurrent race tests. `docs/engineering/GATE_MERGE_INTEGRITY_B4.md`. *Deps:* A4,B2 (partial progress now).
-- [ ] **B6 Path/exec/prompt-output hardening (P0,M)** — *Deps:* A4,B5.
+- [~] **B6 Path/exec/prompt-output hardening (P0,M)** — B6.1 core repo path traversal/symlink escape tests pass (`safe_join`/`read_file`). Next: HTTP repo/file negative tests, exec policy/cwd/allowlist/audit, prompt-output secret redaction boundaries. *Deps:* A4,B5.
 - [ ] **B3 Scheduler/worktree discipline (P0,M)**, **B7 Provider conformance (P1,M)**.
 
 ## Risks
