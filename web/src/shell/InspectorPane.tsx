@@ -246,6 +246,7 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
   }, [events]);
 
   const gateVerdict = latestRun?.gate || gateData;
+  const gateVerification = gateVerdict?.verification || runGate?.gate?.verification;
   const gateCommand = latestRun?.gate?.command || gateData?.command;
   const gateOutput = runGate?.log || gateData?.output || "";
   const gateTime =
@@ -1038,6 +1039,23 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
                         <span title={`Head ${latestRun.head_sha}`}>@ {latestRun.head_sha.slice(0, 8)}</span>
                       </>
                     ) : null}
+                    {gateVerification?.tested_head ? (
+                      <>
+                        <span className="text-muted/30">·</span>
+                        <span
+                          title={`Tested ${gateVerification.tested_head} → target ${gateVerification.target_head || "unknown"}`}
+                          className={
+                            gateVerification.outcome === "stale" || gateVerification.tested_head !== gateVerification.target_head
+                              ? "text-warning"
+                              : "text-muted/60"
+                          }
+                        >
+                          {gateVerification.outcome === "stale" || gateVerification.tested_head !== gateVerification.target_head
+                            ? `checks stale (${gateVerification.tested_head.slice(0, 7)}→${(gateVerification.target_head || "").slice(0, 7) || "?"})`
+                            : `checked @ ${gateVerification.tested_head.slice(0, 7)}`}
+                        </span>
+                      </>
+                    ) : null}
                     {diffCount > 0 && (
                       <>
                         <span className="text-muted/30">·</span>
@@ -1063,10 +1081,10 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
                   </div>
                 </div>
                 {reviewBusy && (
-                  <Icon name="refresh" size={12} className="mt-0.5 animate-spin text-muted" />
+                  <Icon name="refresh" size={12} className="mt-0.5 animate-spin text-muted motion-reduce:animate-none" />
                 )}
                 {loadingDiff && !reviewBusy && (
-                  <Icon name="refresh" size={12} className="mt-0.5 animate-spin text-muted" />
+                  <Icon name="refresh" size={12} className="mt-0.5 animate-spin text-muted motion-reduce:animate-none" />
                 )}
               </div>
 
@@ -1199,24 +1217,53 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
                 </div>
               )}
 
-              {diffData?.files?.length ? (
-                <nav aria-label="Changed files" className="changed-files mt-2 border-b-0 border-t border-border/50 px-0 pt-2">
-                  <button type="button" aria-pressed={!location.file} onClick={() => updateRouteState({ file: undefined })}>
-                    All files
-                  </button>
-                  {diffData.files.map((path) => (
-                    <button
-                      key={path}
-                      type="button"
-                      title={path}
-                      aria-pressed={location.file === path}
-                      onClick={() => updateRouteState({ file: path })}
-                    >
-                      {path}
+              {diffData?.files?.length ? (() => {
+                const files = diffData.files;
+                const groups = new Map<string, string[]>();
+                for (const path of files) {
+                  const parts = path.split("/");
+                  const group = parts.length > 2 ? `${parts[0]}/${parts[1]}` : parts.length > 1 ? parts[0] : "files";
+                  const list = groups.get(group) || [];
+                  list.push(path);
+                  groups.set(group, list);
+                }
+                const showGroups = files.length > 6 && groups.size > 1;
+                return (
+                  <nav aria-label="Changed files" className="changed-files mt-2 border-b-0 border-t border-border/50 px-0 pt-2">
+                    <button type="button" aria-pressed={!location.file} onClick={() => updateRouteState({ file: undefined })}>
+                      All files
                     </button>
-                  ))}
-                </nav>
-              ) : null}
+                    {showGroups
+                      ? Array.from(groups.entries()).map(([group, paths]) => (
+                          <span key={group} className="contents">
+                            <span className="basis-full pt-1 font-mono text-[9px] uppercase tracking-wide text-muted/55">{group}</span>
+                            {paths.map((path) => (
+                              <button
+                                key={path}
+                                type="button"
+                                title={path}
+                                aria-pressed={location.file === path}
+                                onClick={() => updateRouteState({ file: path })}
+                              >
+                                {path.split("/").slice(-1)[0] || path}
+                              </button>
+                            ))}
+                          </span>
+                        ))
+                      : files.map((path) => (
+                          <button
+                            key={path}
+                            type="button"
+                            title={path}
+                            aria-pressed={location.file === path}
+                            onClick={() => updateRouteState({ file: path })}
+                          >
+                            {path}
+                          </button>
+                        ))}
+                  </nav>
+                );
+              })() : null}
             </div>}
             {loadingDiff ? (
               <div className="p-3">
