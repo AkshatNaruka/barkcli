@@ -279,20 +279,12 @@ function coalesceAssistantEvents(events: ThreadEvent[]): ThreadEvent[] {
 function RunSummaryCard({ run, busy, onVerify, onBuildOn }: {
   run: RunRecord; busy: boolean; onVerify: () => void; onBuildOn: () => void;
 }) {
-  const checks = checkState(run.gate);
   return (
     <section className="run-summary-compact" aria-label={`Run ${run.ordinal}`}>
-      <div className="run-summary-compact-meta">
-        <span className="run-summary-pill" title={`${run.provider} / ${run.model || "CLI default"}`}>
-          Attempt {run.ordinal} · {run.provider}
-        </span>
-        <span className={`run-summary-pill ${checks.tone === "danger" ? "is-danger" : checks.tone === "success" ? "is-success" : checks.tone === "warning" ? "is-warning" : ""}`}>
-          {checks.label}
-        </span>
-      </div>
       <details className="run-summary-technical">
-        <summary>Technical details</summary>
+        <summary>Run details · Attempt {run.ordinal} · {run.provider}</summary>
         <dl>
+          <dt>Status</dt><dd>{checkState(run.gate).label}</dd>
           <dt>Branch</dt><dd>{run.branch || "Not created"}</dd>
           <dt>Worktree</dt><dd>{run.worktree || "Not created"}</dd>
           <dt>Agent / model</dt><dd>{run.provider} / {run.model || "CLI default"}</dd>
