@@ -604,6 +604,13 @@ export function App() {
           return;
         }
       }
+       if (e.key === "/" && !typing) {
+         const composer = document.querySelector<HTMLTextAreaElement>('[data-testid="thread-composer"]');
+         if (composer) {
+           e.preventDefault();
+           composer.focus();
+         }
+       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);

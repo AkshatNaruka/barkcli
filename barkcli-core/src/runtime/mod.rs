@@ -1,6 +1,7 @@
 pub mod chat;
 pub mod contribution;
 pub mod event;
+pub mod merge_train;
 pub mod provider;
 pub mod providers;
 pub mod runner;

@@ -110,6 +110,12 @@ fn dispatch(cmd: &str, cmd_args: &[String]) -> Result<()> {
         "import" => handle_import(cmd_args)?,
 
         "merge" => commands::merge::run(cmd_args)?,
+        "milestone" => commands::milestone::run_milestone(cmd_args)?,
+        "merge-train" => commands::merge_train::run_merge_train(cmd_args)?,
+        "gate" => commands::gate_cmd::run_gate_cmd(cmd_args)?,
+        "worktree" => commands::worktree_cmd::run_worktree_cmd(cmd_args)?,
+        "agent-loop" => commands::agent_loop_cmd::run_agent_loop_cmd(cmd_args)?,
+        "health" => commands::health::run_health(cmd_args)?,
 
         "snapshot" => handle_snapshot(cmd_args)?,
 
@@ -873,6 +879,12 @@ fn print_usage() {
     println!("  verify-run          Independently reproduce a gate-passing run");
     println!("  ancestry            Show a run's contribution lineage");
     println!("  dispatch            Run orchestration cycle (assign tasks to agents)");
+    println!("  milestone <cmd>     Roadmap: list|create|show|assign|ship|roadmap");
+    println!("  merge-train <cmd>   Batch merge: plan|run|status|list");
+    println!("  gate <cmd>          Verification gate: status|clean|check");
+    println!("  worktree <cmd>      Lifecycle: list|status|clean|checkpoint|setup");
+    println!("  agent-loop <cmd>    Embedded agent loop: run|tools|status");
+    println!("  health              JSON health report (boards/cards/milestones/worktrees/trains)");
     println!();
     println!("Multiple boards (optional):");
     println!("  boards              List boards");

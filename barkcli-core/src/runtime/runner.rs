@@ -225,11 +225,8 @@ impl RunService {
 
         let run_id = format!("run_{}", uuid::Uuid::new_v4().simple());
         let slug = run_slug(card_id, &run_id);
-        let worktree = acquire_worktree(&slug).with_context(|| {
-            format!(
-                "could not acquire an isolated worktree for {card_id}; commit or stash tracked changes first"
-            )
-        })?;
+        let worktree = acquire_worktree(&slug)
+            .with_context(|| format!("could not acquire an isolated worktree for {card_id}"))?;
         let base_sha = git_out(&worktree, &["rev-parse", "HEAD"]).unwrap_or_default();
         if let Some(head) = inherited_head {
             if let Err(error) = git_out(&worktree, &["merge", "--no-edit", &head]) {
@@ -238,6 +235,14 @@ impl RunService {
             }
         }
         let branch = format!("bark/{slug}");
+        // Worktree lifecycle: record acquire + setup detection.
+        {
+            let branch_clone = branch.clone();
+            let run_id_clone = run_id.clone();
+            let card_clone = card_id.to_string();
+            let _ = crate::agent::worktree_lifecycle::record_acquire(&slug, &worktree, Some(branch_clone), Some(run_id_clone), Some(card_clone));
+            let _ = crate::agent::worktree_lifecycle::record_setup(&slug, &worktree);
+        }
         let provider = request
             .provider
             .clone()
@@ -663,9 +668,60 @@ impl RunService {
             .or_else(|| run.gate.as_ref().and_then(|gate| gate.command.clone()));
         let running = check_event(&run, CheckOutcome::Running, selected_command.clone(), "Running project checks".into(), None, None);
         self.store().record(&mut run, running)?;
-        let gate = run_gate(self.store(), &run, &worktree, selected_command.as_deref());
-        let event = gate_event(&run, gate);
+        // Gate v2: multi-step profile with cache + retry + evidence.
+        let verdict = crate::agent::gate::check_worktree(&worktree, selected_command.as_deref())
+            .unwrap_or_else(|_| {
+                // Fallback to legacy single-command gate on error.
+                let legacy = run_gate(self.store(), &run, &worktree, selected_command.as_deref());
+                match legacy {
+                    Ok(g) => crate::agent::gate::GateVerdict {
+                        passed: g.outcome == CheckOutcome::Passed,
+                        steps: vec![],
+                        head_sha: run.head_sha.clone().unwrap_or_default(),
+                        target_head: run.base_sha.clone().unwrap_or_default(),
+                        cached: false,
+                        duration_ms: 0,
+                        summary: g.summary,
+                    },
+                    Err(e) => crate::agent::gate::GateVerdict {
+                        passed: false,
+                        steps: vec![],
+                        head_sha: String::new(),
+                        target_head: String::new(),
+                        cached: false,
+                        duration_ms: 0,
+                        summary: e.to_string(),
+                    },
+                }
+            });
+        let outcome = if verdict.passed {
+            crate::util::metrics::inc("gate_passed");
+            if let Some(slug) = worktree.file_name().and_then(|n| n.to_str()) {
+                let _ = crate::agent::worktree_lifecycle::record_status(slug, crate::agent::worktree_lifecycle::WorktreeStatus::GatePassed);
+            }
+            CheckOutcome::Passed
+        } else {
+            crate::util::metrics::inc("gate_failed");
+            CheckOutcome::Failed
+        };
+        let gate_outcome = GateOutcome {
+            outcome,
+            command: selected_command.clone(),
+            summary: verdict.summary.clone(),
+            log_path: None,
+            exit_code: if verdict.passed { Some(0) } else { Some(1) },
+        };
+        let event = gate_event(&run, Ok(gate_outcome));
         self.store().record(&mut run, event)?;
+        // Update worktree head tracking.
+        if let Some(slug) = worktree.file_name().and_then(|n| n.to_str()) {
+            let mut map = crate::agent::worktree_lifecycle::load_status();
+            if let Some(info) = map.get_mut(slug) {
+                info.head_sha = run.head_sha.clone();
+                info.touch();
+                let _ = crate::agent::worktree_lifecycle::save_status(&map);
+            }
+        }
         Ok(run)
     }
 

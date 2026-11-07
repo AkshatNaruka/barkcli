@@ -108,3 +108,32 @@ export function relativeTime(iso?: string, now = Date.now()): string {
   if (days < 14) return `${days}d`;
   return `${Math.floor(days / 7)}w`;
 }
+
+/** Elapsed seconds as `48s`, `6m 14s`, `1h 02m`. */
+export function formatElapsed(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const rs = s % 60;
+  if (m < 60) return `${m}m ${String(rs).padStart(2, "0")}s`;
+  const h = Math.floor(m / 60);
+  const rm = m % 60;
+  return `${h}h ${String(rm).padStart(2, "0")}m`;
+}
+
+/** Split agent thought into title + body. */
+export function splitThought(text: string): { title: string; body: string; preview: string } {
+  const raw = (text || "").trim();
+  if (!raw) return { title: "Thinking", body: "", preview: "" };
+  const lines = raw.split(/\r?\n/);
+  let title = (lines[0] || "").trim();
+  let body = lines.slice(1).join("\n").trim();
+  if (!body && title.length > 80) {
+    const cut = title.lastIndexOf(" ", 80);
+    body = title.slice(cut > 20 ? cut : 80).trim();
+    title = title.slice(0, cut > 20 ? cut : 80).trim();
+  }
+  if (title.length > 80) title = `${title.slice(0, 77)}…`;
+  const preview = (body || title).replace(/\s+/g, " ").slice(0, 70);
+  return { title: title || "Thinking", body: body || raw, preview };
+}

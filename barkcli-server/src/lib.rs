@@ -38,7 +38,7 @@ use barkcli_core::storage::board_file::{list_board_files, read_board};
 use barkcli_core::storage::config_store;
 use barkcli_core::storage::context::read_context;
 use barkcli_core::storage::sessions;
-use barkcli_core::storage::sprints;
+use barkcli_core::storage::{milestones, sprints};
 
 #[allow(dead_code)]
 static INDEX_HTML_FALLBACK: &str = include_str!("./index.html");
@@ -192,6 +192,19 @@ where
         .route("/api/tasks/{id}/diff", get(task_diff_handler))
         .route("/api/sprints", get(sprints_handler).post(start_sprint_handler))
         .route("/api/sprints/end", post(end_sprint_handler))
+        .route("/api/milestones", get(milestones_handler).post(create_milestone_handler))
+        .route("/api/milestones/{id}", axum::routing::patch(update_milestone_handler).delete(delete_milestone_handler))
+        .route("/api/milestones/{id}/assign", post(assign_milestone_card_handler))
+        .route("/api/milestones/{id}/ship", post(ship_milestone_handler))
+        .route("/api/roadmap", get(roadmap_handler))
+        .route("/api/merge-trains", get(list_trains_handler).post(plan_train_handler))
+        .route("/api/merge-trains/{id}", get(get_train_handler))
+        .route("/api/merge-trains/{id}/run", post(run_train_handler))
+        .route("/api/gate/check", post(gate_check_handler))
+        .route("/api/worktrees", get(worktrees_handler))
+        .route("/api/worktrees/{slug}/checkpoint", post(worktree_checkpoint_handler))
+        .route("/api/health", get(health_handler))
+        .route("/api/agent-loop/tools", get(agent_loop_tools_handler))
         .route("/api/history", get(history_handler))
         .route("/api/sessions", get(sessions_handler))
         .route("/api/sessions/stats", get(session_stats_handler))
@@ -1228,6 +1241,235 @@ async fn save_board_handler(
 
 #[derive(serde::Serialize)]
 struct SprintsResponse { sprints: Vec<Sprint> }
+
+#[derive(serde::Serialize)]
+struct MilestonesResponse {
+    milestones: Vec<barkcli_core::models::Milestone>,
+}
+
+async fn milestones_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<BoardQuery>,
+) -> Result<Json<MilestonesResponse>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let milestones = milestones::read_milestones(&board_name).map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(MilestonesResponse { milestones }))
+}
+
+#[derive(Deserialize)]
+struct MilestoneCreateRequest {
+    title: String,
+    target_date: Option<String>,
+    sort_order: Option<i32>,
+    description: Option<String>,
+}
+
+async fn create_milestone_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<BoardQuery>,
+    Json(req): Json<MilestoneCreateRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    if req.title.trim().is_empty() {
+        return Err(ServerError::bad("title is required"));
+    }
+    let board_name = resolve_board_name(&state, query.name)?;
+    let mut m = barkcli_core::models::Milestone::new("", req.title.clone());
+    m.target_date = req.target_date;
+    m.description = req.description;
+    m.sort_order = req.sort_order.unwrap_or(0);
+    milestones::upsert_milestone(&board_name, m).map_err(|e| ServerError::internal(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+#[derive(Deserialize)]
+struct MilestoneUpdateRequest {
+    status: Option<String>,
+    target_date: Option<String>,
+    sort_order: Option<i32>,
+}
+
+async fn update_milestone_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Query(query): Query<BoardQuery>,
+    Json(req): Json<MilestoneUpdateRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let mut m = milestones::get_milestone(&board_name, &id).map_err(|e| ServerError::internal(e.to_string()))?
+        .ok_or_else(|| ServerError::bad("milestone not found"))?;
+    if let Some(s) = req.status {
+        m.status = barkcli_core::models::MilestoneStatus::parse(&s).unwrap_or(m.status);
+    }
+    if req.target_date.is_some() {
+        m.target_date = req.target_date;
+    }
+    if let Some(o) = req.sort_order {
+        m.sort_order = o;
+    }
+    milestones::upsert_milestone(&board_name, m).map_err(|e| ServerError::internal(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+async fn delete_milestone_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Query(query): Query<BoardQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let removed = milestones::remove_milestone(&board_name, &id).map_err(|e| ServerError::internal(e.to_string()))?;
+    if !removed {
+        return Err(ServerError::bad("milestone not found"));
+    }
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+#[derive(Deserialize)]
+struct AssignCardRequest {
+    card_id: String,
+    remove: Option<bool>,
+}
+
+async fn assign_milestone_card_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Query(query): Query<BoardQuery>,
+    Json(req): Json<AssignCardRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let assign = !req.remove.unwrap_or(false);
+    let changed = milestones::assign_card(&board_name, &id, &req.card_id, assign).map_err(|e| ServerError::internal(e.to_string()))?;
+    // Keep card.milestone_id in sync.
+    let _ = barkcli_core::storage::board_file::update_board(&board_name, |board| {
+        if let Some(card) = board.cards.iter_mut().find(|c| c.id == req.card_id) {
+            card.milestone_id = if assign { Some(id.clone()) } else { None };
+            card.touch();
+        }
+        Ok(())
+    });
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "ok": true, "changed": changed })))
+}
+
+async fn ship_milestone_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Query(query): Query<BoardQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let mut m = milestones::get_milestone(&board_name, &id).map_err(|e| ServerError::internal(e.to_string()))?
+        .ok_or_else(|| ServerError::bad("milestone not found"))?;
+    m.status = barkcli_core::models::MilestoneStatus::Shipped;
+    milestones::upsert_milestone(&board_name, m).map_err(|e| ServerError::internal(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+async fn roadmap_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<BoardQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let roadmap = milestones::roadmap(&board_name).map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(serde_json::json!({ "roadmap": roadmap })))
+}
+
+async fn list_trains_handler() -> Result<Json<serde_json::Value>, ServerError> {
+    let trains = barkcli_core::runtime::merge_train::list_trains().map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(serde_json::json!({ "trains": trains })))
+}
+
+#[derive(Deserialize)]
+struct PlanTrainRequest {
+    board: Option<String>,
+    run_ids: Option<Vec<String>>,
+}
+
+async fn plan_train_handler(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<PlanTrainRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let _ = &state;
+    let store = barkcli_core::runtime::RuntimeStore::from_project().map_err(|e| ServerError::internal(e.to_string()))?;
+    let mut runs = store.list_runs(None).map_err(|e| ServerError::internal(e.to_string()))?;
+    if let Some(ids) = req.run_ids {
+        runs.retain(|r| ids.contains(&r.id));
+    } else {
+        runs.retain(|r| r.gate.as_ref().map(|g| g.verified()).unwrap_or(false));
+    }
+    let root = barkcli_core::runtime::merge_train::project_root().map_err(|e| ServerError::internal(e.to_string()))?;
+    let train = barkcli_core::runtime::merge_train::plan_train(&runs, None, &root).map_err(|e| ServerError::internal(e.to_string()))?;
+    barkcli_core::runtime::merge_train::save_train(&train).map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(serde_json::to_value(&train).unwrap_or(serde_json::json!({}))))
+}
+
+async fn get_train_handler(
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let train = barkcli_core::runtime::merge_train::load_train(&id).map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(serde_json::to_value(&train).unwrap_or(serde_json::json!({}))))
+}
+
+async fn run_train_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Query(query): Query<BoardQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let train = barkcli_core::runtime::merge_train::load_train(&id).map_err(|e| ServerError::internal(e.to_string()))?;
+    let service = barkcli_core::runtime::RunService::from_project(&board_name).map_err(|e| ServerError::internal(e.to_string()))?;
+    let result = barkcli_core::runtime::merge_train::execute_train(train, |item| {
+        service.merge(&item.run_id, true)?;
+        Ok(())
+    }).map_err(|e| ServerError::internal(e.to_string()))?;
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::to_value(&result).unwrap_or(serde_json::json!({}))))
+}
+
+#[derive(Deserialize)]
+struct GateCheckRequest {
+    path: Option<String>,
+    command: Option<String>,
+}
+
+async fn gate_check_handler(
+    Json(req): Json<GateCheckRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let path = req.path.map(std::path::PathBuf::from).unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+    let verdict = barkcli_core::agent::gate::check_worktree(&path, req.command.as_deref()).map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(serde_json::to_value(&verdict).unwrap_or(serde_json::json!({}))))
+}
+
+async fn worktrees_handler() -> Result<Json<serde_json::Value>, ServerError> {
+    let rows = barkcli_core::agent::worktree_lifecycle::list_with_health().map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(serde_json::json!({ "worktrees": rows })))
+}
+
+#[derive(Deserialize)]
+struct CheckpointRequest {
+    label: Option<String>,
+}
+
+async fn worktree_checkpoint_handler(
+    Path(slug): Path<String>,
+    Json(req): Json<CheckpointRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let label = req.label.as_deref().unwrap_or("auto");
+    let r#ref = barkcli_core::agent::worktree_lifecycle::checkpoint(&slug, label).map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(serde_json::json!({ "ok": true, "ref": r#ref })))
+}
+
+async fn health_handler() -> Result<Json<serde_json::Value>, ServerError> {
+    let report = barkcli_core::commands::health::health().map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(serde_json::to_value(&report).unwrap_or(serde_json::json!({}))))
+}
+
+async fn agent_loop_tools_handler() -> Result<Json<serde_json::Value>, ServerError> {
+    let registry = barkcli_core::agent::agent_loop::default_registry();
+    Ok(Json(serde_json::json!({ "tools": registry.list() })))
+}
 
 async fn sprints_handler(
     State(state): State<Arc<AppState>>,

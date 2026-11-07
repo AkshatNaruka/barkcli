@@ -215,10 +215,7 @@ export function LiveAgentWorkingBubble({
             <span className="agent-wave text-accent scale-75 origin-left">
               <span /><span /><span /><span /><span />
             </span>
-            <span>{statusText}</span>
-            {elapsedSeconds > 0 && (
-              <span className="text-muted/60 text-[10.5px]">· {elapsedSeconds}s</span>
-            )}
+            <span>{elapsedSeconds > 0 ? `Working for ${Math.floor(elapsedSeconds / 60)}m ${String(elapsedSeconds % 60).padStart(2, "0")}s` : statusText}</span>
           </span>
         </div>
         {onStop && (

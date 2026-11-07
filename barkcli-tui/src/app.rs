@@ -733,7 +733,7 @@ impl App {
             acceptance_criteria: Vec::new(),
             effort: None,
             area: None,
-            spec_id: None,
+            spec_id: None, milestone_id: None,
             pinned: false,
             version: 1,
             created_at: now,

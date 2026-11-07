@@ -35,6 +35,28 @@ pub fn run() -> Result<()> {
         }
     }
 
+    // Milestones: report orphaned card refs and overdue shipped-checks.
+    if let Ok(boards) = list_board_files() {
+        for name in &boards {
+            if let Ok(milestones) = crate::storage::milestones::read_milestones(name) {
+                for m in &milestones {
+                    if m.is_overdue() {
+                        println!("  ! milestone '{}' ({}) is overdue (target {})", m.id, m.title, m.target_date.as_deref().unwrap_or("-"));
+                    }
+                }
+            }
+        }
+    }
+    // Merge trains: report trains with conflicts awaiting resolution.
+    if let Ok(trains) = crate::runtime::merge_train::list_trains() {
+        for train in &trains {
+            let conflicts = train.items.iter().filter(|i| i.status == crate::runtime::merge_train::TrainItemStatus::Conflict).count();
+            if conflicts > 0 {
+                println!("  ! merge-train {} has {} conflict(s) — resolve before run", train.id, conflicts);
+            }
+        }
+    }
+
     // Diagnose and auto-prune stale worktrees
     match crate::agent::worktree::prune_stale_worktrees() {
         Ok(count) if count > 0 => {

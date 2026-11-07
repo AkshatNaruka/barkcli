@@ -1,8 +1,10 @@
+pub mod agent_loop;
 pub mod backend;
 pub mod autopilot;
 pub mod capacity;
 pub mod decompose;
 pub mod fleet;
+pub mod gate;
 pub mod identity;
 pub mod liveness;
 pub mod orchestrate;
@@ -17,7 +19,9 @@ pub mod team;
 pub mod toolchain;
 pub mod verify;
 pub mod worktree;
+pub mod worktree_lifecycle;
 
+pub use agent_loop::{AgentLoop, InboxMessage, Step, ToolRegistry, Turn};
 pub use autopilot::{evaluate as autopilot_evaluate, AutopilotPhase, AutopilotState, AutopilotStatus, PlanProposal};
 pub use backend::{auto_backend, backend_for, kill_pid, pid_alive, Backend};
 pub use capacity::VelocityTracker;

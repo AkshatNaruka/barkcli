@@ -1362,6 +1362,76 @@ impl McpServer {
                 }
             }),
             serde_json::json!({
+                "name": "milestone_list",
+                "description": "List milestones for a board",
+                "inputSchema": {"type":"object","properties":{"board":{"type":"string","description":"Board name (optional)"}},"required":[]}
+            }),
+            serde_json::json!({
+                "name": "milestone_create",
+                "description": "Create a milestone",
+                "inputSchema": {"type":"object","properties":{"board":{"type":"string","description":"Board name (optional)"},"title":{"type":"string","description":"Milestone title"},"target_date":{"type":"string","description":"YYYY-MM-DD"},"sort_order":{"type":"integer","description":"Roadmap order (default 0)"}},"required":["title"]}
+            }),
+            serde_json::json!({
+                "name": "milestone_assign",
+                "description": "Assign a card to a milestone",
+                "inputSchema": {"type":"object","properties":{"board":{"type":"string","description":"Board name (optional)"},"milestone_id":{"type":"string","description":"Milestone ID"},"card_id":{"type":"string","description":"Card ID"},"remove":{"type":"boolean","description":"Unassign instead of assign"}},"required":["milestone_id","card_id"]}
+            }),
+            serde_json::json!({
+                "name": "milestone_ship",
+                "description": "Mark a milestone as shipped",
+                "inputSchema": {"type":"object","properties":{"board":{"type":"string","description":"Board name (optional)"},"milestone_id":{"type":"string","description":"Milestone ID"}},"required":["milestone_id"]}
+            }),
+            serde_json::json!({
+                "name": "milestone_roadmap",
+                "description": "Roadmap progress: per-milestone cards done/total and overdue flags",
+                "inputSchema": {"type":"object","properties":{"board":{"type":"string","description":"Board name (optional)"}},"required":[]}
+            }),
+            serde_json::json!({
+                "name": "merge_train_plan",
+                "description": "Plan a merge train from gate-passed runs (conflict detection via merge-tree)",
+                "inputSchema": {"type":"object","properties":{"board":{"type":"string","description":"Board name (optional)"},"run_ids":{"type":"array","items":{"type":"string"},"description":"Run IDs (optional; defaults to all gate-passed)"}},"required":[]}
+            }),
+            serde_json::json!({
+                "name": "merge_train_run",
+                "description": "Execute a merge train (sequential merge of Ready items)",
+                "inputSchema": {"type":"object","properties":{"board":{"type":"string","description":"Board name (optional)"},"train_id":{"type":"string","description":"Train ID"}},"required":["train_id"]}
+            }),
+            serde_json::json!({
+                "name": "merge_train_status",
+                "description": "Status of a merge train",
+                "inputSchema": {"type":"object","properties":{"train_id":{"type":"string","description":"Train ID"}},"required":["train_id"]}
+            }),
+            serde_json::json!({
+                "name": "gate_check",
+                "description": "Run gate v2 in a worktree path (cache + retry + evidence)",
+                "inputSchema": {"type":"object","properties":{"path":{"type":"string","description":"Worktree path (defaults to cwd)"},"command":{"type":"string","description":"Override gate command (optional)"}},"required":[]}
+            }),
+            serde_json::json!({
+                "name": "worktree_list",
+                "description": "List managed worktrees with lifecycle status",
+                "inputSchema": {"type":"object","properties":{},"required":[]}
+            }),
+            serde_json::json!({
+                "name": "worktree_checkpoint",
+                "description": "Save a hidden git ref checkpoint for a worktree",
+                "inputSchema": {"type":"object","properties":{"slug":{"type":"string","description":"Worktree slug"},"label":{"type":"string","description":"Label (default auto)"}},"required":["slug"]}
+            }),
+            serde_json::json!({
+                "name": "agent_loop_tools",
+                "description": "List agent loop tools",
+                "inputSchema": {"type":"object","properties":{},"required":[]}
+            }),
+            serde_json::json!({
+                "name": "agent_loop_status",
+                "description": "Thread event count/status for agent loop",
+                "inputSchema": {"type":"object","properties":{"card_id":{"type":"string","description":"Card ID"}},"required":["card_id"]}
+            }),
+            serde_json::json!({
+                "name": "health",
+                "description": "Health report: boards, cards, milestones, worktrees, trains, runs, metrics",
+                "inputSchema": {"type":"object","properties":{},"required":[]}
+            }),
+            serde_json::json!({
                 "name": "session_spawn",
                 "description": "Spawn an agent session, optionally bound to a task (acquires worktree + claims with lease + spawns backend)",
                 "inputSchema": {
@@ -2012,6 +2082,20 @@ impl McpServer {
             "handoff" => self.tool_handoff(arguments),
             "verify" => self.tool_verify(arguments),
             // Trust layer
+            "milestone_list" => self.tool_milestone_list(arguments),
+            "milestone_create" => self.tool_milestone_create(arguments),
+            "milestone_assign" => self.tool_milestone_assign(arguments),
+            "milestone_ship" => self.tool_milestone_ship(arguments),
+            "milestone_roadmap" => self.tool_milestone_roadmap(arguments),
+            "merge_train_plan" => self.tool_merge_train_plan(arguments),
+            "merge_train_run" => self.tool_merge_train_run(arguments),
+            "merge_train_status" => self.tool_merge_train_status(arguments),
+            "gate_check" => self.tool_gate_check(arguments),
+            "worktree_list" => self.tool_worktree_list(arguments),
+            "worktree_checkpoint" => self.tool_worktree_checkpoint(arguments),
+            "agent_loop_tools" => self.tool_agent_loop_tools(arguments),
+            "agent_loop_status" => self.tool_agent_loop_status(arguments),
+            "health" => self.tool_health(arguments),
             "guard_scan" => self.tool_guard_scan(arguments),
             "receipt_list" => self.tool_receipt_list(arguments),
             "receipt_get" => self.tool_receipt_get(arguments),
@@ -3435,6 +3519,108 @@ impl McpServer {
 
     // ── Trust layer: guard, receipts, review queue ──
 
+    fn tool_milestone_list(&self, args: Value) -> Result<Value> {
+        let board = self.resolve_board(&args)?;
+        let milestones = crate::storage::milestones::read_milestones(&board)?;
+        Ok(serde_json::json!({ "board": board, "milestones": milestones }))
+    }
+    fn tool_milestone_create(&self, args: Value) -> Result<Value> {
+        let board = self.resolve_board(&args)?;
+        let title = args.get("title").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("title required"))?;
+        let mut m = crate::models::milestone::Milestone::new("", title);
+        if let Some(d) = args.get("target_date").and_then(|v| v.as_str()) {
+            m.target_date = Some(d.to_string());
+        }
+        if let Some(o) = args.get("sort_order").and_then(|v| v.as_i64()) {
+            m.sort_order = o as i32;
+        }
+        crate::storage::milestones::upsert_milestone(&board, m)?;
+        let milestones = crate::storage::milestones::read_milestones(&board)?;
+        Ok(serde_json::json!({ "board": board, "milestones": milestones }))
+    }
+    fn tool_milestone_assign(&self, args: Value) -> Result<Value> {
+        let board = self.resolve_board(&args)?;
+        let milestone_id = args.get("milestone_id").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("milestone_id required"))?;
+        let card_id = args.get("card_id").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("card_id required"))?;
+        let remove = args.get("remove").and_then(|v| v.as_bool()).unwrap_or(false);
+        let changed = crate::storage::milestones::assign_card(&board, milestone_id, card_id, !remove)?;
+        Ok(serde_json::json!({ "board": board, "changed": changed }))
+    }
+    fn tool_milestone_ship(&self, args: Value) -> Result<Value> {
+        let board = self.resolve_board(&args)?;
+        let milestone_id = args.get("milestone_id").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("milestone_id required"))?;
+        let mut m = crate::storage::milestones::get_milestone(&board, milestone_id)?.ok_or_else(|| anyhow::anyhow!("milestone not found"))?;
+        m.status = crate::models::milestone::MilestoneStatus::Shipped;
+        crate::storage::milestones::upsert_milestone(&board, m)?;
+        Ok(serde_json::json!({ "board": board, "shipped": milestone_id }))
+    }
+    fn tool_milestone_roadmap(&self, args: Value) -> Result<Value> {
+        let board = self.resolve_board(&args)?;
+        let roadmap = crate::storage::milestones::roadmap(&board)?;
+        Ok(serde_json::json!({ "board": board, "roadmap": roadmap }))
+    }
+    fn tool_merge_train_plan(&self, args: Value) -> Result<Value> {
+        let board = self.resolve_board(&args)?;
+        let _ = board;
+        let store = crate::runtime::RuntimeStore::from_project()?;
+        let mut runs = store.list_runs(None)?;
+        if let Some(ids) = args.get("run_ids").and_then(|v| v.as_array()) {
+            let wanted: Vec<String> = ids.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect();
+            runs.retain(|r| wanted.contains(&r.id));
+        } else {
+            runs.retain(|r| r.gate.as_ref().map(|g| g.verified()).unwrap_or(false));
+        }
+        let root = crate::runtime::merge_train::project_root()?;
+        let train = crate::runtime::merge_train::plan_train(&runs, None, &root)?;
+        crate::runtime::merge_train::save_train(&train)?;
+        Ok(serde_json::to_value(&train).unwrap_or(serde_json::json!({})))
+    }
+    fn tool_merge_train_run(&self, args: Value) -> Result<Value> {
+        let board = self.resolve_board(&args)?;
+        let train_id = args.get("train_id").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("train_id required"))?;
+        let train = crate::runtime::merge_train::load_train(train_id)?;
+        let service = crate::runtime::RunService::from_project(&board)?;
+        let result = crate::runtime::merge_train::execute_train(train, |item| {
+            service.merge(&item.run_id, true)?;
+            Ok(())
+        })?;
+        Ok(serde_json::to_value(&result).unwrap_or(serde_json::json!({})))
+    }
+    fn tool_merge_train_status(&self, args: Value) -> Result<Value> {
+        let train_id = args.get("train_id").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("train_id required"))?;
+        let train = crate::runtime::merge_train::load_train(train_id)?;
+        Ok(serde_json::to_value(&train).unwrap_or(serde_json::json!({})))
+    }
+    fn tool_gate_check(&self, args: Value) -> Result<Value> {
+        let path_s = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");
+        let path = std::path::PathBuf::from(path_s);
+        let cmd = args.get("command").and_then(|v| v.as_str());
+        let verdict = crate::agent::gate::check_worktree(&path, cmd)?;
+        Ok(serde_json::to_value(&verdict).unwrap_or(serde_json::json!({})))
+    }
+    fn tool_worktree_list(&self, _args: Value) -> Result<Value> {
+        let rows = crate::agent::worktree_lifecycle::list_with_health()?;
+        Ok(serde_json::json!({ "worktrees": rows }))
+    }
+    fn tool_worktree_checkpoint(&self, args: Value) -> Result<Value> {
+        let slug = args.get("slug").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("slug required"))?;
+        let label = args.get("label").and_then(|v| v.as_str()).unwrap_or("auto");
+        let r#ref = crate::agent::worktree_lifecycle::checkpoint(slug, label)?;
+        Ok(serde_json::json!({ "slug": slug, "ref": r#ref }))
+    }
+    fn tool_agent_loop_tools(&self, _args: Value) -> Result<Value> {
+        let registry = crate::agent::agent_loop::default_registry();
+        Ok(serde_json::json!({ "tools": registry.list() }))
+    }
+    fn tool_agent_loop_status(&self, args: Value) -> Result<Value> {
+        let card_id = args.get("card_id").and_then(|v| v.as_str()).ok_or_else(|| anyhow::anyhow!("card_id required"))?;
+        let events = crate::threads::read_events(card_id).unwrap_or_default();
+        Ok(serde_json::json!({ "card_id": card_id, "event_count": events.len() }))
+    }
+    fn tool_health(&self, _args: Value) -> Result<Value> {
+        let report = crate::commands::health::health()?;
+        Ok(serde_json::to_value(&report).unwrap_or(serde_json::json!({})))
+    }
     fn tool_guard_scan(&self, args: Value) -> Result<Value> {
         let root = crate::storage::board_dir::find_project_root()?;
         let config = crate::storage::config_store::read_config(&root.join(".board"))

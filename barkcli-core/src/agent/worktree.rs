@@ -84,8 +84,10 @@ fn git_in(root: &PathBuf, args: &[&str]) -> Result<String> {
 /// Acquire an isolated worktree for a task.
 ///
 /// Creates `.board/worktrees/<slug>` on a fresh branch `bark/<slug>`
-/// from clean HEAD. Fails if main is dirty, the slug is invalid,
-/// or the worktree exists. Enforces `MAX_CONCURRENT_WORKTREES`.
+/// from HEAD. Safe even when the main checkout has uncommitted changes
+/// (worktrees are isolated and do not inherit the working tree).
+/// Fails if the slug is invalid or the worktree/branch already exists.
+/// Enforces `MAX_CONCURRENT_WORKTREES`.
 pub fn acquire_worktree(slug: &str) -> Result<PathBuf> {
     let clean_slug = sanitize_slug(slug)?;
     let root = project_root()?;
@@ -101,11 +103,6 @@ pub fn acquire_worktree(slug: &str) -> Result<PathBuf> {
             "worktree '{}' already acquired at {}",
             clean_slug,
             path.display()
-        );
-    }
-    if main_is_dirty()? {
-        anyhow::bail!(
-            "refusing: main checkout is dirty (uncommitted changes). Commit or stash first — agents never inherit a dirty tree."
         );
     }
 

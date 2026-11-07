@@ -1,6 +1,7 @@
 pub mod display;
 pub mod git;
 pub mod lock;
+pub mod metrics;
 pub mod redact;
 pub mod slug;
 pub mod style;

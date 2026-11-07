@@ -1,0 +1,373 @@
+//! Integration tests for the event-sourced core.
+//!
+//! The suite is event-sourced end-to-end (drain the outbox / await the
+//! persisted event -- never sleep). One test hits SQLite directly to prove
+//! the four-table commit, the WAL schema, and reopen durability.
+
+use std::sync::Arc;
+
+use chrono::{TimeZone, Utc};
+use barkcli_core::event_sourced::command::{CommandId, ReceiptStatus};
+use barkcli_core::event_sourced::domain::{
+    CompleteCardRunCommand, CreateCardCommand, MoveCardCommand, RecordGateCommand, StartCardRunCommand,
+    BarkOrchestrator,
+};
+use barkcli_core::event_sourced::lifecycle::{merge_authorized, phase_from_events, RunPhase};
+use barkcli_core::event_sourced::orchestrator::{Dispatcher, Orchestrator as _};
+use barkcli_core::event_sourced::outbox::{OutboxDispatcher, OutboxStatus};
+use barkcli_core::event_sourced::projection::{
+    BoardStatsProjection, CardProjection, ProjectionRunner,
+};
+use barkcli_core::event_sourced::store::{EventStore, InMemoryEventStore, OutboxStore, SqliteEventStore};
+use barkcli_core::event_sourced::EventSourcedError;
+
+fn at(second: u32) -> chrono::DateTime<Utc> {
+    Utc.with_ymd_and_hms(2026, 11, 7, 12, 0, second).unwrap()
+}
+
+type MemDispatcher<C> = Dispatcher<InMemoryEventStore, C, BarkOrchestrator>;
+
+fn mem_dispatchers() -> (
+    Arc<InMemoryEventStore>,
+    MemDispatcher<CreateCardCommand>,
+    MemDispatcher<MoveCardCommand>,
+    MemDispatcher<StartCardRunCommand>,
+    MemDispatcher<CompleteCardRunCommand>,
+    MemDispatcher<RecordGateCommand>,
+) {
+    let store = Arc::new(InMemoryEventStore::new());
+    (
+        store.clone(),
+        Dispatcher::from_shared(store.clone(), BarkOrchestrator),
+        Dispatcher::from_shared(store.clone(), BarkOrchestrator),
+        Dispatcher::from_shared(store.clone(), BarkOrchestrator),
+        Dispatcher::from_shared(store.clone(), BarkOrchestrator),
+        Dispatcher::from_shared(store, BarkOrchestrator),
+    )
+}
+
+fn create_card(dispatcher: &MemDispatcher<CreateCardCommand>, id: &str, title: &str) -> barkcli_core::event_sourced::CommandReceipt {
+    dispatcher
+        .handle(CommandId::new(), &CreateCardCommand::new(id, title, "todo", at(1)))
+        .unwrap()
+}
+
+#[test]
+fn duplicate_command_id_returns_original_receipt_without_duplicating_events() {
+    let (store, create, _, _, _, _) = mem_dispatchers();
+    let command_id = CommandId::new();
+    let command = CreateCardCommand::new("c1", "First card", "todo", at(1));
+    let first = create.handle(command_id.clone(), &command).unwrap();
+    let second = create.handle(command_id.clone(), &command).unwrap();
+
+    assert_eq!(first.command_id, second.command_id);
+    assert_eq!(first.status, second.status);
+    assert_eq!(first.result_event_ids, second.result_event_ids);
+
+    let stream = store.read_stream("card:c1", 0).unwrap();
+    assert_eq!(stream.len(), 1, "idempotent retry must not append twice");
+    assert_eq!(stream[0].event_type, "card_created");
+}
+
+#[test]
+fn accepted_is_not_completed_until_follow_up_confirms() {
+    let (store, create, _, start, complete, _) = mem_dispatchers();
+    create_card(&create, "c1", "Run me");
+
+    // Accept the run: intent committed, work not done.
+    let start_receipt = start
+        .handle(CommandId::new(), &StartCardRunCommand::new("c1", "r1", "opencode", at(2)))
+        .unwrap();
+    assert_eq!(start_receipt.status, ReceiptStatus::Accepted);
+    assert!(!start_receipt.is_terminal());
+
+    // Phase is Accepted, definitely not Passed: no merge authorized.
+    let phase = phase_from_events(&store.read_stream("card:c1", 0).unwrap());
+    assert_eq!(phase, RunPhase::Accepted);
+    assert!(!merge_authorized(phase));
+
+    // Follow-up confirms the provider turn finished (gate passed).
+    let complete_id = CommandId::new();
+    let complete_receipt = complete
+        .handle(complete_id.clone(), &CompleteCardRunCommand::new("c1", "r1", true, at(3)))
+        .unwrap();
+    assert_eq!(complete_receipt.status, ReceiptStatus::Accepted);
+
+    let phase = phase_from_events(&store.read_stream("card:c1", 0).unwrap());
+    assert_eq!(phase, RunPhase::Passed);
+    assert!(merge_authorized(phase));
+
+    // Only now does the *start* receipt become Completed.
+    start.mark_completed(&start_receipt.command_id, at(4)).unwrap();
+    let stored = store.find_receipt(&start_receipt.command_id).unwrap().unwrap();
+    assert_eq!(stored.status, ReceiptStatus::Completed);
+    assert!(stored.completed_at.is_some());
+}
+
+#[test]
+fn gate_failure_never_authorizes_merge() {
+    let (store, create, _, start, _, gate) = mem_dispatchers();
+    create_card(&create, "c1", "Gate me");
+    start
+        .handle(CommandId::new(), &StartCardRunCommand::new("c1", "r1", "claude", at(2)))
+        .unwrap();
+    gate.handle(CommandId::new(), &RecordGateCommand::new("c1", "r1", false, at(3)))
+        .unwrap();
+
+    let phase = phase_from_events(&store.read_stream("card:c1", 0).unwrap());
+    assert_eq!(phase, RunPhase::Failed);
+    assert!(!merge_authorized(phase));
+}
+
+#[test]
+fn invalid_command_persists_rejected_receipt_with_no_events() {
+    let (store, create, _, _, _, _) = mem_dispatchers();
+    let receipt = create
+        .handle(CommandId::new(), &CreateCardCommand::new("c1", "Bad column", "nope", at(1)))
+        .unwrap();
+    assert_eq!(receipt.status, ReceiptStatus::Rejected);
+    assert!(receipt.reason.as_deref().unwrap().contains("unknown column"));
+    assert!(store.read_stream("card:c1", 0).unwrap().is_empty());
+
+    // Retry with the same id returns the rejection, still no events.
+    let again = create
+        .handle(receipt.command_id.clone(), &CreateCardCommand::new("c1", "Bad column", "nope", at(1)))
+        .unwrap();
+    assert_eq!(again.status, ReceiptStatus::Rejected);
+    assert!(store.read_stream("card:c1", 0).unwrap().is_empty());
+}
+
+#[test]
+fn move_card_noop_is_accepted_without_events() {
+    let (store, create, mv, _, _, _) = mem_dispatchers();
+    create_card(&create, "c1", "Noop me");
+    let receipt = mv
+        .handle(CommandId::new(), &MoveCardCommand::new("c1", "todo", at(2)))
+        .unwrap();
+    assert_eq!(receipt.status, ReceiptStatus::Accepted);
+    assert!(receipt.result_event_ids.is_empty(), "a no-op move commits no events");
+    assert_eq!(store.read_stream("card:c1", 0).unwrap().len(), 1);
+}
+
+#[test]
+fn outbox_row_lands_with_events_and_dispatcher_is_at_least_once() {
+    let (store, create, _, start, _, _) = mem_dispatchers();
+    create_card(&create, "c1", "Run me");
+    start.handle(CommandId::new(), &StartCardRunCommand::new("c1", "r1", "opencode", at(2))).unwrap();
+
+    // Outbox row present in the same commit as run_accepted.
+    assert_eq!(store.count_outbox_pending().unwrap(), 1);
+    let dispatcher = OutboxDispatcher::new(&*store);
+    let due = store.fetch_outbox_due(at(3), 10).unwrap();
+    assert_eq!(due.len(), 1);
+    assert_eq!(due[0].topic, "provider_turn.start");
+    assert_eq!(due[0].payload.get("run_id").and_then(|v| v.as_str()), Some("r1"));
+    assert!(due[0].payload.get("command_id").is_some(), "outbox rows carry causation");
+    assert_eq!(due[0].status, OutboxStatus::Pending);
+
+    // Handler failure keeps the message pending (at-least-once, never lost).
+    let report = dispatcher
+        .drain(10, at(4), &|_| Err(barkcli_core::event_sourced::outbox::OutboxError("boom".into())))
+        .unwrap();
+    assert_eq!(report.failed, 1);
+    assert_eq!(report.delivered, 0);
+    // Not immediately due again (backoff), but still pending.
+    assert_eq!(store.count_outbox_pending().unwrap(), 1);
+    assert!(store.fetch_outbox_due(at(4), 10).unwrap().is_empty(), "backoff defers redelivery");
+
+    // Later drain succeeds and marks dispatched exactly once.
+    let report = dispatcher
+        .drain(10, at(30), &|message| {
+            assert_eq!(message.topic, "provider_turn.start");
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(report.delivered, 1);
+    assert_eq!(store.count_outbox_pending().unwrap(), 0);
+    let later = dispatcher.drain(10, at(31), &|_| Ok(())).unwrap();
+    assert_eq!(later.delivered, 0, "dispatched messages are never redelivered");
+}
+
+#[test]
+fn projection_incremental_apply_equals_full_replay() {
+    let (store, create, _, start, complete, _) = mem_dispatchers();
+    create_card(&create, "c1", "Project me");
+    start.handle(CommandId::new(), &StartCardRunCommand::new("c1", "r1", "codex", at(2))).unwrap();
+    complete.handle(CommandId::new(), &CompleteCardRunCommand::new("c1", "r1", true, at(3))).unwrap();
+
+    let all = store.read_all(0, 1000).unwrap();
+    // Incremental.
+    let mut incremental = CardProjection::default();
+    for event in &all {
+        ProjectionRunner::<InMemoryEventStore>::apply(&mut incremental, event);
+    }
+    // Replay from the store.
+    let mut replayed = CardProjection::default();
+    let runner = ProjectionRunner::new(&*store);
+    let head = runner.rebuild(&mut replayed, 0).unwrap();
+    assert_eq!(head, all.last().map(|e| e.global_seq).unwrap_or(0));
+
+    assert_eq!(incremental.cards, replayed.cards);
+    let card = replayed.cards.get("c1").expect("card present");
+    assert_eq!(card.title, "Project me");
+    assert_eq!(card.column, "todo");
+    assert_eq!(card.run, Some(RunPhase::Passed));
+
+    // Board stats fold agrees too.
+    let mut stats = BoardStatsProjection::default();
+    runner.rebuild(&mut stats, 0).unwrap();
+    assert_eq!(stats.total, 1);
+    assert_eq!(stats.columns.get("todo"), Some(&1));
+}
+
+#[test]
+fn sqlite_store_persists_events_receipts_and_survives_reopen() {
+    let dir = tempfile_dir();
+    let path = dir.join("events.sqlite");
+    {
+        let store = Arc::new(SqliteEventStore::open(&path).unwrap());
+        let create: Dispatcher<SqliteEventStore, CreateCardCommand, BarkOrchestrator> =
+            Dispatcher::from_shared(store.clone(), BarkOrchestrator);
+        let receipt = create
+            .handle(CommandId::new(), &CreateCardCommand::new("c1", "Durable", "todo", at(1)))
+            .unwrap();
+        assert_eq!(receipt.status, ReceiptStatus::Accepted);
+        assert_eq!(store.read_stream("card:c1", 0).unwrap().len(), 1);
+    }
+    // Reopen: log, receipts, and position all survive.
+    let store = SqliteEventStore::open(&path).unwrap();
+    let events = store.read_stream("card:c1", 0).unwrap();
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].event_type, "card_created");
+    assert_eq!(store.global_seq().unwrap(), 1);
+    // Causation survives the reopen and resolves to the same receipt.
+    let command_id = events[0].causation_id.clone().expect("dispatcher stamps causation");
+    let receipt = store.find_receipt(&command_id).unwrap().expect("receipt survives reopen");
+    assert_eq!(receipt.status, ReceiptStatus::Accepted);
+    assert_eq!(receipt.result_event_ids, vec![events[0].event_id.clone()]);
+    assert_eq!(receipt.command_payload.get("title").and_then(|v| v.as_str()), Some("Durable"));
+}
+
+#[test]
+fn sqlite_duplicate_delivery_is_served_from_receipt() {
+    let store = Arc::new(SqliteEventStore::in_memory().unwrap());
+    let create: Dispatcher<SqliteEventStore, CreateCardCommand, BarkOrchestrator> =
+        Dispatcher::from_shared(store.clone(), BarkOrchestrator);
+    let command_id = CommandId::new();
+    let command = CreateCardCommand::new("c1", "Atomic", "todo", at(1));
+    create.handle(command_id.clone(), &command).unwrap();
+
+    // The second delivery is served from the receipt (no second commit).
+    let again = create.handle(command_id.clone(), &command).unwrap();
+    assert_eq!(again.status, ReceiptStatus::Accepted);
+    assert_eq!(store.read_stream("card:c1", 0).unwrap().len(), 1);
+}
+
+#[test]
+fn optimistic_concurrency_surfaces_typed_error() {
+    let store = InMemoryEventStore::new();
+    let first = barkcli_core::event_sourced::event::NewEvent::new("a", serde_json::json!({}), at(1));
+    let second = barkcli_core::event_sourced::event::NewEvent::new("b", serde_json::json!({}), at(2));
+    // Stream advances between read and append.
+    store.append("s", Some(0), &[first]).unwrap();
+    let err = store.append("s", Some(0), &[second]).unwrap_err();
+    match err {
+        EventSourcedError::Concurrency { expected, actual, .. } => {
+            assert_eq!(expected, 0);
+            assert_eq!(actual, 1);
+        }
+        other => panic!("expected Concurrency, got {other}"),
+    }
+    assert_eq!(store.read_stream("s", 0).unwrap().len(), 1);
+}
+
+#[test]
+fn orchestrator_is_pure_and_deterministic() {
+    let orchestrator = BarkOrchestrator;
+    let command = CreateCardCommand::new("c1", "Pure", "todo", at(1));
+    let state = barkcli_core::event_sourced::AggregateState::default();
+    let first = orchestrator.decide(&state, &command).unwrap();
+    let second = orchestrator.decide(&state, &command).unwrap();
+    assert_eq!(first.events.len(), 1);
+    assert_eq!(first.events[0].event_type, "card_created");
+    assert_eq!(first.events[0].event_type, second.events[0].event_type);
+    assert_eq!(first.events[0].payload, second.events[0].payload);
+    assert_eq!(first.events[0].occurred_at, second.events[0].occurred_at);
+}
+
+#[test]
+fn stream_sequences_are_monotonic_per_stream() {
+    let (store, create, _, start, _, _) = mem_dispatchers();
+    create_card(&create, "c1", "Sequence");
+    start.handle(CommandId::new(), &StartCardRunCommand::new("c1", "r1", "opencode", at(2))).unwrap();
+    let stream = store.read_stream("card:c1", 0).unwrap();
+    assert_eq!(stream.iter().map(|e| e.stream_seq).collect::<Vec<_>>(), vec![1, 2]);
+    assert_eq!(store.stream_version("card:c1").unwrap(), 2);
+    assert_eq!(store.read_all(0, 10).unwrap().len(), 2);
+    assert_eq!(store.global_seq().unwrap(), 2);
+}
+
+#[test]
+fn unknown_events_are_ignored_by_projections_but_preserved_in_log() {
+    let (store, create, _, _, _, _) = mem_dispatchers();
+    create_card(&create, "c1", "Future-proof");
+    let future = barkcli_core::event_sourced::event::NewEvent::new(
+        "some_future_event",
+        serde_json::json!({"card_id": "c1", "x": 1}),
+        at(2),
+    );
+    store.append("card:c1", None, &[future]).unwrap();
+    let mut projection = CardProjection::default();
+    ProjectionRunner::new(&*store).rebuild(&mut projection, 0).unwrap();
+    assert_eq!(projection.cards.len(), 1);
+    assert_eq!(projection.cards.get("c1").unwrap().column, "todo");
+}
+
+#[test]
+fn compat_bridge_maps_events_to_thread_log() {
+    let (store, create, _, _, _, _) = mem_dispatchers();
+    create_card(&create, "c1", "Visible");
+    let stored = store.read_stream("card:c1", 0).unwrap();
+    let thread_event = barkcli_core::event_sourced::compat::stored_to_thread_event(&stored[0]);
+    assert_eq!(thread_event.card_id, "c1");
+    assert_eq!(thread_event.text, "card_created");
+    // Unknown types map to Custom, never dropped.
+    let mut unknown = stored[0].clone();
+    unknown.event_type = "some_future_event".into();
+    let mapped = barkcli_core::event_sourced::compat::stored_to_thread_event(&unknown);
+    match mapped.kind {
+        barkcli_core::threads::ThreadEventKind::Custom(name) => assert_eq!(name, "some_future_event"),
+        other => panic!("expected Custom, got {other:?}"),
+    }
+    assert_eq!(
+        barkcli_core::event_sourced::compat::run_phase_to_status(RunPhase::Passed),
+        barkcli_core::runtime::RunStatus::Passed
+    );
+}
+
+#[test]
+fn move_rejects_unknown_card_and_accepts_column_change() {
+    let (store, create, mv, _, _, _) = mem_dispatchers();
+    // Unknown card: rejected.
+    let rejected = mv.handle(CommandId::new(), &MoveCardCommand::new("ghost", "doing", at(1))).unwrap();
+    assert_eq!(rejected.status, ReceiptStatus::Rejected);
+    assert!(store.read_stream("card:ghost", 0).unwrap().is_empty());
+    // Real move: accepted, second event.
+    create_card(&create, "c1", "Move me");
+    let moved = mv.handle(CommandId::new(), &MoveCardCommand::new("c1", "doing", at(2))).unwrap();
+    assert_eq!(moved.status, ReceiptStatus::Accepted);
+    let stream = store.read_stream("card:c1", 0).unwrap();
+    assert_eq!(stream.len(), 2);
+    assert_eq!(stream[1].event_type, "card_moved");
+    assert_eq!(stream[1].payload.get("from_column").and_then(|v| v.as_str()), Some("todo"));
+    assert_eq!(stream[1].payload.get("to_column").and_then(|v| v.as_str()), Some("doing"));
+}
+
+fn tempfile_dir() -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!("barkcli-es-{}-{}", std::process::id(), {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0)
+    }));
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}

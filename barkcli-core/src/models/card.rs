@@ -41,6 +41,8 @@ pub struct Card {
     pub area: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spec_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub milestone_id: Option<String>,
     #[serde(default)]
     pub pinned: bool,
     /// Optimistic concurrency token — incremented on every mutation.
@@ -73,6 +75,7 @@ impl Default for Card {
             effort: None,
             area: None,
             spec_id: None,
+            milestone_id: None,
             pinned: false,
             version: 1,
             created_at: Utc::now(),
@@ -103,6 +106,7 @@ impl Card {
             effort: None,
             area: None,
             spec_id: None,
+            milestone_id: None,
             pinned: false,
             version: 1,
             created_at: now,

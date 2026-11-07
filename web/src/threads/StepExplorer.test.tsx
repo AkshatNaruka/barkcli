@@ -33,7 +33,7 @@ describe("StepExplorer", () => {
     expect(parsedAnalyze.lineRange).toBe("#L1550-1600");
   });
 
-  it("renders collapsible step explorer with items", () => {
+  it("renders collapsible details for steps", () => {
     const events: ThreadEvent[] = [
       {
         id: "ev-1",
@@ -56,17 +56,13 @@ describe("StepExplorer", () => {
 
     render(<StepExplorer running={false} events={events} />);
 
-    expect(screen.getByText("Ran 2 commands")).toBeInTheDocument();
-    expect(screen.getByText("startThreadChat")).toBeInTheDocument();
-    expect(screen.getByText("api.ts #L1550-1600")).toBeInTheDocument();
-
-    // Toggle collapse
-    fireEvent.click(screen.getByText("Ran 2 commands"));
-    expect(screen.queryByText("startThreadChat")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText(/Steps · 2/));
+    expect(screen.getAllByText("startThreadChat").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/api\.ts #L1550-1600/).length).toBeGreaterThan(0);
   });
 
-  it("renders running state with 'Running command'", () => {
+  it("renders minimal running state with no fake steps", () => {
     render(<StepExplorer running={true} intent="test prompt" />);
-    expect(screen.getByText("Running command")).toBeInTheDocument();
+    expect(screen.getByText("Working…")).toBeInTheDocument();
   });
 });

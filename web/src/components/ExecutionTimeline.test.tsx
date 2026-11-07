@@ -57,35 +57,28 @@ describe("ExecutionTimeline", () => {
     ],
   };
 
-  it("renders duration summary and call counts", () => {
+  it("renders a minimal collapsed details summary", () => {
     render(<ExecutionTimeline trace={sampleTrace} />);
-    expect(screen.getByText("Execution Trace")).toBeDefined();
+    expect(screen.getByText(/Execution trace/i)).toBeDefined();
     expect(screen.getByText("10.0s")).toBeDefined();
     expect(screen.getByText("2 calls")).toBeDefined();
   });
 
-  it("renders the 4 execution lanes: Input, Model, Tools, Test Gate", () => {
+  it("renders lanes and allows selecting a span when expanded", () => {
     render(<ExecutionTimeline trace={sampleTrace} />);
+    fireEvent.click(screen.getByText(/Execution trace/i));
     expect(screen.getByText("Input")).toBeDefined();
     expect(screen.getByText("Model")).toBeDefined();
     expect(screen.getByText("Tools")).toBeDefined();
-    expect(screen.getByText("Test Gate")).toBeDefined();
-  });
-
-  it("allows selecting a span to inspect details", () => {
-    render(<ExecutionTimeline trace={sampleTrace} />);
+    expect(screen.getByText("Gate")).toBeDefined();
     const toolSpan = screen.getByTitle(/tool: read_file/);
     fireEvent.click(toolSpan);
     expect(screen.getByText(/src\/auth\/oauth\.ts/)).toBeDefined();
   });
 
-  it("handles empty or zero-duration traces gracefully", () => {
-    const emptyTrace: RunTrace = {
-      run_id: "run-empty",
-      total_duration_ms: 0,
-      spans: [],
-    };
-    render(<ExecutionTimeline trace={emptyTrace} />);
-    expect(screen.getByText("No execution telemetry recorded")).toBeDefined();
+  it("renders nothing for empty or zero-duration traces", () => {
+    const emptyTrace: RunTrace = { run_id: "run-empty", total_duration_ms: 0, spans: [] };
+    const { container } = render(<ExecutionTimeline trace={emptyTrace} />);
+    expect(container.firstChild).toBeNull();
   });
 });

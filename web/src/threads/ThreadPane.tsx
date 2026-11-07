@@ -21,7 +21,7 @@ import {
 import { notify as desktopNotify } from "../lib/desktop";
 import { activeChatTurn, useComposerMode } from "../lib/composer";
 import { Icon } from "../components/Icon";
-import { relativeTime } from "../lib/threads";
+import { relativeTime, formatElapsed } from "../lib/threads";
 import { isDemoMode } from "../lib/demo";
 import { navigate } from "../lib/hashnav";
 import { ThreadComposer } from "./ThreadComposer";
@@ -755,7 +755,7 @@ export function ThreadPane({
       const isExec = lower.includes("run") || lower.includes("bash") || lower.includes("terminal") || lower.includes("exec") || lower.includes("command");
       const isFile = lower.includes("write") || lower.includes("edit") || lower.includes("patch") || lower.includes("file");
       const icon = isGate ? "check" : isRead ? "eye" : isExec ? "terminal" : isFile ? "doc" : "spark";
-      const color = isGate ? "text-emerald-400" : isRead ? "text-sky-400" : isExec ? "text-amber-400" : isFile ? "text-indigo-400" : "text-accent";
+      const color = isGate ? "text-success" : isRead ? "text-muted-strong" : isExec ? "text-warning" : isFile ? "text-accent-text" : "text-muted";
       return { id: ev.id, label, icon, color, time: relativeTime(ev.created_at) };
     });
   }, [activityEvents]);
@@ -985,7 +985,7 @@ export function ThreadPane({
               <span>Changes</span>
               {latestRun && latestRun.diff_stats.files > 0 ? (
                 <span className="flex items-center gap-1 font-mono text-[10.5px]">
-                  <span className="text-emerald-400 font-semibold">+{latestRun.diff_stats.additions}</span>
+                  <span className="text-success font-semibold">+{latestRun.diff_stats.additions}</span>
                   <span className="text-rose-400 font-semibold">-{latestRun.diff_stats.deletions}</span>
                   <span className="text-muted/60">({latestRun.diff_stats.files})</span>
                 </span>
@@ -1659,6 +1659,9 @@ export function ThreadPane({
               </summary>
               {activityOpen && (
                 <div className="thread-details-content">
+                  {(activeRun?.trace || latestRun?.trace) && (
+                    <ExecutionTimeline trace={activeRun?.trace || latestRun?.trace} className="mb-2" />
+                  )}
                   {latestRun && (
                     <RunSummaryCard
                       run={latestRun}
@@ -1696,29 +1699,17 @@ export function ThreadPane({
                         return (
                           <details
                             key={event.id}
-                            className="group/act rounded-lg border border-border/50 bg-surface/40 hover:bg-surface/70 transition-colors"
+                            className="group/act rounded-md border border-border/40 bg-transparent"
                           >
-                            <summary className="flex items-center gap-2 px-2.5 py-1.5 text-[11px] font-mono cursor-pointer select-none text-muted-strong hover:text-text">
-                              {isGate ? (
-                                <Icon name="check" size={12} className="text-emerald-400 shrink-0" />
-                              ) : isRead ? (
-                                <Icon name="eye" size={12} className="text-sky-400 shrink-0" />
-                              ) : isExec ? (
-                                <Icon name="terminal" size={12} className="text-amber-400 shrink-0" />
-                              ) : isFile ? (
-                                <Icon name="doc" size={12} className="text-indigo-400 shrink-0" />
-                              ) : (
-                                <Icon name="spark" size={12} className="text-accent shrink-0" />
-                              )}
-                              {label}{" "}
-                              <EventTime iso={event.created_at} />
-                              <Icon
-                                name="chevR"
-                                size={10}
-                                className="text-muted/40 transition-transform duration-150 group-open/act:rotate-90 shrink-0 ml-auto"
-                              />
+                            <summary className="flex cursor-pointer list-none items-center gap-2 px-2 py-1 text-[10.5px] font-mono text-muted hover:text-muted-strong [&::-webkit-details-marker]:hidden">
+                              <span className={isGate ? "text-success" : isExec ? "text-warning" : "text-muted"}>
+                                <Icon name={isGate ? "check" : isRead ? "eye" : isExec ? "terminal" : isFile ? "doc" : "spark"} size={11} />
+                              </span>
+                              <span className="min-w-0 flex-1 truncate">{label}</span>
+                              <span className="shrink-0 text-[10px] text-muted/60"><EventTime iso={event.created_at} /></span>
+                              <span className="shrink-0 text-[10px] text-muted/50 transition-transform group-open/act:rotate-90" aria-hidden="true">▸</span>
                             </summary>
-                            <pre className="p-2.5 mx-2 mb-2 rounded-md bg-[#0a0c10] border border-border text-[11px] font-mono text-zinc-300 overflow-x-auto max-h-[300px]">
+                            <pre className="mx-2 mb-2 max-h-[220px] overflow-auto rounded border border-border/50 bg-bg/40 p-2 text-[10.5px] font-mono text-muted-strong">
                               {event.text}
                               {event.data ? `\n${JSON.stringify(event.data, null, 2)}` : ""}
                             </pre>
@@ -1749,11 +1740,7 @@ export function ThreadPane({
             </button>
           </div>
         )}
-        {!loading && !loadError && (activeRun?.trace || latestRun?.trace) && (
-          <div className="px-3 pb-2">
-            <ExecutionTimeline trace={activeRun?.trace || latestRun?.trace} />
-          </div>
-        )}
+
         {!loading && !loadError && (latestRun || chatBusy) && (
           <div className="thread-outcome" role="status" aria-live="polite">
             <span
@@ -1795,6 +1782,7 @@ export function ThreadPane({
         {newOutput && (
           <button
             className="jump-to-latest"
+            aria-label="Jump to latest messages"
             onClick={() => {
               stickToBottom.current = true;
               setNewOutput(false);
