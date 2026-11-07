@@ -258,7 +258,8 @@ describe("ThreadPane", () => {
     expect(onReview).toHaveBeenCalledOnce();
     await user.click(screen.getByText("Details", { selector: "summary" }));
     expect(await screen.findByText(run.worktree!)).toBeInTheDocument();
-    expect(screen.getByText("private diagnostic", { selector: "summary" })).toBeInTheDocument();
+    // Activity log events render as labeled details rows inside the opened Details section.
+    expect(screen.getAllByText("private diagnostic").length).toBeGreaterThan(0);
   });
 
   it("keeps failed checks and actionable errors visible while details stay closed", async () => {
