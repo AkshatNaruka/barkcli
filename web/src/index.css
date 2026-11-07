@@ -1479,22 +1479,21 @@ button.sidebar-group-name:hover { border-color: var(--border); }
 }
 
 /* ── Global status bar: quiet chrome, truncates before it overflows ── */
-.global-status-bar { gap: 14px; overflow: hidden; background: color-mix(in srgb, var(--surface) 55%, var(--bg)); }
-.global-status-bar-main { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.global-status-bar-item { display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
-.global-status-bar-item > span:last-child { overflow: hidden; text-overflow: ellipsis; }
-.global-status-bar-gate { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.global-status-bar-gate > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-@media (max-width: 820px) {
-  .global-status-bar { gap: 8px; padding-inline: 10px; }
-  .global-status-bar-git, .global-status-bar-sep { display: none; }
-}
-@media (max-width: 560px) {
-  .global-status-bar { font-size: 10px; }
-  .global-status-bar-main { display: none; }
-  .global-status-bar-gate { flex: 1; }
-  .global-status-bar-gate > span { max-width: none; }
-}
+/* ── VS Code-inspired bottom status bar (global footer) ── */
+.vscode-statusbar { display:flex; align-items:center; justify-content:space-between; gap:8px; height:24px; min-height:24px; padding:0 8px; border-top:1px solid var(--border); background:color-mix(in srgb, var(--surface) 88%, var(--bg)); color:var(--muted-strong); font:500 11.5px/1 var(--font-sans); user-select:none; flex-shrink:0; z-index:30; }
+.vscode-statusbar-left, .vscode-statusbar-right { display:flex; align-items:center; min-width:0; height:100%; }
+.vscode-statusbar-right { flex-shrink:0; }
+.vscode-statusbar-segment { display:inline-flex; align-items:center; gap:5px; height:100%; padding:0 7px; color:var(--muted-strong); background:transparent; border:0; font:inherit; white-space:nowrap; }
+button.vscode-statusbar-segment:hover { background:var(--card); color:var(--text); }
+.vscode-statusbar-remote { padding-left:6px; padding-right:8px; margin-right:2px; }
+.vscode-statusbar-dot { width:7px; height:7px; border-radius:999px; background:var(--muted); flex-shrink:0; }
+.vscode-statusbar-dot.is-ok { background:var(--success); }
+.vscode-statusbar-dot.is-offline { background:var(--danger); }
+.vscode-statusbar-muted { color:var(--muted); }
+.vscode-statusbar-truncate { max-width:min(320px,32vw); overflow:hidden; text-overflow:ellipsis; }
+@media (max-width:900px){ .vscode-statusbar-truncate{ max-width:160px; } }
+@media (max-width:640px){ .vscode-statusbar{ height:22px; min-height:22px; font-size:10.5px; } .vscode-statusbar-segment{ padding:0 5px; gap:4px; } .vscode-statusbar-truncate{ max-width:120px; } }
+
 
 @media (max-width: 640px) {
   .thread-composer-controls { flex-wrap: wrap; }

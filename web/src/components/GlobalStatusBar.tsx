@@ -9,12 +9,11 @@ interface GlobalStatusBarProps {
 }
 
 export function GlobalStatusBar({ project }: GlobalStatusBarProps) {
-  const [latency, setLatency] = useState<number | null>(12);
-  const [branch, setBranch] = useState<string>("main");
-  const [clean, setClean] = useState<boolean>(true);
-  const [worktreesCount, setWorktreesCount] = useState<number>(3);
-  const [gateCommand, setGateCommand] = useState<string>("cargo test");
-  const [gatePassing, setGatePassing] = useState<boolean>(true);
+  const [latency, setLatency] = useState<number | null>(null);
+  const [branch, setBranch] = useState<string>(project?.git?.branch || "main");
+  const [clean, setClean] = useState<boolean>(project?.git?.clean ?? true);
+  const [worktreesCount, setWorktreesCount] = useState<number>(0);
+  const [gateCommand, setGateCommand] = useState<string>(project?.verification_command || "gate");
 
   const port = typeof window !== "undefined" && window.location.port ? window.location.port : "4321";
 
@@ -46,7 +45,7 @@ export function GlobalStatusBar({ project }: GlobalStatusBarProps) {
       try {
         const wts = await fetchWorktrees();
         if (!cancelled && Array.isArray(wts)) {
-          setWorktreesCount(Math.max(1, wts.length));
+          setWorktreesCount(Math.max(0, wts.length));
         }
       } catch {
         // preserve current
@@ -68,48 +67,41 @@ export function GlobalStatusBar({ project }: GlobalStatusBarProps) {
   }, []);
 
   useEffect(() => {
-    if (project?.verification_command) {
-      setGateCommand(project.verification_command);
-    } else if (project?.git?.branch) {
+    if (project?.verification_command) setGateCommand(project.verification_command);
+    if (project?.git?.branch) {
       setBranch(project.git.branch);
       setClean(project.git.clean);
     }
   }, [project]);
 
+  const online = latency != null;
+
   return (
-    <footer
-      className="global-status-bar h-7 border-t border-border/80 px-3.5 flex items-center justify-between text-[11px] font-mono text-muted select-none shrink-0 z-30"
-      aria-label="System status"
-    >
-      <div className="global-status-bar-main">
-        <div className="global-status-bar-item text-zinc-300">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span>
-            daemon: {port} ({latency != null ? `${latency}ms` : "offline"})
+    <footer className="global-status-bar vscode-statusbar" aria-label="System status" role="status">
+      <div className="vscode-statusbar-left">
+        <span className="vscode-statusbar-segment vscode-statusbar-remote" title={online ? `Local daemon :${port} (${latency}ms)` : "Local daemon offline"}>
+          <span className={`vscode-statusbar-dot ${online ? "is-ok" : "is-offline"}`} aria-hidden="true" />
+          <Icon name="terminal" size={12} />
+        </span>
+        <button type="button" className="vscode-statusbar-segment" title={`Branch: ${branch} (${clean ? "clean" : "changes"})`}>
+          <Icon name="branch" size={12} />
+          <span>{branch}</span>
+          {!clean ? <span className="vscode-statusbar-muted">*</span> : null}
+        </button>
+        {worktreesCount > 0 ? (
+          <span className="vscode-statusbar-segment" title={`${worktreesCount} worktree${worktreesCount === 1 ? "" : "s"}`}>
+            <Icon name="layers" size={12} />
+            <span>{worktreesCount}</span>
           </span>
-        </div>
-
-        <span className="global-status-bar-sep text-border/80">|</span>
-
-        <div className="global-status-bar-item global-status-bar-git text-muted-strong">
-          <Icon name="branch" size={11} className="text-muted/70" />
-          <span>
-            branch: {branch} ({clean ? "clean" : "changes"})
-          </span>
-        </div>
-
-        <span className="global-status-bar-sep text-border/80">|</span>
-
-        <div className="global-status-bar-item global-status-bar-git text-muted-strong">
-          <Icon name="layers" size={11} className="text-muted/70" />
-          <span>worktrees: {worktreesCount} active</span>
-        </div>
+        ) : null}
       </div>
-
-      <div className="global-status-bar-gate text-emerald-400 font-medium">
-        <Icon name="check" size={12} className="text-emerald-400" />
-        <span>
-          acceptance gate: {gatePassing ? "passing" : "failing"} ({gateCommand})
+      <div className="vscode-statusbar-right">
+        <span className="vscode-statusbar-segment" title={`Acceptance gate command: ${gateCommand}`}>
+          <Icon name="check" size={12} />
+          <span className="vscode-statusbar-truncate">{gateCommand}</span>
+        </span>
+        <span className="vscode-statusbar-segment vscode-statusbar-muted" title={online ? `Connected ${latency}ms` : "Offline"}>
+          {online ? `${latency}ms` : "offline"}
         </span>
       </div>
     </footer>
