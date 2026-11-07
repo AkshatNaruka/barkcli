@@ -280,7 +280,9 @@ describe("ThreadPane", () => {
     const user = userEvent.setup();
     render(<ThreadPane threadId={detail.id} />);
     await screen.findByText("Building");
-    await user.click(screen.getByText("Details", { selector: "summary" }));
+    const detailsSummary = screen.getByText("Details", { selector: "summary" });
+    const details = detailsSummary.closest("details");
+    if (details && !details.open) await user.click(detailsSummary);
     await screen.findByText(run.worktree!);
     expect(screen.getAllByRole("button", { name: "Stop" })).toHaveLength(1);
     await user.type(screen.getByTestId("thread-composer"), "Keep this next prompt");

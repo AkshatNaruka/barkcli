@@ -656,7 +656,38 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
         </div>
       )}
 
-      <details className="workbench-more"><summary>Evidence & tools</summary><div>{TABS.filter((item) => ["receipt", "eval", "context"].includes(item.id)).map((item) => <button key={item.id} onClick={() => setTab(item.id)}>{item.label}</button>)}{runs.length > 1 && <label>Attempt<QuietSelect value={latestRun?.id || ""} onChange={(event) => updateRouteState({ run: event.target.value, file: undefined })}>{runs.map((run) => <option key={run.id} value={run.id}>Attempt {run.ordinal} · {run.status}</option>)}</QuietSelect></label>}</div></details>
+      <details className="workbench-more">
+        <summary>Evidence & tools</summary>
+        <div role="group" aria-label="Evidence and tools">
+          {TABS.filter((item) => ["receipt", "eval", "context"].includes(item.id)).map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setTab(item.id)}
+              aria-current={tab === item.id ? "page" : undefined}
+            >
+              {item.label}
+            </button>
+          ))}
+          {runs.length > 1 && (
+            <label className="inline-flex items-center gap-1.5 text-[11px] text-muted">
+              <span>Attempt</span>
+              <QuietSelect
+                value={latestRun?.id || ""}
+                onChange={(event) => updateRouteState({ run: event.target.value, file: undefined })}
+                aria-label="Select attempt"
+                className="min-w-[180px]"
+              >
+                {runs.map((run) => (
+                  <option key={run.id} value={run.id}>
+                    Attempt {run.ordinal} · {run.status}
+                  </option>
+                ))}
+              </QuietSelect>
+            </label>
+          )}
+        </div>
+      </details>
       <div id="workbench-panel" {...(visibleTabs.length > 1 ? { role: "tabpanel", "aria-labelledby": `workbench-tab-${tab}` } : {})} className="min-h-0 flex-1 overflow-y-auto">
         {location.run && !latestRun && !runs.length && <p role="status" className="p-4 text-muted">Loading the selected run…</p>}
         {location.run && runs.length > 0 && !latestRun && <p role="alert" className="p-4 text-warning">That run is unavailable. Return to the thread to choose another attempt.</p>}
@@ -705,13 +736,10 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
               </div>
             </section>
 
-            <div className="pt-2 border-t border-border/50">
-              <p className="text-xs text-muted">
+            <div className="border-t border-border/50 pt-3">
+              <p className="text-[11.5px] leading-relaxed text-muted">
                 Review and approve the current plan in the thread. Bark’s offline plan is a proposal, not execution evidence.
               </p>
-              <button className="bark-button mt-2 text-xs" onClick={onClose}>
-                Back to the plan
-              </button>
             </div>
 
             <details className="mt-3">

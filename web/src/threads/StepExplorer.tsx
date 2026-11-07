@@ -29,6 +29,9 @@ interface StepExplorerProps {
   intent?: string;
   activeTurnId?: string | null;
   onOpenFile?: (path: string, line?: number) => void;
+  /** When false, render step content without an outer disclosure wrapper (for embedding in another Details section). */
+  disclosure?: boolean;
+  className?: string;
 }
 
 function firstString(...vals: unknown[]): string | undefined {
@@ -137,71 +140,128 @@ function statusTone(status?: string) {
   return "text-muted";
 }
 
-export function StepExplorer({ running = false, events = [], onOpenFile }: StepExplorerProps) {
+export function StepExplorer({ running = false, events = [], onOpenFile, disclosure = true, className = "" }: StepExplorerProps) {
   const [open, setOpen] = useState(false);
-  const steps = useMemo(() => events.filter((e) => e.kind === "tool_call" || e.kind === "file_change" || e.kind === "gate").map(parseStepEvent), [events]);
+  const steps = useMemo(
+    () => events.filter((e) => e.kind === "tool_call" || e.kind === "file_change" || e.kind === "gate").map(parseStepEvent),
+    [events]
+  );
 
   if (steps.length === 0) {
     if (!running) return null;
-    return <div className="my-1 text-[11px] text-muted" aria-live="polite">Working…</div>;
+    return (
+      <div className={`text-[11px] text-muted ${disclosure ? "my-1" : ""} ${className}`.trim()} aria-live="polite">
+        Working…
+      </div>
+    );
+  }
+
+  const list = (
+    <div className={`${disclosure ? "mt-0.5" : ""} space-y-px`.trim()}>
+      {steps.map((step) => {
+        const s = stepSummary(step);
+        const runningStep = step.status === "running" || step.status === "in_progress";
+        const expandable = Boolean(step.detail || step.output || step.command || step.file || step.body);
+        const collapsedLabel =
+          step.kind === "thought" ? `${s.label}${s.value ? `  ${s.value}` : ""}` : (s.value || step.text);
+        const row = (
+          <>
+            <span className={`shrink-0 ${runningStep ? "text-text" : "text-muted"}`}>
+              <Icon name={(s.icon as any) || "spark"} size={12} />
+            </span>
+            <span
+              className={`min-w-0 flex-1 truncate text-[12px] ${runningStep ? "text-text" : "text-muted-strong"}`}
+              title={collapsedLabel}
+            >
+              {collapsedLabel}
+            </span>
+            {s.meta ? <span className="shrink-0 text-[10.5px] text-muted">{s.meta}</span> : null}
+          </>
+        );
+        if (!expandable) {
+          return (
+            <div key={step.id} className="flex items-center gap-2 rounded px-1 py-[5px]">
+              {row}
+            </div>
+          );
+        }
+        return (
+          <details key={step.id} className="group/step rounded hover:bg-white/[0.015]">
+            <summary
+              className="flex cursor-pointer list-none items-center gap-2 px-1 py-[5px] [&::-webkit-details-marker]:hidden"
+              onClick={(e) => {
+                if (step.file && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  if (onOpenFile) onOpenFile(step.file, step.lineStart);
+                  else void openInEditor(step.file, step.lineStart);
+                }
+              }}
+            >
+              {row}
+              <span
+                className="shrink-0 text-[10px] text-muted/50 transition-transform group-open/step:rotate-90"
+                aria-hidden="true"
+              >
+                ▸
+              </span>
+            </summary>
+            <div className="ml-5 border-l border-border/40 px-2.5 pb-1.5 pt-0.5 text-[11px]">
+              {step.kind === "thought" && step.title ? (
+                <div className="text-[13px] font-semibold text-text">{step.title}</div>
+              ) : null}
+              {step.kind === "thought" && (step.body || step.detail) ? (
+                <div className="mt-1 whitespace-pre-wrap leading-relaxed text-muted-strong">{step.body || step.detail}</div>
+              ) : null}
+              {step.command && step.kind !== "thought" ? (
+                <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-[11px] text-muted-strong">
+                  {step.command}
+                </pre>
+              ) : null}
+              {step.file ? (
+                <button
+                  type="button"
+                  className="block font-mono text-[11px] text-accent-text/80 hover:text-accent-text"
+                  onClick={() => (onOpenFile ? onOpenFile(step.file!, step.lineStart) : void openInEditor(step.file!, step.lineStart))}
+                >
+                  {step.file}
+                  {step.lineRange ? ` ${step.lineRange}` : ""}
+                </button>
+              ) : null}
+              {step.kind !== "thought" && step.detail ? <div className="whitespace-pre-wrap text-muted">{step.detail}</div> : null}
+              {step.output ? (
+                <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded border border-border/40 bg-bg/40 p-1.5 font-mono text-[10px] text-muted-strong">
+                  {step.output.length > 4000 ? `${step.output.slice(0, 4000)}\n…` : step.output}
+                </pre>
+              ) : null}
+              {step.createdAt ? (
+                <div className="mt-1 text-[10px] text-muted/60">
+                  {new Date(step.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                </div>
+              ) : null}
+            </div>
+          </details>
+        );
+      })}
+    </div>
+  );
+
+  if (!disclosure) {
+    return <section className={className} aria-label={running ? "Working steps" : "Steps"}>{list}</section>;
   }
 
   return (
-    <details className="thread-details group my-1.5" open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
+    <details
+      className={`thread-details group my-1.5 ${className}`.trim()}
+      open={open}
+      onToggle={(e) => setOpen(e.currentTarget.open)}
+    >
       <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-md px-1 py-0.5 text-[11px] text-muted hover:text-muted-strong [&::-webkit-details-marker]:hidden">
         <Icon name="chevR" size={11} className={`transition-transform ${open ? "rotate-90" : ""}`} />
-        <span>{running ? "Working" : "Steps"} · {steps.length}</span>
+        <span>
+          {running ? "Working" : "Steps"} · {steps.length}
+        </span>
       </summary>
-      <div className="mt-0.5 space-y-px">
-        {steps.map((step) => {
-          const s = stepSummary(step);
-          const runningStep = step.status === "running" || step.status === "in_progress";
-          const expandable = Boolean(step.detail || step.output || step.command || step.file || step.body);
-          const collapsedLabel = step.kind === "thought"
-            ? `${s.label}${s.value ? `  ${s.value}` : ""}`
-            : (s.value || step.text);
-          const row = (
-            <>
-              <span className={`shrink-0 ${runningStep ? "text-text" : "text-muted"}`}><Icon name={(s.icon as any) || "spark"} size={12} /></span>
-              <span className={`min-w-0 flex-1 truncate text-[12px] ${runningStep ? "text-text" : "text-muted-strong"}`} title={collapsedLabel}>{collapsedLabel}</span>
-              {s.meta ? <span className="shrink-0 text-[10.5px] text-muted">{s.meta}</span> : null}
-            </>
-          );
-          if (!expandable) {
-            return <div key={step.id} className="flex items-center gap-2 rounded px-1 py-[5px]">{row}</div>;
-          }
-          return (
-            <details key={step.id} className="group/step rounded hover:bg-white/[0.015]">
-              <summary
-                className="flex cursor-pointer list-none items-center gap-2 px-1 py-[5px] [&::-webkit-details-marker]:hidden"
-                onClick={(e) => {
-                  if (step.file && (e.metaKey || e.ctrlKey)) {
-                    e.preventDefault();
-                    if (onOpenFile) onOpenFile(step.file, step.lineStart);
-                    else void openInEditor(step.file, step.lineStart);
-                  }
-                }}
-              >
-                {row}
-                <span className="shrink-0 text-[10px] text-muted/50 transition-transform group-open/step:rotate-90" aria-hidden="true">▸</span>
-              </summary>
-              <div className="ml-5 border-l border-border/40 px-2.5 pb-1.5 pt-0.5 text-[11px]">
-                {step.kind === "thought" && step.title ? <div className="text-[13px] font-semibold text-text">{step.title}</div> : null}
-                {step.kind === "thought" && (step.body || step.detail) ? <div className="mt-1 whitespace-pre-wrap leading-relaxed text-muted-strong">{step.body || step.detail}</div> : null}
-                {step.command && step.kind !== "thought" ? <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-[11px] text-muted-strong">{step.command}</pre> : null}
-                {step.file ? (
-                  <button type="button" className="block font-mono text-[11px] text-accent-text/80 hover:text-accent-text" onClick={() => onOpenFile ? onOpenFile(step.file!, step.lineStart) : void openInEditor(step.file!, step.lineStart)}>
-                    {step.file}{step.lineRange ? ` ${step.lineRange}` : ""}
-                  </button>
-                ) : null}
-                {step.kind !== "thought" && step.detail ? <div className="whitespace-pre-wrap text-muted">{step.detail}</div> : null}
-                {step.output ? <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded border border-border/40 bg-bg/40 p-1.5 font-mono text-[10px] text-muted-strong">{step.output.length > 4000 ? `${step.output.slice(0, 4000)}\n…` : step.output}</pre> : null}
-                {step.createdAt ? <div className="mt-1 text-[10px] text-muted/60">{new Date(step.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</div> : null}
-              </div>
-            </details>
-          );
-        })}
-      </div>
+      {list}
     </details>
   );
 }

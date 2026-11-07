@@ -731,6 +731,10 @@ export function ThreadPane({
   const activeRun =
     [...runs].reverse().find(isActiveRun) || null;
 
+  useEffect(() => {
+    if (chatBusy || activeRun) setActivityOpen(true);
+  }, [chatBusy, activeRun?.id]);
+
   const elapsedSeconds = useElapsedSeconds(chatBusy || Boolean(activeRun));
   const lastEvent = displayEvents.length > 0 ? displayEvents[displayEvents.length - 1] : null;
   const isLastEventAssistant = Boolean(
@@ -1605,124 +1609,141 @@ export function ThreadPane({
             })()}
 
             {showWorkingBubble && (
-              <div className="flex flex-col gap-2">
-                <StepExplorer
-                  running={true}
-                  events={activityEvents}
-                  intent={thread?.card?.title || ""}
-                  onOpenFile={(path, line) => {
-                    void openInEditor(path, line);
-                  }}
-                />
-                <LiveAgentWorkingBubble
-                  backend={activeRun?.provider || backend}
-                  statusText={workingStatusText}
-                  elapsedSeconds={elapsedSeconds}
-                  recentActivities={recentActivities}
-                  onStop={chatBusy ? handleStopChat : activeRun ? () => handleStopRun(activeRun) : undefined}
-                />
-              </div>
+              <LiveAgentWorkingBubble
+                backend={activeRun?.provider || backend}
+                statusText={workingStatusText}
+                elapsedSeconds={elapsedSeconds}
+                recentActivities={recentActivities}
+                onStop={chatBusy ? handleStopChat : activeRun ? () => handleStopRun(activeRun) : undefined}
+              />
             )}
             </div>
           )}
 
-          {!loading && !loadError && (latestRun || activityEvents.length > 0) && (
-            <div className="space-y-2">
-              {!showWorkingBubble && (
-                <StepExplorer
-                  running={false}
-                  events={activityEvents}
-                  intent={thread?.card?.title || ""}
-                  onOpenFile={(path, line) => {
-                    void openInEditor(path, line);
-                  }}
-                />
-              )}
+          {!loading && !loadError && (latestRun || activityEvents.length > 0 || chatBusy || activeRun) && (() => {
+            const stepCount = activityEvents.filter(
+              (e) => e.kind === "tool_call" || e.kind === "file_change" || e.kind === "gate"
+            ).length;
+            const hasTimeline = Boolean(activeRun?.trace || latestRun?.trace);
+            return (
               <details
-                className="thread-details group"
+                className="thread-details group mt-3"
                 open={activityOpen}
                 onToggle={(event) => setActivityOpen(event.currentTarget.open)}
               >
-              <summary className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border/80 bg-surface/60 hover:bg-surface text-muted hover:text-text text-[11.5px] font-medium transition-colors cursor-pointer select-none">
-                <Icon name="eye" size={13} className="text-muted-strong" />
-                Details
-                {activityEvents.length > 0 && (
-                  <span className="ml-1 px-1.5 py-0.2 rounded bg-card border border-border text-[10px] font-mono text-muted-strong">
-                    {activityEvents.length}
-                  </span>
-                )}
-                <Icon
-                  name="chevR"
-                  size={11}
-                  className={`ml-1 text-muted/60 transition-transform duration-150 ${activityOpen ? "rotate-90" : ""}`}
-                />
-              </summary>
-              {activityOpen && (
-                <div className="thread-details-content">
-                  {(activeRun?.trace || latestRun?.trace) && (
-                    <ExecutionTimeline trace={activeRun?.trace || latestRun?.trace} className="mb-2" />
+                <summary className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border/80 bg-surface/60 hover:bg-surface text-muted hover:text-text text-[11.5px] font-medium transition-colors cursor-pointer select-none">
+                  <Icon name="eye" size={13} className="text-muted-strong" />
+                  Details
+                  {(stepCount > 0 || activityEvents.length > 0) && (
+                    <span className="ml-1 px-1.5 py-0.2 rounded bg-card border border-border text-[10px] font-mono text-muted-strong">
+                      {stepCount > 0 ? `${stepCount} ${stepCount === 1 ? "step" : "steps"}` : activityEvents.length}
+                    </span>
                   )}
-                  {latestRun && (
-                    <RunSummaryCard
-                      run={latestRun}
-                      busy={runBusyId === latestRun.id || startingRun}
-                      onVerify={() => handleVerifyRun(latestRun)}
-                      onBuildOn={() => handleStartRun(latestRun.id)}
-                    />
-                  )}
-                  {activityEvents.length > 0 && (
-                    <div className="thread-activity" aria-label="Technical activity">
-                      {activityEvents.map((event) => {
-                        const isGate = event.kind === "gate";
-                        const rawLabel = isGate
-                          ? checkState(event.data as any).label
-                          : event.data?.name || event.text.slice(0, 100) || event.kind;
-                        const label = typeof rawLabel === "string" ? rawLabel : JSON.stringify(rawLabel);
-                        const lower = label.toLowerCase();
-                        const isRead =
-                          lower.includes("read") ||
-                          lower.includes("inspect") ||
-                          lower.includes("search") ||
-                          lower.includes("find");
-                        const isExec =
-                          lower.includes("run") ||
-                          lower.includes("bash") ||
-                          lower.includes("terminal") ||
-                          lower.includes("exec") ||
-                          lower.includes("command");
-                        const isFile =
-                          lower.includes("write") ||
-                          lower.includes("edit") ||
-                          lower.includes("patch") ||
-                          lower.includes("file");
+                  <Icon
+                    name="chevR"
+                    size={11}
+                    className={`ml-1 text-muted/60 transition-transform duration-150 ${activityOpen ? "rotate-90" : ""}`}
+                  />
+                </summary>
+                {activityOpen && (
+                  <div className="thread-details-content space-y-3">
+                    {(stepCount > 0 || chatBusy || activeRun) && (
+                      <section aria-label="Steps" className="rounded-lg border border-border/50 bg-surface/20 p-2.5">
+                        <div className="mb-1.5 flex items-center gap-1.5 text-[10.5px] font-medium uppercase tracking-wide text-muted">
+                          <Icon name="spark" size={11} />
+                          Steps
+                        </div>
+                        <StepExplorer
+                          disclosure={false}
+                          running={chatBusy || Boolean(activeRun)}
+                          events={activityEvents}
+                          intent={thread?.card?.title || ""}
+                          onOpenFile={(path, line) => {
+                            void openInEditor(path, line);
+                          }}
+                        />
+                      </section>
+                    )}
+                    {hasTimeline && (
+                      <section aria-label="Execution timeline">
+                        <ExecutionTimeline trace={activeRun?.trace || latestRun?.trace} className="mb-0" />
+                      </section>
+                    )}
+                    {latestRun && (
+                      <RunSummaryCard
+                        run={latestRun}
+                        busy={runBusyId === latestRun.id || startingRun}
+                        onVerify={() => handleVerifyRun(latestRun)}
+                        onBuildOn={() => handleStartRun(latestRun.id)}
+                      />
+                    )}
+                    {activityEvents.length > 0 && (
+                      <section aria-label="Technical activity" className="thread-activity mt-0">
+                        <div className="mb-1.5 flex items-center gap-1.5 text-[10.5px] font-medium uppercase tracking-wide text-muted">
+                          <Icon name="terminal" size={11} />
+                          Technical activity
+                        </div>
+                        {activityEvents.map((event) => {
+                          const isGate = event.kind === "gate";
+                          const rawLabel = isGate
+                            ? checkState(event.data as any).label
+                            : event.data?.name || event.text.slice(0, 100) || event.kind;
+                          const label = typeof rawLabel === "string" ? rawLabel : JSON.stringify(rawLabel);
+                          const lower = label.toLowerCase();
+                          const isRead =
+                            lower.includes("read") ||
+                            lower.includes("inspect") ||
+                            lower.includes("search") ||
+                            lower.includes("find");
+                          const isExec =
+                            lower.includes("run") ||
+                            lower.includes("bash") ||
+                            lower.includes("terminal") ||
+                            lower.includes("exec") ||
+                            lower.includes("command");
+                          const isFile =
+                            lower.includes("write") ||
+                            lower.includes("edit") ||
+                            lower.includes("patch") ||
+                            lower.includes("file");
 
-                        return (
-                          <details
-                            key={event.id}
-                            className="group/act rounded-md border border-border/40 bg-transparent"
-                          >
-                            <summary className="flex cursor-pointer list-none items-center gap-2 px-2 py-1 text-[10.5px] font-mono text-muted hover:text-muted-strong [&::-webkit-details-marker]:hidden">
-                              <span className={isGate ? "text-success" : isExec ? "text-warning" : "text-muted"}>
-                                <Icon name={isGate ? "check" : isRead ? "eye" : isExec ? "terminal" : isFile ? "doc" : "spark"} size={11} />
-                              </span>
-                              <span className="min-w-0 flex-1 truncate">{label}</span>
-                              <span className="shrink-0 text-[10px] text-muted/60"><EventTime iso={event.created_at} /></span>
-                              <span className="shrink-0 text-[10px] text-muted/50 transition-transform group-open/act:rotate-90" aria-hidden="true">▸</span>
-                            </summary>
-                            <pre className="mx-2 mb-2 max-h-[220px] overflow-auto rounded border border-border/50 bg-bg/40 p-2 text-[10.5px] font-mono text-muted-strong">
-                              {event.text}
-                              {event.data ? `\n${JSON.stringify(event.data, null, 2)}` : ""}
-                            </pre>
-                          </details>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-            </details>
-            </div>
-          )}
+                          return (
+                            <details
+                              key={event.id}
+                              className="group/act rounded-md border border-border/40 bg-transparent"
+                            >
+                              <summary className="flex cursor-pointer list-none items-center gap-2 px-2 py-1 text-[10.5px] font-mono text-muted hover:text-muted-strong [&::-webkit-details-marker]:hidden">
+                                <span className={isGate ? "text-success" : isExec ? "text-warning" : "text-muted"}>
+                                  <Icon
+                                    name={isGate ? "check" : isRead ? "eye" : isExec ? "terminal" : isFile ? "doc" : "spark"}
+                                    size={11}
+                                  />
+                                </span>
+                                <span className="min-w-0 flex-1 truncate">{label}</span>
+                                <span className="shrink-0 text-[10px] text-muted/60">
+                                  <EventTime iso={event.created_at} />
+                                </span>
+                                <span
+                                  className="shrink-0 text-[10px] text-muted/50 transition-transform group-open/act:rotate-90"
+                                  aria-hidden="true"
+                                >
+                                  ▸
+                                </span>
+                              </summary>
+                              <pre className="mx-2 mb-2 max-h-[220px] overflow-auto rounded border border-border/50 bg-bg/40 p-2 text-[10.5px] font-mono text-muted-strong">
+                                {event.text}
+                                {event.data ? `\n${JSON.stringify(event.data, null, 2)}` : ""}
+                              </pre>
+                            </details>
+                          );
+                        })}
+                      </section>
+                    )}
+                  </div>
+                )}
+              </details>
+            );
+          })()}
           <div ref={messagesEndRef} />
         </div>
       </div>
