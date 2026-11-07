@@ -153,7 +153,7 @@ describe("SurfacesPanel", () => {
     expect(screen.getByText("Subagents")).toBeInTheDocument();
     expect(screen.getByText("Coder")).toBeInTheDocument();
     expect(screen.getByText("Background Tasks")).toBeInTheDocument();
-    expect(screen.getByText(/Attempt 1/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Attempt 1/).length).toBeGreaterThan(0);
   });
 
   it("shows an honest empty state when the thread has no artifacts yet", () => {

@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { WORKBENCH_SURFACES, type WorkbenchTab } from "../lib/workbench";
 import { Icon, type IconName } from "../components/Icon";
 import type { ThreadDetail, ProjectSnapshot } from "../lib/types";
-import { canReviewMerge, checkState } from "../lib/run-state";
+import { canReviewMerge, checkState, isActiveRun } from "../lib/run-state";
 
 interface SurfacesPanelProps {
   boardName: string | null;
@@ -21,6 +21,7 @@ interface ActionItem {
   icon: IconName;
   action: () => void;
   isActive?: boolean;
+  title?: string;
 }
 
 interface ArtifactItem {
@@ -35,6 +36,7 @@ interface SubagentItem {
   id: string;
   name: string;
   status: "active" | "idle" | "done";
+  meta?: string;
 }
 
 interface TaskItem {
@@ -49,9 +51,13 @@ function humanAuthor(author: string): string {
   if (!author) return "Agent";
   if (author === "you") return "You";
   if (author === "barkcli" || author === "Bark Agent") return "Bark";
-  return author
-    .replace(/[_-]+/g, " ")
-    .replace(/\b\w/g, (m) => m.toUpperCase());
+  return author.replace(/[_-]+/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function toneForRun(status: TaskItem["status"]): string {
+  if (status === "running") return "text-accent-text";
+  if (status === "passed") return "text-success";
+  return "text-danger";
 }
 
 export function SurfacesPanel({
@@ -68,6 +74,11 @@ export function SurfacesPanel({
   const [showAllArtifacts, setShowAllArtifacts] = useState(false);
   const [showAllTasks, setShowAllTasks] = useState(false);
 
+  const runs = thread?.runs || [];
+  const latestRun = runs[runs.length - 1] || null;
+  const activeRun = useMemo(() => [...runs].reverse().find(isActiveRun) || null, [runs]);
+  const hasOpenThread = showThread;
+
   const actions: ActionItem[] = useMemo(
     () => [
       {
@@ -76,6 +87,7 @@ export function SurfacesPanel({
         icon: "filePlus",
         action: () => onSelectThread("diff"),
         isActive: activePanel === "diff",
+        title: "Open changes and review",
       },
       {
         id: "open-file",
@@ -83,6 +95,7 @@ export function SurfacesPanel({
         icon: "doc",
         action: () => onSelectThread("diff"),
         isActive: false,
+        title: "Open changed files in the workbench",
       },
       {
         id: "terminal",
@@ -93,6 +106,7 @@ export function SurfacesPanel({
           onSelectThread("eval");
         },
         isActive: activePanel === "eval",
+        title: "Open terminal context",
       },
       {
         id: "browser",
@@ -103,6 +117,7 @@ export function SurfacesPanel({
           window.open(`http://localhost:${port}`, "_blank", "noopener,noreferrer");
         },
         isActive: false,
+        title: "Open local app in browser",
       },
     ],
     [activePanel, onSelectThread, threadId]
@@ -121,22 +136,22 @@ export function SurfacesPanel({
     const hasPlan = (thread.events || []).some(
       (e) => e.kind === "plan_proposed" || e.kind === "plan_approved"
     );
+    const planApproved = (thread.events || []).some((e) => e.kind === "plan_approved");
     if (hasPlan) {
       push({
         id: "plan",
         title: thread.card?.title ? `${thread.card.title} plan` : "Implementation plan",
         icon: "doc",
         tab: "plan",
-        meta: "thread plan",
+        meta: planApproved ? "approved" : "proposed",
       });
     }
 
-    const runs = thread.runs || [];
-    const latest = runs[runs.length - 1];
     if (runs.length > 0) {
+      const check = latestRun ? checkState(latestRun.gate) : null;
       push({
         id: "changes",
-        title: latest?.branch ? `Changes · ${latest.branch}` : "Changes",
+        title: latestRun?.branch ? `Changes · ${latestRun.branch}` : "Changes",
         icon: "code",
         tab: "diff",
         meta: `${runs.length} attempt${runs.length === 1 ? "" : "s"}`,
@@ -146,15 +161,15 @@ export function SurfacesPanel({
         title: "Checks",
         icon: "check",
         tab: "gate",
-        meta: latest ? checkState(latest.gate).label : undefined,
+        meta: check?.label || latestRun?.status,
       });
-      if (canReviewMerge(latest) || latest?.gate || latest?.worktree) {
+      if (canReviewMerge(latestRun) || latestRun?.gate || latestRun?.worktree) {
         push({
           id: "evidence",
           title: "Evidence",
           icon: "layers",
           tab: "receipt",
-          meta: "run evidence",
+          meta: latestRun?.context_manifest_id ? "context recorded" : "run evidence",
         });
       }
     }
@@ -168,13 +183,23 @@ export function SurfacesPanel({
         meta: `${thread.events.length} events`,
       });
     }
-
+    if (project?.name) {
+      push({
+        id: "project",
+        title: project.name,
+        icon: "folder",
+        tab: "context",
+        meta: project.active_board ? `${project.active_board}.board` : "project",
+      });
+    }
     return list;
-  }, [thread]);
+  }, [thread, runs, latestRun, project]);
 
   const subagents: SubagentItem[] = useMemo(() => {
     if (!thread) return [];
     const set = new Map<string, SubagentItem>();
+    const activeAuthor =
+      activeRun?.provider || latestRun?.provider || latestRun?.author || undefined;
     for (const event of thread.events || []) {
       const author = typeof event.author === "string" ? event.author.trim() : "";
       if (!author || author === "you" || author === "Bark Agent" || author === "barkcli") continue;
@@ -183,32 +208,46 @@ export function SurfacesPanel({
         event.kind === "assistant" ||
         event.kind === "status" ||
         event.kind === "gate" ||
-        event.kind === "run_started";
+        event.kind === "run_started" ||
+        event.kind === "run_completed";
       if (!looksLikeAgent) continue;
       const id = author.toLowerCase();
       if (!set.has(id)) {
-        set.set(id, { id, name: humanAuthor(author), status: "done" });
+        set.set(id, {
+          id,
+          name: humanAuthor(author),
+          status: "done",
+          meta: event.kind === "tool_call" ? "tool activity" : undefined,
+        });
       }
     }
-    const running = thread.runs?.some((r) => r.status === "running" || r.status === "starting");
-    if (running) {
-      const first = set.values().next().value as SubagentItem | undefined;
-      if (first) first.status = "active";
+    if (activeAuthor) {
+      const key = String(activeAuthor).toLowerCase();
+      const existing = set.get(key);
+      if (existing) existing.status = activeRun ? "active" : existing.status;
+      else set.set(key, { id: key, name: humanAuthor(String(activeAuthor)), status: activeRun ? "active" : "idle" });
     }
     return Array.from(set.values()).slice(0, 12);
-  }, [thread]);
+  }, [thread, activeRun, latestRun]);
 
   const tasks: TaskItem[] = useMemo(() => {
     if (!thread) return [];
     return (thread.runs || []).map((run) => {
-      const isRunning = run.status === "running" || run.status === "starting";
-      const isPassed = run.status === "passed" || run.status === "merged";
+      const running = isActiveRun(run);
+      const passed = run.status === "passed" || run.status === "merged";
       return {
         id: run.id,
-        title: run.branch || `Attempt ${run.ordinal || run.id.slice(0, 8)}`,
-        status: isRunning ? "running" : isPassed ? "passed" : "failed",
-        icon: isRunning ? "terminal" : isPassed ? "check" : "x",
-        meta: [run.provider, run.role].filter(Boolean).join(" · ") || undefined,
+        title: run.title || run.branch || `Attempt ${run.ordinal || run.id.slice(0, 8)}`,
+        status: running ? "running" : passed ? "passed" : "failed",
+        icon: running ? "terminal" : passed ? "check" : "x",
+        meta:
+          [
+            run.provider,
+            run.role,
+            !running && run.gate ? checkState(run.gate).label : undefined,
+          ]
+            .filter(Boolean)
+            .join(" · ") || undefined,
       };
     });
   }, [thread]);
@@ -224,11 +263,14 @@ export function SurfacesPanel({
     );
   }, [q]);
   const filteredArtifacts = useMemo(
-    () => (!q ? artifacts : artifacts.filter((a) => `${a.title} ${a.meta || ""}`.toLowerCase().includes(q))),
+    () =>
+      !q
+        ? artifacts
+        : artifacts.filter((a) => `${a.title} ${a.meta || ""}`.toLowerCase().includes(q)),
     [artifacts, q]
   );
   const filteredSubagents = useMemo(
-    () => (!q ? subagents : subagents.filter((s) => s.name.toLowerCase().includes(q))),
+    () => (!q ? subagents : subagents.filter((s) => `${s.name} ${s.meta || ""}`.toLowerCase().includes(q))),
     [subagents, q]
   );
   const filteredTasks = useMemo(
@@ -247,11 +289,13 @@ export function SurfacesPanel({
     }
   };
 
-  const visibleArtifacts = showAllArtifacts ? filteredArtifacts : filteredArtifacts.slice(0, 4);
-  const visibleTasks = showAllTasks ? filteredTasks : filteredTasks.slice(0, 4);
+  const visibleArtifacts = showAllArtifacts ? filteredArtifacts : filteredArtifacts.slice(0, 5);
+  const visibleTasks = showAllTasks ? filteredTasks : filteredTasks.slice(0, 5);
   const hasSearch = q.length > 0;
   const hasAnyResults =
     filteredSurfaces.length + filteredArtifacts.length + filteredSubagents.length + filteredTasks.length > 0;
+
+  const latestCheck = latestRun ? checkState(latestRun.gate) : null;
 
   return (
     <aside
@@ -294,20 +338,17 @@ export function SurfacesPanel({
             return;
           }
           if (event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey) {
-            const surface = WORKBENCH_SURFACES.find(
-              (entry) => entry.letter === event.key.toUpperCase()
-            );
-            if (surface && showThread) {
+            const surface = WORKBENCH_SURFACES.find((entry) => entry.letter === event.key.toUpperCase());
+            if (surface && hasOpenThread) {
               event.preventDefault();
               onSelectThread(surface.id);
             }
           }
         }}
       >
-        {!showThread ? (
+        {!hasOpenThread ? (
           <p className="surfaces-note p-2 text-[12px] leading-relaxed text-muted">
-            Start a thread to see its plan, changes, checks, and evidence here. Project tools
-            stay in the left rail.
+            Start a thread to see its plan, changes, checks, and evidence here. Project tools stay in the left rail.
           </p>
         ) : (
           <>
@@ -315,6 +356,44 @@ export function SurfacesPanel({
               <p className="rounded-lg border border-border/60 bg-surface/30 px-3 py-3 text-[12px] text-muted">
                 No surfaces match “{search.trim()}”.
               </p>
+            ) : null}
+
+            {(activeRun || latestRun) && !hasSearch ? (
+              <section
+                aria-label="Thread status"
+                className="rounded-xl border border-border/60 bg-surface/25 px-3 py-2.5"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-mono uppercase tracking-wider text-muted/70">Now</div>
+                    <div className="mt-0.5 truncate text-[12.5px] font-medium text-text">
+                      {activeRun
+                        ? `Attempt ${activeRun.ordinal} running`
+                        : latestRun
+                          ? `Attempt ${latestRun.ordinal} · ${latestRun.status}`
+                          : "No attempts yet"}
+                    </div>
+                    {(activeRun?.branch || latestRun?.branch) && (
+                      <div className="mt-0.5 truncate font-mono text-[10.5px] text-muted">
+                        {activeRun?.branch || latestRun?.branch}
+                      </div>
+                    )}
+                  </div>
+                  {latestCheck ? (
+                    <span
+                      className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                        latestCheck.tone === "success"
+                          ? "border-success/30 bg-success-soft text-success"
+                          : latestCheck.tone === "danger"
+                            ? "border-danger/30 bg-danger-soft text-danger"
+                            : "border-border/70 bg-surface/50 text-muted-strong"
+                      }`}
+                    >
+                      {latestCheck.label}
+                    </span>
+                  ) : null}
+                </div>
+              </section>
             ) : null}
 
             {(!hasSearch || actions.some((a) => a.label.toLowerCase().includes(q))) && (
@@ -326,6 +405,7 @@ export function SurfacesPanel({
                       key={act.id}
                       type="button"
                       onClick={act.action}
+                      title={act.title}
                       className={`flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-left text-[12.5px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
                         act.isActive
                           ? "bg-accent-soft font-medium text-accent-text"
@@ -389,12 +469,10 @@ export function SurfacesPanel({
                     >
                       <Icon name={art.icon} size={13} className="shrink-0 text-muted" />
                       <span className="min-w-0 flex-1 truncate">{art.title}</span>
-                      {art.meta ? (
-                        <span className="shrink-0 text-[10px] text-muted/70">{art.meta}</span>
-                      ) : null}
+                      {art.meta ? <span className="shrink-0 text-[10px] text-muted/70">{art.meta}</span> : null}
                     </button>
                   ))}
-                  {filteredArtifacts.length > 4 && (
+                  {filteredArtifacts.length > 5 && (
                     <button
                       type="button"
                       onClick={() => setShowAllArtifacts(!showAllArtifacts)}
@@ -430,7 +508,8 @@ export function SurfacesPanel({
                       >
                         <Icon name={sub.status === "active" ? "pulse" : "check"} size={9} />
                       </span>
-                      <span className="truncate">{sub.name}</span>
+                      <span className="min-w-0 flex-1 truncate">{sub.name}</span>
+                      {sub.meta ? <span className="shrink-0 text-[10px] text-muted/60">{sub.meta}</span> : null}
                     </div>
                   ))}
                 </div>
@@ -468,10 +547,12 @@ export function SurfacesPanel({
                         </span>
                       )}
                       <span className="min-w-0 flex-1 truncate">{task.title}</span>
-                      {task.meta ? <span className="shrink-0 text-[10px] text-muted/70">{task.meta}</span> : null}
+                      {task.meta ? (
+                        <span className={`shrink-0 text-[10px] ${toneForRun(task.status)}`}>{task.meta}</span>
+                      ) : null}
                     </button>
                   ))}
-                  {filteredTasks.length > 4 && (
+                  {filteredTasks.length > 5 && (
                     <button
                       type="button"
                       onClick={() => setShowAllTasks(!showAllTasks)}
@@ -486,8 +567,7 @@ export function SurfacesPanel({
 
             {!hasSearch && artifacts.length === 0 && subagents.length === 0 && tasks.length === 0 ? (
               <p className="px-3 py-1 text-[11.5px] leading-relaxed text-muted">
-                No thread artifacts yet. Plan, changes, checks, and evidence will appear here as
-                the thread produces them.
+                No thread artifacts yet. Plan, changes, checks, and evidence will appear here as the thread produces them.
               </p>
             ) : null}
           </>
