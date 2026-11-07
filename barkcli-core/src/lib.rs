@@ -13,6 +13,7 @@ pub mod mcp;
 pub mod memory;
 pub mod mind;
 pub mod models;
+pub mod orchestra;
 pub mod receipt;
 pub mod repo;
 pub mod review;
