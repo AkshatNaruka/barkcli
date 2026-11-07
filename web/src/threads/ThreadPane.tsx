@@ -279,15 +279,31 @@ function coalesceAssistantEvents(events: ThreadEvent[]): ThreadEvent[] {
 function RunSummaryCard({ run, busy, onVerify, onBuildOn }: {
   run: RunRecord; busy: boolean; onVerify: () => void; onBuildOn: () => void;
 }) {
-  return <section className="run-summary" aria-label={`Run ${run.ordinal}`}>
-    <dl><dt>Attempt</dt><dd>{run.ordinal}</dd><dt>Agent / model</dt><dd>{run.provider} / {run.model || "CLI default"}</dd>
-      <dt>Branch</dt><dd>{run.branch || "Not created"}</dd><dt>Worktree</dt><dd>{run.worktree || "Not created"}</dd>
-      <dt>Checks</dt><dd>{checkState(run.gate).label}</dd></dl>
-    <div className="flex flex-wrap gap-2 mt-3">
-      {checksPassed(run.gate) && <button className="bark-button" onClick={onVerify} disabled={busy}>Independently verify</button>}
-      {!isActiveRun(run) && run.status !== "merged" && <button className="bark-button" onClick={onBuildOn} disabled={busy}>Build on this run</button>}
-    </div>
-  </section>;
+  const checks = checkState(run.gate);
+  return (
+    <section className="run-summary-compact" aria-label={`Run ${run.ordinal}`}>
+      <div className="run-summary-compact-meta">
+        <span className="run-summary-pill" title={`${run.provider} / ${run.model || "CLI default"}`}>
+          Attempt {run.ordinal} · {run.provider}
+        </span>
+        <span className={`run-summary-pill ${checks.tone === "danger" ? "is-danger" : checks.tone === "success" ? "is-success" : checks.tone === "warning" ? "is-warning" : ""}`}>
+          {checks.label}
+        </span>
+      </div>
+      <details className="run-summary-technical">
+        <summary>Technical details</summary>
+        <dl>
+          <dt>Branch</dt><dd>{run.branch || "Not created"}</dd>
+          <dt>Worktree</dt><dd>{run.worktree || "Not created"}</dd>
+          <dt>Agent / model</dt><dd>{run.provider} / {run.model || "CLI default"}</dd>
+        </dl>
+      </details>
+      <div className="flex flex-wrap gap-2 mt-2">
+        {checksPassed(run.gate) && <button className="bark-button" onClick={onVerify} disabled={busy}>Independently verify</button>}
+        {!isActiveRun(run) && run.status !== "merged" && <button className="bark-button" onClick={onBuildOn} disabled={busy}>Build on this run</button>}
+      </div>
+    </section>
+  );
 }
 
 export function ThreadPane({
@@ -1809,39 +1825,57 @@ export function ThreadPane({
           </div>
         )}
 
-        {!loading && !loadError && (latestRun || chatBusy) && (
-          <div className="thread-outcome" role="status" aria-live="polite">
-            <span
-              className={`thread-outcome-label ${
-                !chatBusy &&
-                (latestRun?.status === "failed" || checkState(latestRun?.gate).tone === "danger")
-                  ? "text-danger"
-                  : "text-muted"
-              }`}
-            >
-              {(chatBusy || activeRun) && <span className="chat-working-dot" aria-hidden="true" />}
-              {chatBusy ? "Working…" : latestRun ? runLabel(latestRun) : ""}
-            </span>
-            {latestRun && latestRun.diff_stats.files > 0 && onReview && (
-              <button className="chat-text-action" onClick={onReview}>
-                <Icon name="code" size={13} />
-                {latestRun.diff_stats.files}{" "}
-                {latestRun.diff_stats.files === 1 ? "file" : "files"} changed
-              </button>
-            )}
-            {latestRun &&
+        {!loading && !loadError && (latestRun || chatBusy || card) && (() => {
+          const checks = latestRun ? checkState(latestRun.gate) : null;
+          const statusLabel = chatBusy ? "Working" : activeRun ? runLabel(activeRun) : latestRun ? runLabel(latestRun) : "";
+          const statusTone = !chatBusy && !activeRun ? checks?.tone : undefined;
+          const isFailed = Boolean(!chatBusy && !activeRun && latestRun && (latestRun.status === "failed" || checks?.tone === "danger"));
+          const branch = latestRun?.branch || card?.id || threadId || "";
+          const hasFiles = Boolean(latestRun && latestRun.diff_stats.files > 0 && onReview);
+          const canRetry = Boolean(
+            latestRun &&
               ["failed", "interrupted", "cancelled"].includes(latestRun.status) &&
-              !activeRun && (
-                <button
-                  className="chat-text-action"
-                  disabled={startingRun}
-                  onClick={() => handleStartRun(latestRun.id)}
-                >
-                  Retry
-                </button>
-              )}
-          </div>
-        )}
+              !activeRun
+          );
+          return (
+            <div className="thread-statusbar" role="status" aria-live="polite" aria-label="Thread status">
+              <div className="thread-statusbar-left">
+                {branch ? (
+                  <span className="thread-statusbar-item" title={latestRun?.worktree || `Isolated worktree for ${branch}`}>
+                    <Icon name="branch" size={12} />
+                    <span className="thread-statusbar-mono">{branch}</span>
+                  </span>
+                ) : null}
+                {statusLabel ? (
+                  <span className={`thread-statusbar-item ${chatBusy || activeRun ? "is-active" : statusTone === "danger" || isFailed ? "is-danger" : statusTone === "success" ? "is-success" : statusTone === "warning" ? "is-warning" : ""}`}>
+                    {(chatBusy || activeRun) ? <span className="chat-working-dot" aria-hidden="true" /> : (
+                      <Icon name={statusTone === "success" ? "check" : statusTone === "danger" || isFailed ? "warn" : statusTone === "warning" ? "warn" : "pulse"} size={12} />
+                    )}
+                    <span>{statusLabel}</span>
+                  </span>
+                ) : null}
+              </div>
+              <div className="thread-statusbar-right">
+                {hasFiles ? (
+                  <button
+                    className="thread-statusbar-action"
+                    onClick={onReview}
+                    aria-label={`${latestRun!.diff_stats.files} ${latestRun!.diff_stats.files === 1 ? "file" : "files"} changed`}
+                  >
+                    <Icon name="code" size={12} />
+                    <span>{latestRun!.diff_stats.files} {latestRun!.diff_stats.files === 1 ? "file" : "files"}</span>
+                  </button>
+                ) : null}
+                {canRetry ? (
+                  <button className="thread-statusbar-action" disabled={startingRun} onClick={() => handleStartRun(latestRun!.id)}>
+                    <Icon name="refresh" size={12} />
+                    <span>Retry</span>
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          );
+        })()}
         {latestRun?.error && !activeRun && !chatBusy && (
           <p className="composer-error" role="alert">
             {latestRun.error}
