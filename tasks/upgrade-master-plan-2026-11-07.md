@@ -43,7 +43,7 @@ Supervise multiple coding agents confidently — *correct execution, useful cont
 - [x] A1–A5 foundation evidence committed on `plan/upgrade-a1-baseline` (baseline/contracts/fixtures catalog+char test/threat model/perf baseline). Remaining hardening: full workspace/CI matrix, MCP/route schema snapshots, restart/reconcile fixtures (B2), complete negative/security tests (B4–B6), eval harness (A5/C).
 
 ## Phase B (in progress)
-- [~] **B1 Canonical `RunService`/lifecycle (P0,L)** — B1.1 call graph, B1.2 schema mapping, B1.3 scoped conformance test (`probe_only_provider_cannot_start_runs` passes) committed. Next: B1.4 server handler unification, B1.5 CLI compat wrap, full lifecycle parity/dup-launch/capability gating. *Deps:* A2,A3.
+- [~] **B1 Canonical `RunService`/lifecycle (P0,L)** — B1.1 call graph, B1.2 schema mapping, B1.3 probe-only conformance, B1.4a server dual-path audit (`RunService` + `run_cmd::run` + `dispatch_backend_plan`) documented. Next: B1.4 server handler unification via canonical launcher/facade, B1.5 CLI compat wrap, full parity/dup-launch/capability gating. *Deps:* A2,A3.
 - [~] **B5 Centralized authz (P0,L)** — B5.1 N5/N6, B5.2 N7 + `AUTHZ_MATRIX.md`, B5.3 classifier/tests, B5.4 auth-layer negative tests on representative high-risk surfaces (`/api/exec`, repo, git push) pass. Next: real handler policy (exec/cwd/path confinement, B6), WS upgrade/action authz (N9), scoped tokens/roles, full route registry enforcement. *Deps:* A4.
 - [ ] **B2 Durable state/reconciliation (P0,L)** — *Deps:* A3,B1.
 - [ ] **B4 Gate/guard/merge SHA integrity (P0,M)** — *Deps:* A4,B2.

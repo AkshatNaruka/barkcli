@@ -61,3 +61,11 @@
 - Unsupported capabilities disabled with typed errors; `ProbeOnlyProvider` never runnable.
 - Merge/approval cannot target changed SHA (coordinate with B4).
 - `cargo test`/targeted runtime+server tests pass; docs updated.
+
+## 7. B1.4a — Server execution path audit (2026-11-07)
+`barkcli-server/src/lib.rs` currently mixes paths:
+- **Canonical runtime service (`RunService::from_project` / `start_for_card` / `check` / merge/verify flows):** run lifecycle handlers, task race start path, card plan-and-run paths (lines observed: 1475, 5921, 6005/6008, 6032, 6046, 6082, 6192, 6233, 6422/6425, 6489/6492, 7345, 7965/7966).
+- **Legacy/command path (`commands::run_cmd::RunOptions/run`):** thread chat/start flow builds `RunOptions` and calls `commands::run_cmd::run` (4593/4599).
+- **Backend plan dispatcher (`dispatch_backend_plan`):** used by thread/plan flows and race spawns (4535, 4652, 4707, 4736, 8313). May create sessions/tasks/runs outside a single normalized server contract.
+
+**B1.4 next:** route thread/plan-and-run/race launches through canonical `RunService` (or a single `RunLauncher` facade) with consistent IDs/status/events/capability checks; keep `BARKCLI_AGENT_CMD`/backend semantics; add integration tests for server-triggered runs. Coordinate with B5 (authz on exec surfaces) and B4 (merge SHA).
