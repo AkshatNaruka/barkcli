@@ -5,6 +5,10 @@ import userEvent from "@testing-library/user-event";
 import type { Card, ThreadDetail } from "../lib/types";
 import { SurfacesPanel } from "./SurfacesPanel";
 
+vi.mock("../lib/api", () => ({
+  fetchReview: vi.fn(async () => null),
+}));
+
 function renderPanel(overrides: Partial<ComponentProps<typeof SurfacesPanel>> = {}) {
   const handlers = {
     onSelectThread: vi.fn(),

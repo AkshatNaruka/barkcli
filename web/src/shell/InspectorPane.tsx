@@ -1198,9 +1198,26 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
                   </div>
                 </div>
               )}
-            </div>}
 
-            {diffData?.files?.length ? <nav aria-label="Changed files" className="changed-files"><button aria-pressed={!location.file} onClick={() => updateRouteState({ file: undefined })}>All files</button>{diffData.files.map((path) => <button key={path} title={path} aria-pressed={location.file === path} onClick={() => updateRouteState({ file: path })}>{path}</button>)}</nav> : null}
+              {diffData?.files?.length ? (
+                <nav aria-label="Changed files" className="changed-files mt-2 border-b-0 border-t border-border/50 px-0 pt-2">
+                  <button type="button" aria-pressed={!location.file} onClick={() => updateRouteState({ file: undefined })}>
+                    All files
+                  </button>
+                  {diffData.files.map((path) => (
+                    <button
+                      key={path}
+                      type="button"
+                      title={path}
+                      aria-pressed={location.file === path}
+                      onClick={() => updateRouteState({ file: path })}
+                    >
+                      {path}
+                    </button>
+                  ))}
+                </nav>
+              ) : null}
+            </div>}
             {loadingDiff ? (
               <div className="p-3">
                 <div className="space-y-2">

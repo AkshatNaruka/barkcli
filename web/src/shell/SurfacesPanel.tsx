@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { WORKBENCH_SURFACES, type WorkbenchTab } from "../lib/workbench";
 import { Icon, type IconName } from "../components/Icon";
-import type { ThreadDetail, ProjectSnapshot } from "../lib/types";
+import type { ReviewState, ThreadDetail, ProjectSnapshot } from "../lib/types";
+import { fetchReview } from "../lib/api";
 import { canReviewMerge, checkState, isActiveRun } from "../lib/run-state";
 
 interface SurfacesPanelProps {
@@ -78,6 +79,26 @@ export function SurfacesPanel({
   const latestRun = runs[runs.length - 1] || null;
   const activeRun = useMemo(() => [...runs].reverse().find(isActiveRun) || null, [runs]);
   const hasOpenThread = showThread;
+  const [review, setReview] = useState<ReviewState | null>(null);
+
+  const reviewId = latestRun?.id || thread?.card?.id;
+  useEffect(() => {
+    if (!hasOpenThread || !reviewId) {
+      setReview(null);
+      return;
+    }
+    let cancelled = false;
+    void fetchReview(reviewId)
+      .then((next) => {
+        if (!cancelled) setReview(next);
+      })
+      .catch(() => {
+        if (!cancelled) setReview(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [hasOpenThread, reviewId, latestRun?.head_sha, latestRun?.gate?.finished_at]);
 
   const actions: ActionItem[] = useMemo(
     () => [
@@ -296,6 +317,9 @@ export function SurfacesPanel({
     filteredSurfaces.length + filteredArtifacts.length + filteredSubagents.length + filteredTasks.length > 0;
 
   const latestCheck = latestRun ? checkState(latestRun.gate) : null;
+  const openReviewComments = (review?.comments || []).filter((c) => !c.resolved).length;
+  const reviewFiles = review ? Object.values(review.files || {}) : [];
+  const viewedCount = reviewFiles.filter((f) => f.viewed).length;
 
   return (
     <aside
@@ -379,19 +403,31 @@ export function SurfacesPanel({
                       </div>
                     )}
                   </div>
-                  {latestCheck ? (
-                    <span
-                      className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
-                        latestCheck.tone === "success"
-                          ? "border-success/30 bg-success-soft text-success"
-                          : latestCheck.tone === "danger"
-                            ? "border-danger/30 bg-danger-soft text-danger"
-                            : "border-border/70 bg-surface/50 text-muted-strong"
-                      }`}
-                    >
-                      {latestCheck.label}
-                    </span>
-                  ) : null}
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    {latestCheck ? (
+                      <span
+                        className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                          latestCheck.tone === "success"
+                            ? "border-success/30 bg-success-soft text-success"
+                            : latestCheck.tone === "danger"
+                              ? "border-danger/30 bg-danger-soft text-danger"
+                              : "border-border/70 bg-surface/50 text-muted-strong"
+                        }`}
+                      >
+                        {latestCheck.label}
+                      </span>
+                    ) : null}
+                    {openReviewComments > 0 ? (
+                      <span className="rounded-full border border-warning/30 bg-warning-soft px-2 py-0.5 text-[10px] font-medium text-warning">
+                        {openReviewComments} open comment{openReviewComments === 1 ? "" : "s"}
+                      </span>
+                    ) : null}
+                    {openReviewComments === 0 && reviewFiles.length > 0 ? (
+                      <span className="text-[10px] text-muted/70">
+                        {viewedCount}/{reviewFiles.length} viewed
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
               </section>
             ) : null}
