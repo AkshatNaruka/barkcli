@@ -37,7 +37,11 @@ Supervise multiple coding agents confidently — *correct execution, useful cont
 - [x] **A2 (S) Contract inventory & drift** — extracted 97 MCP tools (drift: mcp header 80, README 76), 171 unique API paths + `/ws`/thread stream, provider capabilities, run entrypoint map. `docs/engineering/CONTRACT_INVENTORY.md`. Full schema snapshots/CI enforcement deferred. *Deps:* A1.
 - [x] **A3 (M, foundation)** — golden fixture catalog (`docs/engineering/GOLDEN_FIXTURES.md`) mapping PLAN scenarios to existing tests (`runner_loop`, `runtime_run`, `stress_concurrent`); gaps marked (kill/restart reconciliation blocked by B2; paraphrase eval for A5/C). Added characterizing test `context::pack::tests::a3_fixture_paraphrase_query_compiles_and_records_recall` (offline, passes). *Deps:* A1.
 - [x] **A4 (M, foundation)** — `docs/security/THREAT_MODEL.md` with trust boundaries, assets, sensitive surfaces, prioritized threats (T1–T10), and negative test matrix (N1–N15) mapped to existing server auth tests and B4/B5/B6/P3 gaps. *Deps:* A1.
-- [~] **A5 (M) Perf/context baselines** — context/symbol/memory/search/stream/UI; footprint/latency scripts. *Next (scoped).*
+- [x] **A5 (M, scoped)** — first-party context benchmark captured (`docs/engineering/context-benchmark-a5.json`, cold 34970 / warm 824 proxy tokens, methodology noted); build/test timings and web bundle warnings recorded in `docs/engineering/PERF_BASELINE.md`. Full profiling matrix (index/stream/UI/memory/disk/OS/provider-actual) deferred to C/E. *Deps:* A1.
+
+## Checkpoint A
+- [x] A1–A5 foundation evidence committed on `plan/upgrade-a1-baseline` (baseline/contracts/fixtures catalog+char test/threat model/perf baseline). Remaining hardening: full workspace/CI matrix, MCP/route schema snapshots, restart/reconcile fixtures (B2), complete negative/security tests (B4–B6), eval harness (A5/C).
+- **Next:** Phase B — start **B1** (canonical `RunService`/lifecycle call graph + compat) and/or **B5** (centralized authz for sensitive routes/streams) in small PRs after reviewing A3 gaps and A4 matrix.
 
 ## Risks
 | Risk | Impact | Mitigation |

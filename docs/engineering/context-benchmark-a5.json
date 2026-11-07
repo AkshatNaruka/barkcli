@@ -1,0 +1,68 @@
+{
+  "repo": "barkcli",
+  "commit": "80afdb5",
+  "date": "2026-11-07",
+  "queries": [
+    "history",
+    "logging",
+    "integration",
+    "tests",
+    "ping",
+    "healthcheck",
+    "route",
+    "returning",
+    "timestamp",
+    "create"
+  ],
+  "files_seen": 1818,
+  "files_scanned": 1555,
+  "cold_listing_tokens": 23632,
+  "cold_locate_tokens": 769,
+  "cold_read_tokens": 10569,
+  "cold_tokens": 34970,
+  "warm_tokens": 824,
+  "warm_available": true,
+  "top_files": [
+    [
+      "web/src/lib/demo.ts",
+      128,
+      1244
+    ],
+    [
+      "pages-test/barkcli/_next/static/chunks/14mrh2-p_w84d.js",
+      100,
+      501
+    ],
+    [
+      "barkcli-ios/Sources/Barkcli/Data/DemoData.swift",
+      95,
+      1247
+    ],
+    [
+      "web/src/App.tsx",
+      95,
+      1168
+    ],
+    [
+      "pages-test/barkcli/_next/static/chunks/27jktro2p5rq9.js",
+      74,
+      1533
+    ],
+    [
+      "barkcli-cli/tests/cli.rs",
+      68,
+      1028
+    ],
+    [
+      "barkcli-ios/Sources/Barkcli/Data/DemoStore.swift",
+      63,
+      1191
+    ],
+    [
+      "MANAGEMENT_LAYER_VISION.md",
+      57,
+      2659
+    ]
+  ],
+  "notes": []
+}
