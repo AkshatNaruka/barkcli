@@ -33,8 +33,8 @@ Supervise multiple coding agents confidently — *correct execution, useful cont
 | F (P2) | Explainable routing/planning, verified collective memory, local diagnostics, release/upgrade-rollback | Redacted diagnosis; data-preserving upgrades | all |
 
 ## Phase A tasks (current)
-- [~] **A1 (S) Baseline & toolchain truth** — pin commit/toolchain; run supported checks (fmt/test/clippy/web test+build as feasible); capture pass/fail/skip/flakes; triage `agent::product_plan::tests::from_card_creates_verification_dependency`. *Accept:* `docs/engineering/BASELINE.md` + raw results; skipped ≠ passed. *Deps:* none.
-- [ ] **A2 (S) Contract inventory & drift** — MCP tools/schemas, REST/WS/SSE, provider capabilities, run entrypoints vs docs.
+- [x] **A1 (S) Baseline & toolchain truth** (+ extension) — toolchain/commit captured; core lib tests pass (419/419), targeted `product_plan` passes here; `cargo fmt`/core clippy fail (debt); web deps installed, build passes, web tests baseline has 2 failures (captured). `docs/engineering/BASELINE.md` updated. Full workspace/CI matrix deferred. *Deps:* none.
+- [~] **A2 (S) Contract inventory & drift** — MCP tools/schemas, REST/WS/SSE, provider capabilities, run entrypoints vs docs. *In progress.*
 - [ ] **A3 (M) Golden offline fixtures** — disposable repos; pass/fail-gate/conflict/kill-restart/resume-stop-review/paraphrase context; fake providers.
 - [ ] **A4 (M) Threat model & negative tests** — sensitive surfaces, trust boundaries, authz matrix.
 - [ ] **A5 (M) Perf/context baselines** — context/symbol/memory/search/stream/UI; footprint/latency scripts.
