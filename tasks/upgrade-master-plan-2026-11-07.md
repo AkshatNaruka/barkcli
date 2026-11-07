@@ -44,7 +44,7 @@ Supervise multiple coding agents confidently — *correct execution, useful cont
 
 ## Phase B (in progress)
 - [~] **B1 Canonical `RunService`/lifecycle (P0,L)** — B1.1 call graph, B1.2 schema mapping, B1.3 scoped conformance test (`probe_only_provider_cannot_start_runs` passes) committed. Next: B1.4 server handler unification, B1.5 CLI compat wrap, full lifecycle parity/dup-launch/capability gating. *Deps:* A2,A3.
-- [ ] **B5 Centralized authz (P0,L)** — N5–N10/N13, scopes, sensitive-route registry. *Deps:* A4.
+- [~] **B5 Centralized authz (P0,L)** — B5.1 added N5/N6 bearer negative tests (pass). Next: sensitive-route scope registry/matrix, N7–N10/N13, centralized middleware scopes, safe defaults. *Deps:* A4.
 - [ ] **B2 Durable state/reconciliation (P0,L)** — *Deps:* A3,B1.
 - [ ] **B4 Gate/guard/merge SHA integrity (P0,M)** — *Deps:* A4,B2.
 - [ ] **B6 Path/exec/prompt-output hardening (P0,M)** — *Deps:* A4,B5.

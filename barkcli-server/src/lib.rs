@@ -8494,6 +8494,34 @@ mod tests {
         assert_eq!(res.status(), StatusCode::OK);
     }
 
+    /// B5.1 / N5: invalid bearer token must not access protected API when token is configured.
+    #[tokio::test]
+    async fn protected_route_rejects_invalid_bearer_token() {
+        let app = test_router(test_state(Some("secret")));
+        let req = Request::builder()
+            .method("GET")
+            .uri("/api/config")
+            .header(header::AUTHORIZATION, "Bearer wrong")
+            .body(axum::body::Body::empty())
+            .unwrap();
+        let res = app.oneshot(req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    /// B5.1 / N6: valid bearer token grants access to protected API.
+    #[tokio::test]
+    async fn protected_route_accepts_valid_bearer_token() {
+        let app = test_router(test_state(Some("secret")));
+        let req = Request::builder()
+            .method("GET")
+            .uri("/api/config")
+            .header(header::AUTHORIZATION, "Bearer secret")
+            .body(axum::body::Body::empty())
+            .unwrap();
+        let res = app.oneshot(req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+    }
+
     #[test]
     fn sanitize_name_rejects_path_traversal() {
         assert!(sanitize_name("..").is_err());
