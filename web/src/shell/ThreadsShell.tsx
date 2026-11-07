@@ -36,7 +36,7 @@ export function ThreadsShell({ boardName, projectRoot = "current-project", proje
   const [activeThread, setActiveThread] = useState<ThreadDetail | null>(null);
   const [threadRevision, setThreadRevision] = useState(0);
   const [threadMenu, setThreadMenu] = useState<{ target: ThreadActionTarget; x: number; y: number } | null>(null);
-  const [width, setWidth] = useState(() => Math.min(560, Math.max(360, Number(readLocal("bark:workbench-width")) || 420)));
+  const [width, setWidth] = useState(() => Math.min(560, Math.max(360, Number(readLocal("bark:inspector-width")) || 420)));
   const [available, setAvailable] = useState(() => window.innerWidth - 248);
   const container = useRef<HTMLDivElement>(null);
   const showWorkbench = Boolean(location.panel && selectedId);
@@ -86,8 +86,8 @@ export function ThreadsShell({ boardName, projectRoot = "current-project", proje
           key={`${scope}:${seed?.nonce || "new"}`} isOpen inline scope={scope} boardName={boardName || undefined}
           initialText={seed?.text} initialMode={seed?.mode} onClose={() => {}} onCreated={created} />}
     </div>
-    {surfacesOpen && selectedId && <div className={`surfaces-frame ${focused ? "is-focused" : ""}`} style={focused ? undefined : { width: showWorkbench ? width : 320 }}>
-      {!focused && showWorkbench && <PaneResizeHandle label="Workbench width" width={width} min={360} max={560} reverse onChange={(next) => { setWidth(next); writeLocal("bark:workbench-width", String(next)); }} />}
+    {surfacesOpen && selectedId && <div className={`surfaces-frame ${focused ? "is-focused" : ""}`} style={focused ? undefined : { width }}>
+      {!focused && <PaneResizeHandle label="Inspector width" width={width} min={320} max={620} reverse onChange={(next) => { setWidth(next); writeLocal("bark:inspector-width", String(next)); }} />}
       {showWorkbench ? (
         <InspectorPane card={activeThread?.card} events={activeThread?.events || []} threadId={selectedId || undefined}
           onBack={() => updateRouteState({ panel: undefined, file: undefined })}
