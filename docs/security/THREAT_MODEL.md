@@ -61,7 +61,7 @@ BarkCLI is the management layer for coding agents (CLI/TUI/web/desktop) backed b
 | N4 | `/api/ping?token=stale` | 200 (public) | **Covered** (`ping_ignores_a_bogus_token_query_param`) |
 | N5 | Protected route with invalid Bearer token | 401 | **Covered (B5.1)** `protected_route_rejects_invalid_bearer_token` |
 | N6 | Protected route with valid Bearer token | 200 | **Covered (B5.1)** `protected_route_accepts_valid_bearer_token` |
-| N7 | Protected route with valid `?token=` (transitional) | 200; document leak risk | **TODO (B5)** — query token supported; prefer header |
+| N7 | Protected route with valid `?token=` (transitional) | 200; document leak risk | **Covered (B5.2, transitional)** `protected_route_accepts_valid_query_token_transitional` — prefer `Authorization: Bearer` |
 | N8 | Cross-origin `Origin` not allowed | 403 | **Partial** `cross_origin_csrf_rejected_on_localhost` exists; expand matrix (B5) |
 | N9 | `/ws` upgrade without auth | rejected/401 | **TODO (B5)** |
 | N10 | `/api/exec` unauthorized | 401/403 | **TODO (B5)** |

@@ -8522,6 +8522,17 @@ mod tests {
         assert_eq!(res.status(), StatusCode::OK);
     }
 
+    /// B5.2 / N7: query token accepted for compatibility (transitional; leaks via URL/logs).
+    #[tokio::test]
+    async fn protected_route_accepts_valid_query_token_transitional() {
+        let app = test_router(test_state(Some("secret")));
+        let res = app
+            .oneshot(get_request("/api/config?token=secret"))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+    }
+
     #[test]
     fn sanitize_name_rejects_path_traversal() {
         assert!(sanitize_name("..").is_err());
