@@ -8379,6 +8379,10 @@ mod tests {
         Router::new()
             .route("/api/ping", get(ping_handler))
             .route("/api/config", get(|| async { "config" }))
+            // B5.4: representative high-risk surfaces (dummy handlers; auth_layer exercised)
+            .route("/api/exec", post(|| async { "exec-ok" }))
+            .route("/api/repo/file", get(|| async { "repo-ok" }))
+            .route("/api/git/push", post(|| async { "push-ok" }))
             .layer(middleware::from_fn_with_state(state.clone(), auth_layer))
             .with_state(state)
     }
@@ -8584,6 +8588,36 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(res.status(), StatusCode::OK);
+    }
+
+    /// B5.4 / N10: high-risk exec surface requires auth when token is configured.
+    #[tokio::test]
+    async fn sensitive_exec_rejects_without_token() {
+        let app = test_router(test_state(Some("secret")));
+        let req = Request::builder()
+            .method("POST")
+            .uri("/api/exec")
+            .body(axum::body::Body::empty())
+            .unwrap();
+        let res = app.oneshot(req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    /// B5.4: repo read and git mutation surfaces require auth when token is configured.
+    #[tokio::test]
+    async fn sensitive_repo_and_git_mutation_reject_without_token() {
+        let app = test_router(test_state(Some("secret")));
+        let res = app.oneshot(get_request("/api/repo/file")).await.unwrap();
+        assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+
+        let app = test_router(test_state(Some("secret")));
+        let req = Request::builder()
+            .method("POST")
+            .uri("/api/git/push")
+            .body(axum::body::Body::empty())
+            .unwrap();
+        let res = app.oneshot(req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
     }
 
     #[test]

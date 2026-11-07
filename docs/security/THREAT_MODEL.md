@@ -63,10 +63,10 @@ BarkCLI is the management layer for coding agents (CLI/TUI/web/desktop) backed b
 | N6 | Protected route with valid Bearer token | 200 | **Covered (B5.1)** `protected_route_accepts_valid_bearer_token` |
 | N7 | Protected route with valid `?token=` (transitional) | 200; document leak risk | **Covered (B5.2, transitional)** `protected_route_accepts_valid_query_token_transitional` — prefer `Authorization: Bearer` |
 | N8 | Cross-origin `Origin` not allowed | 403 | **Partial** `cross_origin_csrf_rejected_on_localhost` exists; expand matrix (B5) |
-| N9 | `/ws` upgrade without auth | rejected/401 | **TODO (B5)** |
-| N10 | `/api/exec` unauthorized | 401/403 | **TODO (B5)** |
-| N11 | `/api/exec` authorized but path/cmd violates policy | rejected (after B5/B6 policy) | **TODO (B5/B6)** |
-| N12 | `repo/file` path traversal (`../`, symlink escape) | rejected | **TODO (B6)** |
+| N9 | `/ws` upgrade without auth | rejected/401 | **TODO (B5)** — `/ws` is in protected path set; add explicit WS test |
+| N10 | `/api/exec` unauthorized | 401/403 | **Covered (B5.4, auth-layer)** `sensitive_exec_rejects_without_token` (dummy handler; verifies middleware on exec path) |
+| N11 | `/api/exec` authorized but path/cmd violates policy | rejected (after B5/B6 policy) | **TODO (B5/B6)** — handler-level policy/cwd/allowlist |
+| N12 | `repo/file` path traversal (`../`, symlink escape) | rejected | **TODO (B6)** — auth rejection covered for surface (`sensitive_repo_and_git_mutation_reject_without_token`) but path confinement not tested |
 | N13 | Cross-project run/session/file ID access | 404/403, no leak | **TODO (B6)** |
 | N14 | Approve/merge with stale SHA or changed diff | rejected | **TODO (B4)** |
 | N15 | MCP/tool call attempts privileged action without permission | rejected, audited | **TODO (P3-02)** |
