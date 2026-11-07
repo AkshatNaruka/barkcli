@@ -1289,4 +1289,44 @@ mod tests {
         );
         assert_eq!(parse_claude_auth(&serde_json::json!({"status": "ok"})), None);
     }
+
+    /// B1.3: probe-only adapters must never be runnable through the canonical
+    /// start path (truthful capability reporting; UI/registry must not execute).
+    #[test]
+    fn probe_only_provider_cannot_start_runs() {
+        use std::sync::Arc;
+        use crate::runtime::event::{RuntimeEvent, StartRun};
+        let provider = ProbeOnlyProvider::new(
+            "aider",
+            "Aider",
+            "aider",
+            None,
+            None,
+            vec!["model-a".into()],
+        );
+        let status = provider.probe();
+        assert!(!provider.capabilities().headless, "probe-only must not claim headless");
+        let sink: EventSink = Arc::new(|_e: RuntimeEvent| {});
+        let req = StartRun {
+            run_id: "r1".into(),
+            thread_id: "t1".into(),
+            card_id: "c1".into(),
+            prompt: "do".into(),
+            cwd: ".".into(),
+            provider: "aider".into(),
+            model: None,
+            role: None,
+            agent_id: None,
+            permission_mode: "auto".into(),
+            provider_session_id: None,
+            raw_log_path: None,
+        };
+        let err = provider
+            .start(req, sink)
+            .err()
+            .expect("probe-only start must fail");
+        let msg = err.to_string();
+        assert!(msg.contains("not yet runnable") || msg.contains("Aider"), "unexpected: {msg}");
+        assert!(status.detail.as_deref().unwrap_or("").contains("Probe-only") || !provider.capabilities().headless);
+    }
 }

@@ -43,7 +43,7 @@ Supervise multiple coding agents confidently — *correct execution, useful cont
 - [x] A1–A5 foundation evidence committed on `plan/upgrade-a1-baseline` (baseline/contracts/fixtures catalog+char test/threat model/perf baseline). Remaining hardening: full workspace/CI matrix, MCP/route schema snapshots, restart/reconcile fixtures (B2), complete negative/security tests (B4–B6), eval harness (A5/C).
 
 ## Phase B (in progress)
-- [~] **B1 Canonical `RunService`/lifecycle (P0,L)** — B1.1 call graph + design note committed (`docs/engineering/RUN_LIFECYCLE_B1.md`). Next: B1.2 field/schema mapping, B1.3 conformance tests, B1.4 server unification, B1.5 CLI compat. *Deps:* A2,A3.
+- [~] **B1 Canonical `RunService`/lifecycle (P0,L)** — B1.1 call graph, B1.2 schema mapping, B1.3 scoped conformance test (`probe_only_provider_cannot_start_runs` passes) committed. Next: B1.4 server handler unification, B1.5 CLI compat wrap, full lifecycle parity/dup-launch/capability gating. *Deps:* A2,A3.
 - [ ] **B5 Centralized authz (P0,L)** — N5–N10/N13, scopes, sensitive-route registry. *Deps:* A4.
 - [ ] **B2 Durable state/reconciliation (P0,L)** — *Deps:* A3,B1.
 - [ ] **B4 Gate/guard/merge SHA integrity (P0,M)** — *Deps:* A4,B2.

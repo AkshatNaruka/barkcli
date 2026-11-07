@@ -32,8 +32,8 @@
 
 ## 4. B1 increments
 1. **B1.1 (done):** call graph + design note.
-2. **B1.2 (done):** schema/field mapping (below).
-3. **B1.3:** add failing/characterizing conformance tests: same offline fake scenario through runtime service path yields expected states/events; assert no duplicate launch and capability gating (`ProbeOnlyProvider`/unsupported ops).
+2. **B1.2 (done):** schema/field mapping.
+3. **B1.3 (done, scoped):** characterizing conformance test `runtime::providers::tests::probe_only_provider_cannot_start_runs` verifies probe-only adapters fail `start()` and do not claim headless — **passes**. Remaining: full lifecycle parity (CLI↔runtime↔server), duplicate-launch prevention, unsupported-op typed errors across all surfaces.
 4. **B1.4:** route server run-triggering handlers through canonical service where missing; unify IDs/status serialization.
 5. **B1.5:** compat-wrap or migrate CLI `run_cmd` path; preserve `BARKCLI_AGENT_CMD`, `--backend`, parallel/merge-train semantics with tests.
 
