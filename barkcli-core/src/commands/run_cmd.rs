@@ -1039,10 +1039,26 @@ fn run_attempt(
     //   2. an agent that crashed and produced no changes can't claim a
     //      passing gate either (an empty worktree passes a trivial gate) —
     //      that attempt counts as failed.
-    let gate = match detect_test_cmd(wt_path, test_cmd) {
+    let gate = match detect_test_cmd(wt_path, test_cmd.clone()) {
         Some(cmd) => {
-            println!("{} gate `{} …`", style::accent("Gate:"), style::muted(&cmd));
-            run_gate(wt_path, &cmd, &sess_dir)
+            let is_default_rust = test_cmd.is_none() && cmd == "cargo test --quiet";
+            if is_default_rust && !rust_gate_relevant_changes(wt_path, base_commit) {
+                println!(
+                    "{} gate skipped for doc/non-Rust-only changes (use --test-cmd to force)",
+                    style::accent("Gate:")
+                );
+                GateResult {
+                    cmd: Some(cmd),
+                    ok: true,
+                    skipped: true,
+                    tail: "Doc/non-Rust-only changes detected (no .rs/Cargo.toml/Cargo.lock/build.rs/rust-toolchain/.cargo changes vs base); skipped Rust test gate. Pass --test-cmd to override."
+                        .into(),
+                    duration_ms: 0,
+                }
+            } else {
+                println!("{} gate `{} …`", style::accent("Gate:"), style::muted(&cmd));
+                run_gate(wt_path, &cmd, &sess_dir)
+            }
         }
         None => GateResult {
             cmd: None,
@@ -1800,8 +1816,57 @@ pub(crate) fn detect_test_cmd(dir: &Path, override_cmd: Option<String>) -> Optio
     None
 }
 
+/// True when a workspace with `Cargo.toml` has no changes that `cargo test`
+/// can validate. Used to avoid running the full Rust suite (and its fragile
+/// integration tests in nested `.board/worktrees`) for doc/non-code-only runs.
+fn rust_gate_relevant_changes(wt: &Path, base_commit: &str) -> bool {
+    let Ok(out) = git_out(wt, &["diff", "--name-only", &format!("{base_commit}...HEAD")]) else {
+        return true;
+    };
+    let files: Vec<&str> = out.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
+    if files.is_empty() {
+        return false;
+    }
+    files.iter().any(|path| {
+        let p = path.replace('\\', "/");
+        let name = p.rsplit('/').next().unwrap_or(&p);
+        p.ends_with(".rs")
+            || name == "Cargo.toml"
+            || name == "Cargo.lock"
+            || name == "build.rs"
+            || name.starts_with("rust-toolchain")
+            || p.starts_with(".cargo/")
+            || p.contains("/.cargo/")
+    })
+}
+
+/// Prefer actionable failure details (test failures, panics, errors) over a
+/// generic tail so a failed gate explains *why*.
+fn gate_failure_tail(output: &str, max_lines: usize) -> String {
+    let lines: Vec<&str> = output.lines().collect();
+    if let Some(idx) = lines.iter().position(|l| l.trim() == "failures:") {
+        let end = (idx + max_lines).min(lines.len());
+        return lines[idx..end].join("\n");
+    }
+    for marker in [
+        "test result: FAILED",
+        "FAILED",
+        "error[E",
+        "panicked at",
+        "\nerror:",
+    ] {
+        let needle = marker.trim_start_matches('\n');
+        if let Some(idx) = lines.iter().position(|l| l.contains(needle)) {
+            let start = idx.saturating_sub(8);
+            let end = (idx + max_lines).min(lines.len());
+            return lines[start..end].join("\n");
+        }
+    }
+    last_lines(output, max_lines)
+}
+
 /// Run the gate in the worktree. Output is teed to `<session>/gate.log`; its
-/// tail (40 lines) becomes the re-dispatch verdict on failure.
+/// tail becomes the re-dispatch verdict on failure.
 fn run_gate(dir: &Path, cmd: &str, sess_dir: &Path) -> GateResult {
     let started = Instant::now();
     let result = match Command::new("sh")
@@ -1817,11 +1882,16 @@ fn run_gate(dir: &Path, cmd: &str, sess_dir: &Path) -> GateResult {
                 String::from_utf8_lossy(&o.stderr)
             );
             let _ = std::fs::write(sess_dir.join("gate.log"), &combined);
+            let ok = o.status.success();
             GateResult {
                 cmd: Some(cmd.to_string()),
-                ok: o.status.success(),
+                ok,
                 skipped: false,
-                tail: last_lines(&combined, 40),
+                tail: if ok {
+                    last_lines(&combined, 40)
+                } else {
+                    gate_failure_tail(&combined, 120)
+                },
                 duration_ms: started.elapsed().as_millis() as u64,
             }
         }
