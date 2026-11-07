@@ -46,7 +46,7 @@ describe("AssistantMessageCard & LiveAgentWorkingBubble", () => {
 
     expect(screen.getByText("OpenCode")).toBeInTheDocument();
     expect(screen.getAllByText("Reading project structure…").length).toBeGreaterThan(0);
-    expect(screen.getByText("· 5s")).toBeInTheDocument();
+    expect(screen.getByText(/Working for 0m 05s/)).toBeInTheDocument();
     expect(screen.getByText("Read Cargo.toml")).toBeInTheDocument();
 
     const stopButton = screen.getByRole("button", { name: /stop/i });

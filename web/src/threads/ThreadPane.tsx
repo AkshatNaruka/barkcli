@@ -3,6 +3,22 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import type { Card, ThreadEvent, ThreadDetail, RunRecord, ProviderStatus, ProjectSnapshot } from "../lib/types";
+
+const threadDetailCache = new Map<string, ThreadDetail>();
+
+function threadCacheKey(threadId: string, boardName?: string, scope?: string): string {
+  return `${scope || ""}:${boardName || ""}:${threadId}`;
+}
+
+/** @internal test-only: clears the module thread detail cache. */
+export function clearThreadDetailCache(): void {
+  threadDetailCache.clear();
+}
+
+function isLowImportanceThreadEvent(event: ThreadEvent): boolean {
+  const text = (event.text || "").trim().toLowerCase();
+  return text === "context primed" || text === "context loaded";
+}
 import {
   fetchThread,
   postThreadMessage,
@@ -120,13 +136,15 @@ function Prose({ text, onRunCommand }: { text: string; onRunCommand?: (cmd: stri
 }
 
 function EventTime({ iso }: { iso: string }) {
+  const date = new Date(iso);
+  const absolute = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   return (
     <time
       dateTime={iso}
-      className="font-mono text-[9.5px] text-muted/65"
-      title={new Date(iso).toLocaleString()}
+      className="font-mono text-[9.5px] text-muted/65 tabular-nums"
+      title={date.toLocaleString()}
     >
-      {relativeTime(iso)}
+      {absolute} · {relativeTime(iso)}
     </time>
   );
 }
@@ -359,24 +377,50 @@ export function ThreadPane({
   useEffect(() => { onThreadChange?.(thread); }, [thread, onThreadChange]);
 
   useEffect(() => {
+    if (threadId && thread) threadDetailCache.set(threadCacheKey(threadId, boardName, scope), thread);
+  }, [threadId, thread, boardName, scope]);
+
+  useEffect(() => {
     if (stickToBottom.current) messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
     else setNewOutput(true);
   }, [thread?.events, chatBusy]);
 
   useEffect(() => {
+    if (!threadId) return;
+    stickToBottom.current = true;
+    setNewOutput(false);
+    const id = window.requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "auto", block: "end" });
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [threadId]);
+
+  useEffect(() => {
     if (!threadId) {
       setThread(null);
       setLoadError(false);
+      setLoading(false);
       return;
     }
     let cancelled = false;
-    setThread(null);
-    setLoadError(false);
-    setLoading(true);
-    setChatBusy(false);
+    const key = threadCacheKey(threadId, boardName, scope);
+    const cached = threadDetailCache.get(key);
+    if (cached) {
+      setThread(cached);
+      setLoading(false);
+      setLoadError(false);
+      const turn = activeChatTurn(cached.events || []);
+      setChatBusy(Boolean(turn));
+    } else {
+      setThread(null);
+      setLoadError(false);
+      setLoading(true);
+      setChatBusy(false);
+    }
     fetchThread(threadId, boardName)
       .then((data) => {
         if (cancelled) return;
+        if (data) threadDetailCache.set(key, data);
         setThread(data);
         if (!selectionRestored.current && data) {
           const choice = [...data.events].reverse().find((event) => event.kind === "user" && event.data?.backend && event.data.backend !== "board");
@@ -392,10 +436,10 @@ export function ThreadPane({
             ?.slice(5);
           if (cardRole) setRole(cardRole);
         }
-        if (!data) setLoadError(true);
+        if (!data) setLoadError(!cached);
       })
       .catch(() => {
-        if (!cancelled) setLoadError(true);
+        if (!cancelled && !threadDetailCache.has(key)) setLoadError(true);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -1161,11 +1205,11 @@ export function ThreadPane({
             </div>
           )}
 
-          {!loading && thread && (displayEvents.length > 0 || showWorkingBubble) && (
+          {!loading && thread && (displayEvents.length > 0 || chatBusy || activeRun || activityEvents.length > 0 || latestRun) && (
             <div className="chat-messages">
               {(() => {
                 const latestFailedEvent = [...displayEvents].reverse().find((e) => e.kind === "run_failed");
-                return displayEvents.map((event, eventIdx) => {
+                return displayEvents.filter((e) => !isLowImportanceThreadEvent(e)).map((event, eventIdx, visibleEvents) => {
                 if (event.kind === "user") {
                   return (
                     <UserMessageCard
@@ -1180,7 +1224,7 @@ export function ThreadPane({
 
                 if (event.kind === "assistant" || event.kind === "assistant_delta") {
                   const isStreaming = event.kind === "assistant_delta";
-                  const isLatest = eventIdx === displayEvents.length - 1;
+                  const isLatest = eventIdx === visibleEvents.length - 1;
                   return (
                     <AssistantMessageCard
                       key={`${event.id}:${event.seq}`}
@@ -1299,7 +1343,7 @@ export function ThreadPane({
                     const isExitCodeOnly =
                       event.text.trim().toLowerCase().startsWith("provider exited with code") ||
                       event.text.trim().toLowerCase().startsWith("process exited with code");
-                    const prevEvent = eventIdx > 0 ? displayEvents[eventIdx - 1] : null;
+                    const prevEvent = eventIdx > 0 ? visibleEvents[eventIdx - 1] : null;
 
                     // If this is an exit code message and we already have a failure event, suppress redundant card
                     if (isExitCodeOnly && displayEvents.some((e, i) => i !== eventIdx && e.kind === "run_failed")) {
@@ -1608,15 +1652,6 @@ export function ThreadPane({
               });
             })()}
 
-            {showWorkingBubble && (
-              <LiveAgentWorkingBubble
-                backend={activeRun?.provider || backend}
-                statusText={workingStatusText}
-                elapsedSeconds={elapsedSeconds}
-                recentActivities={recentActivities}
-                onStop={chatBusy ? handleStopChat : activeRun ? () => handleStopRun(activeRun) : undefined}
-              />
-            )}
             </div>
           )}
 
@@ -1625,6 +1660,7 @@ export function ThreadPane({
               (e) => e.kind === "tool_call" || e.kind === "file_change" || e.kind === "gate"
             ).length;
             const hasTimeline = Boolean(activeRun?.trace || latestRun?.trace);
+            const isWorking = chatBusy || Boolean(activeRun);
             return (
               <details
                 className="thread-details group mt-3"
@@ -1632,8 +1668,11 @@ export function ThreadPane({
                 onToggle={(event) => setActivityOpen(event.currentTarget.open)}
               >
                 <summary className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border/80 bg-surface/60 hover:bg-surface text-muted hover:text-text text-[11.5px] font-medium transition-colors cursor-pointer select-none">
-                  <Icon name="eye" size={13} className="text-muted-strong" />
-                  Details
+                  <Icon name={isWorking ? "pulse" : "eye"} size={13} className={isWorking ? "text-accent-text" : "text-muted-strong"} />
+                  <span>{isWorking ? "Working" : "Details"}</span>
+                  {isWorking && elapsedSeconds > 0 ? (
+                    <span className="font-mono text-[10px] text-muted">{formatElapsed(elapsedSeconds)}</span>
+                  ) : null}
                   {(stepCount > 0 || activityEvents.length > 0) && (
                     <span className="ml-1 px-1.5 py-0.2 rounded bg-card border border-border text-[10px] font-mono text-muted-strong">
                       {stepCount > 0 ? `${stepCount} ${stepCount === 1 ? "step" : "steps"}` : activityEvents.length}
@@ -1642,12 +1681,20 @@ export function ThreadPane({
                   <Icon
                     name="chevR"
                     size={11}
-                    className={`ml-1 text-muted/60 transition-transform duration-150 ${activityOpen ? "rotate-90" : ""}`}
+                    className={`ml-1 text-muted/60 transition-transform duration-150 motion-reduce:transition-none ${activityOpen ? "rotate-90" : ""}`}
                   />
                 </summary>
                 {activityOpen && (
                   <div className="thread-details-content space-y-3">
-                    {(stepCount > 0 || chatBusy || activeRun) && (
+                    {isWorking && (
+                      <LiveAgentWorkingBubble
+                        backend={activeRun?.provider || backend}
+                        statusText={workingStatusText}
+                        elapsedSeconds={elapsedSeconds}
+                        recentActivities={recentActivities}
+                      />
+                    )}
+                    {(stepCount > 0 || isWorking) && (
                       <section aria-label="Steps" className="rounded-lg border border-border/50 bg-surface/20 p-2.5">
                         <div className="mb-1.5 flex items-center gap-1.5 text-[10.5px] font-medium uppercase tracking-wide text-muted">
                           <Icon name="spark" size={11} />
@@ -1655,7 +1702,7 @@ export function ThreadPane({
                         </div>
                         <StepExplorer
                           disclosure={false}
-                          running={chatBusy || Boolean(activeRun)}
+                          running={isWorking}
                           events={activityEvents}
                           intent={thread?.card?.title || ""}
                           onOpenFile={(path, line) => {

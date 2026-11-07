@@ -4,13 +4,15 @@ import type { ThreadEvent } from "../lib/types";
 import { relativeTime } from "../lib/threads";
 
 function EventTime({ iso }: { iso: string }) {
+  const date = new Date(iso);
+  const absolute = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   return (
     <time
       dateTime={iso}
-      className="font-mono text-[9.5px] text-muted/65"
-      title={new Date(iso).toLocaleString()}
+      className="font-mono text-[9.5px] text-muted/65 tabular-nums"
+      title={date.toLocaleString()}
     >
-      {relativeTime(iso)}
+      {absolute} · {relativeTime(iso)}
     </time>
   );
 }

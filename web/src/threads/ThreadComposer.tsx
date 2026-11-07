@@ -239,11 +239,12 @@ export function ThreadComposer({
           <button
             type="button"
             onClick={() => navigate("operations", { tool: "context" })}
-            className="hidden sm:inline-flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-mono text-muted hover:text-text hover:bg-surface border border-transparent hover:border-border transition-colors"
+            className="hidden sm:inline-flex items-center gap-1 rounded px-1.5 py-1 text-[10.5px] text-muted/60 hover:text-muted hover:bg-surface/40 transition-colors"
             title="Inspect project context pack and active rules (AGENTS.md)"
+            aria-label="Context Primed"
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-            <span>Context Primed</span>
+            <Icon name="layers" size={12} />
+            <span className="sr-only">Context Primed</span>
           </button>
 
           <div className="composer-actions-right">

@@ -1,8 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ThreadDetail, RunRecord } from "../lib/types";
-import { ThreadPane } from "./ThreadPane";
+import { ThreadPane, clearThreadDetailCache } from "./ThreadPane";
 
 const api = vi.hoisted(() => ({
   fetchThread: vi.fn(),
@@ -83,6 +83,9 @@ const run: RunRecord = {
 };
 
 describe("ThreadPane", () => {
+  beforeEach(() => {
+    clearThreadDetailCache();
+  });
   it("loads the thread, renders prose, and sends a message", async () => {
     api.fetchThread.mockResolvedValue(detail);
     api.postThreadMessage.mockResolvedValue({
@@ -256,7 +259,9 @@ describe("ThreadPane", () => {
     expect(screen.queryByText(/operations/)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "2 files changed" }));
     expect(onReview).toHaveBeenCalledOnce();
-    await user.click(screen.getByText("Details", { selector: "summary" }));
+    const detailsSummary = document.querySelector("details.thread-details > summary");
+    expect(detailsSummary).toBeTruthy();
+    await user.click(detailsSummary!);
     expect(await screen.findByText(run.worktree!)).toBeInTheDocument();
     // Activity log events render as labeled details rows inside the opened Details section.
     expect(screen.getAllByText("private diagnostic").length).toBeGreaterThan(0);
@@ -280,9 +285,12 @@ describe("ThreadPane", () => {
     const user = userEvent.setup();
     render(<ThreadPane threadId={detail.id} />);
     await screen.findByText("Building");
-    const detailsSummary = screen.getByText("Details", { selector: "summary" });
-    const details = detailsSummary.closest("details");
-    if (details && !details.open) await user.click(detailsSummary);
+    const details = document.querySelector("details.thread-details");
+    const detailsSummary = details?.querySelector("summary");
+    expect(detailsSummary).toBeTruthy();
+    if (details instanceof HTMLDetailsElement && !details.open) {
+      await user.click(detailsSummary!);
+    }
     await screen.findByText(run.worktree!);
     expect(screen.getAllByRole("button", { name: "Stop" })).toHaveLength(1);
     await user.type(screen.getByTestId("thread-composer"), "Keep this next prompt");
