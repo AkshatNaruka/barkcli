@@ -6212,10 +6212,15 @@ async fn stop_run_handler(
     ))
 }
 
+/// B4.2: optional SHA attestation binds approval/merge intent to the reviewed revision.
+/// Backward compatible — omitted fields preserve legacy behavior (core still verifies proof/heads).
 #[derive(serde::Deserialize, Default)]
 struct MergeRunRequest {
     #[serde(default)]
     approved: bool,
+    /// If provided, merge is rejected unless it matches the run's current/tested head.
+    #[serde(default)]
+    expected_head_sha: Option<String>,
 }
 
 async fn merge_run_handler(
@@ -6230,6 +6235,28 @@ async fn merge_run_handler(
         ));
     }
     let board_name = resolve_board_name(&state, params.name)?;
+    // B4.2: optional SHA attestation — reject stale client intent before merge.
+    // Core merge still independently verifies proof/heads; this gives a clear early error.
+    if let Some(expected) = req.expected_head_sha.as_deref().filter(|s| !s.trim().is_empty()) {
+        let run = barkcli_core::runtime::RuntimeStore::from_project()
+            .map_err(|e| ServerError::internal(e.to_string()))?
+            .load_run(&run_id)
+            .map_err(|e| ServerError::bad(format!("run not found: {e}")))?;
+        let actual = run
+            .gate
+            .as_ref()
+            .and_then(|g| g.verification.as_ref())
+            .map(|v| v.tested_head.as_str())
+            .or(run.head_sha.as_deref())
+            .unwrap_or("");
+        if actual != expected.trim() {
+            return Err(ServerError::bad(format!(
+                "stale approval/merge intent: expected head {}, run is at {}. Re-review and retry.",
+                expected.trim(),
+                actual
+            )));
+        }
+    }
     let service = barkcli_core::runtime::RunService::from_project(&board_name)
         .map_err(|e| ServerError::internal(e.to_string()))?;
     let outcome = service
@@ -7303,6 +7330,9 @@ struct ApproveRunRequest {
     note: Option<String>,
     #[serde(default)]
     merge: bool,
+    /// B4.2: optional SHA attestation for stale-review prevention (backward compatible).
+    #[serde(default)]
+    expected_head_sha: Option<String>,
 }
 
 async fn approve_run_handler(
@@ -7318,6 +7348,23 @@ async fn approve_run_handler(
         .map_err(|e| ServerError::bad(format!("run not found: {e}")))?;
     let board_dir = barkcli_core::storage::board_dir::find_board_dir()
         .map_err(|e| ServerError::internal(e.to_string()))?;
+    // B4.2: validate SHA attestation when provided (approval intent bound to reviewed revision).
+    if let Some(expected) = req.expected_head_sha.as_deref().filter(|s| !s.trim().is_empty()) {
+        let actual = run
+            .gate
+            .as_ref()
+            .and_then(|g| g.verification.as_ref())
+            .map(|v| v.tested_head.as_str())
+            .or(run.head_sha.as_deref())
+            .unwrap_or("");
+        if actual != expected.trim() {
+            return Err(ServerError::bad(format!(
+                "stale approval intent: expected head {}, run is at {}. Re-review and retry.",
+                expected.trim(),
+                actual
+            )));
+        }
+    }
     let event = barkcli_core::threads::ThreadEvent::new(
         &run.card_id,
         barkcli_core::threads::ThreadEventKind::ApprovalResolved,
@@ -7332,6 +7379,8 @@ async fn approve_run_handler(
             "approved": req.approved,
             "note": req.note,
             "kind": "merge",
+            "expected_head_sha": req.expected_head_sha,
+            "attested_head_sha": run.gate.as_ref().and_then(|g| g.verification.as_ref()).map(|v| v.tested_head.clone()).or(run.head_sha.clone()),
         })),
     );
     let _ = barkcli_core::threads::append_event_to_dir(
