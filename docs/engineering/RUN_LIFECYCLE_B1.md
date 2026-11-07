@@ -30,12 +30,30 @@
 
 **Compatibility:** keep public CLI flags/behavior and existing tool names where feasible. Wrap `run_cmd` and `agent::backend` callers through adapters; do not delete legacy paths until fixture parity (A3) + B1/B7 conformance pass.
 
-## 4. B1 increments (next commits)
-1. **B1.1 (done):** call graph + design note (this doc).
-2. **B1.2:** map `run_cmd::RunReport/TaskOutcome/GateResult` ↔ runtime `RunRecord/RunStatus/RuntimeEvent/gate` fields; identify lossy translations and required schema versioning.
+## 4. B1 increments
+1. **B1.1 (done):** call graph + design note.
+2. **B1.2 (done):** schema/field mapping (below).
 3. **B1.3:** add failing/characterizing conformance tests: same offline fake scenario through runtime service path yields expected states/events; assert no duplicate launch and capability gating (`ProbeOnlyProvider`/unsupported ops).
 4. **B1.4:** route server run-triggering handlers through canonical service where missing; unify IDs/status serialization.
 5. **B1.5:** compat-wrap or migrate CLI `run_cmd` path; preserve `BARKCLI_AGENT_CMD`, `--backend`, parallel/merge-train semantics with tests.
+
+## 6. B1.2 — Field/schema mapping (lossy translation audit)
+
+### `run_cmd` → runtime (conceptual)
+| `commands::run_cmd` | `runtime::event` / runner | Mapping / gap |
+|---|---|---|
+| `RunOptions` (intent, card_id, board, backend, yes/offline/force/no_spec, test_cmd, max_minutes/idle_minutes/max_attempts/max_agents, dry_run/json) | `CreateRunRequest`/start inputs + runtime config | Different shapes; `run_cmd` owns autonomy-loop policy (parallel workers, retries, idle/max time). Canonical service must represent **attempts**, **leases**, **policy** and **backend/provider selection** explicitly or via typed options. |
+| `GateResult { cmd, ok, skipped, tail, duration_ms }` | `GateSummary { passed, command, summary, log_path, finished_at, verification: Option<CheckVerification> }` | **Lossy in both directions:** runtime carries stronger proof (`CheckOutcome`, `tested_head/target_head`, `exit_code`, `GateSummary::verified()` requires command+proof). `run_cmd` lacks SHA binding and verification state; `skipped`/duration/tail need normalized fields. B4 requires SHA-bound, non-legacy-only verification. |
+| `TaskOutcome.status` = `completed \| ready-unmerged \| failed \| queued` | `RunStatus` = `Queued/Starting/Running/Waiting/NeedsReview/Passed/NotVerified/Failed/Interrupted/Cancelled/Merged` | **Lossy/ambiguous:** `ready-unmerged` ≈ `Passed/NeedsReview` before merge; `completed` conflates gate pass and merge in some flows. Canonical schema must separate *gate verdict*, *review state*, and *merge state*. |
+| `TaskOutcome { merged, attempts, transcript, note }` | `RunRecord` (worktree/branch/provider/model/diff_stats/usage/files_touched/gate/events context refs) | Runtime record is richer (evidence). `run_cmd` is report-oriented; needs stable run/attempt IDs and event refs for parity. |
+| `RunReport { backend_used, completed/failed/queued, duration, parallel, workers_peak, merged_branches }` | runtime store/list + merge-train/train state | Aggregate metrics exist in different places; canonical run stream should make these derivable from events/records. |
+
+### Required schema decisions (ADRs/B1/B2)
+- **Versioning:** add explicit schema/version fields to persisted run/event records and compat readers (serde defaults already used in places).
+- **Identity:** every attempt has `run_id`; retries create new runs linked by parent/attempt; task/card/thread linkage consistent across CLI/server/MCP.
+- **Gate proof:** no merge on boolean-only legacy gate; require `CheckVerification`/SHA binding (B4).
+- **Status mapping:** define deterministic `run_cmd` ↔ `RunStatus` mapping table and keep it tested; never infer merge from “completed”.
+- **Provider/capability fields:** preserve raw payload for unknown event versions; surface typed unsupported-capability errors.
 
 ## 5. Acceptance evidence required before B1 closes
 - Call graph has no un-audited execution launcher.
