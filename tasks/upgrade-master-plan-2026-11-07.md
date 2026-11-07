@@ -44,7 +44,7 @@ Supervise multiple coding agents confidently — *correct execution, useful cont
 
 ## Phase B (in progress)
 - [~] **B1 Canonical `RunService`/lifecycle (P0,L)** — B1.1 call graph, B1.2 schema mapping, B1.3 scoped conformance test (`probe_only_provider_cannot_start_runs` passes) committed. Next: B1.4 server handler unification, B1.5 CLI compat wrap, full lifecycle parity/dup-launch/capability gating. *Deps:* A2,A3.
-- [~] **B5 Centralized authz (P0,L)** — B5.1 N5/N6, B5.2 N7 + `docs/security/AUTHZ_MATRIX.md` (scope registry design). Next: B5.3 route→scope classifier/tests (no enforcement change), then N8–N10/N13 + centralized enforcement. *Deps:* A4.
+- [~] **B5 Centralized authz (P0,L)** — B5.1 N5/N6, B5.2 N7 + `AUTHZ_MATRIX.md`, B5.3 `AuthScope`/`route_scope()` + tests (no enforcement change). Next: B5.4 shadow/enforce high-risk routes (`/api/exec`, git mutate, repo file) compatibly; N8–N10/N13; WS/action-level authz. *Deps:* A4.
 - [ ] **B2 Durable state/reconciliation (P0,L)** — *Deps:* A3,B1.
 - [ ] **B4 Gate/guard/merge SHA integrity (P0,M)** — *Deps:* A4,B2.
 - [ ] **B6 Path/exec/prompt-output hardening (P0,M)** — *Deps:* A4,B5.

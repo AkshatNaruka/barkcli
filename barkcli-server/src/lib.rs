@@ -1110,6 +1110,59 @@ fn percent_decode(s: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
+/// B5.3: coarse route scope classification for centralized authz (design/enforcement
+/// increments follow). Not enforced globally yet — see docs/security/AUTHZ_MATRIX.md.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)] // wired into middleware enforcement in B5.3+ increments
+enum AuthScope {
+    Public,
+    Read,
+    Operate,
+    Maintain,
+    Exec,
+}
+
+#[allow(dead_code)] // wired into middleware enforcement in B5.3+ increments
+fn route_scope(method: &str, path: &str) -> AuthScope {
+    if path == "/api/ping" {
+        return AuthScope::Public;
+    }
+    if path == "/api/exec" || path == "/api/open" {
+        return AuthScope::Exec;
+    }
+    if path.starts_with("/api/git/commit")
+        || path.starts_with("/api/git/push")
+        || path.starts_with("/api/git/merge")
+        || path.starts_with("/api/git/pr")
+        || path.starts_with("/api/git/assign")
+        || path.starts_with("/api/project/init-git")
+        || path.starts_with("/api/hooks/install")
+    {
+        return AuthScope::Exec;
+    }
+    if path.starts_with("/api/repo/") {
+        return AuthScope::Read;
+    }
+    let m = method.to_ascii_uppercase();
+    if matches!(m.as_str(), "GET" | "HEAD" | "OPTIONS") {
+        return AuthScope::Read;
+    }
+    if path.contains("/merge") || path.contains("/approve") || path.contains("/request-changes") {
+        return AuthScope::Maintain;
+    }
+    if path.contains("/stop")
+        || path.contains("/steer")
+        || path.contains("/fork")
+        || path.contains("/chat")
+        || path.contains("/claim")
+        || path.contains("/complete")
+        || path.contains("/fail")
+    {
+        return AuthScope::Operate;
+    }
+    AuthScope::Maintain
+}
+
 /// Validate a board name supplied by the client. Blocks path traversal
 /// (`../`, absolute paths, leading/trailing dots, null bytes) by only allowing safe identifiers.
 fn sanitize_name(name: &str) -> Result<String, ServerError> {
@@ -8599,6 +8652,18 @@ mod tests {
         assert_eq!(percent_decode("100%25"), "100%");
         assert_eq!(percent_decode("bad%zz"), "bad%zz");
         assert_eq!(percent_decode("+"), "+");
+    }
+
+    #[test]
+    fn route_scope_classifies_sensitive_surfaces() {
+        assert_eq!(route_scope("GET", "/api/ping"), AuthScope::Public);
+        assert_eq!(route_scope("GET", "/api/board"), AuthScope::Read);
+        assert_eq!(route_scope("GET", "/api/repo/file"), AuthScope::Read);
+        assert_eq!(route_scope("POST", "/api/exec"), AuthScope::Exec);
+        assert_eq!(route_scope("POST", "/api/git/push"), AuthScope::Exec);
+        assert_eq!(route_scope("POST", "/api/runs/abc/merge"), AuthScope::Maintain);
+        assert_eq!(route_scope("POST", "/api/runs/abc/stop"), AuthScope::Operate);
+        assert_eq!(route_scope("POST", "/api/board"), AuthScope::Maintain);
     }
 
     // ── Trust layer routes (SPEC-007) ──
