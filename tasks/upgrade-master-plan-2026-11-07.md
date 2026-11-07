@@ -60,3 +60,29 @@ Supervise multiple coding agents confidently — *correct execution, useful cont
 
 ## PR contract (every task)
 One backlog item/PR; fresh branch/worktree; failing tests first where applicable; exact command results (skipped ≠ passed); compat/migration/cost/rollback/docs noted.
+
+---
+## Autonomous execution log (2026-11-07, session continuation)
+**Principle:** deliver every phase in priority order as feasible increments — implemented+tested where safe, otherwise committed design/ADR/scaffold/tests with explicit blockers. No destructive changes, no hidden network/model downloads, no merge without gates.
+
+### Additional commits
+- `d8b555c` web(hygiene): fixed `ThreadPane` details activity assertion contract (baseline web test now passes for that case).
+- `4459b0b` server(B4.2): optional SHA-attested `expected_head_sha` for merge/approve (backward-compatible); core merge remains authoritative.
+
+### Phase status snapshot (after continuation)
+- **A:** complete as scoped foundation (A1–A5 evidence committed).
+- **B:** B1.1–B1.4a, B3 probe conformance (scoped), B4.1/B4.2 partial, B5.1–B5.4 + classifier/matrix, B6.1 core path tests done. Remaining behavior work (B1.4/B1.5 unification, B2 durability+restart fixtures, full B4 state machine/invalidation/races, B5 WS/action enforcement/scoped tokens, B6 exec policy/prompt redaction/HTTP path tests, B7 wrappers) requires careful refactors and is scaffolded below.
+- **C–F:** designs/scaffolds/contracts/eval plans committed below; external POCs (CK/Codanna), browser/E2E, OS matrix, rmcp/ACP migration, and production release validation remain blocked on environment/tooling decisions and multi-PR implementation.
+
+### Known blockers (not silently skipped)
+- **Full B1/B2 behavior unification:** touches `run_cmd`, server `dispatch_backend_plan`/thread flows, runtime IDs/events, merge-train semantics; needs integration+compat tests and likely multi-PR rollout.
+- **Crash/restart fault injection (A3 gap #4, B2):** needs deterministic kill/restart harness around persisted run state and runner processes.
+- **N9 WS per-message authz / exec handler policy enforcement:** `exec_handler` runs `sh -lc` in project root; adding allowlist/cwd confinement/audit is breaking-risk and needs product decision (local trusted vs remote-capable). WS upgrade covered by path protection; message-level authz needs protocol audit.
+- **C2 CK/Codanna POCs:** require optional external binaries/models; must remain opt-in, benchmarked with `context-benchmark-a5.json` methodology, no default network/model downloads.
+- **D3 rmcp/ACP migration:** evaluate compatibility; do not force SDK migration without parity/snapshot tests.
+- **E1/E4:** live browser workbench state model, reconnect/cursor protocol, PWA/safe remote desktop need UI/state refactors + Playwright/manual validation.
+- **F1/F4/F5:** model-backed evals, OS/desktop matrix, CI release/rollback require infra and release engineering.
+
+### Acceptance discipline
+- Targeted tests added/passed are cited in commits/docs; full-suite debt (`cargo fmt` tui drift, clippy debt, web baseline noted) not claimed fixed unless committed.
+- Runtime-sensitive changes kept additive/backward-compatible; design-first for risky areas.

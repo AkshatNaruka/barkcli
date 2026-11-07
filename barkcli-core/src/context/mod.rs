@@ -8,6 +8,7 @@ pub mod ledger;
 pub mod manifest;
 pub mod pack;
 pub mod repo_map;
+pub mod retriever_spi;
 
 pub use ledger::{ContextLedger, ContextStore, LedgerEntry};
 pub use manifest::{
