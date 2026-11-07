@@ -415,6 +415,7 @@ export function SurfacesPanel({
             {(activeRun || latestRun) && !hasSearch ? (
               <section
                 aria-label="Thread status"
+                aria-live="polite"
                 className="rounded-xl border border-border/60 bg-surface/25 px-3 py-2.5"
               >
                 <div className="flex items-start justify-between gap-2">
