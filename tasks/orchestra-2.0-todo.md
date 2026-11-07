@@ -2,19 +2,19 @@
 
 > Task list for `tasks/orchestra-2.0-plan.md` (separate from `tasks/todo.md`/`tasks/plan.md`).
 
-## Phase 1 — Model identity + OpenCode discovery foundation (P0) [awaiting approval]
-- [ ] O1.1 Normalized model types (`ModelRef`, capabilities, availability, catalog entry)
-- [ ] O1.2 OpenCode discovery adapter (structured first, CLI fallback), no auto paid/free probes
-- [ ] O1.3 Cache/refresh + availability states
-- [ ] O1.4 Compatibility shim for existing provider/runtime consumers
-- [ ] O1.5 Offline fixture tests + compat tests
-- [ ] O1 checkpoint: `cargo test -p barkcli-core --lib` (relevant) green; docs updated; commit
+## Phase 1 — Model identity + OpenCode discovery foundation (P0) [x]
+- [x] O1.1 Normalized model types (`ModelRef`, capabilities, availability, catalog entry)
+- [x] O1.2 OpenCode discovery adapter (structured first, CLI fallback), no auto paid/free probes
+- [x] O1.3 Cache/refresh + availability states (`DiscoveryReport` cache roundtrip)
+- [x] O1.4 Compatibility shim (`ModelRef::legacy_model_id()`, additive module; existing providers unchanged)
+- [x] O1.5 Offline fixture tests + compat behavior preserved
+- [x] O1 checkpoint: `cargo test -p barkcli-core --lib` **432 passed, 0 failed**; committed `feat(orchestra/phase1)`
 
-## Phase 2 — Dynamic role/model policy layer (P0)
-- [ ] O2.1 `AgentProfile` model_policy (backward-compatible)
-- [ ] O2.2 Eligibility filter (caps/auth/policy/budget/availability/quota)
-- [ ] O2.3 Selection reason in assignment/receipt/event
-- [ ] O2.4 Tests (pin, ineligible typed reason, multi-role same runtime)
+## Phase 2 — Dynamic role/model policy layer (P0) [~]
+- [x] O2.1 `AgentProfile` model_policy (backward-compatible serde/frontmatter roundtrip)
+- [x] O2.2 Eligibility filter (`evaluate_eligibility`: availability/caps/policy/free-paid-local/strategy) + typed reason
+- [x] O2.3 Selection/assignment reason types foundation (`orchestra::assignment`) — receipt/event wiring deferred to router/runtime integration
+- [x] O2.4 Tests (backward compat, policy roundtrip, Free Only/capability rejection, eligible happy path) — dispatch-path integration in Phase 3/4
 
 ## Phase 3 — Intelligent router (P0)
 - [ ] O3.1 Deterministic task classification (+ optional schema hook off by default)
