@@ -21,6 +21,8 @@ export interface StepItem {
   output?: string;
   status?: "running" | "success" | "failed" | string;
   createdAt?: string;
+  toolName?: string;
+  provenance?: string[];
 }
 
 interface StepExplorerProps {
@@ -219,6 +221,9 @@ export function StepExplorer({ running = false, events = [], onOpenFile, disclos
               {step.kind === "thought" && step.title ? (
                 <div className="text-[13px] font-semibold text-text">{step.title}</div>
               ) : null}
+              {step.toolName ? (
+                <div className="font-mono text-[10px] text-muted">tool: {step.toolName}</div>
+              ) : null}
               {step.kind === "thought" && (step.body || step.detail) ? (
                 <div className="mt-1 whitespace-pre-wrap leading-relaxed text-muted-strong">{step.body || step.detail}</div>
               ) : null}
@@ -238,6 +243,15 @@ export function StepExplorer({ running = false, events = [], onOpenFile, disclos
                 </button>
               ) : null}
               {step.kind !== "thought" && step.detail ? <div className="whitespace-pre-wrap text-muted">{step.detail}</div> : null}
+              {step.provenance && step.provenance.length > 0 ? (
+                <div className="mt-1 flex flex-wrap gap-1.5 text-[10px] text-muted/80">
+                  {step.provenance.map((p) => (
+                    <span key={p} className="rounded border border-border/50 bg-surface/30 px-1.5 py-0.5 font-mono">
+                      {p}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
               {step.output ? (
                 <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded border border-border/40 bg-bg/40 p-1.5 font-mono text-[10px] text-muted-strong">
                   {step.output.length > 4000 ? `${step.output.slice(0, 4000)}\n…` : step.output}
@@ -246,6 +260,7 @@ export function StepExplorer({ running = false, events = [], onOpenFile, disclos
               {step.createdAt ? (
                 <div className="mt-1 text-[10px] text-muted/60">
                   {new Date(step.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                  {step.status ? ` · ${step.status}` : ""}
                 </div>
               ) : null}
             </div>

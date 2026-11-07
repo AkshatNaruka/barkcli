@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { WORKBENCH_SURFACES, type WorkbenchTab } from "../lib/workbench";
 import { Icon, type IconName } from "../components/Icon";
-import type { ReviewState, ThreadDetail, ProjectSnapshot } from "../lib/types";
-import { fetchReview } from "../lib/api";
+import type { ReviewState, RunGate, ThreadDetail, ProjectSnapshot } from "../lib/types";
+import { fetchReview, fetchRunGate } from "../lib/api";
 import { canReviewMerge, checkState, isActiveRun } from "../lib/run-state";
 
 interface SurfacesPanelProps {
@@ -80,6 +80,7 @@ export function SurfacesPanel({
   const activeRun = useMemo(() => [...runs].reverse().find(isActiveRun) || null, [runs]);
   const hasOpenThread = showThread;
   const [review, setReview] = useState<ReviewState | null>(null);
+  const [runGate, setRunGate] = useState<RunGate | null>(null);
 
   const reviewId = latestRun?.id || thread?.card?.id;
   useEffect(() => {
@@ -99,6 +100,24 @@ export function SurfacesPanel({
       cancelled = true;
     };
   }, [hasOpenThread, reviewId, latestRun?.head_sha, latestRun?.gate?.finished_at]);
+
+  useEffect(() => {
+    if (!hasOpenThread || !latestRun?.id) {
+      setRunGate(null);
+      return;
+    }
+    let cancelled = false;
+    void fetchRunGate(latestRun.id)
+      .then((next) => {
+        if (!cancelled) setRunGate(next);
+      })
+      .catch(() => {
+        if (!cancelled) setRunGate(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [hasOpenThread, latestRun?.id, latestRun?.gate?.finished_at, latestRun?.head_sha]);
 
   const actions: ActionItem[] = useMemo(
     () => [
@@ -320,6 +339,17 @@ export function SurfacesPanel({
   const openReviewComments = (review?.comments || []).filter((c) => !c.resolved).length;
   const reviewFiles = review ? Object.values(review.files || {}) : [];
   const viewedCount = reviewFiles.filter((f) => f.viewed).length;
+  const verification = latestRun?.gate?.verification || runGate?.gate?.verification;
+  const revisionStale =
+    verification?.outcome === "stale" ||
+    Boolean(
+      verification?.tested_head &&
+        verification?.target_head &&
+        verification.tested_head !== verification.target_head
+    );
+  const gateReason = runGate?.eligibility?.reason;
+  const needsReviewAction =
+    Boolean(latestRun) && !activeRun && latestRun?.status !== "merged" && (openReviewComments > 0 || revisionStale || latestCheck?.tone === "danger");
 
   return (
     <aside
@@ -417,6 +447,11 @@ export function SurfacesPanel({
                         {latestCheck.label}
                       </span>
                     ) : null}
+                    {revisionStale ? (
+                      <span className="rounded-full border border-warning/30 bg-warning-soft px-2 py-0.5 text-[10px] font-medium text-warning">
+                        checks stale
+                      </span>
+                    ) : null}
                     {openReviewComments > 0 ? (
                       <span className="rounded-full border border-warning/30 bg-warning-soft px-2 py-0.5 text-[10px] font-medium text-warning">
                         {openReviewComments} open comment{openReviewComments === 1 ? "" : "s"}
@@ -429,6 +464,29 @@ export function SurfacesPanel({
                     ) : null}
                   </div>
                 </div>
+                {(gateReason || needsReviewAction) && (
+                  <div className="mt-2 border-t border-border/40 pt-2">
+                    {gateReason ? <p className="text-[10.5px] leading-relaxed text-muted">{gateReason}</p> : null}
+                    {needsReviewAction ? (
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => onSelectThread("diff")}
+                          className="rounded border border-border/70 bg-card px-2 py-1 text-[10px] font-medium text-text hover:bg-surface/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                        >
+                          Review changes
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onSelectThread("gate")}
+                          className="rounded border border-border/70 bg-card px-2 py-1 text-[10px] font-medium text-text hover:bg-surface/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                        >
+                          View checks
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
               </section>
             ) : null}
 

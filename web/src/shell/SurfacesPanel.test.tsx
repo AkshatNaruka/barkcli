@@ -7,6 +7,7 @@ import { SurfacesPanel } from "./SurfacesPanel";
 
 vi.mock("../lib/api", () => ({
   fetchReview: vi.fn(async () => null),
+  fetchRunGate: vi.fn(async () => null),
 }));
 
 function renderPanel(overrides: Partial<ComponentProps<typeof SurfacesPanel>> = {}) {
