@@ -1605,4 +1605,45 @@ mod tests {
         );
         let _ = std::fs::remove_dir_all(root);
     }
+
+    /// A3 golden fixture (characterizing): compile succeeds for both a
+    /// keyword-aligned query and a paraphrased query targeting code whose
+    /// symbols/words differ. Native retrieval may not achieve paraphrase recall
+    /// today — this test records the fixture contract and current behavior; see
+    /// `docs/engineering/GOLDEN_FIXTURES.md` and the Phase C/A5 eval harness.
+    #[test]
+    fn a3_fixture_paraphrase_query_compiles_and_records_recall() {
+        let (root, board) = temp_root();
+        // Target uses "add(a,b)" / "sum" semantics are absent; query will paraphrase.
+        std::fs::write(
+            root.join("src/calc.rs"),
+            "pub fn combine(left: i32, right: i32) -> i32 { left + right }\n",
+        )
+        .unwrap();
+        let engine = engine(&root, &board);
+
+        let mut keyword = Card::new("calc-key", "Work on combine arithmetic in calc.rs", "todo");
+        keyword.description = Some("Update src/calc.rs combine function".into());
+        let keyword_pack = engine.compile(&request(keyword, "fix combine in src/calc.rs")).unwrap();
+        assert!(!keyword_pack.prompt.is_empty(), "keyword pack must compile");
+
+        let mut paraphrase = Card::new("calc-para", "Make the addition helper return correct totals", "todo");
+        paraphrase.description = Some("The routine that merges two numbers gives wrong totals".into());
+        let paraphrase_pack = engine
+            .compile(&request(paraphrase, "repair the numeric merge helper"))
+            .unwrap();
+        assert!(!paraphrase_pack.prompt.is_empty(), "paraphrase pack must compile");
+
+        // Baseline characterization (not a hard recall requirement for native keyword retrieval).
+        let target = "src/calc.rs";
+        let keyword_has = keyword_pack.manifest.files.iter().any(|f| f.path == target)
+            || keyword_pack.prompt.contains("combine");
+        let paraphrase_has = paraphrase_pack.manifest.files.iter().any(|f| f.path == target)
+            || paraphrase_pack.prompt.contains("combine");
+        eprintln!(
+            "A3 paraphrase fixture baseline: keyword_has_target={keyword_has} paraphrase_has_target={paraphrase_has}"
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
 }

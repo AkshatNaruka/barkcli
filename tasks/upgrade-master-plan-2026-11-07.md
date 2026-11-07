@@ -35,8 +35,8 @@ Supervise multiple coding agents confidently — *correct execution, useful cont
 ## Phase A tasks (current)
 - [x] **A1 (S) Baseline & toolchain truth** (+ extension) — toolchain/commit captured; core lib tests pass (419/419), targeted `product_plan` passes here; `cargo fmt`/core clippy fail (debt); web deps installed, build passes, web tests baseline has 2 failures (captured). `docs/engineering/BASELINE.md` updated. Full workspace/CI matrix deferred. *Deps:* none.
 - [x] **A2 (S) Contract inventory & drift** — extracted 97 MCP tools (drift: mcp header 80, README 76), 171 unique API paths + `/ws`/thread stream, provider capabilities, run entrypoint map. `docs/engineering/CONTRACT_INVENTORY.md`. Full schema snapshots/CI enforcement deferred. *Deps:* A1.
-- [ ] **A3 (M) Golden offline fixtures** — disposable repos; pass/fail-gate/conflict/kill-restart/resume-stop-review/paraphrase context; fake providers.
-- [ ] **A4 (M) Threat model & negative tests** — sensitive surfaces, trust boundaries, authz matrix.
+- [x] **A3 (M, foundation)** — golden fixture catalog (`docs/engineering/GOLDEN_FIXTURES.md`) mapping PLAN scenarios to existing tests (`runner_loop`, `runtime_run`, `stress_concurrent`); gaps marked (kill/restart reconciliation blocked by B2; paraphrase eval for A5/C). Added characterizing test `context::pack::tests::a3_fixture_paraphrase_query_compiles_and_records_recall` (offline, passes). *Deps:* A1.
+- [~] **A4 (M) Threat model & negative tests** — sensitive surfaces, trust boundaries, authz matrix. *Next.*
 - [ ] **A5 (M) Perf/context baselines** — context/symbol/memory/search/stream/UI; footprint/latency scripts.
 
 ## Risks
