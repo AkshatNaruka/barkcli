@@ -32,23 +32,30 @@ Supervise multiple coding agents confidently — *correct execution, useful cont
 | E (P1 UX) | Live workbench + reconnect/replay + SHA-verified review + safe remote/PWA | 1k+ events interactive; exact reconnect; unauth cannot act | B,D |
 | F (P2) | Explainable routing/planning, verified collective memory, local diagnostics, release/upgrade-rollback | Redacted diagnosis; data-preserving upgrades | all |
 
-## Phase A tasks (current)
-- [x] **A1 (S) Baseline & toolchain truth** (+ extension) — toolchain/commit captured; core lib tests pass (419/419), targeted `product_plan` passes here; `cargo fmt`/core clippy fail (debt); web deps installed, build passes, web tests baseline has 2 failures (captured). `docs/engineering/BASELINE.md` updated. Full workspace/CI matrix deferred. *Deps:* none.
-- [x] **A2 (S) Contract inventory & drift** — extracted 97 MCP tools (drift: mcp header 80, README 76), 171 unique API paths + `/ws`/thread stream, provider capabilities, run entrypoint map. `docs/engineering/CONTRACT_INVENTORY.md`. Full schema snapshots/CI enforcement deferred. *Deps:* A1.
-- [x] **A3 (M, foundation)** — golden fixture catalog (`docs/engineering/GOLDEN_FIXTURES.md`) mapping PLAN scenarios to existing tests (`runner_loop`, `runtime_run`, `stress_concurrent`); gaps marked (kill/restart reconciliation blocked by B2; paraphrase eval for A5/C). Added characterizing test `context::pack::tests::a3_fixture_paraphrase_query_compiles_and_records_recall` (offline, passes). *Deps:* A1.
-- [x] **A4 (M, foundation)** — `docs/security/THREAT_MODEL.md` with trust boundaries, assets, sensitive surfaces, prioritized threats (T1–T10), and negative test matrix (N1–N15) mapped to existing server auth tests and B4/B5/B6/P3 gaps. *Deps:* A1.
-- [x] **A5 (M, scoped)** — first-party context benchmark captured (`docs/engineering/context-benchmark-a5.json`, cold 34970 / warm 824 proxy tokens, methodology noted); build/test timings and web bundle warnings recorded in `docs/engineering/PERF_BASELINE.md`. Full profiling matrix (index/stream/UI/memory/disk/OS/provider-actual) deferred to C/E. *Deps:* A1.
+## Phase A — complete (scoped)
+- [x] **A1–A5:** `BASELINE.md`, `CONTRACT_INVENTORY.md`, `GOLDEN_FIXTURES.md` (+ A3 test), `THREAT_MODEL.md`/`AUTHZ_MATRIX.md`, `PERF_BASELINE.md` + `context-benchmark-a5.json`. Checkpoint evidence committed.
 
-## Checkpoint A
-- [x] A1–A5 foundation evidence committed on `plan/upgrade-a1-baseline` (baseline/contracts/fixtures catalog+char test/threat model/perf baseline). Remaining hardening: full workspace/CI matrix, MCP/route schema snapshots, restart/reconcile fixtures (B2), complete negative/security tests (B4–B6), eval harness (A5/C).
+## Phase B — runtime correctness (P0 priority, partially implemented + designed)
+- [~] **B1** `RunService`/lifecycle — B1.1–B1.4a docs/tests/audit, `ADR-B1-canonical-run-launcher.md`. *Blocked:* full server/CLI/MCP launcher unification/compat adapters.
+- [~] **B2** Durability/reconciliation — `ADR-B2-durable-runtime-state-machine.md`. *Blocked:* state-machine refactor + kill/restart harness.
+- [~] **B3** Capability-aware providers — capability map + probe-only non-runnable test. *Remaining:* launcher/MCP gating.
+- [~] **B4** Gate/guard/merge SHA integrity — B4.1 audit + B4.2 SHA-attested merge/approve API (additive). *Remaining:* approval invalidation/races/CLI parity/untracked policy.
+- [~] **B5** Centralized authz — N5–N7/N9/N10 tests, matrix, `route_scope` classifier. *Remaining:* scoped tokens, WS/action authz, route registry enforcement, remote defaults.
+- [~] **B6** Path/exec/prompt-output hardening — B6.1 core path tests, `EXEC_POLICY_B6.md`. *Remaining:* HTTP path tests, exec policy/cwd/allowlist/audit, redaction.
+- [~] **B7** OpenAI-compatible wrapper — `WRAPPER_STUBS_B7.md` (reference). *Blocked:* impl + security review.
 
-## Phase B (in progress)
-- [~] **B1 Canonical `RunService`/lifecycle (P0,L)** — B1.1 call graph, B1.2 schema mapping, B1.3 probe-only conformance, B1.4a server dual-path audit (`RunService` + `run_cmd::run` + `dispatch_backend_plan`) documented. Next: B1.4 server handler unification via canonical launcher/facade, B1.5 CLI compat wrap, full parity/dup-launch/capability gating. *Deps:* A2,A3.
-- [~] **B5 Centralized authz (P0,L)** — B5.1 N5/N6, B5.2 N7 + `AUTHZ_MATRIX.md`, B5.3 classifier/tests, B5.4 auth-layer negative tests on representative high-risk surfaces (`/api/exec`, repo, git push) pass. Next: real handler policy (exec/cwd/path confinement, B6), WS upgrade/action authz (N9), scoped tokens/roles, full route registry enforcement. *Deps:* A4.
-- [ ] **B2 Durable state/reconciliation (P0,L)** — *Deps:* A3,B1.
-- [~] **B4 Gate/guard/merge SHA integrity (P0,M)** — B4.1 audit: `RunService::merge` has strong controls (explicit approval, merge-train lock, `GateSummary::verified` + `CheckVerification`, tested/target head binding, run head/dirty checks, recheck HEAD). Gaps: caller-bound approval not SHA-attested in API, server handler parity, request-changes/approval state, untracked policy, concurrent race tests. `docs/engineering/GATE_MERGE_INTEGRITY_B4.md`. *Deps:* A4,B2 (partial progress now).
-- [~] **B6 Path/exec/prompt-output hardening (P0,M)** — B6.1 core repo path traversal/symlink escape tests pass (`safe_join`/`read_file`). Next: HTTP repo/file negative tests, exec policy/cwd/allowlist/audit, prompt-output secret redaction boundaries. *Deps:* A4,B5.
-- [ ] **B3 Scheduler/worktree discipline (P0,M)**, **B7 Provider conformance (P1,M)**.
+## Phase C–F — designed/scaffolded (implementation/POCs blocked by deps/infra as noted)
+- [~] **C1–C4:** `CONTEXT_RETRIEVER_SPI_C1.md` + additive `retriever_spi` module/test; CK/Codanna POCs/evals opt-in/external-dep blocked.
+- [~] **D1–D5:** `MCP_ACP_EXTENSIONS_D.md` (97-tool inventory known; schemas/snapshots/conformance/ACP-rmcp evaluation/extensions hardening follow-ups).
+- [~] **E1–E4:** `LIVE_WORKBENCH_RECONNECT_E.md` (state model, reconnect/cursor, PWA/safe remote) — UI/protocol/E2E follow-ups.
+- [~] **F1–F5:** `EVALS_OBSERVABILITY_RELEASE_F.md` + `RELEASE_CHECKLIST_F4.md` (eval harness, routing memory, redacted observability, CI/release/upgrade/rollback, support matrix).
+
+## Done criteria (this execution)
+- [x] Phases planned in priority order; branch/worktree used; commits per increment.
+- [x] A foundation evidence complete and committed.
+- [x] P0 security/integrity increments implemented where safe (N5–N7/N9/N10, core N12, B4.2 SHA attestation, route scope classifier, C1 SPI scaffold) with targeted tests.
+- [x] Remaining B–F items have concrete ADRs/designs/scaffolds/checklists and explicit blockers — no silent omission.
+- [ ] Full runtime unification, crash harness, external POCs, full conformance/CI matrix, UI reconnect/workbench, and release infra require multi-PR/infra work (tracked above).
 
 ## Risks
 | Risk | Impact | Mitigation |

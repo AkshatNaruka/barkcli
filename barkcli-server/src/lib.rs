@@ -8432,6 +8432,7 @@ mod tests {
             .route("/api/exec", post(|| async { "exec-ok" }))
             .route("/api/repo/file", get(|| async { "repo-ok" }))
             .route("/api/git/push", post(|| async { "push-ok" }))
+            .route("/ws", get(|| async { "ws-ok" }))
             .layer(middleware::from_fn_with_state(state.clone(), auth_layer))
             .with_state(state)
     }
@@ -8666,6 +8667,14 @@ mod tests {
             .body(axum::body::Body::empty())
             .unwrap();
         let res = app.oneshot(req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    /// B5.5 / N9: websocket upgrade path is protected by auth layer when token configured.
+    #[tokio::test]
+    async fn ws_upgrade_rejects_without_token() {
+        let app = test_router(test_state(Some("secret")));
+        let res = app.oneshot(get_request("/ws")).await.unwrap();
         assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
     }
 
