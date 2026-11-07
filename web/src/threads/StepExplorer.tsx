@@ -161,20 +161,30 @@ export function StepExplorer({ running = false, events = [], onOpenFile, disclos
       {steps.map((step) => {
         const s = stepSummary(step);
         const runningStep = step.status === "running" || step.status === "in_progress";
+        const failedStep = step.status === "failed" || step.status === "error";
         const expandable = Boolean(step.detail || step.output || step.command || step.file || step.body);
         const collapsedLabel =
           step.kind === "thought" ? `${s.label}${s.value ? `  ${s.value}` : ""}` : (s.value || step.text);
+        const tone = failedStep ? "text-danger" : runningStep ? "text-text" : "text-muted-strong";
+        const iconTone = failedStep ? "text-danger" : runningStep ? "text-accent-text" : "text-muted";
         const row = (
           <>
-            <span className={`shrink-0 ${runningStep ? "text-text" : "text-muted"}`}>
-              <Icon name={(s.icon as any) || "spark"} size={12} />
+            <span className={`shrink-0 ${iconTone}`}>
+              <Icon name={failedStep ? "x" : ((s.icon as any) || "spark")} size={12} />
             </span>
-            <span
-              className={`min-w-0 flex-1 truncate text-[12px] ${runningStep ? "text-text" : "text-muted-strong"}`}
-              title={collapsedLabel}
-            >
+            <span className={`min-w-0 flex-1 truncate text-[12px] ${tone}`} title={collapsedLabel}>
               {collapsedLabel}
             </span>
+            {runningStep ? (
+              <span className="shrink-0 rounded bg-accent-soft px-1 py-0.5 text-[9.5px] font-medium text-accent-text">
+                running
+              </span>
+            ) : null}
+            {failedStep ? (
+              <span className="shrink-0 rounded bg-danger-soft px-1 py-0.5 text-[9.5px] font-medium text-danger">
+                failed
+              </span>
+            ) : null}
             {s.meta ? <span className="shrink-0 text-[10.5px] text-muted">{s.meta}</span> : null}
           </>
         );
