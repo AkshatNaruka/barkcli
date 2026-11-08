@@ -27,8 +27,8 @@ describe("WorkspaceSidebar layout", () => {
     render(<WorkspaceSidebar {...props} />);
     const nav = screen.getByRole("navigation", { name: "Project tools" });
     expect(within(nav).getAllByRole("heading")[0]).toHaveTextContent("Build");
-    act(() => updateSidebarLayout((layout) => moveGroup(layout, "plan", -1)));
-    expect(within(nav).getAllByRole("heading")[0]).toHaveTextContent("Plan");
+    act(() => updateSidebarLayout((layout) => moveGroup(layout, "planning", -1)));
+    expect(within(nav).getAllByRole("heading")[0]).toHaveTextContent("Planning");
     act(() => updateSidebarLayout((layout) => layout.groups.flatMap((group) => group.items)
       .reduce((next, id) => setItemHidden(next, id, true), layout)));
     expect(within(nav).queryAllByRole("link")).toHaveLength(0);

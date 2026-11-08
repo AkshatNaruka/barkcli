@@ -36,42 +36,49 @@ export interface SidebarLayout {
 
 export const SIDEBAR_LAYOUT_KEY = "bark:sidebar-layout:v1";
 
-export const DEFAULT_GROUP_IDS = ["build", "plan", "agents", "knowledge", "delivery"] as const;
+export const DEFAULT_GROUP_IDS = ["build", "planning", "agent-setup", "history-maintenance"] as const;
 
 const GROUP_LABELS: Record<(typeof DEFAULT_GROUP_IDS)[number], string> = {
   build: "Build",
-  plan: "Plan",
-  agents: "Agents",
-  knowledge: "Knowledge",
-  delivery: "Code & delivery",
+  planning: "Planning",
+  "agent-setup": "Agent setup",
+  "history-maintenance": "History & maintenance",
 };
 
-/** Where a project tool belongs when the user has not moved it. */
+const OLD_GROUP_IDS: Record<string, (typeof DEFAULT_GROUP_IDS)[number]> = {
+  plan: "planning",
+  agents: "agent-setup",
+  knowledge: "agent-setup",
+  delivery: "history-maintenance",
+};
+const OLD_DEFAULT_LABELS = new Set(["Plan", "Agents", "Knowledge", "Code & delivery"]);
+
+/** Where a project tool belongs when the user has not moved it. Mirrors PROJECT_TOOLS groups. */
 const DEFAULT_TOOL_GROUP: Record<string, string> = {
-  board: "plan",
-  sprints: "plan",
-  calendar: "plan",
-  reports: "plan",
-  agents: "agents",
-  orchestra: "agents",
-  skills: "agents",
-  rules: "agents",
-  automations: "agents",
-  "agent-api": "agents",
-  memory: "knowledge",
-  graph: "knowledge",
-  context: "knowledge",
-  workspace: "delivery",
-  timeline: "delivery",
-  code: "delivery",
-  history: "delivery",
-  usage: "delivery",
+  board: "planning",
+  sprints: "planning",
+  calendar: "planning",
+  reports: "planning",
+  rules: "agent-setup",
+  agents: "agent-setup",
+  orchestra: "agent-setup",
+  skills: "agent-setup",
+  memory: "agent-setup",
+  graph: "agent-setup",
+  context: "agent-setup",
+  workspace: "agent-setup",
+  "agent-api": "agent-setup",
+  automations: "history-maintenance",
+  history: "history-maintenance",
+  timeline: "history-maintenance",
+  code: "history-maintenance",
+  usage: "history-maintenance",
 };
 
 const FALLBACK_GROUP_BY_CATEGORY: Record<string, string> = {
-  Planning: "plan",
-  "Agent setup": "agents",
-  "History & maintenance": "delivery",
+  Planning: "planning",
+  "Agent setup": "agent-setup",
+  "History & maintenance": "history-maintenance",
 };
 
 function toolItem(tool: (typeof PROJECT_TOOLS)[number]): SidebarTool {
@@ -120,7 +127,8 @@ function text(value: unknown, fallback: string, limit = 40): string {
  * Accepts anything from localStorage and returns a complete, valid layout:
  * unknown or duplicated tools are dropped, missing tools are appended to their
  * default group, and every default group exists even if the stored copy is
- * partial.
+ * partial. Migrates legacy group ids (plan/agents/knowledge/delivery) to the
+ * current Planning/Agent setup/History & maintenance structure.
  */
 export function normalizeSidebarLayout(value: unknown): SidebarLayout {
   const defaults = defaultSidebarLayout();
@@ -129,16 +137,18 @@ export function normalizeSidebarLayout(value: unknown): SidebarLayout {
   if (!Array.isArray(record.groups)) return defaults;
 
   const seenTools = new Set<string>();
-  const seenGroups = new Set<string>();
   const groups: SidebarGroup[] = [];
+  const groupIndex = new Map<string, number>();
 
   for (const entry of record.groups) {
     if (!entry || typeof entry !== "object") continue;
     const raw = entry as Record<string, unknown>;
-    const id = text(raw.id, "", 64);
-    if (!id || seenGroups.has(id)) continue;
-    seenGroups.add(id);
+    const rawId = text(raw.id, "", 64);
+    if (!rawId) continue;
+    const id = OLD_GROUP_IDS[rawId] || rawId;
     const fallbackLabel = defaults.groups.find((group) => group.id === id)?.label || "Group";
+    const rawLabel = typeof raw.label === "string" ? raw.label.trim() : "";
+    const label = OLD_DEFAULT_LABELS.has(rawLabel) ? fallbackLabel : text(raw.label, fallbackLabel);
     const items: string[] = [];
     if (Array.isArray(raw.items)) {
       for (const item of raw.items) {
@@ -147,20 +157,29 @@ export function normalizeSidebarLayout(value: unknown): SidebarLayout {
         items.push(item);
       }
     }
-    groups.push({ id, label: text(raw.label, fallbackLabel), items });
+    if (!items.length && rawId === "knowledge" && groupIndex.has(id)) continue;
+    const existing = groupIndex.get(id);
+    if (existing !== undefined) {
+      groups[existing].items.push(...items);
+      // Keep a user-customized label on the primary group; knowledge merge doesn't rename it.
+      continue;
+    }
+    groupIndex.set(id, groups.length);
+    groups.push({ id, label, items });
   }
 
   for (const group of defaults.groups) {
-    if (!seenGroups.has(group.id)) groups.push({ ...group, items: [] });
+    if (!groupIndex.has(group.id)) {
+      groupIndex.set(group.id, groups.length);
+      groups.push({ ...group, items: [] });
+    }
   }
 
   for (const tool of SIDEBAR_TOOLS) {
     if (seenTools.has(tool.id)) continue;
-    const target =
-      groups.find((group) => group.id === tool.group) ||
-      groups.find((group) => group.id === "build") ||
-      groups[0];
-    target.items.push(tool.id);
+    const targetId = tool.group;
+    const idx = groupIndex.get(targetId) ?? groupIndex.get("build") ?? 0;
+    groups[idx].items.push(tool.id);
     seenTools.add(tool.id);
   }
 

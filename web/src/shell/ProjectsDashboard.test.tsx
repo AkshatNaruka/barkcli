@@ -89,13 +89,11 @@ describe("ProjectsDashboard", () => {
     expect(screen.queryByTestId("project-card-barkcli")).not.toBeInTheDocument();
   });
 
-  it("switches to another project after confirmation", async () => {
+  it("switches to another project directly on click", async () => {
     const user = userEvent.setup();
     renderDashboard();
     await screen.findByTestId("project-card-other");
     await user.click(screen.getByTestId("project-card-other"));
-    expect(await screen.findByRole("heading", { name: "Open other?" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Open project" }));
     await waitFor(() => expect(switchProject).toHaveBeenCalledWith("/Users/me/work/other"));
   });
 });

@@ -49,6 +49,11 @@ project/
   - Do NOT modify, build, or upgrade any code in `barkcli-ios/`.
   - Do NOT launch `build/Barkcli.app`.
   - All AI agents by default work on the non-Swift Mac app.
+- **Auto-Update Local macOS App on Commit (MANDATORY FOR AGENTS)**:
+  - Whenever changes are made to the UI (`web/`), desktop wrapper (`desktop/`), or app-serving components (`barkcli-server/`, `barkcli-cli/`, `barkcli-core/`), the local macOS app (`/Applications/Bark.app`) MUST be updated with the latest changes once committed.
+  - The repository includes a post-commit hook (`scripts/post_commit_update_app.sh` installed into `.git/hooks/post-commit` via `bash scripts/install-hooks.sh` or `npm run app:install-hooks`) that automatically rebuilds, deploys, and verifies `/Applications/Bark.app` upon commit when app-related files change.
+  - Agents committing app changes must ensure this deployment step runs and succeeds (either automatically via the post-commit hook or explicitly via `bash scripts/deploy_mac_app.sh` / `npm run app:update`).
+  - To bypass the auto-update during fast rebase or non-app commits, set `BARK_NO_AUTO_UPDATE=1`.
 
 ## Quick Start for AI Agents
 

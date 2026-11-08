@@ -201,7 +201,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
   accent: "mono",
   railStyle: "icons",
   railOrder: SURFACES.map((s) => s.id),
-  hidden: [],
+  hidden: ["board", "agents", "brain", "skills", "operations", "history"],
 };
 
 const SURFACE_IDS = SURFACES.map((s) => s.id);
@@ -231,6 +231,8 @@ export function normalizeAppearance(input: unknown): Appearance {
     for (const id of data.hidden) {
       if (isSurfaceId(id) && !hidden.includes(id)) hidden.push(id);
     }
+  } else {
+    hidden.push("board", "agents", "brain", "skills", "operations", "history");
   }
   // At least one surface must remain reachable.
   if (hidden.length >= SURFACE_IDS.length) hidden.splice(1);

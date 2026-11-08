@@ -2,6 +2,7 @@ import React from "react";
 import {
   Activity,
   ArrowDown,
+  ArrowLeft,
   ArrowRight,
   ArrowUp,
   Ban,
@@ -73,7 +74,7 @@ export type IconName =
   | "check" | "refresh" | "bell" | "gear" | "robot" | "doc" | "chart"
   | "board" | "panel" | "spark" | "layers" | "cycle" | "code" | "db" | "star"
   | "chevL" | "chevR" | "chevDown" | "chevUp" | "flag" | "link" | "moon" | "sun" | "monitor"
-  | "x" | "users" | "inbox" | "arrowUp" | "arrowFlat" | "arrowDown"
+  | "x" | "users" | "inbox" | "arrowUp" | "arrowFlat" | "arrowDown" | "arrowLeft"
   | "download" | "palette" | "eye" | "eyeOff" | "plus" | "stop" | "dots" | "grid" | "folder" | "filter" | "branch" | "terminal" | "list" | "sliders" | "grip"
   | "play" | "wrap" | "globe" | "filePlus" | "checkSquare" | "folderPlus";
 
@@ -119,6 +120,7 @@ const GLYPHS: Record<IconName, LucideIcon> = {
   users: Users,
   inbox: Inbox,
   arrowUp: ArrowUp,
+  arrowLeft: ArrowLeft,
   arrowFlat: ArrowRight,
   arrowDown: ArrowDown,
   download: Download,

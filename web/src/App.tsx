@@ -543,9 +543,9 @@ export function App() {
     }
   }, [handleOpenProject, notify, openOperationsTab, route, toggleInspector]);
 
-  // The app opens on the workspace overview. Project routes remain deep-linkable.
+  // The app opens on Chat/Threads by default like T3 Code.
   useEffect(() => {
-    if (!window.location.hash) navigate("projects");
+    if (!window.location.hash) navigate("chat");
   }, []);
   useEffect(() => {
     let disposed = false;

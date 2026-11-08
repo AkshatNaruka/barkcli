@@ -14,8 +14,9 @@ import { THEMES, useTheme } from "../lib/theme";
 import { navigate } from "../lib/hashnav";
 import { Icon, type IconName } from "./Icon";
 import { ProviderIcon } from "./ProviderIcon";
+import { ProjectsSettings } from "./ProjectsSettings";
 
-type SettingsSection = "project" | "appearance" | "agents" | "diagnostics";
+type SettingsSection = "projects" | "project" | "appearance" | "agents" | "diagnostics";
 
 const SECTIONS: Array<{
   id: SettingsSection;
@@ -23,7 +24,8 @@ const SECTIONS: Array<{
   icon: IconName;
   hint: string;
 }> = [
-  { id: "project", label: "Project", icon: "board", hint: "Board and columns" },
+  { id: "projects", label: "Projects", icon: "folder", hint: "Workspaces and repositories" },
+  { id: "project", label: "Board", icon: "board", hint: "Board and columns" },
   { id: "appearance", label: "Appearance", icon: "palette", hint: "Theme and density" },
   { id: "agents", label: "Agents", icon: "robot", hint: "CLI readiness and sign-in" },
   { id: "diagnostics", label: "Diagnostics", icon: "pulse", hint: "Health, logs, and access" },
@@ -60,11 +62,13 @@ function providerState(provider: ProviderStatus): { label: string; tone: string 
 export function SettingsView({
   board,
   onSaveBoard,
+  initialSection = "project",
 }: {
   board: BoardType;
   onSaveBoard: (b: BoardType) => void;
+  initialSection?: SettingsSection;
 }) {
-  const [section, setSection] = useState<SettingsSection>("project");
+  const [section, setSection] = useState<SettingsSection>(initialSection);
   const [title, setTitle] = useState(board.title);
   const [description, setDescription] = useState(board.description || "");
   const [cols, setCols] = useState(board.columns.map((c) => ({ id: c.id, name: c.name })));
@@ -261,6 +265,10 @@ export function SettingsView({
             <Icon name="check" size={12} />
             {savedMsg}
           </div>
+        )}
+
+        {section === "projects" && (
+          <ProjectsSettings />
         )}
 
         {section === "project" && (
