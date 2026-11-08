@@ -491,6 +491,7 @@ fn switch_project_blocking(
     let route = match route_target.as_deref() {
         Some("review") => "review",
         Some("projects") => "projects",
+        Some("hub") => "hub",
         _ => "chat",
     };
     let url = format!(

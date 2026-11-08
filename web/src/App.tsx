@@ -839,8 +839,18 @@ export function App() {
 
           {route === "chat" && projectLoading && <div className="surface-loading" role="status">Opening project…</div>}
           {route === "chat" && !projectLoading && !projectReady && <ProjectRequired onOpen={() => void handleOpenProject()} />}
-          {route === "review" && <Suspense fallback={<div className="surface-loading">Loading review…</div>}><ReviewSurface boardName={boardName} /></Suspense>}
-          {route === "hub" && <ProjectHub projectName={projectName} projectRoot={projectInfo?.root || projectRoot} boardName={boardName || boardList[0] || null} />}
+          {route === "hub" && (
+            <ProjectHub
+              projectName={projectName || projectInfo?.name || null}
+              projectRoot={projectInfo?.root || projectRoot}
+              boardName={boardName || boardList[0] || null}
+              project={projectInfo}
+              board={board}
+              boards={boardList}
+              onSwitchBoard={switchBoard}
+              onOpenProject={() => void handleOpenProject()}
+            />
+          )}
 
           {route === "board" && board && (
             <BoardPage

@@ -195,7 +195,7 @@ export function ProjectsDashboard({
     return () => window.removeEventListener("focus", refresh);
   }, [load]);
 
-  const openProject = async (project: ProjectSummary, target: "chat" | "review" = "chat") => {
+  const openProject = async (project: ProjectSummary, target: "chat" | "review" | "hub" = "hub") => {
     if (!project.available) {
       onNotify(`${project.name} is no longer on disk. Open the folder again.`);
       return;

@@ -78,7 +78,7 @@ export async function openProjectDialog(): Promise<DesktopProject | null> {
 
 export async function switchProject(
   path: string,
-  target?: "chat" | "review" | "projects"
+  target?: "chat" | "review" | "projects" | "hub"
 ): Promise<DesktopProject | null> {
   return invoke<DesktopProject | null>("switch_project", target ? { path, target } : { path });
 }
