@@ -1047,166 +1047,7 @@ export function ThreadPane({
           </span>
         </div>
 
-        <div className="thread-header-actions" role="toolbar" aria-label="Thread actions">
-          {/* Thread Changes Pill */}
-          {onReview && (
-            <button
-              type="button"
-              onClick={onReview}
-              aria-label="Inspect thread changes"
-              title="Inspect thread changes and diff"
-              className="thread-action-changes flex h-7 items-center gap-1.5 px-2.5 rounded-lg border border-border/80 bg-surface/70 hover:bg-surface text-text text-[11.5px] font-medium transition-colors"
-            >
-              <Icon name="code" size={13} className="text-muted" />
-              <span>Changes</span>
-              {latestRun && latestRun.diff_stats.files > 0 ? (
-                <span className="flex items-center gap-1 font-mono text-[10.5px]">
-                  <span className="text-success font-semibold">+{latestRun.diff_stats.additions}</span>
-                  <span className="text-rose-400 font-semibold">-{latestRun.diff_stats.deletions}</span>
-                  <span className="text-muted/60">({latestRun.diff_stats.files})</span>
-                </span>
-              ) : (
-                <span className="font-mono text-[10px] text-muted/60">0</span>
-              )}
-            </button>
-          )}
-
-          {/* Thread Workspace & Git Popover */}
-          <div className="thread-action-git relative">
-            <button
-              type="button"
-              onClick={() => setGitMenuOpen((prev) => !prev)}
-              aria-label="Git workflow options"
-              title="Project & Git workflow"
-              className={`flex h-7 items-center gap-1.5 rounded-lg border px-2 text-[11.5px] font-medium transition-colors ${
-                gitMenuOpen
-                  ? "border-border-strong bg-surface text-text"
-                  : "border-border/80 bg-surface/70 text-text hover:bg-surface"
-              }`}
-            >
-              <Icon name="sliders" size={12} className="text-muted-strong" />
-              <span className="max-w-[100px] truncate font-mono text-[11px]">
-                {latestRun?.branch || "master"}
-              </span>
-              <Icon name="chevDown" size={10} className="text-muted/60" />
-            </button>
-            {gitMenuOpen && (
-              <div
-                className="absolute right-0 top-8 z-50 w-60 rounded-xl border border-border/90 bg-card/98 p-1.5 text-[12px] shadow-2xl backdrop-blur-md"
-                onClick={() => setGitMenuOpen(false)}
-              >
-                {/* Row 1: Local Machine + Reveal in Finder */}
-                <div className="flex items-center justify-between rounded-lg px-2.5 py-1.5 text-text">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <Icon name="terminal" size={13} className="shrink-0 text-muted" />
-                    <span className="truncate font-medium">
-                      {thread?.project_name || project?.name
-                        ? `${thread?.project_name || project?.name} · Local`
-                        : "MacBook Pro"}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setGitMenuOpen(false);
-                      void revealProject(thread?.project_root || project?.root || ".");
-                    }}
-                    title="Reveal project in Finder"
-                    aria-label="Reveal project in Finder"
-                    className="flex h-6 w-6 items-center justify-center rounded-md border border-border/70 bg-surface/60 text-muted hover:text-text"
-                  >
-                    <Icon name="folder" size={12} />
-                  </button>
-                </div>
-
-                {/* Row 2: Open in VS Code / Editor */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    void openInEditor(thread?.project_root || project?.root || ".", undefined, latestRun?.id);
-                  }}
-                  className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-muted-strong transition-colors hover:bg-surface hover:text-text"
-                >
-                  <span className="flex items-center gap-2">
-                    <Icon name="code" size={13} className="text-accent" />
-                    <span>Open in VS Code</span>
-                  </span>
-                  <Icon name="chevDown" size={11} className="text-muted/60" />
-                </button>
-
-                {/* Row 3: Add / Run project script */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    window.dispatchEvent(
-                      new CustomEvent("bark-command", { detail: "open-terminal" })
-                    );
-                  }}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-muted-strong transition-colors hover:bg-surface hover:text-text"
-                >
-                  <Icon name="plus" size={13} className="text-muted" />
-                  <span>Add project script</span>
-                </button>
-
-                <div className="my-1 border-t border-border/60" />
-
-                {/* Row 4: Active Git Branch */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (latestRun?.id) void mergeRun(latestRun.id, true);
-                  }}
-                  className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-muted-strong transition-colors hover:bg-surface hover:text-text"
-                >
-                  <span className="flex items-center gap-2 font-mono text-[11.5px]">
-                    <Icon name="branch" size={13} className="text-muted" />
-                    <span className="truncate">{latestRun?.branch || "master"}</span>
-                  </span>
-                  <Icon name="chevDown" size={11} className="text-muted/60" />
-                </button>
-
-                {/* Row 5: Commit & push */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const msg = prompt("Commit message:", `feat(${card?.id || threadId}): update`);
-                    if (msg) void gitCommit(msg, [], card?.id || threadId || undefined);
-                  }}
-                  className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-muted-strong transition-colors hover:bg-surface hover:text-text"
-                >
-                  <span className="flex items-center gap-2">
-                    <Icon name="arrowUp" size={13} className="text-muted" />
-                    <span>Commit &amp; push</span>
-                  </span>
-                  <Icon name="chevDown" size={11} className="text-muted/60" />
-                </button>
-
-                {/* Row 6: Changes +additions -deletions */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    onReview?.();
-                  }}
-                  className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-muted-strong transition-colors hover:bg-surface hover:text-text"
-                >
-                  <span className="flex items-center gap-2">
-                    <Icon name="filePlus" size={13} className="text-muted" />
-                    <span>Changes</span>
-                  </span>
-                  <span className="flex items-center gap-1.5 font-mono text-[11px]">
-                    <span className="font-semibold text-emerald-400">
-                      +{latestRun?.diff_stats?.additions ?? 0}
-                    </span>
-                    <span className="font-semibold text-rose-400">
-                      -{latestRun?.diff_stats?.deletions ?? 0}
-                    </span>
-                  </span>
-                </button>
-              </div>
-            )}
-          </div>
-
+        <div className="thread-header-actions flex items-center gap-1" role="toolbar" aria-label="Thread actions">
           {onThreadMenu && (
             <button
               type="button"
@@ -1230,23 +1071,64 @@ export function ThreadPane({
               <Icon name="dots" size={15} />
             </button>
           )}
-          {onOpenInspector && (
+
+          {/* Window / Drawer Layout Toggles matching Screenshot 1 */}
+          <div className="flex items-center gap-0.5">
+            {/* 1. Console / Events Drawer Toggle [≡] */}
             <button
               type="button"
-              onClick={onOpenInspector}
-              aria-label={inspectorOpen ? "Hide thread panel" : "Show thread panel"}
-              aria-pressed={inspectorOpen}
-              title={inspectorOpen ? "Hide thread panel (⌘J)" : "Show thread panel (⌘J)"}
-              className={`thread-action-inspector flex h-7 items-center gap-1.5 px-2.5 rounded-lg border text-[11.5px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
-                inspectorOpen
-                  ? "bg-white/[0.1] border-border-strong text-text shadow-xs"
-                  : "bg-surface/80 border-border/70 text-muted hover:bg-surface hover:text-text"
-              }`}
+              onClick={() => {
+                window.dispatchEvent(
+                  new CustomEvent("bark-command", { detail: "open-terminal" })
+                );
+              }}
+              aria-label="Toggle console drawer"
+              title="Toggle console / terminal drawer"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-muted/80 transition-colors hover:bg-surface/80 hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
             >
-              <Icon name="panel" size={13} />
-              <span>Inspector</span>
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2.5" y="2.5" width="11" height="11" rx="2.5" />
+                <path d="M5.5 5.5h5" />
+                <path d="M5.5 8h5" />
+                <path d="M5.5 10.5h5" />
+              </svg>
             </button>
-          )}
+
+            {/* 2. Bottom Review Drawer Toggle [ __ ] */}
+            <button
+              type="button"
+              onClick={() => onReview?.()}
+              aria-label="Toggle bottom drawer"
+              title="Toggle bottom drawer / review diff"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-muted/80 transition-colors hover:bg-surface/80 hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+            >
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2.5" y="2.5" width="11" height="11" rx="2.5" />
+                <path d="M2.5 10.5h11" />
+              </svg>
+            </button>
+
+            {/* 3. Right Inspector Drawer Toggle [ | ] */}
+            {onOpenInspector && (
+              <button
+                type="button"
+                onClick={onOpenInspector}
+                aria-label={inspectorOpen ? "Hide thread panel" : "Show thread panel"}
+                aria-pressed={inspectorOpen}
+                title={inspectorOpen ? "Hide thread panel (⌘J)" : "Show thread panel (⌘J)"}
+                className={`thread-action-inspector flex h-7 w-7 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
+                  inspectorOpen
+                    ? "bg-surface text-text shadow-xs"
+                    : "text-muted/80 hover:bg-surface/80 hover:text-text"
+                }`}
+              >
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2.5" y="2.5" width="11" height="11" rx="2.5" />
+                  <path d="M10.5 2.5v11" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
       </header>
 

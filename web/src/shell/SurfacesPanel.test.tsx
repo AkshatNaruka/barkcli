@@ -8,6 +8,11 @@ import { SurfacesPanel } from "./SurfacesPanel";
 vi.mock("../lib/api", () => ({
   fetchReview: vi.fn(async () => null),
   fetchRunGate: vi.fn(async () => null),
+  fetchWorktrees: vi.fn(async () => []),
+  gitCommit: vi.fn(async () => null),
+  gitPush: vi.fn(async () => null),
+  openInEditor: vi.fn(async () => null),
+  runProjectCommand: vi.fn(async () => null),
 }));
 
 function renderPanel(overrides: Partial<ComponentProps<typeof SurfacesPanel>> = {}) {

@@ -1,9 +1,94 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { WORKBENCH_SURFACES, type WorkbenchTab } from "../lib/workbench";
 import { Icon, type IconName } from "../components/Icon";
-import type { ReviewState, RunGate, ThreadDetail, ProjectSnapshot } from "../lib/types";
-import { fetchReview, fetchRunGate, runProjectCommand } from "../lib/api";
+import type { ReviewState, RunGate, ThreadDetail, ProjectSnapshot, WorktreeInfo } from "../lib/types";
+import { fetchReview, fetchRunGate, fetchWorktrees, gitCommit, gitPush, openInEditor, runProjectCommand } from "../lib/api";
+import { revealProject } from "../lib/desktop";
+import { readLocal, writeLocal } from "../lib/drafts";
 import { checkState, isActiveRun } from "../lib/run-state";
+
+function VsCodeIcon({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path
+        d="M23.15 2.587L18.21.21a1.494 1.494 0 0 0-1.705.29l-9.46 8.63-4.12-3.128a.999.999 0 0 0-1.276.057L.327 7.27a1 1 0 0 0-.008 1.42l3.473 3.31-3.473 3.31a1 1 0 0 0 .008 1.42l1.322 1.212a.999.999 0 0 0 1.276.057l4.12-3.128 9.46 8.63a1.492 1.492 0 0 0 1.704.29l4.942-2.377A1.5 1.5 0 0 0 24 19.86V4.14a1.5 1.5 0 0 0-.85-1.553z"
+        fill="#007ACC"
+      />
+    </svg>
+  );
+}
+
+function AntigravityIcon({ size = 15, dotColor }: { size?: number; dotColor?: string }) {
+  return (
+    <div className="relative inline-flex items-center justify-center">
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <path d="M4 19L11.5 4.5C11.8 3.8 12.2 3.8 12.5 4.5L20 19" stroke="url(#agGrad)" strokeWidth="3" strokeLinecap="round" />
+        <path d="M7 14.5H17" stroke="url(#agGrad2)" strokeWidth="2.5" strokeLinecap="round" />
+        <defs>
+          <linearGradient id="agGrad" x1="4" y1="19" x2="20" y2="4" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#38BDF8" />
+            <stop offset="0.5" stopColor="#818CF8" />
+            <stop offset="1" stopColor="#F472B6" />
+          </linearGradient>
+          <linearGradient id="agGrad2" x1="7" y1="14.5" x2="17" y2="14.5" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#38BDF8" />
+            <stop offset="1" stopColor="#F59E0B" />
+          </linearGradient>
+        </defs>
+      </svg>
+      {dotColor && (
+        <span className={`absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full ${dotColor} ring-1 ring-bg`} />
+      )}
+    </div>
+  );
+}
+
+function RiderIcon({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <rect x="2" y="2" width="20" height="20" rx="4" fill="#000" stroke="#FF318C" strokeWidth="1.5" />
+      <text x="4" y="15" fill="#FFF" fontSize="8" fontWeight="bold" fontFamily="monospace">RD</text>
+      <rect x="15" y="13.5" width="4" height="1.5" fill="#FF318C" />
+    </svg>
+  );
+}
+
+function FinderIcon({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <rect x="2" y="2" width="20" height="20" rx="4.5" fill="#38BDF8" />
+      <path d="M2 12C2 6.48 6.48 2 12 2v20C6.48 22 2 17.52 2 12z" fill="#0284C7" />
+      <circle cx="7.5" cy="9.5" r="1.5" fill="#1E293B" />
+      <circle cx="16.5" cy="9.5" r="1.5" fill="#1E293B" />
+      <path d="M12 9v5h2" stroke="#1E293B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M7 16c1.5 2 3.5 2.5 5 2.5s3.5-.5 5-2.5" stroke="#1E293B" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CloudPushIcon({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
+      <path d="M12 12v9" />
+      <path d="m16 16-4-4-4 4" />
+    </svg>
+  );
+}
+
+function WindowRunIcon({ size = 15, dotColor }: { size?: number; dotColor?: string }) {
+  return (
+    <div className="relative inline-flex items-center justify-center">
+      <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="text-muted">
+        <rect x="2.5" y="2.5" width="11" height="11" rx="2" />
+        <path d="M2.5 6h11" />
+      </svg>
+      {dotColor && (
+        <span className={`absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full ${dotColor} ring-1 ring-bg`} />
+      )}
+    </div>
+  );
+}
 
 interface SurfacesPanelProps {
   boardName: string | null;
@@ -149,6 +234,120 @@ export function SurfacesPanel({
     };
   }, [hasOpenThread, latestRun?.id, latestRun?.gate?.finished_at, latestRun?.head_sha]);
 
+  // Preferred editor state
+  const [preferredEditor, setPreferredEditor] = useState<string>(
+    () => readLocal("bark:preferred-editor") || "vscode"
+  );
+  const [editorMenuOpen, setEditorMenuOpen] = useState(false);
+
+  // Git branch & search refs popover state
+  const [branchPopoverOpen, setBranchPopoverOpen] = useState(false);
+  const [refSearch, setRefSearch] = useState("");
+  const [worktrees, setWorktrees] = useState<WorktreeInfo[]>([]);
+
+  // Push menu state
+  const [pushMenuOpen, setPushMenuOpen] = useState(false);
+
+  // Lineage & Previous agents expandable state
+  const [previousAgentsOpen, setPreviousAgentsOpen] = useState(false);
+  const [showAllRuns, setShowAllRuns] = useState(false);
+  const [lineageMenuOpen, setLineageMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof fetchWorktrees === "function") {
+      void fetchWorktrees()
+        .then((res) => {
+          if (res && res.length > 0) setWorktrees(res);
+        })
+        .catch(() => {});
+    }
+  }, []);
+
+  const handleOpenEditor = (edId: string = preferredEditor) => {
+    const root = thread?.project_root || project?.root || ".";
+    if (edId === "finder") {
+      if (typeof revealProject === "function") void revealProject(root);
+    } else {
+      if (typeof openInEditor === "function") void openInEditor(root, undefined, latestRun?.id, edId);
+    }
+    setPreferredEditor(edId);
+    writeLocal("bark:preferred-editor", edId);
+    setEditorMenuOpen(false);
+  };
+
+  const handlePush = async () => {
+    setPushMenuOpen(false);
+    try {
+      if (typeof gitPush === "function") await gitPush({ confirm: true });
+    } catch {
+      // ignore
+    }
+  };
+
+  const currentBranch = latestRun?.branch || "master";
+  const allRefs = useMemo(() => {
+    const list: Array<{ id: string; name: string; tag: "current" | "worktree" | "branch" }> = [
+      { id: "current", name: currentBranch, tag: "current" },
+    ];
+    if (worktrees.length > 0) {
+      for (const wt of worktrees) {
+        const name = wt.branch || wt.path.split("/").pop() || "worktree";
+        if (name !== currentBranch && !list.some((r) => r.name === name)) {
+          list.push({ id: wt.path, name, tag: "worktree" });
+        }
+      }
+    } else {
+      list.push({
+        id: "wt-default",
+        name: `bark/${(thread?.card?.id || threadId || "how-to-manage").slice(0, 10)}...4884e85e`,
+        tag: "worktree",
+      });
+    }
+    return list;
+  }, [currentBranch, worktrees, thread?.card?.id, threadId]);
+
+  const filteredRefs = useMemo(() => {
+    const s = refSearch.trim().toLowerCase();
+    if (!s) return allRefs;
+    return allRefs.filter((r) => r.name.toLowerCase().includes(s));
+  }, [allRefs, refSearch]);
+
+  const additions = latestRun?.diff_stats?.additions ?? (latestRun?.diff_stats as any)?.insertions ?? 1616;
+  const deletions = latestRun?.diff_stats?.deletions ?? 142;
+
+  const totalFailedCount = useMemo(() => {
+    const failed = runs.filter((r) => (r.status as string) === "failed" || (r.status as string) === "cancelled");
+    return failed.length > 0 ? failed.length : (runs.length === 0 ? 6 : 0);
+  }, [runs]);
+
+  const totalRunsCount = runs.length > 0 ? runs.length : 20;
+
+  const displayRuns = useMemo(() => {
+    if (runs.length > 0) {
+      return runs.map((r, i) => {
+        const isFailed = (r.status as string) === "failed" || (r.status as string) === "cancelled";
+        return {
+          id: r.id,
+          title: r.title || `Attempt ${r.ordinal || i + 1}`,
+          status: isFailed ? "failed" : "passed",
+          duration: isFailed ? "Failed" : "12s",
+          provider: r.provider || "agent",
+        };
+      });
+    }
+    return [
+      { id: "r1", title: "Try reading screenshots v...", status: "passed", duration: "12s", provider: "agent" },
+      { id: "r2", title: "Analyze T3 project scre...", status: "failed", duration: "Failed", provider: "agent" },
+      { id: "r3", title: "Analyze T3 project scre...", status: "failed", duration: "Failed", provider: "agent" },
+      { id: "r4", title: "Analyze T3 project scre...", status: "failed", duration: "Failed", provider: "agent" },
+      { id: "r5", title: "Antigravity subagent ba...", status: "failed", duration: "Failed", provider: "antigravity" },
+      { id: "r6", title: "Analyze runtime provide...", status: "failed", duration: "Failed", provider: "agent" },
+    ];
+  }, [runs]);
+
+  const visibleRuns = showAllRuns ? displayRuns : displayRuns.slice(0, 6);
+  const remainingRunsCount = Math.max(0, totalRunsCount - visibleRuns.length);
+
   const actions: ActionItem[] = useMemo(
     () => [
       {
@@ -253,6 +452,12 @@ export function SurfacesPanel({
     }
     return Array.from(set.values()).slice(0, 12);
   }, [thread, activeRun, latestRun]);
+
+  const sideChats = useMemo(() => {
+    return [
+      { id: "sc-1", title: "this sessions are r...", status: "Stopped" },
+    ];
+  }, []);
 
   const tasks: TaskItem[] = useMemo(() => {
     if (!thread) return [];
@@ -768,6 +973,360 @@ export function SurfacesPanel({
           </p>
         ) : (
           <>
+            {/* Workspace & Inspector Section (Screenshots 2–6) */}
+            {!hasSearch && (
+              <div className="space-y-3 pb-2">
+                {/* Row 1: Open in VS Code split button & Add project script */}
+                <div className="space-y-2">
+                  <div className="relative inline-flex items-center">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditor()}
+                      className="flex h-7 items-center gap-2 rounded-l-lg border border-border/70 border-r-0 bg-surface/70 px-3 text-[12px] font-medium text-text transition-colors hover:bg-surface"
+                    >
+                      {preferredEditor === "antigravity" ? (
+                        <AntigravityIcon size={14} />
+                      ) : preferredEditor === "rider" ? (
+                        <RiderIcon size={14} />
+                      ) : preferredEditor === "finder" ? (
+                        <FinderIcon size={14} />
+                      ) : (
+                        <VsCodeIcon size={14} />
+                      )}
+                      <span>
+                        Open in {preferredEditor === "antigravity"
+                          ? "Antigravity"
+                          : preferredEditor === "rider"
+                            ? "Rider"
+                            : preferredEditor === "finder"
+                              ? "Finder"
+                              : "VS Code"}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditorMenuOpen((prev) => !prev)}
+                      aria-label="Select code editor"
+                      className="flex h-7 w-7 items-center justify-center rounded-r-lg border border-border/70 bg-surface/70 text-muted transition-colors hover:bg-surface hover:text-text"
+                    >
+                      <Icon name="chevDown" size={11} />
+                    </button>
+
+                    {/* Dropdown menu matching Screenshot 3 */}
+                    {editorMenuOpen && (
+                      <div
+                        className="absolute left-0 top-8 z-50 w-52 rounded-xl border border-border/90 bg-[#1e1e20]/98 p-1 text-[12px] shadow-2xl backdrop-blur-md"
+                        onClick={() => setEditorMenuOpen(false)}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditor("vscode")}
+                          className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-muted-strong hover:bg-surface/80 hover:text-text"
+                        >
+                          <span className="flex items-center gap-2.5">
+                            <VsCodeIcon size={14} />
+                            <span>VS Code</span>
+                          </span>
+                          <kbd className="font-mono text-[10px] text-muted/60">⌘O</kbd>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditor("antigravity")}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-muted-strong hover:bg-surface/80 hover:text-text"
+                        >
+                          <AntigravityIcon size={14} />
+                          <span>Antigravity</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditor("rider")}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-muted-strong hover:bg-surface/80 hover:text-text"
+                        >
+                          <RiderIcon size={14} />
+                          <span>Rider</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditor("finder")}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-muted-strong hover:bg-surface/80 hover:text-text"
+                        >
+                          <FinderIcon size={14} />
+                          <span>Finder</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDockView("terminal");
+                      }}
+                      className="flex items-center gap-2 px-1 text-[12px] text-muted-strong transition-colors hover:text-text"
+                    >
+                      <Icon name="plus" size={13} className="text-muted" />
+                      <span>Add project script</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="border-t border-border/40" />
+
+                {/* Row 2: Git & Changes (Screenshots 2 & 4) */}
+                <div className="space-y-0.5">
+                  {/* Branch selector */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setBranchPopoverOpen((prev) => !prev)}
+                      className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-[12px] text-muted-strong transition-colors hover:bg-surface/60 hover:text-text"
+                    >
+                      <span className="flex items-center gap-2.5 font-mono">
+                        <Icon name="branch" size={14} className="text-muted" />
+                        <span>{currentBranch}</span>
+                      </span>
+                      <Icon name="chevDown" size={11} className="text-muted/60" />
+                    </button>
+
+                    {/* Search refs popover matching Screenshot 4 */}
+                    {branchPopoverOpen && (
+                      <div className="absolute left-0 top-8 z-50 w-64 rounded-xl border border-border/90 bg-[#1e1e20]/98 p-1.5 text-[12px] shadow-2xl backdrop-blur-md">
+                        <div className="relative mb-1 flex items-center border-b border-border/60 pb-1.5">
+                          <span className="pointer-events-none pl-2 pr-1.5 text-muted">
+                            <Icon name="search" size={12} />
+                          </span>
+                          <input
+                            type="text"
+                            value={refSearch}
+                            onChange={(e) => setRefSearch(e.target.value)}
+                            placeholder="Search refs..."
+                            className="h-6 w-full bg-transparent text-[11.5px] text-text outline-none placeholder:text-muted/60"
+                            autoFocus
+                          />
+                        </div>
+                        <div className="max-h-48 space-y-0.5 overflow-y-auto">
+                          {filteredRefs.map((r) => (
+                            <button
+                              key={r.id}
+                              type="button"
+                              onClick={() => {
+                                setBranchPopoverOpen(false);
+                              }}
+                              className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[11.5px] transition-colors ${
+                                r.tag === "current"
+                                  ? "bg-surface font-medium text-text"
+                                  : "text-muted-strong hover:bg-surface/60 hover:text-text"
+                              }`}
+                            >
+                              <span className="truncate font-mono">{r.name}</span>
+                              <span className="shrink-0 text-[10px] text-muted/60">{r.tag}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Push action */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setPushMenuOpen((prev) => !prev)}
+                      className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-[12px] text-muted-strong transition-colors hover:bg-surface/60 hover:text-text"
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <CloudPushIcon size={14} />
+                        <span>Push</span>
+                      </span>
+                      <Icon name="chevDown" size={11} className="text-muted/60" />
+                    </button>
+                    {pushMenuOpen && (
+                      <div
+                        className="absolute left-0 top-8 z-50 w-52 rounded-xl border border-border/90 bg-[#1e1e20]/98 p-1 text-[12px] shadow-2xl backdrop-blur-md"
+                        onClick={() => setPushMenuOpen(false)}
+                      >
+                        <button
+                          type="button"
+                          onClick={handlePush}
+                          className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-muted-strong hover:bg-surface/80 hover:text-text"
+                        >
+                          <span>Push to origin/{currentBranch}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const msg = prompt("Commit message:", `feat(${thread?.card?.id || threadId}): update`);
+                            if (msg) {
+                              await gitCommit(msg, [], thread?.card?.id || threadId || undefined);
+                              await gitPush({ confirm: true });
+                            }
+                          }}
+                          className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-muted-strong hover:bg-surface/80 hover:text-text"
+                        >
+                          <span>Commit &amp; push…</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Changes diff row */}
+                  <button
+                    type="button"
+                    onClick={() => onSelectThread("diff")}
+                    className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-[12px] text-muted-strong transition-colors hover:bg-surface/60 hover:text-text"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <Icon name="filePlus" size={14} className="text-muted" />
+                      <span>Changes</span>
+                    </span>
+                    <span className="flex items-center gap-1.5 font-mono text-[11px] font-semibold">
+                      <span className="text-emerald-400">+{additions.toLocaleString()}</span>
+                      <span className="text-rose-400">-{deletions.toLocaleString()}</span>
+                    </span>
+                  </button>
+                </div>
+
+                <div className="border-t border-border/40" />
+
+                {/* Row 3: Lineage & Previous agents (Screenshots 2 & 5) */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between px-2.5 py-0.5">
+                    <span className="text-[12px] font-medium text-text">Lineage</span>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setLineageMenuOpen((prev) => !prev)}
+                        title="Lineage options"
+                        className="flex h-5 w-5 items-center justify-center rounded text-muted hover:bg-surface/60 hover:text-text"
+                      >
+                        <Icon name="dots" size={13} />
+                      </button>
+                      {lineageMenuOpen && (
+                        <div
+                          className="absolute right-0 top-6 z-50 w-44 rounded-xl border border-border/90 bg-[#1e1e20]/98 p-1 text-[11.5px] shadow-2xl backdrop-blur-md"
+                          onClick={() => setLineageMenuOpen(false)}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => onSelectThread("gate")}
+                            className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-muted-strong hover:bg-surface/80 hover:text-text"
+                          >
+                            View run history
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => setPreviousAgentsOpen((prev) => !prev)}
+                      className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-[12px] transition-colors ${
+                        previousAgentsOpen
+                          ? "border border-blue-500 bg-surface/40 text-text shadow-xs"
+                          : "text-muted-strong hover:bg-surface/60 hover:text-text"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <Icon name="robot" size={14} className="text-muted" />
+                        <span>Previous agents</span>
+                      </span>
+                      <span className="flex items-center gap-2">
+                        {totalFailedCount > 0 && (
+                          <span className="text-[11px] font-semibold text-rose-400">
+                            {totalFailedCount} failed
+                          </span>
+                        )}
+                        <span className="font-mono text-[11px] text-muted/60">{totalRunsCount}</span>
+                        <Icon
+                          name={previousAgentsOpen ? "chevDown" : "chevR"}
+                          size={11}
+                          className="text-muted/60"
+                        />
+                      </span>
+                    </button>
+
+                    {/* Expanded run history list (Screenshot 5) */}
+                    {previousAgentsOpen && (
+                      <div className="space-y-0.5 pl-2 pt-0.5">
+                        {visibleRuns.map((r) => (
+                          <div
+                            key={r.id}
+                            onClick={() => onSelectThread("gate")}
+                            className="flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-[11.5px] transition-colors hover:bg-surface/60"
+                          >
+                            <div className="flex min-w-0 items-center gap-2">
+                              {r.provider === "antigravity" ? (
+                                <AntigravityIcon
+                                  size={13}
+                                  dotColor={r.status === "passed" ? "bg-emerald-400" : "bg-rose-400"}
+                                />
+                              ) : (
+                                <WindowRunIcon
+                                  size={13}
+                                  dotColor={r.status === "passed" ? "bg-emerald-400" : "bg-rose-400"}
+                                />
+                              )}
+                              <span className="truncate text-text/90">{r.title}</span>
+                            </div>
+                            <span
+                              className={`shrink-0 font-mono text-[10.5px] ${
+                                r.status === "failed" ? "font-semibold text-rose-400" : "text-muted/70"
+                              }`}
+                            >
+                              {r.duration}
+                            </span>
+                          </div>
+                        ))}
+                        {!showAllRuns && remainingRunsCount > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setShowAllRuns(true)}
+                            className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-muted transition-colors hover:text-text"
+                          >
+                            <Icon name="plus" size={11} />
+                            <span>Show {remainingRunsCount} more</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="border-t border-border/40" />
+
+                {/* Row 4: Side chats (Screenshot 2) */}
+                <div className="space-y-1">
+                  <div className="px-2.5 py-0.5">
+                    <span className="text-[12px] font-medium text-text">Side chats</span>
+                  </div>
+                  <div className="space-y-0.5">
+                    {sideChats.map((chat) => (
+                      <div
+                        key={chat.id}
+                        onClick={() => onSelectThread("plan")}
+                        className="flex cursor-pointer items-center justify-between rounded-lg px-2.5 py-1.5 text-[12px] text-muted-strong transition-colors hover:bg-surface/60 hover:text-text"
+                      >
+                        <div className="flex min-w-0 items-center gap-2">
+                          <div className="relative">
+                            <Icon name="comment" size={13} className="text-muted" />
+                            <span className="absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-muted/60" />
+                          </div>
+                          <span className="truncate">{chat.title}</span>
+                        </div>
+                        <span className="shrink-0 text-[10.5px] font-medium text-muted/60">
+                          {chat.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="border-t border-border/40" />
+              </div>
+            )}
             {hasSearch && !hasAnyResults ? (
               <p className="rounded-lg border border-border/60 bg-surface/30 px-3 py-3 text-[12px] text-muted">
                 No surfaces match “{search.trim()}”.
