@@ -155,6 +155,24 @@ const FEATURES = [
     gradient: "from-teal-500/20 to-cyan-500/20",
     href: "/features/memory",
   },
+  {
+    icon: Brain,
+    title: "Codebase Brain (3D)",
+    description:
+      "Structural repository architecture graph. Discovers subsystems, modules, services, APIs, domain models, and invariants. Rendered in glowing 2D & 3D with full source evidence.",
+    code: "$ barkcli brain stats && barkcli serve --open",
+    gradient: "from-cyan-500/20 to-blue-500/20",
+    href: "/features/codebase-brain",
+  },
+  {
+    icon: Rocket,
+    title: "Continuous Releases",
+    description:
+      "Automated multi-platform release pipeline on every master merge. Semver auto-bumping, changelog compilation, native binaries, and signed macOS Bark.app bundles.",
+    code: "git push origin master # auto-publishes release",
+    gradient: "from-emerald-500/20 to-teal-500/20",
+    href: "/features/continuous-releases",
+  },
 ];
 
 const STEPS = [
@@ -330,6 +348,16 @@ const FAQ = [
     question: "What happens when an agent's code fails tests?",
     answer:
       "Gate over self-report: a task cannot land in your review queue until project test commands exit 0. When a test gate fails, barkcli captures the compiler errors and test failure logs, injects them into the agent's worktree session, and triggers an automated retry cycle before any human time is wasted.",
+  },
+  {
+    question: "What is the Codebase Brain and how does it prevent agent hallucination?",
+    answer:
+      "The Codebase Brain is a durable architectural knowledge graph of your repository. It automatically discovers subsystems, modules, services, APIs, domain models, and governing invariants (such as isolated worktree execution and local-first data ownership). Unlike noisy session activity logs, the Brain records permanent architectural rules and evidence links, injecting verified structural constraints directly into agent context packs so LLMs respect project boundaries.",
+  },
+  {
+    question: "How do automated releases work on master?",
+    answer:
+      "barkcli includes an automated release pipeline powered by GitHub Actions. Every merge into the master branch automatically calculates semantic version bumps across all Cargo workspace crates and Tauri desktop configurations, compiles native binaries for macOS (Apple Silicon + Intel), Linux (x86_64, aarch64), and Windows, creates codesigned macOS Bark.app bundles, and publishes GitHub Releases with auto-compiled changelogs.",
   },
 ];
 
@@ -1464,8 +1492,11 @@ export default function Home() {
                   { cmd: "barkcli plan auth --tasks", desc: "Decompose spec" },
                   { cmd: "barkcli dispatch", desc: "Assign worktrees" },
                   { cmd: "barkcli review", desc: "Review passing code" },
+                  { cmd: "barkcli brain stats", desc: "Architecture brain" },
                   { cmd: "barkcli tui", desc: "Terminal board" },
-                  { cmd: "barkcli serve", desc: "Web interface" },
+                  { cmd: "barkcli serve", desc: "Web & 3D interface" },
+                  { cmd: 'barkcli memory search "auth"', desc: "Offline memory search" },
+                  { cmd: "barkcli mind sync", desc: "Project overview" },
                 ].map((item, i) => (
                   <div
                     key={i}

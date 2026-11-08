@@ -133,6 +133,23 @@ barkcli context link jwt-login UserService`}</code>
 barkcli context autosync off      # disable`}</code>
           </pre>
         </div>
+
+        <div>
+          <h2 className="mb-3 text-xl font-semibold">barkcli brain &lt;stats|graph&gt;</h2>
+          <p className="mb-3 text-white/60">
+            Inspect the repository&apos;s architectural knowledge graph and governing invariants. Discovers subsystems, modules, services, domain models, and APIs with source evidence.
+          </p>
+          <pre className="overflow-x-auto rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-white/80">
+            <code>{`# Inspect node kinds and edge connectivity
+barkcli brain stats
+
+# Query architectural relations and invariants
+barkcli brain graph
+
+# Launch interactive 2D & 3D Force-Directed Graph Visualizer
+barkcli serve --open`}</code>
+          </pre>
+        </div>
       </div>
 
       <div className="mb-12">

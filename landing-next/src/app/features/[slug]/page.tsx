@@ -20,6 +20,7 @@ import {
   ExternalLink,
   Code2,
   Cpu,
+  Rocket,
 } from "lucide-react";
 
 interface PageProps {
@@ -56,6 +57,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   FolderOpen,
   Bot,
   Database,
+  Rocket,
 };
 
 export default async function FeatureDetailPage({ params }: PageProps) {

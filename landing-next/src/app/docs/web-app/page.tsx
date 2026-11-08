@@ -37,6 +37,11 @@ const features = [
     command: "Navigate to Timeline tab",
   },
   {
+    title: "Codebase Brain (3D / 2D)",
+    description: "Structural repository architecture graph mapping subsystems, modules, services, APIs, and invariants with source evidence.",
+    command: "Navigate to Brain (3D) tab",
+  },
+  {
     title: "Real-time Updates",
     description: "WebSocket-based live reload. All changes reflected instantly across browser tabs.",
     command: "Automatic on all changes",
@@ -53,6 +58,8 @@ const shortcuts = [
 const tabs = [
   { name: "Mind", desc: "Homepage — health, blockers, stale work, next actions (also reachable as Dashboard)" },
   { name: "Board", desc: "Board with drag-and-drop (switch between board/table/list views)" },
+  { name: "Brain (3D)", desc: "Interactive 3D/2D structural knowledge graph showing subsystems, modules, services, APIs, invariants, and source evidence" },
+  { name: "Review", desc: "Passing pull requests, worktree diffs, and test acceptance review queue" },
   { name: "Specs", desc: "Specifications with requirements, status tracking, coverage" },
   { name: "Sprints", desc: "Start/end sprints, see sprint progress" },
   { name: "Code", desc: "Search code symbols, see which cards are linked to which files" },

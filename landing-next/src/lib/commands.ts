@@ -534,6 +534,23 @@ export const commands: Command[] = [
       { name: "--no-tasks", description: "Approve without creating queue tasks" },
     ],
   },
+  {
+    slug: "brain",
+    name: "barkcli brain",
+    description: "Inspect and query the structural repository architecture knowledge graph and governing invariants.",
+    category: "Management Layer",
+    usage: "barkcli brain <stats|graph|check> [options]",
+    examples: [
+      "barkcli brain stats",
+      "barkcli brain graph",
+      "barkcli brain check",
+    ],
+    flags: [
+      { name: "stats", description: "Print node counts by kind (subsystems, modules, services, APIs, invariants) and connectivity" },
+      { name: "graph", description: "Query structural architecture relationships and dependency edges" },
+      { name: "check", description: "Validate codebase architectural invariants and boundary integrity" },
+    ],
+  },
 ];
 
 export const commandCategories = [

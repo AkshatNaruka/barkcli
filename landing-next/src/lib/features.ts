@@ -403,6 +403,100 @@ export const FEATURES_DATA: FeatureDetail[] = [
     ],
     docsHref: "/docs/commands/memory",
   },
+  {
+    slug: "codebase-brain",
+    title: "Codebase Brain (3D)",
+    category: "Architecture & Invariants",
+    description:
+      "Self-improving structural repository knowledge graph. Discovers subsystems, modules, services, APIs, domain models, and architectural invariants, eliminating raw session activity noise. Rendered in glowing 2D & 3D with evidence inspectors.",
+    code: "$ barkcli brain stats && barkcli serve --open",
+    gradient: "from-cyan-500/20 to-blue-500/20",
+    iconName: "Brain",
+    overview:
+      "The Codebase Brain gives developers and autonomous agents a durable, self-improving architectural understanding of the repository. Rather than polluting the knowledge graph with ephemeral session activity notes, the Brain discovers real subsystems, modules, services, domain models, and key architectural invariants, linking them directly to source files and AST symbols.",
+    capabilities: [
+      "Structural repository architecture discovery (subsystems, modules, services, APIs, and domain models)",
+      "Governing architectural invariants (e.g. isolated worktree execution, local-first data ownership, gate-driven merge trains)",
+      "Strict separation of persistent architecture knowledge from transient session activity logs",
+      "Interactive 2D & 3D knowledge graph with glowing palettes and Lucide entity kind icons",
+      "Source evidence inspector tracking files, symbols, commit SHAs, and verification gates",
+      "Zero-latency context pack injection directly into Claude Code, OpenCode, Codex, and Antigravity",
+    ],
+    cliExamples: [
+      {
+        cmd: "barkcli brain stats",
+        output: "Brain graph for 'dev':\n  Nodes: 64   Edges: 200\n  By kind: subsystem: 8, module: 5, service: 3, model: 2, api: 1, invariant: 3, fact: 24\n  Most connected: subsystem:barkcli-core (38 links)",
+        desc: "Inspect architectural graph nodes, kinds, and connectivity stats.",
+      },
+      {
+        cmd: "barkcli brain graph",
+        output: "Subsystems: barkcli-core, barkcli-server, barkcli-cli, barkcli-tui, web, desktop, barkcli-ios\nInvariants: Isolated Worktree Execution, Local-First Data Ownership, Gate-Driven Merge Train",
+        desc: "Query repository architecture hierarchy and constraints.",
+      },
+    ],
+    architecture: [
+      {
+        title: "Structural Codebase Analyzer",
+        description: "Recursively inspects repository crates, module boundaries, entry points, and domain models, constructing a typed dependency graph.",
+      },
+      {
+        title: "Architectural Invariant Enforcement",
+        description: "Governing invariants and pitfalls are automatically injected into agent context packs, preventing agents from violating design rules.",
+      },
+      {
+        title: "Source Evidence Tracing",
+        description: "Every architectural node maintains verifiable evidence linking it to source code paths, AST symbols, and git commit provenance.",
+      },
+    ],
+    docsHref: "/docs/code-context",
+  },
+  {
+    slug: "continuous-releases",
+    title: "Continuous Releases",
+    category: "Distribution & CI/CD",
+    description:
+      "Automated release pipeline on every master merge. Automatically bumps semantic versions across crates, generates changelogs, compiles signed binaries and desktop bundles, and publishes GitHub Releases.",
+    code: "git merge feature && git push origin master # auto-releases",
+    gradient: "from-amber-500/20 to-emerald-500/20",
+    iconName: "Rocket",
+    overview:
+      "Ship updates with zero release overhead. When PRs or commits land in the master branch, GitHub Actions automatically calculates semantic version bumps across all workspace manifests, compiles native binaries for macOS, Linux, and Windows, ad-hoc signs desktop app bundles, and creates tagged GitHub Releases with automated notes.",
+    capabilities: [
+      "Automated semver version bumping across Cargo workspace manifests and Tauri desktop configuration",
+      "Multi-platform compilation: macOS (Apple Silicon + Intel), Linux (x86_64, aarch64), Windows (x64)",
+      "Native macOS Bark.app bundle creation with ad-hoc and developer codesigning",
+      "Automated changelog generation from git commit history since the last release tag",
+      "SHA256 checksum generation and automated asset upload to GitHub Releases",
+      "Protected concurrency preventing overlapping release runs on rapid merges",
+    ],
+    cliExamples: [
+      {
+        cmd: "bash scripts/auto_release_on_master.sh",
+        output: "==> Latest release tag: v0.4.2\n==> Auto-bumping release version: 0.4.2 -> 0.4.3 (v0.4.3)\n==> Updated Cargo.toml and desktop/tauri.conf.json to version 0.4.3\n==> Created tag v0.4.3 with automated release notes",
+        desc: "Run automated release script locally or in CI.",
+      },
+      {
+        cmd: "git push origin master",
+        output: "✓ Pushed to master\n→ GitHub Actions workflow 'Auto Release on Master' triggered\n→ Building multi-platform binaries & publishing GitHub Release",
+        desc: "Push to master to trigger automated production release.",
+      },
+    ],
+    architecture: [
+      {
+        title: "Automated Workflow Concurrency",
+        description: "GitHub Actions workflow locks on master pushes to ensure releases are sequenced deterministically without tag collisions.",
+      },
+      {
+        title: "Multi-Platform Build Matrix",
+        description: "Compiles release binaries and bundles across Ubuntu, macOS, and Windows runners, attaching verified checksums to the release.",
+      },
+      {
+        title: "Zero-Human Release Cycle",
+        description: "Eliminates tedious manual version editing, tagging, building, and uploading steps from the software development lifecycle.",
+      },
+    ],
+    docsHref: "/docs/getting-started",
+  },
 ];
 
 export function getFeatureBySlug(slug: string): FeatureDetail | undefined {

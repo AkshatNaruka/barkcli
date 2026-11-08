@@ -28,6 +28,9 @@ import {
   ArrowRight,
   ShieldCheck,
   CheckCircle2,
+  Rocket,
+  GitMerge,
+  Boxes,
 } from "lucide-react";
 
 const NAV_LINKS = [
@@ -345,6 +348,97 @@ export default function FeaturesPage() {
               <p className="text-[#E5AA7A] mb-2">$ barkcli code &quot;verify_token&quot;</p>
               <p className="text-white/70">src/auth/token.rs:42: fn verify_token(raw: &amp;str) -&gt; Result&lt;Claims&gt;</p>
               <p className="text-white/50">Called by: 4 functions · Covered by: tests/auth_test.rs</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Codebase Brain & Architecture Knowledge Graph */}
+        <section id="codebase-brain" className="p-8 md:p-10 rounded-2xl border border-cyan-500/20 bg-cyan-500/[0.02] backdrop-blur-sm relative overflow-hidden">
+          <div className="flex flex-col lg:flex-row gap-8 lg:items-center justify-between">
+            <div className="max-w-xl">
+              <div className="flex items-center gap-2 text-xs font-mono text-cyan-400 mb-3">
+                <Brain className="w-4 h-4" />
+                <span>STRUCTURAL ARCHITECTURE</span>
+              </div>
+              <h2 className="text-2xl md:text-3xl font-bold mb-4">Codebase Brain & 3D Knowledge Graph</h2>
+              <p className="text-white/65 leading-relaxed mb-6">
+                A persistent, self-improving architectural graph representing repository subsystems, modules, services, domain models, APIs, and governing invariants. The Brain strictly filters out ephemeral session activity noise, promoting only verified architectural knowledge with full source code evidence.
+              </p>
+              <ul className="space-y-2 text-sm text-white/70 mb-6">
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-cyan-400" />
+                  Structural repo analyzer discovering crates, modules, and API gateways
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-cyan-400" />
+                  Enforces architectural invariants directly into agent context packs
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-cyan-400" />
+                  Interactive 2D & 3D knowledge graph with glowing palettes and evidence tracing
+                </li>
+              </ul>
+            </div>
+            <div className="w-full lg:w-96 rounded-xl bg-black/60 border border-white/10 p-4 font-mono text-xs">
+              <div className="flex items-center justify-between text-white/40 border-b border-white/10 pb-2 mb-3">
+                <span>CLI EXAMPLE</span>
+                <button
+                  onClick={() => copyCode("barkcli brain stats")}
+                  className="hover:text-white transition-colors"
+                >
+                  {copiedCode === "barkcli brain stats" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+              <p className="text-[#E5AA7A] mb-2">$ barkcli brain stats</p>
+              <p className="text-white/70">Nodes: 64 | Edges: 200 (subsystems: 8, modules: 5)</p>
+              <p className="text-cyan-400 mb-3">Invariants: Isolated Worktrees, Local-First, Merge Train</p>
+              <p className="text-[#E5AA7A] mb-2">$ barkcli serve --open # View Brain (3D)</p>
+              <p className="text-white/50">✓ Interactive force-directed 3D explorer launched</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Continuous Releases */}
+        <section id="continuous-releases" className="p-8 md:p-10 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.02] backdrop-blur-sm relative overflow-hidden">
+          <div className="flex flex-col lg:flex-row gap-8 lg:items-center justify-between">
+            <div className="max-w-xl">
+              <div className="flex items-center gap-2 text-xs font-mono text-emerald-400 mb-3">
+                <Rocket className="w-4 h-4" />
+                <span>DISTRIBUTION & AUTOMATION</span>
+              </div>
+              <h2 className="text-2xl md:text-3xl font-bold mb-4">Auto-Release on Master Merge</h2>
+              <p className="text-white/65 leading-relaxed mb-6">
+                Ship every verified improvement immediately. Merges to the master branch trigger an automated release pipeline in GitHub Actions that bumps semantic versions across Cargo crates and Tauri desktop configurations, compiles native binaries, codesigns macOS app bundles, and publishes GitHub Releases.
+              </p>
+              <ul className="space-y-2 text-sm text-white/70 mb-6">
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  Automated version bump and changelog generation on master push
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  Multi-platform binaries (macOS Apple Silicon/Intel, Linux, Windows)
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  Signed native Bark.app bundles ready for instant deployment
+                </li>
+              </ul>
+            </div>
+            <div className="w-full lg:w-96 rounded-xl bg-black/60 border border-white/10 p-4 font-mono text-xs">
+              <div className="flex items-center justify-between text-white/40 border-b border-white/10 pb-2 mb-3">
+                <span>WORKFLOW TRIGGER</span>
+                <button
+                  onClick={() => copyCode("git push origin master")}
+                  className="hover:text-white transition-colors"
+                >
+                  {copiedCode === "git push origin master" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+              <p className="text-[#E5AA7A] mb-2">$ git push origin master</p>
+              <p className="text-white/70">→ Auto-release workflow triggered on master</p>
+              <p className="text-emerald-400 mb-2">✓ Version bumped: v0.4.2 → v0.4.3</p>
+              <p className="text-white/50">✓ Binaries, Bark.app bundle & release notes published</p>
             </div>
           </div>
         </section>
