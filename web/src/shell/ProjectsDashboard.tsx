@@ -163,7 +163,6 @@ export function ProjectsDashboard({
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ProjectFilter>("all");
   const [switching, setSwitching] = useState<string | null>(null);
-  const [pending, setPending] = useState<{ project: ProjectSummary; target: "chat" | "review" } | null>(null);
   const [view, setView] = useState<"grid" | "list">("grid");
 
   const load = useCallback(async () => {
@@ -196,7 +195,7 @@ export function ProjectsDashboard({
     return () => window.removeEventListener("focus", refresh);
   }, [load]);
 
-  const openProject = (project: ProjectSummary, target: "chat" | "review" = "chat") => {
+  const openProject = async (project: ProjectSummary, target: "chat" | "review" = "chat") => {
     if (!project.available) {
       onNotify(`${project.name} is no longer on disk. Open the folder again.`);
       return;
@@ -206,23 +205,15 @@ export function ProjectsDashboard({
       return;
     }
     if (switching) return;
-    setPending({ project, target });
-  };
-
-  const confirmSwitch = async () => {
-    if (!pending || switching) return;
-    const { project, target } = pending;
     setSwitching(project.path);
     const opened = await switchProject(project.path, target);
     if (!opened) {
       setSwitching(null);
-      setPending(null);
       onNotify(`Could not open ${project.name}. The current project is still open.`);
       return;
     }
     void projectSummaries().then((next) => setProjects(next.length ? next : projects));
     setSwitching(null);
-    setPending(null);
   };
 
   const filtered = useMemo(() => {
@@ -322,8 +313,14 @@ export function ProjectsDashboard({
             <Icon name="panel" size={16} />
           </button>
           <div>
-            <h1>Projects</h1>
-            <p>The local repositories Bark has opened on this Mac.</p>
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <span className="text-muted">Settings</span>
+              <span className="text-muted-dim">/</span>
+              <span className="text-text font-semibold">Projects</span>
+            </div>
+            <p className="text-xs text-muted mt-0.5">
+              Choose a project to manage its checkouts, threads, and workspace actions.
+            </p>
           </div>
         </div>
         <div className="projects-actions">
@@ -334,6 +331,15 @@ export function ProjectsDashboard({
           <button type="button" className="bark-primary" onClick={onOpenFolder}>
             <Icon name="plus" size={13} />
             Open folder
+          </button>
+          <button
+            type="button"
+            className="bark-icon-button ml-1 text-muted hover:text-text"
+            onClick={() => navigate("chat")}
+            aria-label="Close"
+            title="Close (Esc)"
+          >
+            <Icon name="x" size={15} />
           </button>
         </div>
       </header>
@@ -600,30 +606,6 @@ export function ProjectsDashboard({
           )}
         </section>
       </div>
-
-      {pending && (
-        <AccessibleDialog
-          label={`Open ${pending.project.name}`}
-          onClose={() => { if (!switching) setPending(null); }}
-        >
-          <div className="project-switch-dialog">
-            <span className="project-switch-mark"><Icon name="layers" size={18} /></span>
-            <h2>Open {pending.project.name}?</h2>
-            <p>
-              Bark restarts its local server for this project. Active agents keep their
-              worktrees, and drafts stay in the previous project.
-            </p>
-            <div className="project-switch-actions">
-              <button type="button" className="bark-button" onClick={() => setPending(null)} disabled={Boolean(switching)}>
-                Cancel
-              </button>
-              <button type="button" className="bark-primary" onClick={() => void confirmSwitch()} disabled={Boolean(switching)}>
-                {switching ? "Opening…" : "Open project"}
-              </button>
-            </div>
-          </div>
-        </AccessibleDialog>
-      )}
     </div>
   );
 }

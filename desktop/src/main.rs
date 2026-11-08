@@ -125,7 +125,7 @@ fn main() {
     // Chat is the landing surface. Without an explicit fragment the webview
     // can restore an older hash from its session history, which would make a
     // fresh launch feel arbitrary.
-    let url = format!("http://127.0.0.1:{}/?token={}#/projects", port, token);
+    let url = format!("http://127.0.0.1:{}/?token={}#/chat", port, token);
 
     let mut child = spawn_server(&bin, &project, port, &token).unwrap_or_else(|e| {
         fatal(&format!("Failed to start barkcli: {}", e));

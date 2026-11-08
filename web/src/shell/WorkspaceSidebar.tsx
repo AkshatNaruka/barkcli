@@ -42,7 +42,6 @@ export function WorkspaceSidebar({
   const [reviewCount, setReviewCount] = useState(0);
   const [recent, setRecent] = useState<DesktopProject[]>([]);
   const [projectError, setProjectError] = useState<string | null>(null);
-  const [pendingProject, setPendingProject] = useState<DesktopProject | null>(null);
   const [switching, setSwitching] = useState(false);
   const [width, setWidth] = useState(() => Math.min(300, Math.max(220, Number(readLocal("bark:sidebar-width")) || 248)));
   const sidebarRef = useRef<HTMLElement>(null);
@@ -81,23 +80,20 @@ export function WorkspaceSidebar({
     return () => previous?.focus();
   }, [open]);
 
-  const chooseProject = (project: DesktopProject) => {
+  const chooseProject = async (project: DesktopProject) => {
     if (project.path === projectRoot) {
       go(() => navigate("chat"));
       return;
     }
-    setPendingProject(project);
-  };
-
-  const confirmSwitch = async () => {
-    if (!pendingProject || switching) return;
+    if (switching) return;
     setProjectError(null);
     setSwitching(true);
-    const opened = await switchProject(pendingProject.path);
+    const opened = await switchProject(project.path);
     setSwitching(false);
     if (!opened) {
       setProjectError("Could not open that project. Your current project remains open.");
-      setPendingProject(null);
+    } else {
+      go(() => navigate("chat"));
     }
   };
 
@@ -318,29 +314,6 @@ export function WorkspaceSidebar({
             <Icon name="sliders" size={14} />
           </button>
         </footer>
-        {pendingProject && (
-          <AccessibleDialog
-            label={`Open ${pendingProject.name}`}
-            onClose={() => { if (!switching) setPendingProject(null); }}
-          >
-            <div className="project-switch-dialog">
-              <span className="project-switch-mark"><Icon name="layers" size={18} /></span>
-              <h2>Open {pendingProject.name}?</h2>
-              <p>
-                Bark restarts its local server for this project. Active agents keep their
-                worktrees, and drafts stay in the previous project.
-              </p>
-              <div className="project-switch-actions">
-                <button type="button" className="bark-button" onClick={() => setPendingProject(null)} disabled={switching}>
-                  Cancel
-                </button>
-                <button type="button" className="bark-primary" onClick={() => void confirmSwitch()} disabled={switching}>
-                  {switching ? "Opening…" : "Open project"}
-                </button>
-              </div>
-            </div>
-          </AccessibleDialog>
-        )}
         <PaneResizeHandle
           label="Sidebar width"
           width={width}
