@@ -33,6 +33,7 @@ import { useRoute, useRouteState, navigate, updateRouteState, parseRouteState, t
 import { APP_COMMANDS, commandForKey } from "./lib/commands";
 import { ProjectsDashboard } from "./shell/ProjectsDashboard";
 import { ProjectHub } from "./shell/ProjectHub";
+import { ProjectNavbar } from "./shell/ProjectNavbar";
 import { ProjectRequired } from "./shell/ProjectRequired";
 import { BoardFilters } from "./components/BoardFilters";
 import { Icon } from "./components/Icon";
@@ -802,6 +803,22 @@ export function App() {
       />
       <div id="workspace-main" className="flex-1 flex flex-col min-w-0">
         <DemoBanner />
+        {route !== "projects" && (projectReady || projectInfo?.root || projectRoot) && (
+          <ProjectNavbar
+            projectName={projectName || projectInfo?.name || null}
+            projectRoot={projectInfo?.root || projectRoot || ""}
+            boardName={boardName || boardList[0] || null}
+            project={projectInfo}
+            currentRoute={route}
+            cardsCount={board?.cards?.length || 0}
+            agentsCount={projectInfo?.counts.agents || 0}
+            onOpenProject={() => void handleOpenProject()}
+            onNewThread={() => {
+              setComposeSeed({ text: "", nonce: Date.now() });
+              navigate("chat", { board: boardName || undefined });
+            }}
+          />
+        )}
       <div className="flex-1 flex min-h-0">
         <main id="main-content" tabIndex={-1} className="flex-1 overflow-hidden min-w-0">
           <ErrorBoundary>
@@ -847,8 +864,13 @@ export function App() {
               project={projectInfo}
               board={board}
               boards={boardList}
+              hideHeader={true}
               onSwitchBoard={switchBoard}
               onOpenProject={() => void handleOpenProject()}
+              onNewThread={() => {
+                setComposeSeed({ text: "", nonce: Date.now() });
+                navigate("chat", { board: boardName || undefined });
+              }}
             />
           )}
 
