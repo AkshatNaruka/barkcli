@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ThreadList } from "./ThreadList";
 import type { ThreadSummary } from "../lib/types";
@@ -10,6 +10,8 @@ const mockThreads: ThreadSummary[] = [
   {
     id: "thread-1",
     title: "Auth bugfix",
+    project_name: "barkcli",
+    project_root: "/Users/dev/barkcli",
     status_group: "needs_you",
     column: "review",
     updated_at: new Date().toISOString(),
@@ -19,6 +21,8 @@ const mockThreads: ThreadSummary[] = [
   {
     id: "thread-2",
     title: "Database schema migration",
+    project_name: "ses",
+    project_root: "/Users/dev/ses",
     status_group: "running",
     column: "doing",
     updated_at: new Date().toISOString(),
@@ -28,6 +32,8 @@ const mockThreads: ThreadSummary[] = [
   {
     id: "thread-3",
     title: "Frontend refactoring",
+    project_name: "barkcli",
+    project_root: "/Users/dev/barkcli",
     status_group: "settled",
     column: "done",
     updated_at: new Date().toISOString(),
@@ -48,25 +54,45 @@ vi.mock("../lib/hashnav", () => ({
   useRouteState: () => ({ route: "chat", thread: "thread-1" }),
 }));
 
-describe("ThreadList Management & Multi-Select", () => {
+describe("ThreadList Management & Project Grouping", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
   });
 
-  it("creates a new folder and renders it", async () => {
+  it("groups threads by project name in collapsible sections", async () => {
     const user = userEvent.setup();
     render(<ThreadList boardName="dev" />);
     await screen.findByText("Auth bugfix");
 
-    // Click + Folder button in header
-    const addFolderBtn = screen.getByTitle("Create new folder");
-    await user.click(addFolderBtn);
+    // Both project groups should be rendered with headers
+    expect(screen.getByRole("button", { name: /barkcli project, 2 threads/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /ses project, 1 threads/i })).toBeInTheDocument();
 
-    const folderInput = screen.getByPlaceholderText("Folder name…");
-    await user.type(folderInput, "Sprint Features{enter}");
+    // Collapse the 'ses' project group
+    const sesHeader = screen.getByRole("button", { name: /ses project, 1 threads/i });
+    await user.click(sesHeader);
 
-    expect(await screen.findByText("Sprint Features")).toBeInTheDocument();
+    // Threads in ses should now be hidden
+    expect(screen.queryByText("Database schema migration")).not.toBeInTheDocument();
+
+    // Click again to re-expand
+    await user.click(sesHeader);
+    expect(screen.getByText("Database schema migration")).toBeInTheDocument();
+  });
+
+  it("opens project sources modal when clicking Add project button in header", async () => {
+    const user = userEvent.setup();
+    render(<ThreadList boardName="dev" />);
+    await screen.findByText("Auth bugfix");
+
+    // Click Add project icon in header
+    const addProjectBtn = screen.getByTitle("Add project / Sources");
+    await user.click(addProjectBtn);
+
+    // Sources modal appears
+    expect(screen.getByText("New project")).toBeInTheDocument();
+    expect(screen.getByText("Local folder")).toBeInTheDocument();
   });
 
   it("allows selecting multiple threads and shows bulk delete confirmation", async () => {
@@ -74,7 +100,7 @@ describe("ThreadList Management & Multi-Select", () => {
     render(<ThreadList boardName="dev" />);
     await screen.findByText("Auth bugfix");
 
-    // Toggle multi-select mode
+    // Toggle multi-select mode from toolbar near search
     const selectToggleBtn = screen.getByTitle("Select multiple threads");
     await user.click(selectToggleBtn);
 
@@ -107,7 +133,8 @@ describe("ThreadList Management & Multi-Select", () => {
     render(<ThreadList boardName="dev" />);
     await screen.findByText("Auth bugfix");
 
-    const pinBtn = screen.getAllByTitle("Pin thread")[0];
+    const row = screen.getByText("Auth bugfix").closest(".thread-list-row-wrap")!;
+    const pinBtn = row.querySelector('button[title="Pin thread"]') as HTMLButtonElement;
     await user.click(pinBtn);
 
     expect(api.updateThread).toHaveBeenCalledWith("thread-1", {

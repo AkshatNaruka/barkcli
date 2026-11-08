@@ -2,50 +2,29 @@ import React, { useEffect, useMemo, useState } from "react";
 import type { ThreadSummary } from "../lib/types";
 import { connectWs, fetchThreads, deleteThread, updateThread } from "../lib/api";
 import { navigate, useRouteState } from "../lib/hashnav";
-import { filterThreads, groupThreads, relativeTime, threadStatus } from "../lib/threads";
+import { filterThreads, relativeTime, threadStatus } from "../lib/threads";
 import { Icon } from "../components/Icon";
 import { ThreadActionsMenu, type ThreadActionTarget } from "./ThreadActionsMenu";
-import {
-  loadFolderState,
-  createFolder,
-  renameFolder,
-  deleteFolder,
-  toggleFolderCollapsed,
-  moveThreadsToFolder,
-  type ThreadFolder,
-} from "../lib/threadFolders";
 import { AccessibleDialog } from "../components/AccessibleDialog";
-import { ProviderIcon } from "../components/ProviderIcon";
 import { ProjectAvatar } from "../components/ProjectAvatar";
 import { ProjectSourcesModal } from "../components/ProjectSourcesModal";
-import { ProjectPickerModal } from "../components/ProjectPickerModal";
-import { switchProject, type DesktopProject } from "../lib/desktop";
+import { switchProject } from "../lib/desktop";
 
 export function ThreadList({ boardName, open = false, onClose, collapsed = false }: { boardName: string | null; open?: boolean; onClose?: () => void; collapsed?: boolean }) {
   const location = useRouteState();
-  const scope = boardName || "default";
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [sourcesModalOpen, setSourcesModalOpen] = useState(false);
-  const [projectPickerOpen, setProjectPickerOpen] = useState(false);
-  const [showFilterChips, setShowFilterChips] = useState(false);
   const [menu, setMenu] = useState<{ target: ThreadActionTarget; x: number; y: number } | null>(null);
 
-  // Folder & Multi-Select state
-  const [folderState, setFolderState] = useState(() => loadFolderState(scope));
-  const [showNewFolder, setShowNewFolder] = useState(false);
-  const [newFolderName, setNewFolderName] = useState("");
-  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
-  const [editFolderName, setEditFolderName] = useState("");
-
+  // Multi-Select state
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
-  const [bulkMoveFolderOpen, setBulkMoveFolderOpen] = useState(false);
-  const [settledCollapsed, setSettledCollapsed] = useState(false);
   const [projectFilter, setProjectFilter] = useState<string>("all");
+  const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -60,16 +39,13 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
     void load();
     const changed = () => void load();
     window.addEventListener("bark-threads-changed", changed);
-    const onFoldersChanged = () => setFolderState(loadFolderState(scope));
-    window.addEventListener("bark-folders-changed", onFoldersChanged);
     const cleanup = connectWs(() => void load());
     return () => {
       cancelled = true;
       cleanup();
       window.removeEventListener("bark-threads-changed", changed);
-      window.removeEventListener("bark-folders-changed", onFoldersChanged);
     };
-  }, [boardName, scope]);
+  }, [boardName]);
 
   const distinctProjects = useMemo(() => {
     const names = new Set<string>();
@@ -87,35 +63,33 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
     return bySearch.filter((t) => (t.project_name || "").trim() === projectFilter);
   }, [threads, search, projectFilter]);
 
-  // Group threads into:
-  // 1. Pinned threads
-  // 2. Custom Folders (like ChatGPT)
-  // 3. Default Unfiled groups (Needs you, Working, Recent, Settled)
-  const pinnedThreads = useMemo(() => filtered.filter((t) => Boolean(t.pinned)), [filtered]);
-
-  // Map non-pinned threads to folders
-  const folderBuckets = useMemo(() => {
-    const buckets: Record<string, ThreadSummary[]> = {};
-    for (const folder of folderState.folders) {
-      buckets[folder.id] = [];
-    }
+  // Group threads by project
+  const projectGroups = useMemo(() => {
+    const map = new Map<string, ThreadSummary[]>();
     for (const t of filtered) {
-      if (t.pinned) continue;
-      const fId = folderState.threadFolderMap[t.id];
-      if (fId && buckets[fId]) {
-        buckets[fId].push(t);
-      }
+      const pName = (t.project_name || "").trim() || "barkcli";
+      if (!map.has(pName)) map.set(pName, []);
+      map.get(pName)!.push(t);
     }
-    return buckets;
-  }, [filtered, folderState]);
+    return Array.from(map.entries()).map(([projectName, items]) => {
+      const sorted = [...items].sort((a, b) => {
+        if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
+        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+      });
+      return { projectName, items: sorted };
+    });
+  }, [filtered]);
 
-  // Unfiled threads (not pinned and not in any folder)
-  const unfiledThreads = useMemo(() => {
-    return filtered.filter((t) => !t.pinned && !folderState.threadFolderMap[t.id]);
-  }, [filtered, folderState]);
-
-  const unfiledGroups = useMemo(() => groupThreads(unfiledThreads), [unfiledThreads]);
   const total = filtered.length;
+
+  const toggleProjectCollapsed = (projectName: string) => {
+    setCollapsedProjects((prev) => {
+      const next = new Set(prev);
+      if (next.has(projectName)) next.delete(projectName);
+      else next.add(projectName);
+      return next;
+    });
+  };
 
   const openMenu = (thread: ThreadSummary, x: number, y: number) => {
     setMenu({
@@ -153,30 +127,6 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
     setSelectedIds(new Set());
   };
 
-  const handleCreateFolder = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newFolderName.trim()) return;
-    createFolder(scope, newFolderName.trim());
-    setNewFolderName("");
-    setShowNewFolder(false);
-    setFolderState(loadFolderState(scope));
-  };
-
-  const handleRenameFolder = (folderId: string) => {
-    if (!editFolderName.trim()) return;
-    renameFolder(scope, folderId, editFolderName.trim());
-    setEditingFolderId(null);
-    setEditFolderName("");
-    setFolderState(loadFolderState(scope));
-  };
-
-  const handleDeleteFolder = (folderId: string) => {
-    if (window.confirm("Delete this folder? Threads inside will be moved to unfiled.")) {
-      deleteFolder(scope, folderId);
-      setFolderState(loadFolderState(scope));
-    }
-  };
-
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0 || bulkDeleting) return;
     setBulkDeleting(true);
@@ -195,15 +145,6 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
     } finally {
       setBulkDeleting(false);
     }
-  };
-
-  const handleBulkMoveToFolder = (targetFolderId: string | null) => {
-    if (selectedIds.size === 0) return;
-    moveThreadsToFolder(scope, Array.from(selectedIds), targetFolderId);
-    setFolderState(loadFolderState(scope));
-    setBulkMoveFolderOpen(false);
-    setSelectedIds(new Set());
-    setSelectionMode(false);
   };
 
   const renderThreadRow = (thread: ThreadSummary) => {
@@ -342,7 +283,7 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
 
   return (
     <aside className={`thread-list ${open ? "is-open" : ""} ${collapsed ? "is-collapsed" : ""}`} aria-label="Threads">
-      {/* Header with Title and Management Actions */}
+      {/* Header with Title and Action Buttons (New Thread & Add Project) */}
       <header className="thread-list-head">
         <div className="thread-list-title">
           <span>Threads</span>
@@ -365,62 +306,17 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
           </button>
           <button
             type="button"
-            onClick={() => {
-              setShowNewFolder(!showNewFolder);
-              setNewFolderName("");
-            }}
+            onClick={() => setSourcesModalOpen(true)}
             className="thread-list-icon"
-            title="Create new folder"
-            aria-label="Create new folder"
+            title="Add project / Sources"
+            aria-label="Add project / Sources"
           >
             <Icon name="folderPlus" size={14} />
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setSelectionMode(!selectionMode);
-              setSelectedIds(new Set());
-            }}
-            className={`thread-list-icon ${selectionMode ? "is-active" : ""}`}
-            title={selectionMode ? "Exit multi-select" : "Select multiple threads"}
-            aria-label={selectionMode ? "Exit multi-select" : "Select multiple threads"}
-            aria-pressed={selectionMode}
-          >
-            <Icon name="checkSquare" size={14} />
           </button>
         </div>
       </header>
 
-      {/* Inline Create Folder Form */}
-      {showNewFolder && (
-        <form onSubmit={handleCreateFolder} className="p-2 border-b border-border/50 bg-surface flex items-center gap-1.5">
-          <Icon name="folder" size={13} className="text-accent shrink-0 ml-1" />
-          <input
-            autoFocus
-            type="text"
-            placeholder="Folder name…"
-            value={newFolderName}
-            onChange={(e) => setNewFolderName(e.target.value)}
-            className="flex-1 bg-transparent border-0 outline-none text-[11.5px] text-text placeholder:text-muted/60"
-          />
-          <button
-            type="submit"
-            disabled={!newFolderName.trim()}
-            className="px-2 py-0.5 rounded text-[11px] font-medium bg-accent text-bg disabled:opacity-40 cursor-pointer"
-          >
-            Add
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowNewFolder(false)}
-            className="p-1 text-muted hover:text-text cursor-pointer"
-          >
-            <Icon name="x" size={11} />
-          </button>
-        </form>
-      )}
-
-      {/* Search Input and Action Buttons Matching Screenshot 1 */}
+      {/* Search Input and Select Icon (Clean search toolbar with no redundant buttons) */}
       <div className="flex items-center gap-1.5 mx-2.5 my-2">
         <label className="thread-list-search flex-1 flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-border/60 bg-bg text-muted focus-within:border-accent/80 transition-colors min-w-0">
           <Icon name="search" size={13} className="shrink-0 text-muted-dim" />
@@ -439,36 +335,22 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
         </label>
         <button
           type="button"
-          onClick={() => setShowFilterChips(!showFilterChips)}
+          onClick={() => {
+            setSelectionMode(!selectionMode);
+            setSelectedIds(new Set());
+          }}
           className={`p-1.5 rounded-md transition-colors ${
-            showFilterChips ? "text-accent bg-accent-soft" : "text-muted hover:text-text hover:bg-card"
+            selectionMode ? "text-accent bg-accent-soft" : "text-muted hover:text-text hover:bg-card"
           }`}
-          title="Filter by project"
-          aria-label="Filter by project"
+          title={selectionMode ? "Exit multi-select" : "Select multiple threads"}
+          aria-label={selectionMode ? "Exit multi-select" : "Select multiple threads"}
+          aria-pressed={selectionMode}
         >
-          <Icon name="filter" size={14} />
-        </button>
-        <button
-          type="button"
-          onClick={() => setSourcesModalOpen(true)}
-          className="p-1.5 text-muted hover:text-text hover:bg-card rounded-md transition-colors"
-          title="Add project / Sources"
-          aria-label="Add project / Sources"
-        >
-          <Icon name="folderPlus" size={14} />
-        </button>
-        <button
-          type="button"
-          onClick={() => setProjectPickerOpen(true)}
-          className="p-1.5 text-muted hover:text-text hover:bg-card rounded-md transition-colors"
-          title="New thread in project"
-          aria-label="New thread in project"
-        >
-          <Icon name="pencil" size={14} />
+          <Icon name="checkSquare" size={14} />
         </button>
       </div>
 
-      {/* Cross-Project Filter Chips */}
+      {/* Cross-Project Filter Chips (shown when multiple projects exist) */}
       {distinctProjects.length > 1 && (
         <div
           className="mx-2.5 mb-2 flex items-center gap-1 overflow-x-auto pb-0.5"
@@ -522,15 +404,6 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
             <button
               type="button"
               disabled={selectedIds.size === 0}
-              onClick={() => setBulkMoveFolderOpen(true)}
-              className="flex-1 flex items-center justify-center gap-1 py-1 rounded text-[11px] font-medium border border-border hover:bg-surface text-muted-strong disabled:opacity-40 cursor-pointer"
-            >
-              <Icon name="folder" size={11} />
-              <span>Move…</span>
-            </button>
-            <button
-              type="button"
-              disabled={selectedIds.size === 0}
               onClick={() => setConfirmBulkDelete(true)}
               className="flex-1 flex items-center justify-center gap-1 py-1 rounded text-[11px] font-medium border border-danger/30 bg-danger/10 text-danger hover:bg-danger/20 disabled:opacity-40 cursor-pointer"
             >
@@ -541,7 +414,7 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
         </div>
       )}
 
-      {/* Thread List Body */}
+      {/* Thread List Body: Same project threads grouped together */}
       <div className="thread-list-body flex-1 overflow-y-auto px-2 pb-4 space-y-3">
         {loading ? (
           <p className="thread-list-note text-[11px] text-muted p-3" role="status">Loading threads…</p>
@@ -550,185 +423,44 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
             {search ? "No matching threads." : "Your threads will appear here."}
           </p>
         ) : (
-          <>
-            {/* 1. PINNED THREADS SECTION */}
-            {pinnedThreads.length > 0 && (
-              <section className="thread-list-group">
-                <header className="flex items-center justify-between px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-accent font-semibold">
-                  <span className="flex items-center gap-1.5">
-                    <Icon name="pin" size={10} />
-                    <span>Pinned</span>
-                  </span>
-                  <span>{pinnedThreads.length}</span>
-                </header>
-                <div className="space-y-0.5">
-                  {pinnedThreads.map((thread) => renderThreadRow(thread))}
-                </div>
-              </section>
-            )}
-
-            {/* 2. CHATGPT-STYLE FOLDERS SECTION */}
-            {folderState.folders.map((folder) => {
-              const folderItems = folderBuckets[folder.id] || [];
-              const isEditing = editingFolderId === folder.id;
-
-              return (
-                <section key={folder.id} className="thread-list-group rounded-lg bg-surface/20 border border-border/40 overflow-hidden">
-                  <header
-                    className="flex items-center justify-between px-2.5 py-1.5 text-[11px] font-medium text-muted-strong hover:bg-white/[0.04] cursor-pointer select-none"
-                    onClick={() => {
-                      toggleFolderCollapsed(scope, folder.id);
-                      setFolderState(loadFolderState(scope));
-                    }}
-                  >
-                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                      <Icon
-                        name="chevR"
-                        size={10}
-                        className={`text-muted/60 transition-transform duration-150 ${folder.collapsed ? "" : "rotate-90"}`}
-                      />
-                      <Icon name="folder" size={12} className="text-muted shrink-0" />
-                      {isEditing ? (
-                        <input
-                          autoFocus
-                          type="text"
-                          value={editFolderName}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => setEditFolderName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              handleRenameFolder(folder.id);
-                            } else if (e.key === "Escape") {
-                              setEditingFolderId(null);
-                            }
-                          }}
-                          className="w-full bg-bg px-1 py-0.5 rounded border border-accent text-[11px] text-text"
-                        />
-                      ) : (
-                        <span className="truncate font-medium text-text">{folder.name}</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0 ml-1">
-                      <span className="font-mono text-[9.5px] text-muted/60 px-1.5 py-0.2 rounded bg-surface/60">
-                        {folderItems.length}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (isEditing) {
-                            handleRenameFolder(folder.id);
-                          } else {
-                            setEditingFolderId(folder.id);
-                            setEditFolderName(folder.name);
-                          }
-                        }}
-                        className="w-4 h-4 flex items-center justify-center text-muted hover:text-text cursor-pointer"
-                        title={isEditing ? "Save name" : "Rename folder"}
-                      >
-                        <Icon name={isEditing ? "check" : "pencil"} size={10} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteFolder(folder.id);
-                        }}
-                        className="w-4 h-4 flex items-center justify-center text-muted hover:text-danger cursor-pointer"
-                        title="Delete folder"
-                      >
-                        <Icon name="trash" size={10} />
-                      </button>
-                    </div>
-                  </header>
-
-                  {!folder.collapsed && (
-                    <div className="p-1 space-y-0.5 border-t border-border/30">
-                      {folderItems.length === 0 ? (
-                        <p className="px-3 py-1.5 text-[10.5px] text-muted/50 italic">No threads in this folder</p>
-                      ) : (
-                        folderItems.map((thread) => renderThreadRow(thread))
-                      )}
-                    </div>
-                  )}
-                </section>
-              );
-            })}
-
-            {/* 3. UNFILED DEFAULT GROUPS */}
-            {unfiledGroups.filter((g) => g.items.length > 0 && g.key !== "pinned").map((group) => {
-              const isSettled = group.key === "settled";
-              const isGroupCollapsed = isSettled && settledCollapsed;
-              return (
-                <section key={group.key} className="thread-list-group">
-                  <header
-                    onClick={isSettled ? () => setSettledCollapsed((prev) => !prev) : undefined}
-                    className={`flex items-center justify-between px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-muted font-medium ${
-                      isSettled ? "cursor-pointer select-none rounded hover:bg-white/[0.03] hover:text-muted-strong" : ""
-                    }`}
-                  >
-                    <span className="flex items-center gap-1">
-                      {isSettled && (
-                        <span className="text-[9px] text-muted">{isGroupCollapsed ? "▸" : "▾"}</span>
-                      )}
-                      <span>
-                        {group.key === "running"
-                          ? "Working"
-                          : group.key === "drafts"
-                            ? "Recent"
-                            : group.label}
-                      </span>
+          projectGroups.map(({ projectName, items }) => {
+            const isCollapsed = collapsedProjects.has(projectName);
+            return (
+              <section key={projectName} className="thread-list-group rounded-lg bg-surface/20 border border-border/40 overflow-hidden">
+                <header
+                  className="flex items-center justify-between px-2.5 py-1.5 text-[11px] font-medium text-muted-strong hover:bg-white/[0.04] cursor-pointer select-none"
+                  onClick={() => toggleProjectCollapsed(projectName)}
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={!isCollapsed}
+                  aria-label={`${projectName} project, ${items.length} threads`}
+                >
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <Icon
+                      name="chevR"
+                      size={10}
+                      className={`text-muted/60 transition-transform duration-150 ${isCollapsed ? "" : "rotate-90"}`}
+                    />
+                    <ProjectAvatar name={projectName} size="xs" />
+                    <span className="truncate font-semibold text-text text-[12px]">{projectName}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                    <span className="font-mono text-[9.5px] text-muted/70 px-1.5 py-0.5 rounded bg-surface/60 border border-border/30">
+                      {items.length}
                     </span>
-                    <span>{group.items.length}</span>
-                  </header>
-                  {!isGroupCollapsed && (
-                    <div className="space-y-0.5">
-                      {group.items.map((thread) => renderThreadRow(thread))}
-                    </div>
-                  )}
-                </section>
-              );
-            })}
-          </>
+                  </div>
+                </header>
+
+                {!isCollapsed && (
+                  <div className="p-1 space-y-0.5 border-t border-border/30">
+                    {items.map((thread) => renderThreadRow(thread))}
+                  </div>
+                )}
+              </section>
+            );
+          })
         )}
       </div>
-
-      {/* Bulk Move to Folder Modal */}
-      {bulkMoveFolderOpen && (
-        <AccessibleDialog label="Move selected threads" onClose={() => setBulkMoveFolderOpen(false)} className="thread-dialog-shell">
-          <div className="thread-dialog">
-            <h2>Move {selectedIds.size} threads to folder</h2>
-            <div className="flex flex-col gap-1.5 my-3 max-h-60 overflow-y-auto">
-              <button
-                type="button"
-                onClick={() => handleBulkMoveToFolder(null)}
-                className="flex items-center justify-between p-2 rounded-lg text-[12px] border border-border hover:bg-surface text-muted-strong text-left"
-              >
-                <span>(No folder / Unfiled)</span>
-              </button>
-              {folderState.folders.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  onClick={() => handleBulkMoveToFolder(f.id)}
-                  className="flex items-center justify-between p-2 rounded-lg text-[12px] border border-border hover:bg-surface text-muted-strong text-left"
-                >
-                  <span className="flex items-center gap-2">
-                    <Icon name="folder" size={13} />
-                    <span>{f.name}</span>
-                  </span>
-                </button>
-              ))}
-            </div>
-            <div className="thread-dialog-actions">
-              <button type="button" className="bark-button" onClick={() => setBulkMoveFolderOpen(false)}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </AccessibleDialog>
-      )}
 
       {/* Bulk Delete Confirmation Modal */}
       {confirmBulkDelete && (
@@ -793,24 +525,6 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
         onSelectProject={(proj) => {
           setSourcesModalOpen(false);
           switchProject(proj.path);
-        }}
-      />
-
-      {/* Project Picker Modal */}
-      <ProjectPickerModal
-        isOpen={projectPickerOpen}
-        onClose={() => setProjectPickerOpen(false)}
-        onSelectProject={(proj) => {
-          setProjectPickerOpen(false);
-          if ("isScratch" in proj && proj.isScratch) {
-            navigate("chat", { draft: "1" });
-          } else {
-            navigate("chat", { draft: "1", board: boardName || undefined });
-          }
-        }}
-        onOpenSources={() => {
-          setProjectPickerOpen(false);
-          setSourcesModalOpen(true);
         }}
       />
     </aside>
