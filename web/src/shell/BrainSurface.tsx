@@ -51,7 +51,7 @@ export function BrainSurface({ boardName }: { boardName: string | null }) {
               </div>
             }
           >
-            <BrainView boardName={boardName} initialMode="contributions" />
+            <BrainView boardName={boardName} initialMode="3d" />
           </Suspense>
         )}
         {active === "memory" && <MemoryView boardName={boardName} />}

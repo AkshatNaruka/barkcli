@@ -38,7 +38,7 @@ describe("sidebar destinations", () => {
     }
   );
 
-  it.each([["memory", "Memory"], ["context", "Context"], ["graph", "contributions"]])(
+  it.each([["memory", "Memory"], ["context", "Context"], ["graph", "3d"]])(
     "renders the distinct brain/%s surface", async (tool, expected) => {
       window.location.hash = `#/brain?tool=${tool}`;
       render(<BrainSurface boardName="dev" />);
