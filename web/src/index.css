@@ -1324,25 +1324,30 @@ summary.sidebar-group { cursor: pointer; }
 .thread-list-group > header > span:last-child { font-family: ui-monospace, "SF Mono", monospace; font-variant-numeric: tabular-nums; }
 .thread-list-row-wrap { position: relative; }
 .thread-list-row {
-  display: grid;
-  grid-template-columns: 26px minmax(0, 1fr);
-  align-items: start;
-  gap: 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
   width: 100%;
   padding: 8px 10px;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 10px;
   overflow: hidden;
   text-align: left;
   color: var(--muted-strong);
   transition: background-color 120ms, border-color 120ms, color 120ms;
 }
-.thread-list-row:hover { background: var(--card); color: var(--text); }
-.thread-list-row.is-current { background: var(--card-hover); border-color: var(--border); color: var(--text); }
+.thread-list-row:hover { background: #16161c; color: var(--text); }
+.thread-list-row.is-current {
+  background: #23180e;
+  border-color: rgba(180, 83, 9, 0.35);
+  color: var(--text);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
 .thread-row-avatar { display: grid; place-items: center; width: 26px; height: 26px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--muted-strong); }
 .thread-list-row.is-current .thread-row-avatar { border-color: var(--border-strong); color: var(--text); }
 .thread-list-copy { display: flex; min-width: 0; width: 100%; flex-direction: column; gap: 3px; }
-.thread-row-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 10.5px; color: var(--muted); }
+.thread-row-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-width: 0; font-size: 11px; color: var(--muted); }
+.thread-row-bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-width: 0; }
 .thread-row-status { display: inline-flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-row-top time { flex-shrink: 0; font-size: 10px; font-variant-numeric: tabular-nums; }
 .thread-row-title { display: flex; align-items: center; gap: 5px; min-width: 0; width: 100%; overflow: hidden; font-size: 13px; font-weight: 500; line-height: 1.35; color: inherit; }

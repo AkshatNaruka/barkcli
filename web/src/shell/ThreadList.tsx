@@ -16,6 +16,10 @@ import {
 } from "../lib/threadFolders";
 import { AccessibleDialog } from "../components/AccessibleDialog";
 import { ProviderIcon } from "../components/ProviderIcon";
+import { ProjectAvatar } from "../components/ProjectAvatar";
+import { ProjectSourcesModal } from "../components/ProjectSourcesModal";
+import { ProjectPickerModal } from "../components/ProjectPickerModal";
+import { switchProject, type DesktopProject } from "../lib/desktop";
 
 export function ThreadList({ boardName, open = false, onClose, collapsed = false }: { boardName: string | null; open?: boolean; onClose?: () => void; collapsed?: boolean }) {
   const location = useRouteState();
@@ -23,6 +27,9 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [sourcesModalOpen, setSourcesModalOpen] = useState(false);
+  const [projectPickerOpen, setProjectPickerOpen] = useState(false);
+  const [showFilterChips, setShowFilterChips] = useState(false);
   const [menu, setMenu] = useState<{ target: ThreadActionTarget; x: number; y: number } | null>(null);
 
   // Folder & Multi-Select state
@@ -239,41 +246,71 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
                 openMenu(thread, event.clientX, event.clientY);
               }}
             >
-              <span className="thread-row-avatar" aria-hidden="true">
-                <ProviderIcon id={thread.backend || "agent"} name={thread.backend || "agent"} size={13} />
-              </span>
-              <span className="thread-list-copy">
-                <span className="thread-row-top">
-                  <span className={`thread-row-status is-${status.tone}`}>
-                    <span className={`thread-list-dot is-${status.tone}`} />
-                    {status.label}
+              {/* Row 1: Project Avatar, Project Name, Status / Time */}
+              <div className="thread-row-top">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  {current && (
+                    <Icon name="pencil" size={11} className="text-amber-400 shrink-0" />
+                  )}
+                  <ProjectAvatar name={thread.project_name || "barkcli"} size="xs" />
+                  <span
+                    className="thread-row-project text-[12px] font-medium text-muted-strong hover:text-text truncate"
+                    title={thread.project_root || thread.project_name || "barkcli"}
+                  >
+                    {thread.project_name || "barkcli"}
                   </span>
-                  <time dateTime={thread.updated_at}>{relativeTime(thread.updated_at)}</time>
-                </span>
-                <strong className="thread-row-title">
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0 text-[11px]">
+                  {thread.status_group === "failed" || thread.status_group === "blocked" || status.tone === "warning" ? (
+                    <span className="text-rose-400 font-medium inline-flex items-center gap-1">
+                      <Icon name="warn" size={11} />
+                      <span>Failed</span>
+                    </span>
+                  ) : status.label === "settled" || (thread.column || "").toLowerCase() === "done" ? (
+                    <span className="text-muted-dim inline-flex items-center gap-1">
+                      <Icon name="clock" size={10} />
+                      <Icon name="check" size={10} />
+                      <span>Settle</span>
+                    </span>
+                  ) : status.tone === "success" || status.tone === "accent" ? (
+                    <span className="text-amber-400 inline-flex items-center gap-1 font-medium">
+                      <span className="thread-list-dot is-warning" />
+                      <span>Working</span>
+                    </span>
+                  ) : (
+                    <time dateTime={thread.updated_at} className="text-muted-dim">
+                      {relativeTime(thread.updated_at)}
+                    </time>
+                  )}
+                </div>
+              </div>
+
+              {/* Row 2: Thread title and workspace / split icon */}
+              <div className="thread-row-bottom flex items-center justify-between gap-2 w-full min-w-0">
+                <strong className="thread-row-title text-[13px] font-medium text-text truncate flex items-center gap-1.5">
                   {thread.pinned && <Icon name="pin" size={10} className="thread-list-pin" />}
-                  <span>{thread.title}</span>
+                  <span className="truncate">{thread.title}</span>
                 </strong>
-                <small className="thread-row-meta">
-                  {thread.project_name && (
-                    <>
-                      <span className="thread-row-project" title={thread.project_root || thread.project_name}>
-                        {thread.project_name}
-                      </span>
-                      <span className="thread-list-sep">·</span>
-                    </>
-                  )}
+                <div className="flex items-center gap-1 shrink-0 text-muted-dim">
                   {thread.workspace_strategy === "worktree" && (
-                    <>
-                      <span className="thread-row-worktree">worktree</span>
-                      <span className="thread-list-sep">·</span>
-                    </>
+                    <span className="thread-row-worktree text-[10px] text-muted-dim" title="worktree">
+                      worktree
+                    </span>
                   )}
-                  {thread.backend && <span>{thread.backend}</span>}
-                  {thread.backend && thread.id && <span className="thread-list-sep">·</span>}
-                  <span className="thread-row-id">{thread.id}</span>
-                </small>
-              </span>
+                  <svg
+                    viewBox="0 0 16 16"
+                    width="12"
+                    height="12"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    className="opacity-60"
+                  >
+                    <rect x="2.5" y="2.5" width="11" height="11" rx="1.5" />
+                  </svg>
+                </div>
+              </div>
             </button>
             <div className="thread-row-actions">
               <button
@@ -383,22 +420,53 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
         </form>
       )}
 
-      {/* Search Input */}
-      <label className="thread-list-search flex items-center gap-2 mx-2.5 my-2 px-2.5 py-1.5 rounded-lg border border-border/60 bg-bg text-muted focus-within:border-accent/80 transition-colors">
-        <Icon name="search" size={12} className="shrink-0" />
-        <input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Filter threads and intents…"
-          aria-label="Search threads"
-          className="w-full bg-transparent text-[11.5px] text-text outline-none placeholder:text-muted/60"
-        />
-        {search && (
-          <button type="button" onClick={() => setSearch("")} aria-label="Clear search" className="cursor-pointer">
-            <Icon name="x" size={11} />
-          </button>
-        )}
-      </label>
+      {/* Search Input and Action Buttons Matching Screenshot 1 */}
+      <div className="flex items-center gap-1.5 mx-2.5 my-2">
+        <label className="thread-list-search flex-1 flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-border/60 bg-bg text-muted focus-within:border-accent/80 transition-colors min-w-0">
+          <Icon name="search" size={13} className="shrink-0 text-muted-dim" />
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search"
+            aria-label="Search threads"
+            className="w-full bg-transparent text-[12px] text-text outline-none placeholder:text-muted/60"
+          />
+          {search && (
+            <button type="button" onClick={() => setSearch("")} aria-label="Clear search" className="cursor-pointer">
+              <Icon name="x" size={11} />
+            </button>
+          )}
+        </label>
+        <button
+          type="button"
+          onClick={() => setShowFilterChips(!showFilterChips)}
+          className={`p-1.5 rounded-md transition-colors ${
+            showFilterChips ? "text-accent bg-accent-soft" : "text-muted hover:text-text hover:bg-card"
+          }`}
+          title="Filter by project"
+          aria-label="Filter by project"
+        >
+          <Icon name="filter" size={14} />
+        </button>
+        <button
+          type="button"
+          onClick={() => setSourcesModalOpen(true)}
+          className="p-1.5 text-muted hover:text-text hover:bg-card rounded-md transition-colors"
+          title="Add project / Sources"
+          aria-label="Add project / Sources"
+        >
+          <Icon name="folderPlus" size={14} />
+        </button>
+        <button
+          type="button"
+          onClick={() => setProjectPickerOpen(true)}
+          className="p-1.5 text-muted hover:text-text hover:bg-card rounded-md transition-colors"
+          title="New thread in project"
+          aria-label="New thread in project"
+        >
+          <Icon name="pencil" size={14} />
+        </button>
+      </div>
 
       {/* Cross-Project Filter Chips */}
       {distinctProjects.length > 1 && (
@@ -717,6 +785,34 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
           }}
         />
       )}
+
+      {/* Project Sources Modal */}
+      <ProjectSourcesModal
+        isOpen={sourcesModalOpen}
+        onClose={() => setSourcesModalOpen(false)}
+        onSelectProject={(proj) => {
+          setSourcesModalOpen(false);
+          switchProject(proj.path);
+        }}
+      />
+
+      {/* Project Picker Modal */}
+      <ProjectPickerModal
+        isOpen={projectPickerOpen}
+        onClose={() => setProjectPickerOpen(false)}
+        onSelectProject={(proj) => {
+          setProjectPickerOpen(false);
+          if ("isScratch" in proj && proj.isScratch) {
+            navigate("chat", { draft: "1" });
+          } else {
+            navigate("chat", { draft: "1", board: boardName || undefined });
+          }
+        }}
+        onOpenSources={() => {
+          setProjectPickerOpen(false);
+          setSourcesModalOpen(true);
+        }}
+      />
     </aside>
   );
 }
