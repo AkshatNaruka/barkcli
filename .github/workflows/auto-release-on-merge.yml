@@ -1,0 +1,27 @@
+name: Auto Release on Master
+
+on:
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: auto-release-master
+  cancel-in-progress: false
+
+jobs:
+  auto-release:
+    name: Auto Bump & Tag on Master Merge
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Auto Bump and Tag
+        run: |
+          bash scripts/auto_release_on_master.sh --ci
