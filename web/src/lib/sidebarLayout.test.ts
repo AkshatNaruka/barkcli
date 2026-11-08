@@ -29,16 +29,18 @@ describe("sidebar layout", () => {
     const layout = defaultSidebarLayout();
     expect(layout.groups.map((group) => group.label)).toEqual([
       "Build",
-      "Plan",
-      "Agents",
-      "Knowledge",
-      "Code & delivery",
+      "Planning",
+      "Agent setup",
+      "History & maintenance",
     ]);
     expect(layout.groups.flatMap((group) => group.items)).toHaveLength(SIDEBAR_TOOLS.length);
     expect(new Set(layout.groups.flatMap((group) => group.items)).size).toBe(SIDEBAR_TOOLS.length);
+    expect(layout.groups.find((group) => group.id === "planning")?.items).toEqual(["board", "sprints", "calendar", "reports"]);
+    expect(layout.groups.find((group) => group.id === "agent-setup")?.items).toEqual(["rules", "agents", "orchestra", "skills", "memory", "graph", "context", "workspace", "agent-api"]);
+    expect(layout.groups.find((group) => group.id === "history-maintenance")?.items).toEqual(["automations", "history", "timeline", "code", "usage"]);
   });
 
-  it("repairs a partial layout and appends new tools to their default group", () => {
+  it("repairs and migrates a partial legacy layout and appends new tools to their default group", () => {
     const layout = normalizeSidebarLayout({
       groups: [
         { id: "plan", label: "  Ship it  ", items: ["board", "board", "ghost"] },
@@ -48,45 +50,45 @@ describe("sidebar layout", () => {
     });
 
     expect(layout.groups.map((group) => group.id)).toEqual([
-      "plan",
+      "planning",
       "custom-1",
       "build",
-      "agents",
-      "knowledge",
-      "delivery",
+      "agent-setup",
+      "history-maintenance",
     ]);
-    expect(layout.groups[0]).toMatchObject({ id: "plan", label: "Ship it", items: ["board", "sprints", "calendar", "reports"] });
+    expect(layout.groups[0]).toMatchObject({ id: "planning", label: "Ship it", items: ["board", "sprints", "calendar", "reports"] });
     expect(layout.groups[1].items).toEqual(["chat"]);
     expect(layout.hidden).toEqual(["board"]);
     expect(layout.groups.flatMap((group) => group.items)).toHaveLength(SIDEBAR_TOOLS.length);
   });
 
   it("falls back to the default layout for invalid storage", () => {
-    expect(parseSidebarLayout(null).groups).toHaveLength(5);
-    expect(parseSidebarLayout("not json").groups).toHaveLength(5);
-    expect(parseSidebarLayout("null").groups).toHaveLength(5);
+    expect(parseSidebarLayout(null).groups).toHaveLength(4);
+    expect(parseSidebarLayout("not json").groups).toHaveLength(4);
+    expect(parseSidebarLayout("null").groups).toHaveLength(4);
   });
 
   it("reorders groups and tools", () => {
     const layout = defaultSidebarLayout();
-    const movedGroup = moveGroup(layout, "delivery", -1);
-    expect(movedGroup.groups.map((group) => group.id)).toEqual(["build", "plan", "agents", "delivery", "knowledge"]);
+    const movedGroup = moveGroup(layout, "history-maintenance", -1);
+    expect(movedGroup.groups.map((group) => group.id)).toEqual(["build", "planning", "history-maintenance", "agent-setup"]);
 
-    const movedTool = moveItem(layout, "plan", "sprints", -1);
+    const movedTool = moveItem(layout, "planning", "sprints", -1);
     expect(movedTool.groups[1].items.slice(0, 2)).toEqual(["sprints", "board"]);
   });
 
   it("moves a tool between groups at a chosen position", () => {
-    const layout = moveItemToGroup(defaultSidebarLayout(), "board", "knowledge", 1);
-    const plan = layout.groups.find((group) => group.id === "plan")!;
-    const knowledge = layout.groups.find((group) => group.id === "knowledge")!;
-    expect(plan.items).not.toContain("board");
-    expect(knowledge.items).toEqual(["memory", "board", "graph", "context"]);
+    const layout = moveItemToGroup(defaultSidebarLayout(), "board", "agent-setup", 1);
+    const planning = layout.groups.find((group) => group.id === "planning")!;
+    const agentSetup = layout.groups.find((group) => group.id === "agent-setup")!;
+    expect(planning.items).not.toContain("board");
+    expect(agentSetup.items[0]).toBe("rules");
+    expect(agentSetup.items[1]).toBe("board");
   });
 
   it("drops before the indicated row when moving downward in the same group", () => {
-    const layout = moveItemToGroup(defaultSidebarLayout(), "board", "plan", 2);
-    expect(layout.groups.find((group) => group.id === "plan")?.items).toEqual([
+    const layout = moveItemToGroup(defaultSidebarLayout(), "board", "planning", 2);
+    expect(layout.groups.find((group) => group.id === "planning")?.items).toEqual([
       "sprints", "board", "calendar", "reports",
     ]);
   });
@@ -118,9 +120,9 @@ describe("sidebar layout", () => {
   });
 
   it("renames groups and keeps a fallback label", () => {
-    const layout = renameGroup(defaultSidebarLayout(), "plan", "Delivery plan");
-    expect(layout.groups.find((group) => group.id === "plan")?.label).toBe("Delivery plan");
-    expect(renameGroup(layout, "plan", "   ").groups.find((group) => group.id === "plan")?.label).toBe("Plan");
+    const layout = renameGroup(defaultSidebarLayout(), "planning", "Delivery plan");
+    expect(layout.groups.find((group) => group.id === "planning")?.label).toBe("Delivery plan");
+    expect(renameGroup(layout, "planning", "   ").groups.find((group) => group.id === "planning")?.label).toBe("Planning");
   });
 
   it("adds and removes custom groups, returning tools to their default group", () => {
@@ -130,7 +132,7 @@ describe("sidebar layout", () => {
     layout = moveItemToGroup(layout, "board", custom.id);
     layout = removeGroup(layout, custom.id);
     expect(layout.groups.some((group) => group.id === custom.id)).toBe(false);
-    expect(layout.groups.find((group) => group.id === "plan")?.items).toContain("board");
+    expect(layout.groups.find((group) => group.id === "planning")?.items).toContain("board");
   });
 
   it("never removes a default group", () => {
@@ -139,9 +141,9 @@ describe("sidebar layout", () => {
   });
 
   it("persists updates and resets back to the default", () => {
-    updateSidebarLayout((layout) => moveItemToGroup(layout, "board", "knowledge"));
+    updateSidebarLayout((layout) => moveItemToGroup(layout, "board", "agent-setup"));
     const stored = JSON.parse(localStorage.getItem(SIDEBAR_LAYOUT_KEY)!);
-    expect(stored.groups.find((group: { id: string }) => group.id === "knowledge").items).toContain("board");
+    expect(stored.groups.find((group: { id: string }) => group.id === "agent-setup").items).toContain("board");
 
     resetSidebarLayout();
     const reset = JSON.parse(localStorage.getItem(SIDEBAR_LAYOUT_KEY)!);

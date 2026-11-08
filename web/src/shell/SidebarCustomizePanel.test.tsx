@@ -21,7 +21,7 @@ describe("SidebarCustomizePanel", () => {
     render(<SidebarCustomizePanel open onClose={() => {}} />);
 
     expect(screen.getByRole("dialog", { name: "Customize sidebar" })).toBeInTheDocument();
-    for (const label of ["Build", "Plan", "Agents", "Knowledge", "Code & delivery"]) {
+    for (const label of ["Build", "Planning", "Agent setup", "History & maintenance"]) {
       expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
     }
     expect(screen.getByRole("button", { name: "Hide Board" })).toBeInTheDocument();
@@ -31,12 +31,12 @@ describe("SidebarCustomizePanel", () => {
     const user = userEvent.setup();
     render(<SidebarCustomizePanel open onClose={() => {}} />);
 
-    await user.click(screen.getByRole("button", { name: "Plan" }));
-    const input = screen.getByRole("textbox", { name: "Rename Plan" });
+    await user.click(screen.getByRole("button", { name: "Planning" }));
+    const input = screen.getByRole("textbox", { name: "Rename Planning" });
     await user.clear(input);
     await user.type(input, "Delivery plan{Enter}");
 
-    expect(storedLayout().groups.find((group: { id: string }) => group.id === "plan").label).toBe(
+    expect(storedLayout().groups.find((group: { id: string }) => group.id === "planning").label).toBe(
       "Delivery plan"
     );
     expect(screen.getByRole("button", { name: "Delivery plan" })).toBeInTheDocument();
@@ -61,14 +61,14 @@ describe("SidebarCustomizePanel", () => {
 
     await user.click(screen.getByRole("combobox", { name: "Move Board to group" }));
     const listbox = screen.getByRole("listbox", { name: "Move Board to group" });
-    await user.click(within(listbox).getByRole("option", { name: /Knowledge/ }));
+    await user.click(within(listbox).getByRole("option", { name: /Agent setup/ }));
 
     const layout = storedLayout();
-    expect(layout.groups.find((group: { id: string }) => group.id === "plan").items).not.toContain(
+    expect(layout.groups.find((group: { id: string }) => group.id === "planning").items).not.toContain(
       "board"
     );
     expect(
-      layout.groups.find((group: { id: string }) => group.id === "knowledge").items
+      layout.groups.find((group: { id: string }) => group.id === "agent-setup").items
     ).toContain("board");
   });
 
@@ -77,14 +77,14 @@ describe("SidebarCustomizePanel", () => {
     render(<SidebarCustomizePanel open onClose={() => {}} />);
 
     await user.click(screen.getByRole("button", { name: /Add group/ }));
-    expect(storedLayout().groups).toHaveLength(6);
+    expect(storedLayout().groups).toHaveLength(5);
     const input = screen.getByRole("textbox", { name: "Rename New group" });
     expect(input).toHaveFocus();
     await user.keyboard("My tools{Enter}");
     expect(screen.getByRole("button", { name: "My tools" })).toHaveFocus();
 
     await user.click(screen.getByRole("button", { name: "Remove My tools" }));
-    expect(storedLayout().groups).toHaveLength(5);
+    expect(storedLayout().groups).toHaveLength(4);
   });
 
   it("requires a second click to reset the layout", async () => {
@@ -93,7 +93,7 @@ describe("SidebarCustomizePanel", () => {
 
     await user.click(screen.getByRole("button", { name: /Add group/ }));
     await user.click(screen.getByRole("button", { name: "Reset to default" }));
-    expect(storedLayout().groups).toHaveLength(6);
+    expect(storedLayout().groups).toHaveLength(5);
 
     await user.click(screen.getByRole("button", { name: "Confirm reset" }));
     expect(storedLayout().groups).toEqual(defaultSidebarLayout().groups);
@@ -113,11 +113,11 @@ describe("SidebarCustomizePanel", () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     render(<SidebarCustomizePanel open onClose={onClose} />);
-    await user.click(screen.getByRole("button", { name: "Plan" }));
-    await user.type(screen.getByRole("textbox", { name: "Rename Plan" }), "Changed{Escape}");
+    await user.click(screen.getByRole("button", { name: "Planning" }));
+    await user.type(screen.getByRole("textbox", { name: "Rename Planning" }), "Changed{Escape}");
     expect(onClose).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Plan" })).toHaveFocus();
-    expect(storedLayout().groups.find((group: { id: string }) => group.id === "plan").label).toBe("Plan");
+    expect(screen.getByRole("button", { name: "Planning" })).toHaveFocus();
+    expect(storedLayout().groups.find((group: { id: string }) => group.id === "planning").label).toBe("Planning");
     await user.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledOnce();
   });
