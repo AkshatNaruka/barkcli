@@ -12,6 +12,7 @@ import {
   type DesktopProject,
 } from "../lib/desktop";
 import { openInEditor, fetchReviewQueue } from "../lib/api";
+import { readLocal, writeLocal } from "../lib/drafts";
 import type { ProjectSnapshot } from "../lib/types";
 
 export interface ProjectNavbarProps {
@@ -105,6 +106,7 @@ export function ProjectNavbar({
 }: ProjectNavbarProps) {
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
   const [editorMenuOpen, setEditorMenuOpen] = useState(false);
+  const [selectedEditor, setSelectedEditor] = useState<string>(() => readLocal("bark:preferred-editor") || "vscode");
   const [recent, setRecent] = useState<DesktopProject[]>([]);
   const [reviewCount, setReviewCount] = useState<number>(0);
 
@@ -150,16 +152,44 @@ export function ProjectNavbar({
     await switchProject(p.path, target);
   };
 
-  const handleOpenEditor = async (editor: string) => {
+  const handleOpenEditor = async (editor: string = selectedEditor) => {
+    setSelectedEditor(editor);
+    writeLocal("bark:preferred-editor", editor);
     setEditorMenuOpen(false);
+    const root = projectRoot || project?.root || "";
     if (editor === "finder") {
-      await revealProject(projectRoot || undefined);
+      if (isDesktop()) {
+        const ok = await revealProject(root || undefined);
+        if (ok) return;
+      }
+      await openInEditor(root, undefined, undefined, "finder");
     } else if (editor === "terminal") {
-      await openTerminal(projectRoot || undefined);
+      if (isDesktop()) {
+        const ok = await openTerminal(root || undefined);
+        if (ok) return;
+      }
+      await openInEditor(root, undefined, undefined, "terminal");
     } else {
-      await openInEditor(projectRoot || "", undefined, undefined, editor);
+      await openInEditor(root, undefined, undefined, editor);
     }
   };
+
+  const getEditorBadge = (id: string) => {
+    switch (id) {
+      case "antigravity":
+        return { label: "Open in Antigravity", icon: <AntigravityIcon size={13} /> };
+      case "rider":
+        return { label: "Open in Rider", icon: <RiderIcon size={13} /> };
+      case "finder":
+        return { label: "Open in Finder", icon: <FinderIcon size={13} /> };
+      case "terminal":
+        return { label: "Open in Terminal", icon: <Icon name="terminal" size={13} /> };
+      case "vscode":
+      default:
+        return { label: "Open in VS Code", icon: <VsCodeIcon size={13} /> };
+    }
+  };
+  const currentBadge = getEditorBadge(selectedEditor);
 
   // Git state
   const git = project?.git;
@@ -264,61 +294,87 @@ export function ProjectNavbar({
             </span>
           </div>
 
-          {/* Open in Editor Dropdown */}
-          <div ref={editorDropdownRef} className="relative">
-            <button
-              type="button"
-              onClick={() => setEditorMenuOpen((o) => !o)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-surface hover:bg-card border border-border text-text text-xs font-medium transition-colors cursor-pointer shadow-xs"
-              title="Open project in external editor"
-            >
-              <VsCodeIcon size={13} />
-              <span>Open in VS Code</span>
-              <Icon name="chevDown" size={11} className="text-muted ml-0.5" />
-            </button>
+          {/* Open in Editor Split Button */}
+          <div ref={editorDropdownRef} className="relative flex items-center">
+            <div className="inline-flex items-center rounded-md bg-surface border border-border text-text text-xs font-medium transition-colors shadow-xs hover:border-border/80">
+              <button
+                type="button"
+                onClick={() => void handleOpenEditor(selectedEditor)}
+                className="flex items-center gap-1.5 px-3 py-1 hover:bg-white/[0.06] text-text text-xs font-medium transition-colors cursor-pointer rounded-l-md"
+                title={`${currentBadge.label} (${projectRoot || project?.root || "project root"})`}
+              >
+                {currentBadge.icon}
+                <span>{currentBadge.label}</span>
+              </button>
+              <div className="w-[1px] h-3.5 bg-border/60" />
+              <button
+                type="button"
+                onClick={() => setEditorMenuOpen((o) => !o)}
+                className="px-1.5 py-1 hover:bg-white/[0.06] text-muted hover:text-text transition-colors cursor-pointer rounded-r-md"
+                title="Select external editor or tool"
+                aria-label="Select external editor or tool"
+              >
+                <Icon name="chevDown" size={11} className={editorMenuOpen ? "rotate-180 transition-transform" : "transition-transform"} />
+              </button>
+            </div>
 
             {editorMenuOpen && (
               <div className="absolute right-0 top-9 w-48 bg-card border border-border/80 rounded-xl shadow-2xl p-1 z-50 text-xs backdrop-blur-xl animate-in fade-in zoom-in-95">
                 <button
                   type="button"
                   onClick={() => void handleOpenEditor("vscode")}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-white/[0.06] text-text transition-colors cursor-pointer text-left"
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-text transition-colors cursor-pointer text-left ${selectedEditor === "vscode" ? "bg-accent/15 text-accent font-medium" : "hover:bg-white/[0.06]"}`}
                 >
-                  <VsCodeIcon size={14} />
-                  <span>VS Code</span>
+                  <span className="flex items-center gap-2.5">
+                    <VsCodeIcon size={14} />
+                    <span>VS Code</span>
+                  </span>
+                  {selectedEditor === "vscode" && <span className="w-1.5 h-1.5 rounded-full bg-accent" />}
                 </button>
                 <button
                   type="button"
                   onClick={() => void handleOpenEditor("antigravity")}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-white/[0.06] text-text transition-colors cursor-pointer text-left"
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-text transition-colors cursor-pointer text-left ${selectedEditor === "antigravity" ? "bg-accent/15 text-accent font-medium" : "hover:bg-white/[0.06]"}`}
                 >
-                  <AntigravityIcon size={14} />
-                  <span>Antigravity</span>
+                  <span className="flex items-center gap-2.5">
+                    <AntigravityIcon size={14} />
+                    <span>Antigravity</span>
+                  </span>
+                  {selectedEditor === "antigravity" && <span className="w-1.5 h-1.5 rounded-full bg-accent" />}
                 </button>
                 <button
                   type="button"
                   onClick={() => void handleOpenEditor("rider")}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-white/[0.06] text-text transition-colors cursor-pointer text-left"
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-text transition-colors cursor-pointer text-left ${selectedEditor === "rider" ? "bg-accent/15 text-accent font-medium" : "hover:bg-white/[0.06]"}`}
                 >
-                  <RiderIcon size={14} />
-                  <span>Rider</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleOpenEditor("finder")}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-white/[0.06] text-text transition-colors cursor-pointer text-left"
-                >
-                  <FinderIcon size={14} />
-                  <span>Finder</span>
+                  <span className="flex items-center gap-2.5">
+                    <RiderIcon size={14} />
+                    <span>Rider</span>
+                  </span>
+                  {selectedEditor === "rider" && <span className="w-1.5 h-1.5 rounded-full bg-accent" />}
                 </button>
                 <div className="border-t border-border/40 my-1" />
                 <button
                   type="button"
-                  onClick={() => void handleOpenEditor("terminal")}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-white/[0.06] text-text transition-colors cursor-pointer text-left"
+                  onClick={() => void handleOpenEditor("finder")}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-text transition-colors cursor-pointer text-left ${selectedEditor === "finder" ? "bg-accent/15 text-accent font-medium" : "hover:bg-white/[0.06]"}`}
                 >
-                  <Icon name="terminal" size={14} />
-                  <span>Terminal</span>
+                  <span className="flex items-center gap-2.5">
+                    <FinderIcon size={14} />
+                    <span>Finder</span>
+                  </span>
+                  {selectedEditor === "finder" && <span className="w-1.5 h-1.5 rounded-full bg-accent" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleOpenEditor("terminal")}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-text transition-colors cursor-pointer text-left ${selectedEditor === "terminal" ? "bg-accent/15 text-accent font-medium" : "hover:bg-white/[0.06]"}`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Icon name="terminal" size={14} />
+                    <span>Terminal</span>
+                  </span>
+                  {selectedEditor === "terminal" && <span className="w-1.5 h-1.5 rounded-full bg-accent" />}
                 </button>
               </div>
             )}

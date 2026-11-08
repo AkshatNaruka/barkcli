@@ -6826,10 +6826,14 @@ async fn open_file_handler(
         req.editor.as_deref(),
     )
     .map_err(|e| ServerError::bad(e.to_string()))?;
+    let path_display = if req.path.trim().is_empty() || req.path == "." || std::path::Path::new(&req.path).is_absolute() {
+        ".".to_string()
+    } else {
+        barkcli_core::repo::normalize_relative(&req.path).unwrap_or_else(|_| ".".to_string())
+    };
     Ok(Json(serde_json::json!({
         "opened": true,
-        "path": barkcli_core::repo::normalize_relative(&req.path)
-            .map_err(|e| ServerError::bad(e.to_string()))?,
+        "path": path_display,
         "editor": editor,
     })))
 }

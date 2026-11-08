@@ -3,7 +3,7 @@ import { WORKBENCH_SURFACES, type WorkbenchTab } from "../lib/workbench";
 import { Icon, type IconName } from "../components/Icon";
 import type { ReviewState, RunGate, ThreadDetail, ProjectSnapshot, WorktreeInfo } from "../lib/types";
 import { fetchReview, fetchRunGate, fetchWorktrees, gitCommit, gitPush, openInEditor, runProjectCommand } from "../lib/api";
-import { revealProject } from "../lib/desktop";
+import { revealProject, openTerminal, isDesktop } from "../lib/desktop";
 import { readLocal, writeLocal } from "../lib/drafts";
 import { checkState, isActiveRun } from "../lib/run-state";
 
@@ -266,7 +266,21 @@ export function SurfacesPanel({
   const handleOpenEditor = (edId: string = preferredEditor) => {
     const root = thread?.project_root || project?.root || ".";
     if (edId === "finder") {
-      if (typeof revealProject === "function") void revealProject(root);
+      if (isDesktop()) {
+        void revealProject(root).then((ok) => {
+          if (!ok) void openInEditor(root, undefined, latestRun?.id, "finder");
+        });
+      } else {
+        void openInEditor(root, undefined, latestRun?.id, "finder");
+      }
+    } else if (edId === "terminal") {
+      if (isDesktop()) {
+        void openTerminal(root).then((ok) => {
+          if (!ok) void openInEditor(root, undefined, latestRun?.id, "terminal");
+        });
+      } else {
+        void openInEditor(root, undefined, latestRun?.id, "terminal");
+      }
     } else {
       if (typeof openInEditor === "function") void openInEditor(root, undefined, latestRun?.id, edId);
     }
@@ -990,6 +1004,8 @@ export function SurfacesPanel({
                         <RiderIcon size={14} />
                       ) : preferredEditor === "finder" ? (
                         <FinderIcon size={14} />
+                      ) : preferredEditor === "terminal" ? (
+                        <Icon name="terminal" size={14} />
                       ) : (
                         <VsCodeIcon size={14} />
                       )}
@@ -1000,7 +1016,9 @@ export function SurfacesPanel({
                             ? "Rider"
                             : preferredEditor === "finder"
                               ? "Finder"
-                              : "VS Code"}
+                              : preferredEditor === "terminal"
+                                ? "Terminal"
+                                : "VS Code"}
                       </span>
                     </button>
                     <button
@@ -1052,6 +1070,15 @@ export function SurfacesPanel({
                         >
                           <FinderIcon size={14} />
                           <span>Finder</span>
+                        </button>
+                        <div className="border-t border-border/40 my-0.5" />
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditor("terminal")}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-muted-strong hover:bg-surface/80 hover:text-text"
+                        >
+                          <Icon name="terminal" size={14} />
+                          <span>Terminal</span>
                         </button>
                       </div>
                     )}
