@@ -74,7 +74,6 @@ const DEFAULT_TOOL_GROUP: Record<string, string> = {
   history: "history-maintenance",
   timeline: "history-maintenance",
   code: "history-maintenance",
-  usage: "history-maintenance",
 };
 
 const FALLBACK_GROUP_BY_CATEGORY: Record<string, string> = {

@@ -63,6 +63,9 @@ import { BrainSurface } from "./shell/BrainSurface";
 import { AgentsSurface } from "./shell/AgentsSurface";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { CustomizePanel } from "./shell/CustomizePanel";
+import { GlobalSettingsModal } from "./components/GlobalSettingsModal";
+import { GlobalUsageModal } from "./components/GlobalUsageModal";
+import { GlobalDocsModal } from "./components/GlobalDocsModal";
 import { useTheme } from "./lib/theme";
 import { SURFACES } from "./lib/surfaces";
 import { AppRail } from "./shell/AppRail";
@@ -281,6 +284,9 @@ export function App() {
   const [projectName, setProjectName] = useState<string | null>(null);
   const [reviewCount, setReviewCount] = useState<number>(0);
   const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [usageOpen, setUsageOpen] = useState(false);
+  const [docsOpen, setDocsOpen] = useState(false);
   const [composeSeed, setComposeSeed] = useState<{
     text: string;
     nonce: number;
@@ -543,8 +549,9 @@ export function App() {
         if (window.innerWidth < 900) setSidebarOpen((open) => !open);
         else setListCollapsed((collapsed) => !collapsed);
         break;
-      case "settings": openOperationsTab("settings"); break;
-      case "usage": openOperationsTab("usage"); break;
+      case "settings": setSettingsOpen(true); break;
+      case "usage": setUsageOpen(true); break;
+      case "docs": setDocsOpen(true); break;
       case "projects": navigate("projects"); break;
       case "appearance": setCustomizeOpen(true); break;
       case "customize-sidebar": setCustomizeOpen(true); break;
@@ -986,7 +993,7 @@ export function App() {
           onDelete={form.card ? () => { handleDeleteCard(form.card!.id); setForm(null); } : undefined}
         />
       )}
-      {paletteOpen && board && (
+      {paletteOpen && (
         <CommandPalette
           board={board}
           onClose={() => setPaletteOpen(false)}
@@ -1010,6 +1017,20 @@ export function App() {
         onClose={() => setCommandRunnerOpen(false)}
       />
       <CustomizePanel open={customizeOpen} onClose={() => setCustomizeOpen(false)} />
+      <GlobalSettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        board={board}
+        onSaveBoard={doSave}
+      />
+      <GlobalUsageModal
+        open={usageOpen}
+        onClose={() => setUsageOpen(false)}
+      />
+      <GlobalDocsModal
+        open={docsOpen}
+        onClose={() => setDocsOpen(false)}
+      />
 
       {/* Toasts */}
       {toast && (

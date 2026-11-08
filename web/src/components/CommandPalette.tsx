@@ -8,7 +8,7 @@ import { APP_COMMANDS, PROJECT_TOOLS, openProjectTool } from "../lib/commands";
 import { AccessibleDialog } from "./AccessibleDialog";
 
 interface Props {
-  board: BoardType;
+  board?: BoardType | null;
   onClose: () => void;
   onNavigate: (colId: string, cardId: string) => void;
   onAddCard: (colId: string) => void;
@@ -131,40 +131,44 @@ export function CommandPalette({
     }
 
     // Cards
-    for (const card of board.cards) {
-      if (card.title.toLowerCase().includes(q)) {
-        items.push({
-          label: `${card.title}: ${card.column}`,
-          icon: "board",
-          action: () => {
-            onEditCard(card);
-            onClose();
-          },
-        });
+    if (board?.cards) {
+      for (const card of board.cards) {
+        if (card.title.toLowerCase().includes(q)) {
+          items.push({
+            label: `${card.title}: ${card.column}`,
+            icon: "board",
+            action: () => {
+              onEditCard(card);
+              onClose();
+            },
+          });
+        }
       }
     }
 
     // Commands
-    if ("new card".includes(q)) {
-      items.push({
-        label: "New card",
-        icon: "board",
-        action: () => {
-          onAddCard(board.columns[0]?.id || "todo");
-          onClose();
-        },
-      });
-    }
-    for (const col of board.columns) {
-      if (`add to ${col.name}`.toLowerCase().includes(q)) {
+    if (board) {
+      if ("new card".includes(q)) {
         items.push({
-          label: `Add to ${col.name}`,
+          label: "New card",
           icon: "board",
           action: () => {
-            onAddCard(col.id);
+            onAddCard(board.columns[0]?.id || "todo");
             onClose();
           },
         });
+      }
+      for (const col of board.columns) {
+        if (`add to ${col.name}`.toLowerCase().includes(q)) {
+          items.push({
+            label: `Add to ${col.name}`,
+            icon: "board",
+            action: () => {
+              onAddCard(col.id);
+              onClose();
+            },
+          });
+        }
       }
     }
 

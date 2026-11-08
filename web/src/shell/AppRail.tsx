@@ -35,7 +35,7 @@ export function AppRail({
   surface: Surface;
   onNavigate: (s: Surface) => void;
   onCustomize: () => void;
-  counts: RailCounts;
+  counts?: RailCounts;
   projectName?: string | null;
   projectRoot?: string;
   projectReady?: boolean;
@@ -72,10 +72,10 @@ export function AppRail({
     .filter((s): s is (typeof SURFACES)[number] => Boolean(s) && !hidden.includes(s!.id));
 
   const badge = (id: Surface) => {
-    if (id === "chat") return counts.chat;
-    if (id === "board") return counts.board;
-    if (id === "agents") return counts.agents;
-    if (id === "review") return counts.review || 0;
+    if (id === "chat") return counts?.chat ?? 0;
+    if (id === "board") return counts?.board ?? 0;
+    if (id === "agents") return counts?.agents ?? 0;
+    if (id === "review") return counts?.review ?? 0;
     return 0;
   };
 
@@ -205,12 +205,12 @@ export function AppRail({
         <button
           type="button"
           className="app-rail-item"
-          onClick={() => onCommand("quick-open")}
-          title="Quick open a file (⌘P)"
-          aria-label="Quick open a file"
+          onClick={() => onCommand("docs")}
+          title="Documentation & Guides"
+          aria-label="Documentation and guides"
         >
           <Icon name="doc" size={17} />
-          {labels && <span className="app-rail-item-label">Quick open</span>}
+          {labels && <span className="app-rail-item-label">Docs</span>}
         </button>
         <button
           type="button"
@@ -236,7 +236,7 @@ export function AppRail({
           type="button"
           className="app-rail-item"
           onClick={onCustomize}
-          title="Appearance (⌘,)"
+          title="Appearance"
           aria-label="Appearance"
         >
           <Icon name="palette" size={17} />
@@ -246,7 +246,7 @@ export function AppRail({
           type="button"
           className="app-rail-item"
           onClick={() => onCommand("settings")}
-          title="Settings"
+          title="Settings (⌘,)"
           aria-label="Settings"
         >
           <Icon name="gear" size={17} />

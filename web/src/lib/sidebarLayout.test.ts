@@ -37,7 +37,7 @@ describe("sidebar layout", () => {
     expect(new Set(layout.groups.flatMap((group) => group.items)).size).toBe(SIDEBAR_TOOLS.length);
     expect(layout.groups.find((group) => group.id === "planning")?.items).toEqual(["board", "sprints", "calendar", "reports", "review", "brain-3d"]);
     expect(layout.groups.find((group) => group.id === "agent-setup")?.items).toEqual(["rules", "agents", "orchestra", "skills", "memory", "graph", "context", "workspace", "agent-api"]);
-    expect(layout.groups.find((group) => group.id === "history-maintenance")?.items).toEqual(["automations", "history", "timeline", "code", "usage"]);
+    expect(layout.groups.find((group) => group.id === "history-maintenance")?.items).toEqual(["automations", "history", "timeline", "code"]);
   });
 
   it("repairs and migrates a partial legacy layout and appends new tools to their default group", () => {

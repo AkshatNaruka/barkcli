@@ -62,16 +62,20 @@ function providerState(provider: ProviderStatus): { label: string; tone: string 
 export function SettingsView({
   board,
   onSaveBoard,
-  initialSection = "project",
+  initialSection,
 }: {
-  board: BoardType;
-  onSaveBoard: (b: BoardType) => void;
+  board?: BoardType | null;
+  onSaveBoard?: (b: BoardType) => void;
   initialSection?: SettingsSection;
 }) {
-  const [section, setSection] = useState<SettingsSection>(initialSection);
-  const [title, setTitle] = useState(board.title);
-  const [description, setDescription] = useState(board.description || "");
-  const [cols, setCols] = useState(board.columns.map((c) => ({ id: c.id, name: c.name })));
+  const [section, setSection] = useState<SettingsSection>(
+    initialSection || (board ? "project" : "projects")
+  );
+  const [title, setTitle] = useState(board?.title || "");
+  const [description, setDescription] = useState(board?.description || "");
+  const [cols, setCols] = useState(
+    board ? board.columns.map((c) => ({ id: c.id, name: c.name })) : []
+  );
   const [ai, setAi] = useState<BoardConfig["ai"] | null>(null);
   const { theme, setTheme } = useTheme();
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
@@ -83,10 +87,12 @@ export function SettingsView({
   const [authNote, setAuthNote] = useState<string | null>(null);
 
   useEffect(() => {
-    setTitle(board.title);
-    setDescription(board.description || "");
-    setCols(board.columns.map((c) => ({ id: c.id, name: c.name })));
-  }, [board.title, board.description, board.columns]);
+    if (board) {
+      setTitle(board.title);
+      setDescription(board.description || "");
+      setCols(board.columns.map((c) => ({ id: c.id, name: c.name })));
+    }
+  }, [board?.title, board?.description, board?.columns]);
 
   useEffect(() => {
     fetchConfig().then((c) => setAi(c?.ai ?? null)).catch(() => setAi(null));
@@ -117,13 +123,16 @@ export function SettingsView({
     [cols]
   );
 
-  const dirty =
-    title.trim() !== board.title ||
-    (description.trim() || "") !== (board.description || "") ||
-    JSON.stringify(normalized) !==
-      JSON.stringify(board.columns.map((column) => ({ id: column.id, name: column.name })));
+  const dirty = Boolean(
+    board &&
+      (title.trim() !== board.title ||
+        (description.trim() || "") !== (board.description || "") ||
+        JSON.stringify(normalized) !==
+          JSON.stringify(board.columns.map((column) => ({ id: column.id, name: column.name }))))
+  );
 
   const saveProject = () => {
+    if (!board || !onSaveBoard) return;
     const removed = new Set(
       board.columns
         .map((column) => column.id)
@@ -232,10 +241,10 @@ export function SettingsView({
     <div className="settings-shell">
       <nav className="settings-nav" aria-label="Settings sections">
         <div className="settings-nav-head">
-          <span className="settings-nav-eyebrow">Project settings</span>
-          <strong>{board.title || "This project"}</strong>
+          <span className="settings-nav-eyebrow">Settings</span>
+          <strong>{board?.title || "Preferences"}</strong>
         </div>
-        {SECTIONS.map((item) => {
+        {SECTIONS.filter((item) => (item.id === "project" ? Boolean(board) : true)).map((item) => {
           const active = section === item.id;
           return (
             <button
@@ -343,9 +352,11 @@ export function SettingsView({
                 type="button"
                 className="bark-button"
                 onClick={() => {
-                  setTitle(board.title);
-                  setDescription(board.description || "");
-                  setCols(board.columns.map((column) => ({ id: column.id, name: column.name })));
+                  if (board) {
+                    setTitle(board.title);
+                    setDescription(board.description || "");
+                    setCols(board.columns.map((column) => ({ id: column.id, name: column.name })));
+                  }
                 }}
                 disabled={!dirty}
               >

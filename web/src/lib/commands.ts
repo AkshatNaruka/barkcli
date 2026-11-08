@@ -31,7 +31,6 @@ export const PROJECT_TOOLS: ProjectTool[] = [
   { id: "history", label: "History", group: "History & maintenance", icon: "history", destination: { route: "history" }, hint: "Runs, gates, diffs, and sessions." },
   { id: "timeline", label: "Checkpoints", group: "History & maintenance", icon: "clock", destination: { route: "operations", tool: "timeline" }, keywords: "undo diff blame timeline", hint: "Undo, diffs, and restore points." },
   { id: "code", label: "Code search", group: "History & maintenance", icon: "code", destination: { route: "operations", tool: "code" }, hint: "Symbols and file references." },
-  { id: "usage", label: "Usage & Limits", group: "History & maintenance", icon: "chart", destination: { route: "operations", tool: "usage" }, keywords: "tokens cost analytics models limits", hint: "Token consumption, cache savings, model breakdowns, and estimated cost." },
   { id: "agent-api", label: "Agent API", group: "Agent setup", icon: "robot", destination: { route: "operations", tool: "agent" }, keywords: "mcp instructions", hint: "Local API and MCP access." },
 ];
 
@@ -55,7 +54,9 @@ export const APP_COMMANDS: AppCommand[] = [
   { id: "quick-open", label: "Quick open file", icon: "search", shortcut: "p", modifiers: "mod" },
   { id: "command-runner", label: "Run project command", icon: "terminal", shortcut: "r", modifiers: "mod+shift" },
   { id: "command-palette", label: "Search or command", icon: "search", shortcut: "k", modifiers: "mod" },
+  { id: "docs", label: "Documentation & Guides", icon: "doc" },
   { id: "usage", label: "Usage & Limits", icon: "chart", shortcut: "u", modifiers: "mod" },
+  { id: "appearance", label: "Appearance & Theme", icon: "palette" },
   { id: "settings", label: "Settings", icon: "gear", shortcut: ",", modifiers: "mod" },
   { id: "customize-sidebar", label: "Customize sidebar", icon: "sliders" },
   { id: "open-terminal", label: "Open terminal", icon: "terminal", shortcut: "t", modifiers: "mod+shift" },
