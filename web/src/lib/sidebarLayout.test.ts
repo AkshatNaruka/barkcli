@@ -35,7 +35,7 @@ describe("sidebar layout", () => {
     ]);
     expect(layout.groups.flatMap((group) => group.items)).toHaveLength(SIDEBAR_TOOLS.length);
     expect(new Set(layout.groups.flatMap((group) => group.items)).size).toBe(SIDEBAR_TOOLS.length);
-    expect(layout.groups.find((group) => group.id === "planning")?.items).toEqual(["board", "sprints", "calendar", "reports"]);
+    expect(layout.groups.find((group) => group.id === "planning")?.items).toEqual(["board", "sprints", "calendar", "reports", "review", "brain-3d"]);
     expect(layout.groups.find((group) => group.id === "agent-setup")?.items).toEqual(["rules", "agents", "orchestra", "skills", "memory", "graph", "context", "workspace", "agent-api"]);
     expect(layout.groups.find((group) => group.id === "history-maintenance")?.items).toEqual(["automations", "history", "timeline", "code", "usage"]);
   });
@@ -56,7 +56,7 @@ describe("sidebar layout", () => {
       "agent-setup",
       "history-maintenance",
     ]);
-    expect(layout.groups[0]).toMatchObject({ id: "planning", label: "Ship it", items: ["board", "sprints", "calendar", "reports"] });
+    expect(layout.groups[0]).toMatchObject({ id: "planning", label: "Ship it", items: ["board", "sprints", "calendar", "reports", "review", "brain-3d"] });
     expect(layout.groups[1].items).toEqual(["chat"]);
     expect(layout.hidden).toEqual(["board"]);
     expect(layout.groups.flatMap((group) => group.items)).toHaveLength(SIDEBAR_TOOLS.length);
@@ -89,7 +89,7 @@ describe("sidebar layout", () => {
   it("drops before the indicated row when moving downward in the same group", () => {
     const layout = moveItemToGroup(defaultSidebarLayout(), "board", "planning", 2);
     expect(layout.groups.find((group) => group.id === "planning")?.items).toEqual([
-      "sprints", "board", "calendar", "reports",
+      "sprints", "board", "calendar", "reports", "review", "brain-3d",
     ]);
   });
 

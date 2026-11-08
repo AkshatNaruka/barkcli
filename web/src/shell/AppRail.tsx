@@ -8,6 +8,7 @@ export interface RailCounts {
   chat: number;
   board: number;
   agents: number;
+  review?: number;
 }
 
 /**
@@ -74,6 +75,7 @@ export function AppRail({
     if (id === "chat") return counts.chat;
     if (id === "board") return counts.board;
     if (id === "agents") return counts.agents;
+    if (id === "review") return counts.review || 0;
     return 0;
   };
 
@@ -82,7 +84,9 @@ export function AppRail({
       ? "bg-success/20 text-success"
       : id === "chat"
         ? "bg-warning/20 text-warning"
-        : "bg-white/[0.07] text-muted-strong";
+        : id === "review"
+          ? "bg-accent/20 text-accent font-mono font-medium"
+          : "bg-white/[0.07] text-muted-strong";
 
   const initial = (projectName || "b").replace(/[^a-z0-9]/gi, "").slice(0, 1).toLowerCase() || "b";
 

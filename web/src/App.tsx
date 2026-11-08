@@ -13,6 +13,7 @@ import type {
 import {
   fetchBoard,
   fetchBoards,
+  fetchReviewQueue,
   fetchSprints,
   fetchCardContext,
   fetchHistory,
@@ -278,6 +279,7 @@ export function App() {
   const [quickOpenOpen, setQuickOpenOpen] = useState(false);
   const [commandRunnerOpen, setCommandRunnerOpen] = useState(false);
   const [projectName, setProjectName] = useState<string | null>(null);
+  const [reviewCount, setReviewCount] = useState<number>(0);
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [composeSeed, setComposeSeed] = useState<{
     text: string;
@@ -380,11 +382,17 @@ export function App() {
 
   useEffect(() => {
     loadBoard(boardName, true);
+    fetchReviewQueue(boardName || undefined)
+      .then(({ items }) => setReviewCount(items.length))
+      .catch(() => {});
     const cleanWs = connectWs((version) => {
       if (seenReloadVersionsRef.current.has(version)) return;
       seenReloadVersionsRef.current.add(version);
       if (skipReloadRef.current) return; // our own debounced save
       loadBoard(boardName, false);
+      fetchReviewQueue(boardName || undefined)
+        .then(({ items }) => setReviewCount(items.length))
+        .catch(() => {});
     });
     return cleanWs;
   }, [boardName, loadBoard]);
@@ -792,7 +800,7 @@ export function App() {
         surface={route}
         onNavigate={(next) => { setSidebarOpen(false); navigate(next, { board: boardName || undefined }); }}
         onCustomize={() => setCustomizeOpen(true)}
-        counts={{ chat: 0, board: boardOpen, agents: projectInfo?.counts.agents || 0 }}
+        counts={{ chat: 0, board: boardOpen, agents: projectInfo?.counts.agents || 0, review: reviewCount }}
         projectName={projectName}
         projectRoot={projectInfo?.root || projectRoot || ""}
         projectReady={projectReady}
@@ -892,6 +900,12 @@ export function App() {
             />
           )}
           {route === "board" && !board && <SurfaceEmpty label="Loading board…" />}
+
+          {route === "review" && (
+            <Suspense fallback={<div className="flex h-full items-center justify-center text-[12px] text-muted">Loading review…</div>}>
+              <ReviewSurface boardName={boardName || boardList[0] || null} />
+            </Suspense>
+          )}
 
           {route === "agents" && (
             <AgentsSurface

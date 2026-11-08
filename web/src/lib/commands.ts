@@ -19,6 +19,8 @@ export const PROJECT_TOOLS: ProjectTool[] = [
   { id: "sprints", label: "Sprints", group: "Planning", icon: "cycle", destination: { route: "agents", tool: "sprints" }, hint: "Cycle planning and delivery." },
   { id: "calendar", label: "Calendar", group: "Planning", icon: "calendar", destination: { route: "operations", tool: "calendar" }, hint: "Due dates and reminders." },
   { id: "reports", label: "Reports", group: "Planning", icon: "chart", destination: { route: "operations", tool: "reports" }, hint: "Velocity, burndown, and summaries." },
+  { id: "review", label: "Review", group: "Planning", icon: "eye", destination: { route: "review" }, hint: "Passing pull requests, worktree diffs, and verification evidence." },
+  { id: "brain-3d", label: "Brain (3D)", group: "Planning", icon: "spark", destination: { route: "brain", tool: "graph" }, hint: "Structural repository architecture, subsystems, and invariants." },
   { id: "agents", label: "Agents", group: "Agent setup", icon: "users", destination: { route: "agents", tool: "team" }, keywords: "team providers", hint: "Team, provider readiness, and profiles." },
   { id: "orchestra", label: "Orchestration", group: "Agent setup", icon: "pulse", destination: { route: "agents", tool: "orchestra" }, hint: "Task queue and active agent runs." },
   { id: "skills", label: "Skills", group: "Agent setup", icon: "star", destination: { route: "skills" }, hint: "Installed capabilities and bundles." },

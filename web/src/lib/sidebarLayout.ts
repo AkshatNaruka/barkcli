@@ -59,6 +59,8 @@ const DEFAULT_TOOL_GROUP: Record<string, string> = {
   sprints: "planning",
   calendar: "planning",
   reports: "planning",
+  review: "planning",
+  "brain-3d": "planning",
   rules: "agent-setup",
   agents: "agent-setup",
   orchestra: "agent-setup",
