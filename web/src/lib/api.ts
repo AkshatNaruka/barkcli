@@ -977,21 +977,61 @@ export async function digestContextFile(name?: string, polish = false): Promise<
 
 // ── Brain API ──
 
+export interface NodeEvidence {
+  files?: string[];
+  symbols?: string[];
+  commit_sha?: string;
+  session_id?: string;
+}
+
+export type BrainNodeKind =
+  | "subsystem"
+  | "module"
+  | "service"
+  | "api"
+  | "model"
+  | "decision"
+  | "convention"
+  | "pitfall"
+  | "invariant"
+  | "fact"
+  | "memory"
+  | "session"
+  | "card"
+  | "agent";
+
 export interface BrainNode {
   id: string;
   label: string;
-  kind: "memory" | "fact" | "session" | "card" | "agent";
+  kind: BrainNodeKind;
   tier?: string;
   importance: number;
   access_count: number;
   tags: string[];
   created_at: string;
+  description?: string;
+  evidence?: NodeEvidence;
 }
+
+export type BrainEdgeKind =
+  | "depends_on"
+  | "calls"
+  | "contains"
+  | "implements"
+  | "constrained_by"
+  | "addresses"
+  | "tested_by"
+  | "related"
+  | "derived_from"
+  | "touched_card"
+  | "same_session"
+  | "produced_by"
+  | "fact_of";
 
 export interface BrainEdge {
   from: string;
   to: string;
-  kind: string;
+  kind: BrainEdgeKind | string;
   weight: number;
 }
 

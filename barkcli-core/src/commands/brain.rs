@@ -124,8 +124,17 @@ fn truncate(s: &str, max: usize) -> String {
 
 fn kind_str(k: crate::brain::graph::NodeKind) -> &'static str {
     match k {
-        crate::brain::graph::NodeKind::Memory => "memory",
+        crate::brain::graph::NodeKind::Subsystem => "subsystem",
+        crate::brain::graph::NodeKind::Module => "module",
+        crate::brain::graph::NodeKind::Service => "service",
+        crate::brain::graph::NodeKind::Api => "api",
+        crate::brain::graph::NodeKind::Model => "model",
+        crate::brain::graph::NodeKind::Decision => "decision",
+        crate::brain::graph::NodeKind::Convention => "convention",
+        crate::brain::graph::NodeKind::Pitfall => "pitfall",
+        crate::brain::graph::NodeKind::Invariant => "invariant",
         crate::brain::graph::NodeKind::Fact => "fact",
+        crate::brain::graph::NodeKind::Memory => "memory",
         crate::brain::graph::NodeKind::Session => "session",
         crate::brain::graph::NodeKind::Card => "card",
         crate::brain::graph::NodeKind::Agent => "agent",

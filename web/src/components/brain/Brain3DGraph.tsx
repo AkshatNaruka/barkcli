@@ -21,13 +21,22 @@ export interface Brain3DGraphProps {
 // Color palette inspired by second-brain-os with barkcli dark aesthetic
 const KIND_COLORS: Record<string, string> = {
   root: "#ffffff",
-  memory: "#60a5fa",   // blue
-  fact: "#34d399",     // emerald
-  session: "#fbbf24",  // amber
-  card: "#a78bfa",     // purple
-  agent: "#f43f5e",    // rose
-  skill: "#38bdf8",    // sky
-  hub: "#c084fc",      // lilac
+  subsystem: "#38bdf8",  // bright cyan
+  module: "#60a5fa",     // cobalt blue
+  service: "#a855f7",    // purple
+  api: "#f59e0b",        // amber
+  model: "#ec4899",      // pink
+  decision: "#10b981",   // emerald
+  convention: "#14b8a6", // teal
+  pitfall: "#f43f5e",    // rose red
+  invariant: "#f97316",  // orange
+  fact: "#84cc16",       // lime
+  memory: "#94a3b8",     // slate
+  card: "#a78bfa",      // purple
+  agent: "#f43f5e",     // rose
+  session: "#fbbf24",   // amber
+  skill: "#38bdf8",     // sky
+  hub: "#c084fc",       // lilac
 };
 
 // Soft rim shader for hubs and major nodes (from second-brain-os)
@@ -492,7 +501,48 @@ export function Brain3DGraph({
               <p className="text-[11.5px] font-mono text-muted/60 mt-1 break-all">
                 {selectedNode.id}
               </p>
+              {selectedNode.description && (
+                <p className="text-xs text-text/80 mt-2 p-2 rounded-md bg-card/60 border border-border/40 leading-relaxed">
+                  {selectedNode.description}
+                </p>
+              )}
             </div>
+
+            {/* Evidence & Provenance */}
+            {selectedNode.evidence && (selectedNode.evidence.files?.length || selectedNode.evidence.symbols?.length || selectedNode.evidence.commit_sha) ? (
+              <div className="p-2.5 rounded-lg bg-bg/50 border border-border/50 text-[11px] space-y-2">
+                <span className="text-[10px] uppercase font-mono tracking-wider text-muted block">Evidence & Source</span>
+                {selectedNode.evidence.files && selectedNode.evidence.files.length > 0 && (
+                  <div>
+                    <span className="text-muted block text-[10px]">Files:</span>
+                    <div className="flex flex-col gap-0.5 mt-0.5">
+                      {selectedNode.evidence.files.map((f) => (
+                        <span key={f} className="font-mono text-accent text-[10.5px] truncate" title={f}>
+                          {f}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {selectedNode.evidence.symbols && selectedNode.evidence.symbols.length > 0 && (
+                  <div>
+                    <span className="text-muted block text-[10px]">Symbols:</span>
+                    <div className="flex flex-wrap gap-1 mt-0.5">
+                      {selectedNode.evidence.symbols.map((sym) => (
+                        <span key={sym} className="px-1.5 py-0.5 rounded bg-card border border-border/60 font-mono text-[10px] text-text">
+                          {sym}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {selectedNode.evidence.commit_sha && (
+                  <div className="text-[10px] font-mono text-muted/70">
+                    Commit: <span className="text-text">{selectedNode.evidence.commit_sha.slice(0, 8)}</span>
+                  </div>
+                )}
+              </div>
+            ) : null}
 
             {/* Metrics */}
             <div className="grid grid-cols-2 gap-2 p-2.5 rounded-lg bg-bg/50 border border-border/50 text-[11px]">

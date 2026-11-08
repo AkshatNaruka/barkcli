@@ -45,141 +45,10 @@ export function BrainView({
     let active = true;
     async function loadData() {
       try {
-        const [g, facts, mems, threads] = await Promise.all([
-          fetchBrain(boardName || undefined),
-          fetchFacts(boardName || undefined).catch(() => []),
-          fetchMemory(boardName || undefined).catch(() => ({ memories: [] })),
-          fetchThreads(boardName || undefined).catch(() => []),
-        ]);
-
+        const g = await fetchBrain(boardName || undefined);
         if (!active) return;
-
-        let finalNodes: BrainNode[] = [...g.nodes];
-        let finalEdges: BrainEdge[] = [...g.edges];
-
-        // If brain graph is sparse (< 5 nodes), enrich it from facts, memories, and threads
-        if (finalNodes.length < 5) {
-          const enrichedNodes: BrainNode[] = [];
-          const enrichedEdges: BrainEdge[] = [];
-          const existingIds = new Set(finalNodes.map((n) => n.id));
-
-          // Hub: Root Brain Node
-          const rootId = "root:brain";
-          if (!existingIds.has(rootId)) {
-            enrichedNodes.push({
-              id: rootId,
-              label: boardName ? `${boardName} Brain` : "Bark Brain",
-              kind: "agent",
-              importance: 1.0,
-              access_count: 42,
-              tags: ["core", "memory", "graph"],
-              created_at: new Date().toISOString(),
-            });
-            existingIds.add(rootId);
-          }
-
-          // Hubs for Categories
-          const hubs: { id: string; label: string; kind: BrainNode["kind"] }[] = [
-            { id: "hub:memories", label: "Memories Hub", kind: "memory" },
-            { id: "hub:facts", label: "Project Facts", kind: "fact" },
-            { id: "hub:sessions", label: "Active Threads", kind: "session" },
-          ];
-
-          for (const h of hubs) {
-            if (!existingIds.has(h.id)) {
-              enrichedNodes.push({
-                id: h.id,
-                label: h.label,
-                kind: h.kind,
-                importance: 0.85,
-                access_count: 15,
-                tags: [h.kind, "cluster"],
-                created_at: new Date().toISOString(),
-              });
-              existingIds.add(h.id);
-              enrichedEdges.push({
-                from: rootId,
-                to: h.id,
-                kind: "contains",
-                weight: 0.8,
-              });
-            }
-          }
-
-          // Add Memories
-          for (const m of mems.memories.slice(0, 20)) {
-            if (!existingIds.has(m.id)) {
-              enrichedNodes.push({
-                id: m.id,
-                label: m.content.slice(0, 50) + (m.content.length > 50 ? "…" : ""),
-                kind: "memory",
-                tier: m.tier,
-                importance: m.importance || 0.6,
-                access_count: m.access_count || 1,
-                tags: m.tags || ["memory"],
-                created_at: m.created_at || new Date().toISOString(),
-              });
-              existingIds.add(m.id);
-              enrichedEdges.push({
-                from: "hub:memories",
-                to: m.id,
-                kind: "derived_from",
-                weight: 0.5,
-              });
-            }
-          }
-
-          // Add Facts
-          facts.slice(0, 15).forEach((f, idx) => {
-            const factId = `fact:${idx}:${f.category}`;
-            if (!existingIds.has(factId)) {
-              enrichedNodes.push({
-                id: factId,
-                label: f.fact.slice(0, 50) + (f.fact.length > 50 ? "…" : ""),
-                kind: "fact",
-                importance: 0.75,
-                access_count: 4,
-                tags: [f.category || "convention"],
-                created_at: f.created_at || new Date().toISOString(),
-              });
-              existingIds.add(factId);
-              enrichedEdges.push({
-                from: "hub:facts",
-                to: factId,
-                kind: "fact_of",
-                weight: 0.6,
-              });
-            }
-          });
-
-          // Add Threads/Sessions
-          for (const t of threads.slice(0, 12)) {
-            if (!existingIds.has(t.id)) {
-              enrichedNodes.push({
-                id: t.id,
-                label: t.title || "Thread session",
-                kind: "session",
-                importance: t.pinned ? 0.9 : 0.5,
-                access_count: 8,
-                tags: [t.status_group || "session"],
-                created_at: t.updated_at || new Date().toISOString(),
-              });
-              existingIds.add(t.id);
-              enrichedEdges.push({
-                from: "hub:sessions",
-                to: t.id,
-                kind: "same_session",
-                weight: 0.55,
-              });
-            }
-          }
-
-          finalNodes = [...finalNodes, ...enrichedNodes];
-          finalEdges = [...finalEdges, ...enrichedEdges];
-        }
-
-        setNodes(finalNodes);
-        setEdges(finalEdges);
+        setNodes(g.nodes || []);
+        setEdges(g.edges || []);
       } finally {
         if (active) setLoading(false);
       }
@@ -274,6 +143,8 @@ export function BrainView({
         kind: n.kind,
         tier: n.tier,
         importance: n.importance,
+        description: n.description,
+        filesCount: n.evidence?.files?.length,
       } satisfies BrainNodeData,
       type: "brainNode",
     }));
@@ -402,7 +273,19 @@ export function BrainView({
               className="bg-card px-2.5 py-1.5 text-xs"
             >
               <option value="">All Kinds</option>
-              {["memory", "fact", "session", "card", "agent"].map((k) => (
+              {[
+                "subsystem",
+                "module",
+                "service",
+                "api",
+                "model",
+                "invariant",
+                "convention",
+                "decision",
+                "pitfall",
+                "fact",
+                "memory",
+              ].map((k) => (
                 <option key={k} value={k}>
                   {k}
                 </option>

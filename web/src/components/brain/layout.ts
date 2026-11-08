@@ -196,8 +196,17 @@ export const TIER: Record<string, { color: string; label: string }> = {
 
 // Kind = what the node IS (icon, resolved by our Icon set)
 export const KIND_ICON: Record<string, string> = {
-  memory: "db",
+  subsystem: "grid",
+  module: "folder",
+  service: "code",
+  api: "terminal",
+  model: "layers",
+  decision: "branch",
+  convention: "spark",
+  pitfall: "warn",
+  invariant: "flag",
   fact: "doc",
+  memory: "db",
   session: "clock",
   card: "board",
   agent: "users",

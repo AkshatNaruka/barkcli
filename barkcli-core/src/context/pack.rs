@@ -611,37 +611,86 @@ impl ContextEngine {
     }
 
     fn memory_context(&self, card: &Card, cap_tokens: usize) -> String {
-        let Ok(store) = crate::memory::store::MemoryStore::open_at(
+        let mut lines = Vec::new();
+
+        // 1. Query Codebase Brain for architectural invariants, conventions, and subsystem boundaries
+        if let Ok(graph) = crate::brain::graph::BrainGraph::load(&self.board_name) {
+            let card_text = format!(
+                "{} {} {}",
+                card.title,
+                card.description.as_deref().unwrap_or_default(),
+                card.labels.join(" ")
+            )
+            .to_lowercase();
+
+            // Extract governing Invariants (up to 3)
+            for node in graph
+                .nodes
+                .iter()
+                .filter(|n| n.kind == crate::brain::graph::NodeKind::Invariant)
+                .take(3)
+            {
+                if let Some(desc) = &node.description {
+                    lines.push(format!("- [Invariant] {}: {}", node.label, desc));
+                }
+            }
+
+            // Extract matching Conventions and Pitfalls
+            for node in graph.nodes.iter().filter(|n| {
+                n.kind == crate::brain::graph::NodeKind::Convention
+                    || n.kind == crate::brain::graph::NodeKind::Pitfall
+            }) {
+                let matches = node.tags.iter().any(|t| card_text.contains(&t.to_lowercase()))
+                    || card_text.contains(&node.label.to_lowercase());
+                if matches {
+                    let prefix = if node.kind == crate::brain::graph::NodeKind::Pitfall {
+                        "Pitfall"
+                    } else {
+                        "Convention"
+                    };
+                    lines.push(format!(
+                        "- [{}] {}",
+                        prefix,
+                        node.description.as_deref().unwrap_or(&node.label)
+                    ));
+                }
+            }
+        }
+
+        // 2. Query MemoryStore for relevant verified facts and memories (ignoring activity noise)
+        if let Ok(store) = crate::memory::store::MemoryStore::open_at(
             &self.board_name,
             self.store.board_dir(),
-        ) else {
-            return String::new();
-        };
-        let query = format!(
-            "{} {} {}",
-            card.title,
-            card.description.as_deref().unwrap_or_default(),
-            card.labels.join(" ")
-        );
-        let hits = store.search(&query, 5);
-        let mut lines = Vec::new();
-        for hit in hits {
-            lines.push(format!("- [{}] {}", hit.tier.display_name(), hit.content.trim()));
+        ) {
+            let query = format!(
+                "{} {} {}",
+                card.title,
+                card.description.as_deref().unwrap_or_default(),
+                card.labels.join(" ")
+            );
+            let hits = store.search(&query, 4);
+            for hit in hits {
+                let lower = hit.content.to_lowercase();
+                if !lower.starts_with("session worked broadly in") && !lower.contains("files touched") {
+                    lines.push(format!("- [{}] {}", hit.tier.display_name(), hit.content.trim()));
+                }
+            }
+            let mut facts = store.memory.project_facts.clone();
+            facts.sort_by(|a, b| {
+                b.confidence
+                    .partial_cmp(&a.confidence)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+            for fact in facts.into_iter().take(4) {
+                lines.push(format!("- [Fact:{}] {}", fact.category, fact.fact.trim()));
+            }
         }
-        let mut facts = store.memory.project_facts.clone();
-        facts.sort_by(|a, b| {
-            b.confidence
-                .partial_cmp(&a.confidence)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-        for fact in facts.into_iter().take(6) {
-            lines.push(format!("- [fact:{}] {}", fact.category, fact.fact.trim()));
-        }
+
         if lines.is_empty() {
             return String::new();
         }
         format!(
-            "## Relevant project memory\n\n{}",
+            "## Codebase Architecture & Invariants\n\n{}",
             truncate_tokens(&lines.join("\n"), cap_tokens)
         )
     }

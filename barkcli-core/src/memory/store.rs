@@ -307,8 +307,17 @@ impl MemoryStore {
     }
 
     /// Run the full maintenance cycle: deduplicate, promote, compress, evict.
+    /// Run the full maintenance cycle: deduplicate, promote, compress, evict, and cleanse legacy spam.
     /// Called at the end of each session ingest.
     pub fn consolidate(&mut self) -> ConsolidationReport {
+        // Cleanse legacy blast-radius session logs from memory
+        self.memory.entries.retain(|e| {
+            let lower = e.content.to_lowercase();
+            !lower.starts_with("session worked broadly in")
+                && !lower.contains("files touched")
+                && !(lower.contains("session:") && lower.contains("committed"))
+        });
+
         let deduplicated = self.deduplicate_entries();
         let promoted = self.promote_entries();
         // Compress only when short-term accumulates; recent sessions stay as

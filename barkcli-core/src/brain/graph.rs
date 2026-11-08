@@ -1,7 +1,7 @@
-//! Brain graph: nodes (memories, facts, sessions, cards, agents) connected by
-//! typed edges. Persisted at `.board/memory/<board>.graph.json`, rebuilt on
-//! every consolidation. Layers == memory tiers (Working/ShortTerm/LongTerm/
-//! External); nodes carry importance; edges carry weight.
+//! Brain graph: persistent, self-improving knowledge graph of codebase architecture,
+//! components, domain models, boundaries, and engineering knowledge (invariants,
+//! conventions, decisions, pitfalls).
+//! Persisted at `.board/memory/<board>.graph.json`, rebuilt on consolidation.
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -12,11 +12,21 @@ use serde::{Deserialize, Serialize};
 
 use crate::storage::board_dir::find_board_dir;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NodeKind {
-    Memory,
+    Subsystem,
+    Module,
+    Service,
+    Api,
+    Model,
+    Decision,
+    Convention,
+    Pitfall,
+    Invariant,
     Fact,
+    // Compatibility aliases
+    Memory,
     Session,
     Card,
     Agent,
@@ -25,12 +35,32 @@ pub enum NodeKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EdgeKind {
+    DependsOn,
+    Calls,
+    Contains,
+    Implements,
+    ConstrainedBy,
+    Addresses,
+    TestedBy,
+    Related,
+    // Compatibility aliases
     DerivedFrom,
     TouchedCard,
-    Related,
     SameSession,
     ProducedBy,
     FactOf,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct NodeEvidence {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub files: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub symbols: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commit_sha: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,13 +68,16 @@ pub struct BrainNode {
     pub id: String,
     pub label: String,
     pub kind: NodeKind,
-    /// Memory tier when kind=memory; facts map to long_term, sessions to
-    /// short_term, cards/agents to external (layer assignment).
+    /// Memory tier / architectural layer assignment (e.g. long_term, working, external).
     pub tier: Option<String>,
     pub importance: f32,
     pub access_count: u32,
     pub tags: Vec<String>,
     pub created_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evidence: Option<NodeEvidence>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -66,10 +99,20 @@ impl BrainGraph {
     pub fn load(board: &str) -> Result<Self> {
         let path = graph_path(board)?;
         if !path.exists() {
-            return Ok(Self { version: 1, ..Default::default() });
+            // Build fresh architectural graph if none exists
+            let g = Self::build(board).unwrap_or_else(|_| Self { version: 2, ..Default::default() });
+            let _ = g.save(board);
+            return Ok(g);
         }
         let content = std::fs::read_to_string(&path).context("failed to read brain graph")?;
-        Ok(serde_json::from_str(&content).unwrap_or_default())
+        let graph: Self = serde_json::from_str(&content).unwrap_or_default();
+        // If graph is v1 (legacy session-flooded) or missing architectural nodes, rebuild it
+        if graph.version < 2 || !graph.nodes.iter().any(|n| n.kind == NodeKind::Subsystem) {
+            let rebuilt = Self::build(board).unwrap_or(graph);
+            let _ = rebuilt.save(board);
+            return Ok(rebuilt);
+        }
+        Ok(graph)
     }
 
     pub fn save(&self, board: &str) -> Result<()> {
@@ -174,23 +217,107 @@ impl BrainGraph {
         ranked
     }
 
-    /// Rebuild the graph from memory entries + sessions + facts.
+    /// Rebuild the Codebase Brain graph from:
+    /// 1. Structural repository architecture analysis (subsystems, modules, services, APIs, invariants)
+    /// 2. Durable engineering knowledge (decisions, conventions, verified facts)
+    ///
+    /// Ephemeral session activity notes ("Session worked broadly in...") are strictly filtered out.
     pub fn build(board: &str) -> Result<Self> {
+        use crate::brain::analyzer::analyze_codebase;
         use crate::brain::relations;
         use crate::memory::MemoryStore;
         use crate::storage::sessions::read_sessions;
 
-        let store = MemoryStore::open(board)?;
-        let sessions = read_sessions(board)?;
-
-        let mut graph = BrainGraph { version: 1, ..Default::default() };
-
+        let mut graph = BrainGraph { version: 2, ..Default::default() };
         let mut seen: HashSet<String> = HashSet::new();
 
-        // Memory nodes (with near-duplicate collapse > 0.95 content cosine)
+        // 1. Analyze codebase structure to establish the architectural backbone
+        let (arch_nodes, arch_edges) = analyze_codebase(board);
+        for n in arch_nodes {
+            seen.insert(n.id.clone());
+            graph.nodes.push(n);
+        }
+        for e in arch_edges {
+            graph.edges.push(e);
+        }
+
+        let store = MemoryStore::open(board)?;
+        let sessions = read_sessions(board).unwrap_or_default();
+
+        // 2. Project Facts -> High confidence knowledge nodes (Decisions, Conventions, Invariants)
+        for (i, fact) in store.memory.project_facts.iter().enumerate() {
+            let id = format!("fact-{}", i);
+            if seen.contains(&id) {
+                continue;
+            }
+
+            let category_lower = fact.category.to_lowercase();
+            let kind = if category_lower.contains("decision") || category_lower.contains("adr") {
+                NodeKind::Decision
+            } else if category_lower.contains("convention") || category_lower.contains("style") {
+                NodeKind::Convention
+            } else if category_lower.contains("invariant") || category_lower.contains("rule") {
+                NodeKind::Invariant
+            } else if category_lower.contains("pitfall") || category_lower.contains("bug") {
+                NodeKind::Pitfall
+            } else {
+                NodeKind::Fact
+            };
+
+            let label: String = fact.fact.chars().take(80).collect();
+            let desc = fact.fact.clone();
+
+            graph.nodes.push(BrainNode {
+                id: id.clone(),
+                label,
+                kind,
+                tier: Some("long_term".into()),
+                importance: fact.confidence.max(0.6),
+                access_count: 5,
+                tags: vec![fact.category.clone()],
+                created_at: fact.created_at,
+                description: Some(desc),
+                evidence: Some(NodeEvidence {
+                    commit_sha: fact.sources.first().cloned(),
+                    ..Default::default()
+                }),
+            });
+            seen.insert(id.clone());
+
+            // Link fact to relevant subsystem
+            let target_subsystem = if fact.fact.contains("web") || fact.fact.contains("React") || fact.fact.contains("UI") {
+                "subsystem:web"
+            } else if fact.fact.contains("desktop") || fact.fact.contains("Tauri") {
+                "subsystem:desktop"
+            } else if fact.fact.contains("server") || fact.fact.contains("API") || fact.fact.contains("Axum") {
+                "subsystem:barkcli-server"
+            } else {
+                "subsystem:barkcli-core"
+            };
+
+            graph.edges.push(BrainEdge {
+                from: target_subsystem.into(),
+                to: id,
+                kind: EdgeKind::ConstrainedBy,
+                weight: fact.confidence,
+            });
+        }
+
+        // 3. Durable Memory entries: Filter out spam session notes
         let mut id_map: HashMap<String, String> = HashMap::new();
         let mut kept_tokens: Vec<(String, Vec<String>)> = Vec::new();
+
         for entry in &store.memory.entries {
+            // STRICT FILTER: reject activity logs and blast-radius spam
+            let content_lower = entry.content.to_lowercase();
+            if content_lower.starts_with("session worked broadly in")
+                || content_lower.contains("files touched")
+                || content_lower.ends_with("session: single prompt; committed")
+                || (content_lower.contains("session:") && content_lower.contains("committed"))
+            {
+                continue;
+            }
+
             let tokens = crate::memory::search::tokenize(&entry.content);
             let mut keep = true;
             for (keep_id, keep_tokens) in &kept_tokens {
@@ -200,106 +327,47 @@ impl BrainGraph {
                     break;
                 }
             }
+
             if keep {
                 kept_tokens.push((entry.id.clone(), tokens));
                 id_map.insert(entry.id.clone(), entry.id.clone());
+
+                let kind = if entry.tags.iter().any(|t| t == "decision") {
+                    NodeKind::Decision
+                } else if entry.tags.iter().any(|t| t == "convention") {
+                    NodeKind::Convention
+                } else if entry.tags.iter().any(|t| t == "pitfall") {
+                    NodeKind::Pitfall
+                } else {
+                    NodeKind::Memory
+                };
+
+                let label: String = entry.content.chars().take(80).collect();
+                let desc = entry.content.clone();
+
                 graph.nodes.push(BrainNode {
                     id: entry.id.clone(),
-                    label: entry.content.chars().take(80).collect(),
-                    kind: NodeKind::Memory,
+                    label,
+                    kind,
                     tier: Some(tier_str(entry.tier)),
                     importance: entry.importance,
                     access_count: entry.access_count,
                     tags: entry.tags.clone(),
                     created_at: entry.created_at,
+                    description: Some(desc),
+                    evidence: Some(NodeEvidence {
+                        session_id: entry.source.clone(),
+                        ..Default::default()
+                    }),
                 });
                 seen.insert(entry.id.clone());
             }
         }
 
-        // Fact nodes
-        for (i, fact) in store.memory.project_facts.iter().enumerate() {
-            let id = format!("fact-{}", i);
-            graph.nodes.push(BrainNode {
-                id: id.clone(),
-                label: fact.fact.chars().take(80).collect(),
-                kind: NodeKind::Fact,
-                tier: Some("long_term".into()),
-                importance: fact.confidence,
-                access_count: 0,
-                tags: vec![fact.category.clone()],
-                created_at: fact.created_at,
-            });
-            seen.insert(id);
-        }
-
-        // Session nodes
-        for s in &sessions {
-            graph.nodes.push(BrainNode {
-                id: format!("session:{}", s.id),
-                label: s
-                    .summary
-                    .as_deref()
-                    .or(s.prompt.as_deref())
-                    .map(|t| t.chars().take(80).collect())
-                    .unwrap_or_else(|| s.id.clone()),
-                kind: NodeKind::Session,
-                tier: Some("short_term".into()),
-                importance: 0.5,
-                access_count: 0,
-                tags: s.agent.clone().map(|a| vec![format!("agent:{}", a)]).unwrap_or_default(),
-                created_at: DateTime::parse_from_rfc3339(&s.at)
-                    .map(|d| d.with_timezone(&Utc))
-                    .unwrap_or_else(|_| Utc::now()),
-            });
-        }
-
-        // Card + agent nodes discovered via sessions
-        let mut card_ids: HashSet<String> = HashSet::new();
-        let mut agent_ids: HashSet<String> = HashSet::new();
-        for s in &sessions {
-            for c in &s.matched_card_ids {
-                card_ids.insert(c.clone());
-            }
-            if let Some(a) = &s.agent {
-                agent_ids.insert(a.clone());
-            }
-        }
-        for entry in &store.memory.entries {
-            for t in &entry.tags {
-                if let Some(c) = t.strip_prefix("card:") {
-                    card_ids.insert(c.to_string());
-                }
-            }
-        }
-        for c in &card_ids {
-            graph.nodes.push(BrainNode {
-                id: format!("card:{}", c),
-                label: c.clone(),
-                kind: NodeKind::Card,
-                tier: Some("external".into()),
-                importance: 0.5,
-                access_count: 0,
-                tags: Vec::new(),
-                created_at: Utc::now(),
-            });
-        }
-        for a in &agent_ids {
-            graph.nodes.push(BrainNode {
-                id: format!("agent:{}", a),
-                label: a.clone(),
-                kind: NodeKind::Agent,
-                tier: Some("external".into()),
-                importance: 0.5,
-                access_count: 0,
-                tags: Vec::new(),
-                created_at: Utc::now(),
-            });
-        }
-
+        // 4. Build semantic relations between memories, facts, and architecture
         relations::build_edges(&mut graph, &store.memory, &sessions, &id_map);
 
-        // Dedup edges
+        // 5. Dedup edges
         let mut edge_set: HashSet<(String, String, EdgeKind)> = HashSet::new();
         graph.edges.retain(|e| edge_set.insert((e.from.clone(), e.to.clone(), e.kind)));
 
