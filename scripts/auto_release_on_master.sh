@@ -18,10 +18,10 @@ done
 CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
 echo "==> Checking release status on branch: ${CURRENT_BRANCH:-detached}"
 
-# Identify latest tag
-LATEST_TAG="$(git describe --tags --abbrev=0 2>/dev/null || echo "")"
+# Identify latest tag across all refs
+LATEST_TAG="$(git tag -l "v*" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || echo "")"
 if [[ -z "$LATEST_TAG" ]]; then
-  LATEST_TAG="v0.4.0"
+  LATEST_TAG="$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.4.3")"
 fi
 
 echo "==> Latest release tag: $LATEST_TAG"
@@ -41,6 +41,13 @@ IFS='.' read -r MAJOR MINOR PATCH <<< "$RAW_VER"
 NEXT_PATCH=$((PATCH + 1))
 NEXT_VERSION="${MAJOR}.${MINOR}.${NEXT_PATCH}"
 NEXT_TAG="v${NEXT_VERSION}"
+
+# Guarantee tag uniqueness
+while git rev-parse "$NEXT_TAG" >/dev/null 2>&1; do
+  NEXT_PATCH=$((NEXT_PATCH + 1))
+  NEXT_VERSION="${MAJOR}.${MINOR}.${NEXT_PATCH}"
+  NEXT_TAG="v${NEXT_VERSION}"
+done
 
 echo "==> Auto-bumping release version: $RAW_VER -> $NEXT_VERSION ($NEXT_TAG)"
 
