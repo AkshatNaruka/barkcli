@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   Card,
   ThreadEvent,
@@ -13,6 +13,7 @@ import type {
   Receipt,
   ReceiptVerification,
   AgentProfile,
+  ProjectSnapshot,
 } from "../lib/types";
 import {
   fetchTaskDiff,
@@ -37,17 +38,160 @@ import {
   requestRunChanges,
   askAboutRun,
   openInEditor,
+  runProjectCommand,
   mergeRun,
   startThreadRun,
 } from "../lib/api";
 import { Icon } from "../components/Icon";
 import { UnifiedDiff } from "../components/UnifiedDiff";
 import { ReceiptPanel } from "../components/ReceiptPanel";
+import { ContextView } from "../components/ContextView";
 import { checkState, checksPassed, canReviewMerge } from "../lib/run-state";
 import { useRouteState, updateRouteState } from "../lib/hashnav";
 import { PANEL_TO_TAB, TAB_TO_PANEL, WORKBENCH_SURFACES, type WorkbenchTab } from "../lib/workbench";
 import { ChecksPanel } from "./ChecksPanel";
 import { QuietSelect } from "../components/QuietSelect";
+
+export interface SurfaceItem {
+  id: string;
+  label: string;
+  icon: (size?: number) => React.ReactNode;
+  letter: string;
+  hasDropdown?: boolean;
+  isDevice?: boolean;
+}
+
+export const SURFACE_ITEMS: SurfaceItem[] = [
+  {
+    id: "browser",
+    label: "Browser",
+    icon: (s = 14) => <Icon name="globe" size={s} />,
+    letter: "B",
+    hasDropdown: true,
+  },
+  {
+    id: "terminal",
+    label: "Terminal",
+    icon: (s = 14) => <Icon name="terminal" size={s} />,
+    letter: "T",
+  },
+  {
+    id: "files",
+    label: "Files",
+    icon: (s = 14) => <Icon name="doc" size={s} />,
+    letter: "F",
+  },
+  {
+    id: "diff",
+    label: "Diff",
+    icon: (s = 14) => <Icon name="filePlus" size={s} />,
+    letter: "D",
+  },
+  {
+    id: "receipt",
+    label: "Pull request",
+    icon: (s = 14) => <Icon name="branch" size={s} />,
+    letter: "P",
+  },
+  {
+    id: "gate",
+    label: "Linked pull requests",
+    icon: (s = 14) => <Icon name="link" size={s} />,
+    letter: "L",
+  },
+  {
+    id: "device",
+    label: "Device",
+    icon: (s = 14) => (
+      <svg
+        width={s}
+        height={s}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect width="14" height="20" x="5" y="2" rx="2" ry="2" />
+        <path d="M12 18h.01" />
+      </svg>
+    ),
+    letter: "M",
+    isDevice: true,
+  },
+  {
+    id: "plan",
+    label: "Side chat",
+    icon: (s = 14) => <Icon name="comment" size={s} />,
+    letter: "S",
+  },
+];
+
+export function getTabDisplay(id: string) {
+  switch (id) {
+    case "plan":
+      return {
+        label: "Plan",
+        icon: <Icon name="comment" size={12} className="text-muted-strong" />,
+      };
+    case "diff":
+      return {
+        label: "Changes",
+        icon: <Icon name="filePlus" size={12} className="text-muted-strong" />,
+      };
+    case "gate":
+      return {
+        label: "Checks",
+        icon: <Icon name="link" size={12} className="text-muted-strong" />,
+      };
+    case "receipt":
+      return {
+        label: "Pull request",
+        icon: <Icon name="branch" size={12} className="text-muted-strong" />,
+      };
+    case "browser":
+      return {
+        label: "Browser",
+        icon: <Icon name="globe" size={12} className="text-muted-strong" />,
+      };
+    case "terminal":
+      return {
+        label: "Terminal",
+        icon: <Icon name="terminal" size={12} className="text-muted-strong" />,
+      };
+    case "files":
+      return {
+        label: "Files",
+        icon: <Icon name="doc" size={12} className="text-muted-strong" />,
+      };
+    case "device":
+      return {
+        label: "Device",
+        icon: (
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="text-muted-strong"
+          >
+            <rect width="14" height="20" x="5" y="2" rx="2" ry="2" />
+            <path d="M12 18h.01" />
+          </svg>
+        ),
+      };
+    default:
+      return {
+        label: "Workbench",
+        icon: <Icon name="layers" size={12} className="text-muted-strong" />,
+      };
+  }
+}
 
 interface InspectorPaneProps {
   card?: Card;
@@ -55,6 +199,8 @@ interface InspectorPaneProps {
   threadId?: string;
   onClose?: () => void;
   onBack?: () => void;
+  project?: ProjectSnapshot | null;
+  boardName?: string | null;
 }
 
 const TABS: Array<{ id: WorkbenchTab; label: string }> = WORKBENCH_SURFACES;
@@ -71,17 +217,258 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function InspectorPane({ card, events, threadId, onClose, onBack }: InspectorPaneProps) {
+export function InspectorPane({
+  card,
+  events,
+  threadId,
+  onClose,
+  onBack,
+  project,
+  boardName,
+}: InspectorPaneProps) {
   const location = useRouteState();
-  const rawTab: WorkbenchTab = PANEL_TO_TAB[location.panel || "plan"] || "plan";
   const [runs, setRuns] = useState<RunRecord[]>([]);
+
+  // Surface multi-tab state
+  const initialTab = useMemo(() => {
+    if (location.panel === "changes") return "diff";
+    if (location.panel === "checks") return "gate";
+    if (location.panel === "evidence") return "receipt";
+    if (location.panel === "context") return "files";
+    if (location.panel === "browser") return "browser";
+    if (location.panel === "terminal") return "terminal";
+    if (location.panel === "diagnostics") return "device";
+    return "plan";
+  }, [location.panel]);
+
+  const [openTabs, setOpenTabs] = useState<string[]>(() => {
+    const list = ["plan", "diff", "gate"];
+    if (initialTab && !list.includes(initialTab)) {
+      list.push(initialTab);
+    }
+    return list;
+  });
+
+  const [activeTab, setActiveTab] = useState<string>(initialTab);
+  const [surfaceMenuOpen, setSurfaceMenuOpen] = useState(false);
+  const surfaceMenuRef = useRef<HTMLDivElement>(null);
+
+  // Sync with location.panel when navigated externally
+  useEffect(() => {
+    if (location.panel) {
+      const mapped =
+        location.panel === "changes"
+          ? "diff"
+          : location.panel === "checks"
+            ? "gate"
+            : location.panel === "evidence"
+              ? "receipt"
+              : location.panel === "context"
+                ? "files"
+                : location.panel === "browser"
+                  ? "browser"
+                  : location.panel === "terminal"
+                    ? "terminal"
+                    : location.panel === "diagnostics"
+                      ? "device"
+                      : "plan";
+      setActiveTab(mapped);
+      setOpenTabs((prev) => (prev.includes(mapped) ? prev : [...prev, mapped]));
+    }
+  }, [location.panel]);
+
+  const handleSelectTab = (id: string) => {
+    setActiveTab(id);
+    const panelMap: Record<string, any> = {
+      plan: "plan",
+      diff: "changes",
+      gate: "checks",
+      receipt: "evidence",
+      files: "context",
+      device: "diagnostics",
+      browser: "browser",
+      terminal: "terminal",
+    };
+    if (panelMap[id]) {
+      updateRouteState({ panel: panelMap[id] });
+    }
+  };
+
+  const handleOpenSurface = (id: string) => {
+    setSurfaceMenuOpen(false);
+    setOpenTabs((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    handleSelectTab(id);
+  };
+
+  const handleCloseTab = (id: string) => {
+    const nextTabs = openTabs.filter((t) => t !== id);
+    setOpenTabs(nextTabs);
+    if (activeTab === id) {
+      if (nextTabs.length > 0) {
+        const nextActive = nextTabs[nextTabs.length - 1];
+        handleSelectTab(nextActive);
+      } else {
+        if (onBack) onBack();
+        else updateRouteState({ panel: undefined, file: undefined });
+      }
+    }
+  };
+
+  // Keyboard and outside click listeners for surfaceMenuRef
+  useEffect(() => {
+    if (!surfaceMenuOpen) return;
+    const onMouseDown = (e: MouseEvent) => {
+      if (surfaceMenuRef.current && !surfaceMenuRef.current.contains(e.target as Node)) {
+        setSurfaceMenuOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSurfaceMenuOpen(false);
+        return;
+      }
+      const k = e.key.toUpperCase();
+      const match = SURFACE_ITEMS.find((item) => item.letter === k);
+      if (match) {
+        e.preventDefault();
+        handleOpenSurface(match.id);
+      }
+    };
+    window.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [surfaceMenuOpen]);
+
+  // Backward-compatible tab getter for existing Diff / Plan / Gate / Receipt panels
   const tab: WorkbenchTab =
-    rawTab === "context" || rawTab === "eval"
-      ? runs.length > 0
-        ? "diff"
-        : "plan"
-      : rawTab;
-  const setTab = (next: WorkbenchTab) => updateRouteState({ panel: TAB_TO_PANEL[next] });
+    activeTab === "files" ? "context" : activeTab === "device" ? "eval" : (activeTab as WorkbenchTab);
+  const setTab = (next: WorkbenchTab | string) => handleSelectTab(next);
+
+  // Browser surface state
+  const [browserUrl, setBrowserUrl] = useState("http://localhost:5173");
+  const [browserInput, setBrowserInput] = useState("http://localhost:5173");
+  const [browserKey, setBrowserKey] = useState(0);
+
+  // Terminal surface state
+  const [termEntriesByTab, setTermEntriesByTab] = useState<
+    Record<
+      number,
+      Array<{
+        id: string;
+        command: string;
+        output?: string;
+        exitCode?: number;
+        running?: boolean;
+      }>
+    >
+  >({ 1: [] });
+  const [termTabs, setTermTabs] = useState<Array<{ id: number; label: string }>>([
+    { id: 1, label: "Terminal 1" },
+  ]);
+  const [activeTermTab, setActiveTermTab] = useState(1);
+  const [termCommand, setTermCommand] = useState("");
+  const [termHistory, setTermHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const termInputRef = useRef<HTMLInputElement>(null);
+
+  // Files surface state
+  const [projectFiles, setProjectFiles] = useState<string[]>([]);
+  const [loadingFiles, setLoadingFiles] = useState(false);
+  const [fileSearch, setFileSearch] = useState("");
+  const [filesViewMode, setFilesViewMode] = useState<"tree" | "context">("tree");
+
+  // Device surface state
+  const [deviceType, setDeviceType] = useState<"iphone" | "pixel" | "ipad">("iphone");
+  const [deviceOrientation, setDeviceOrientation] = useState<"portrait" | "landscape">("portrait");
+  const [deviceScale, setDeviceScale] = useState(1);
+
+  const termEntries = termEntriesByTab[activeTermTab] || [];
+  const projectLabel = project?.name || boardName || "barkcli";
+
+  const handleTerminalRun = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cmd = termCommand.trim();
+    if (!cmd) return;
+    const entryId = `term-${Date.now()}`;
+    setTermHistory((prev) => [cmd, ...prev.filter((c) => c !== cmd)]);
+    setHistoryIndex(-1);
+    setTermCommand("");
+    setTermEntriesByTab((prev) => ({
+      ...prev,
+      [activeTermTab]: [
+        ...(prev[activeTermTab] || []),
+        { id: entryId, command: cmd, running: true },
+      ],
+    }));
+    try {
+      const res = await runProjectCommand(cmd);
+      const output =
+        (res?.stdout || "") +
+        (res?.stderr ? (res?.stdout ? "\n" : "") + res.stderr : "");
+      setTermEntriesByTab((prev) => ({
+        ...prev,
+        [activeTermTab]: (prev[activeTermTab] || []).map((item) =>
+          item.id === entryId
+            ? {
+                ...item,
+                running: false,
+                output: output || "(no output)",
+                exitCode: res?.exit_code ?? 0,
+              }
+            : item
+        ),
+      }));
+    } catch (err: any) {
+      setTermEntriesByTab((prev) => ({
+        ...prev,
+        [activeTermTab]: (prev[activeTermTab] || []).map((item) =>
+          item.id === entryId
+            ? {
+                ...item,
+                running: false,
+                output: err?.message || "Command failed",
+                exitCode: 1,
+              }
+            : item
+        ),
+      }));
+    }
+  };
+
+  const loadProjectFiles = useCallback(async () => {
+    setLoadingFiles(true);
+    try {
+      const res = await runProjectCommand("git ls-files");
+      if (res && res.stdout) {
+        const lines = res.stdout
+          .split("\n")
+          .map((l) => l.trim())
+          .filter(Boolean);
+        setProjectFiles(lines);
+      }
+    } catch {
+      // fallback
+    } finally {
+      setLoadingFiles(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "files" && projectFiles.length === 0) {
+      void loadProjectFiles();
+    }
+  }, [activeTab, projectFiles.length, loadProjectFiles]);
+
+  const filteredFiles = useMemo(() => {
+    const q = fileSearch.trim().toLowerCase();
+    if (!q) return projectFiles.slice(0, 100);
+    return projectFiles
+      .filter((f) => f.toLowerCase().includes(q))
+      .slice(0, 100);
+  }, [projectFiles, fileSearch]);
   const [diffData, setDiffData] = useState<TaskDiff | RunDiff | null>(null);
   const [loadingDiff, setLoadingDiff] = useState(false);
   const [diffError, setDiffError] = useState(false);
@@ -531,47 +918,110 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
       className="workbench-pane flex h-full w-full min-w-0 flex-col overflow-hidden bg-bg"
       aria-label="Workbench"
     >
-      <div className="flex h-10 shrink-0 items-center gap-1.5 border-b border-border/80 bg-bg px-2.5">
-        <div className="flex items-center gap-1">
-          <span className="flex h-6 items-center gap-1.5 rounded-md border border-border/80 bg-surface px-2.5 text-[11.5px] font-medium text-text shadow-xs">
-            <Icon
-              name={
-                tab === "diff"
-                  ? "code"
-                  : tab === "plan"
-                    ? "doc"
-                    : tab === "gate"
-                      ? "check"
-                      : "layers"
-              }
-              size={12}
-              className="text-muted-strong"
-            />
-            <span>
-              {tab === "diff"
-                ? "Diff"
-                : TABS.find((item) => item.id === tab)?.label || "Workbench"}
-            </span>
-          </span>
-          <button
-            type="button"
-            onClick={() => {
-              if (onBack) onBack();
-              else updateRouteState({ panel: undefined, file: undefined });
-            }}
-            aria-label="All surfaces"
-            title="Open a surface"
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface/60 hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-          >
-            <Icon name="plus" size={13} />
-          </button>
+      <div className="flex h-10 shrink-0 items-center justify-between gap-1.5 border-b border-border/80 bg-bg px-2.5">
+        <div
+          role="tablist"
+          aria-label="Workbench tabs"
+          className="flex items-center gap-1 min-w-0 flex-1 overflow-x-auto no-scrollbar"
+        >
+          {openTabs.map((tabId) => {
+            const info = getTabDisplay(tabId);
+            const isActive = activeTab === tabId;
+            const count =
+              tabId === "plan"
+                ? proposal?.children?.length
+                : tabId === "diff" && diffCount > 0
+                  ? diffCount
+                  : null;
+            return (
+              <div
+                key={tabId}
+                role="tab"
+                id={`workbench-tab-${tabId}`}
+                aria-selected={isActive}
+                tabIndex={isActive ? 0 : -1}
+                onClick={() => handleSelectTab(tabId)}
+                title={info.label}
+                className={`group flex h-6 shrink-0 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium transition-colors cursor-pointer select-none ${
+                  isActive
+                    ? "border border-border/80 bg-surface text-text shadow-xs"
+                    : "border border-transparent text-muted hover:bg-surface/50 hover:text-text"
+                }`}
+              >
+                {info.icon}
+                <span className="truncate max-w-[120px]">{info.label}</span>
+                {count != null && (
+                  <span className="font-mono text-[9px] text-muted/55">{count}</span>
+                )}
+                {tabId === "gate" && gateVerdict && (
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      checksPassed(gateVerdict) ? "bg-success" : "bg-warning"
+                    }`}
+                  />
+                )}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCloseTab(tabId);
+                  }}
+                  aria-label={`Close ${info.label} tab`}
+                  title={`Close ${info.label}`}
+                  className="ml-0.5 rounded p-0.5 text-muted/60 opacity-60 group-hover:opacity-100 hover:bg-white/[0.1] hover:text-text transition-colors cursor-pointer"
+                >
+                  <Icon name="x" size={10} />
+                </button>
+              </div>
+            );
+          })}
+
+          {/* Floating Selection Trigger (+) matching Screenshot 2 */}
+          <div ref={surfaceMenuRef} className="relative flex items-center shrink-0">
+            <button
+              type="button"
+              onClick={() => setSurfaceMenuOpen((prev) => !prev)}
+              title="Open a surface"
+              aria-label="Open a surface"
+              aria-expanded={surfaceMenuOpen}
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors cursor-pointer ${
+                surfaceMenuOpen
+                  ? "bg-surface text-text ring-1 ring-border"
+                  : "text-muted hover:bg-surface/60 hover:text-text"
+              }`}
+            >
+              <Icon name="plus" size={13} />
+            </button>
+
+            {surfaceMenuOpen && (
+              <div className="absolute left-0 top-7 w-[235px] rounded-xl border border-border/80 bg-[#161618]/98 p-1.5 text-xs shadow-2xl backdrop-blur-xl z-50 animate-in fade-in zoom-in-95">
+                <div className="flex flex-col gap-0.5">
+                  {SURFACE_ITEMS.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleOpenSurface(item.id)}
+                      className="flex w-full items-center gap-3 rounded-lg px-2.5 py-1.5 text-[12px] text-text/90 transition-colors hover:bg-white/[0.06] hover:text-text cursor-pointer group"
+                    >
+                      <span className="text-muted group-hover:text-text transition-colors">
+                        {item.icon(14)}
+                      </span>
+                      <span className="flex-1 text-left font-medium">{item.label}</span>
+                      {item.hasDropdown && (
+                        <Icon name="chevDown" size={12} className="text-muted/60 mr-1" />
+                      )}
+                      <kbd className="flex h-5 w-5 items-center justify-center rounded border border-border/80 bg-surface/50 font-mono text-[9px] font-semibold uppercase text-muted">
+                        {item.letter}
+                      </kbd>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-        <span className="sr-only">
-          {tab === "diff"
-            ? "Review changes"
-            : TABS.find((item) => item.id === tab)?.label || "Workbench"}
-        </span>
-        <div className="ml-auto flex items-center gap-1">
+
+        <div className="ml-auto flex items-center gap-1 shrink-0">
           {gateVerdict && (
             <span
               className={`hidden items-center gap-1 font-mono text-[9.5px] sm:flex ${
@@ -592,67 +1042,13 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
               onClick={onClose}
               title="Close surfaces (⌘J)"
               aria-label="Close surfaces"
-              className="flex h-6 w-6 items-center justify-center rounded-md text-muted transition-colors hover:bg-white/[0.05] hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+              className="flex h-6 w-6 items-center justify-center rounded-md text-muted transition-colors hover:bg-white/[0.05] hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent cursor-pointer"
             >
               <Icon name="panel" size={13} />
             </button>
           )}
         </div>
       </div>
-
-      {visibleTabs.length > 1 && (
-        <div
-          role="tablist"
-          aria-label="Workbench tabs"
-          className="sr-only"
-        >
-          {visibleTabs.map((item) => {
-          const active = tab === item.id;
-          const count =
-            item.id === "plan"
-              ? proposal?.children?.length
-              : item.id === "diff" && diffCount > 0
-                ? diffCount
-                : null;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              tabIndex={active ? 0 : -1}
-              id={`workbench-tab-${item.id}`}
-              aria-controls="workbench-panel"
-              onKeyDown={(event) => {
-                if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-                event.preventDefault();
-                const buttons = Array.from(event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]') || []);
-                const index = buttons.indexOf(event.currentTarget);
-                const next = event.key === "Home" ? buttons[0] : event.key === "End" ? buttons[buttons.length - 1] : buttons[(index + (event.key === "ArrowRight" ? 1 : buttons.length - 1)) % buttons.length];
-                next?.click(); next?.focus();
-              }}
-              onClick={() => setTab(item.id)}
-              className={`relative flex items-center gap-1 px-2.5 text-[10.5px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
-                active ? "text-text" : "text-muted hover:text-text"
-              }`}
-            >
-              {item.label}
-              {count != null && (
-                <span className="font-mono text-[9px] text-muted/55">{count}</span>
-              )}
-              {item.id === "gate" && gateVerdict && (
-                <span
-                  className={`h-1 w-1 rounded-full ${checksPassed(gateVerdict) ? "bg-success" : "bg-warning"}`}
-                />
-              )}
-              {active && (
-                <span className="absolute bottom-0 left-2 right-2 h-[1.5px] rounded-full bg-accent" />
-              )}
-            </button>
-          );
-        })}
-        </div>
-      )}
 
       <details className="workbench-more sr-only">
         <summary>Evidence & tools</summary>
@@ -1326,6 +1722,383 @@ export function InspectorPane({ card, events, threadId, onClose, onBack }: Inspe
             verifying={verifyingReceipt}
             onVerify={handleVerifyReceipt}
           />
+        )}
+
+        {/* EMBEDDED BROWSER SURFACE */}
+        {activeTab === "browser" && (
+          <div className="flex h-full min-h-0 flex-1 flex-col bg-bg">
+            <div className="flex h-9 shrink-0 items-center gap-1.5 border-b border-border/50 px-2.5">
+              <button
+                type="button"
+                onClick={() => setBrowserKey((k) => k + 1)}
+                className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface hover:text-text cursor-pointer"
+                title="Reload preview"
+              >
+                <Icon name="refresh" size={12} />
+              </button>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  let target = browserInput.trim();
+                  if (target && !/^https?:\/\//i.test(target)) {
+                    target = `http://${target}`;
+                  }
+                  setBrowserUrl(target);
+                  setBrowserKey((k) => k + 1);
+                }}
+                className="min-w-0 flex-1"
+              >
+                <input
+                  type="text"
+                  value={browserInput}
+                  onChange={(e) => setBrowserInput(e.target.value)}
+                  placeholder="Search or enter URL (e.g. http://localhost:5173)"
+                  aria-label="Browser URL"
+                  className="h-6 w-full rounded-md border border-transparent bg-surface/50 px-2.5 text-[11px] text-text outline-none transition-colors placeholder:text-muted/60 hover:border-border/60 focus:border-accent focus:bg-surface"
+                />
+              </form>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const url = browserUrl || "http://localhost:5173";
+                  window.open(url, "_blank", "noopener,noreferrer");
+                }}
+                className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface hover:text-text cursor-pointer"
+                title="Open in external browser"
+              >
+                <Icon name="link" size={12} />
+              </button>
+            </div>
+
+            {browserUrl ? (
+              <iframe
+                key={`${browserUrl}:${browserKey}`}
+                src={browserUrl}
+                title="Surface browser preview"
+                className="h-full w-full flex-1 border-0 bg-white"
+              />
+            ) : (
+              <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+                <div className="relative mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-border/70 bg-surface/50 text-muted shadow-inner">
+                  <Icon name="globe" size={20} />
+                </div>
+                <h3 className="text-[13px] font-semibold text-text">No preview yet</h3>
+                <p className="mt-1 max-w-[240px] text-[11px] leading-relaxed text-muted">
+                  Enter a URL above, or click one of the detected local dev servers.
+                </p>
+                <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
+                  {[
+                    "http://localhost:5173",
+                    "http://localhost:3000",
+                    "http://localhost:8080",
+                    "http://localhost:4321",
+                  ].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => {
+                        setBrowserInput(preset);
+                        setBrowserUrl(preset);
+                        setBrowserKey((k) => k + 1);
+                      }}
+                      className="rounded-md border border-border/70 bg-surface/60 px-2 py-1 font-mono text-[10.5px] text-text hover:border-accent hover:bg-surface transition-colors cursor-pointer"
+                    >
+                      {preset.replace("http://localhost:", ":")}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* EMBEDDED TERMINAL SURFACE */}
+        {activeTab === "terminal" && (
+          <div
+            className="relative flex h-full min-h-0 flex-1 flex-col bg-[#09090b] font-mono text-text"
+            onClick={() => termInputRef.current?.focus()}
+          >
+            <div className="absolute right-3 top-2.5 z-10 flex items-center gap-1 rounded-lg border border-border/60 bg-surface/90 p-0.5 shadow-sm backdrop-blur-md select-none">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const nextId =
+                    (termTabs[termTabs.length - 1]?.id || 1) + 1;
+                  setTermTabs((prev) => [
+                    ...prev,
+                    { id: nextId, label: `Terminal ${nextId}` },
+                  ]);
+                  setActiveTermTab(nextId);
+                  setTimeout(() => termInputRef.current?.focus(), 20);
+                }}
+                title="New terminal tab"
+                className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-white/[0.06] hover:text-text cursor-pointer"
+              >
+                <Icon name="plus" size={12} />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.dispatchEvent(
+                    new CustomEvent("bark-command", { detail: "open-terminal" })
+                  );
+                }}
+                title="Open native macOS Terminal"
+                className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-white/[0.06] hover:text-text cursor-pointer"
+              >
+                <Icon name="terminal" size={12} />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setTermEntriesByTab((prev) => ({
+                    ...prev,
+                    [activeTermTab]: [],
+                  }));
+                  setTimeout(() => termInputRef.current?.focus(), 20);
+                }}
+                title="Clear terminal output"
+                className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-white/[0.06] hover:text-danger cursor-pointer"
+              >
+                <Icon name="trash" size={12} />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3.5">
+              {termEntries.map((item) => (
+                <div key={item.id} className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-[11.5px] leading-snug">
+                    <span className="shrink-0 text-muted-strong">
+                      {projectLabel} %
+                    </span>
+                    <span className="text-text">{item.command}</span>
+                  </div>
+                  {item.running ? (
+                    <div className="text-[11px] text-muted">…</div>
+                  ) : item.output ? (
+                    <pre
+                      className={`whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed ${
+                        item.exitCode !== 0 ? "text-danger" : "text-muted-strong"
+                      }`}
+                    >
+                      {item.output}
+                    </pre>
+                  ) : null}
+                </div>
+              ))}
+
+              <form
+                onSubmit={handleTerminalRun}
+                className="flex items-center gap-1.5 text-[11.5px] leading-snug"
+              >
+                <span className="shrink-0 text-muted-strong">
+                  {projectLabel} %
+                </span>
+                <input
+                  ref={termInputRef}
+                  type="text"
+                  value={termCommand}
+                  onChange={(e) => setTermCommand(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      if (termHistory.length === 0) return;
+                      const nextIdx = Math.min(
+                        historyIndex + 1,
+                        termHistory.length - 1
+                      );
+                      setHistoryIndex(nextIdx);
+                      setTermCommand(termHistory[nextIdx] || "");
+                    } else if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      if (historyIndex <= 0) {
+                        setHistoryIndex(-1);
+                        setTermCommand("");
+                      } else {
+                        const nextIdx = historyIndex - 1;
+                        setHistoryIndex(nextIdx);
+                        setTermCommand(termHistory[nextIdx] || "");
+                      }
+                    }
+                  }}
+                  placeholder="Run command..."
+                  className="min-w-0 flex-1 bg-transparent text-[11.5px] text-text outline-none placeholder:text-muted/40"
+                />
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* WORKSPACE FILES SURFACE */}
+        {activeTab === "files" && (
+          <div className="flex h-full min-h-0 flex-1 flex-col bg-bg">
+            <div className="flex h-9 shrink-0 items-center justify-between border-b border-border/50 px-3">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <Icon name="search" size={12} className="text-muted/60" />
+                <input
+                  type="text"
+                  value={fileSearch}
+                  onChange={(e) => setFileSearch(e.target.value)}
+                  placeholder="Filter workspace files..."
+                  className="h-6 w-full bg-transparent text-[11.5px] text-text placeholder:text-muted/50 outline-none"
+                />
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFilesViewMode((m) => (m === "tree" ? "context" : "tree"))
+                  }
+                  className="rounded px-2 py-0.5 text-[10px] font-medium border border-border/60 hover:bg-surface text-muted hover:text-text transition-colors cursor-pointer"
+                >
+                  {filesViewMode === "tree"
+                    ? "project_context.md"
+                    : "File list"}
+                </button>
+              </div>
+            </div>
+
+            {filesViewMode === "context" ? (
+              <div className="flex-1 overflow-y-auto">
+                <ContextView boardName={boardName || null} />
+              </div>
+            ) : (
+              <div className="min-h-0 flex-1 overflow-y-auto p-2 space-y-0.5 font-mono text-[11px]">
+                {loadingFiles ? (
+                  <div className="p-4 text-center text-muted">
+                    Loading workspace files…
+                  </div>
+                ) : filteredFiles.length === 0 ? (
+                  <div className="p-4 text-center text-muted">
+                    No files match &quot;{fileSearch}&quot;
+                  </div>
+                ) : (
+                  filteredFiles.map((file) => (
+                    <div
+                      key={file}
+                      className="flex items-center justify-between rounded px-2 py-1 hover:bg-surface/60 group cursor-pointer"
+                      onClick={() => void openInEditor(file)}
+                    >
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <Icon
+                          name="doc"
+                          size={12}
+                          className="text-muted/70 group-hover:text-text shrink-0"
+                        />
+                        <span className="truncate text-text/90 group-hover:text-text">
+                          {file}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void openInEditor(file);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 px-1.5 py-0.5 text-[9.5px] rounded bg-surface border border-border/60 text-muted hover:text-text cursor-pointer transition-opacity"
+                      >
+                        Open
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* DEVICE SIMULATOR SURFACE */}
+        {activeTab === "device" && (
+          <div className="flex h-full min-h-0 flex-1 flex-col bg-bg overflow-hidden">
+            <div className="flex h-9 shrink-0 items-center justify-between border-b border-border/50 px-2.5">
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={deviceType}
+                  onChange={(e) => setDeviceType(e.target.value as any)}
+                  className="rounded border border-border/60 bg-surface/60 px-2 py-0.5 text-[11px] text-text outline-none cursor-pointer"
+                >
+                  <option value="iphone">iPhone 16 Pro (393 × 852)</option>
+                  <option value="pixel">Google Pixel 9 (412 × 915)</option>
+                  <option value="ipad">iPad Mini (768 × 1024)</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDeviceOrientation((o) =>
+                      o === "portrait" ? "landscape" : "portrait"
+                    )
+                  }
+                  title="Rotate device"
+                  className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface hover:text-text cursor-pointer"
+                >
+                  <Icon
+                    name="refresh"
+                    size={11}
+                    className={
+                      deviceOrientation === "landscape" ? "rotate-90" : ""
+                    }
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-1 text-[10px] text-muted font-mono">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDeviceScale((s) =>
+                      s === 1 ? 0.75 : s === 0.75 ? 0.5 : 1
+                    )
+                  }
+                  className="rounded border border-border/50 px-1.5 py-0.5 hover:bg-surface cursor-pointer"
+                >
+                  {Math.round(deviceScale * 100)}%
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-[#09090b]">
+              <div
+                style={{
+                  transform: `scale(${deviceScale})`,
+                  transformOrigin: "center center",
+                  width:
+                    deviceOrientation === "portrait"
+                      ? deviceType === "ipad"
+                        ? 480
+                        : 360
+                      : deviceType === "ipad"
+                        ? 640
+                        : 580,
+                  height:
+                    deviceOrientation === "portrait"
+                      ? deviceType === "ipad"
+                        ? 640
+                        : 680
+                      : deviceType === "ipad"
+                        ? 480
+                        : 340,
+                }}
+                className="relative flex flex-col rounded-[38px] border-[5px] border-[#27272a] bg-black shadow-2xl overflow-hidden shrink-0 transition-all duration-200"
+              >
+                {deviceOrientation === "portrait" && (
+                  <div className="absolute top-2.5 left-1/2 -translate-x-1/2 w-20 h-4 bg-black rounded-full z-20 ring-1 ring-white/10 flex items-center justify-center">
+                    <div className="w-2.5 h-2.5 rounded-full bg-[#18181b] ml-auto mr-2" />
+                  </div>
+                )}
+                <iframe
+                  src={browserUrl || "http://localhost:5173"}
+                  title="Device emulator preview"
+                  className="w-full h-full border-0 bg-white"
+                />
+                <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-28 h-1 bg-white/40 rounded-full pointer-events-none" />
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </aside>

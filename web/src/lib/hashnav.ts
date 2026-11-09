@@ -7,14 +7,14 @@ export interface RouteState {
   board?: string;
   thread?: string;
   run?: string;
-  panel?: "plan" | "changes" | "checks" | "evidence" | "context" | "diagnostics";
+  panel?: "plan" | "changes" | "checks" | "evidence" | "context" | "diagnostics" | "browser" | "terminal";
   file?: string;
   tool?: string;
   draft?: string;
   focus?: string;
 }
 const KEYS = ["board", "thread", "run", "panel", "file", "tool", "draft", "focus"] as const;
-const PANELS = ["plan", "changes", "checks", "evidence", "context", "diagnostics"];
+const PANELS = ["plan", "changes", "checks", "evidence", "context", "diagnostics", "browser", "terminal"];
 const validValue = (value: string | null): value is string => Boolean(value && value.length <= 1000 && !/[\u0000-\u001f\u007f]/.test(value));
 
 export function parseRouteState(hash: string): RouteState {

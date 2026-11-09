@@ -266,4 +266,43 @@ describe("InspectorPane", () => {
     );
     expect(await screen.findByText(/Delegated as Builder One/)).toBeInTheDocument();
   });
+
+  it("renders multi-tab bar with close buttons and floating selection menu on plus button", async () => {
+    fetchTaskDiff.mockResolvedValue({
+      task_id: "task-demo-mode",
+      branch: "",
+      files: [],
+      diff: "",
+    });
+    const user = userEvent.setup();
+    render(<InspectorPane card={card} events={events} onClose={vi.fn()} />);
+
+    // Check open tabs with close buttons
+    const planTab = screen.getByRole("tab", { name: /Plan/i });
+    expect(planTab).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Close Plan tab" })).toBeInTheDocument();
+
+    // Click "+" button to open floating surface selection menu
+    const plusBtn = screen.getByRole("button", { name: "Open a surface" });
+    await user.click(plusBtn);
+
+    // Verify all 8 options in floating menu
+    expect(screen.getByRole("button", { name: /^Browser/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Terminal/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Files/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Diff/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Pull request/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Linked pull requests/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Device/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Side chat/i })).toBeInTheDocument();
+
+    // Clicking Browser opens Browser surface tab
+    await user.click(screen.getByRole("button", { name: /^Browser/i }));
+    expect(screen.getByRole("tab", { name: /^Browser/i })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Search or enter URL/i)).toBeInTheDocument();
+
+    // Close Browser tab
+    await user.click(screen.getByRole("button", { name: "Close Browser tab" }));
+    expect(screen.queryByRole("tab", { name: /^Browser/i })).not.toBeInTheDocument();
+  });
 });

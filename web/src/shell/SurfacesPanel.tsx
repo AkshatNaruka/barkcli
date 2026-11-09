@@ -178,7 +178,32 @@ export function SurfacesPanel({
   const [showAllArtifacts, setShowAllArtifacts] = useState(false);
   const [showAllTasks, setShowAllTasks] = useState(false);
   const [dockView, setDockView] = useState<DockView>("launcher");
+  const [surfaceMenuOpen, setSurfaceMenuOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const surfaceMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!surfaceMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        surfaceMenuRef.current &&
+        !surfaceMenuRef.current.contains(e.target as Node)
+      ) {
+        setSurfaceMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSurfaceMenuOpen(false);
+      }
+    };
+    window.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [surfaceMenuOpen]);
 
   // Embedded Browser Surface state
   const [browserInput, setBrowserInput] = useState("");
@@ -748,48 +773,108 @@ export function SurfacesPanel({
       <div className="flex h-9 shrink-0 items-center justify-between border-b border-border/60 bg-bg px-2">
         <div className="flex items-center gap-1 overflow-x-auto">
           {dockView === "browser" && (
-            <button
-              type="button"
-              onClick={() => setDockView("browser")}
-              className="flex h-6 items-center gap-1.5 rounded-md bg-surface px-2.5 text-[11.5px] font-medium text-text"
-            >
+            <div className="group flex h-6 items-center gap-1.5 rounded-md border border-border/80 bg-surface px-2 text-[11px] font-medium text-text shadow-xs">
               <Icon name="globe" size={12} className="text-muted-strong" />
               <span>Browser</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setDockView("launcher")}
+                title="Close Browser tab"
+                aria-label="Close Browser tab"
+                className="ml-0.5 rounded p-0.5 text-muted/60 opacity-60 group-hover:opacity-100 hover:bg-white/[0.1] hover:text-text cursor-pointer transition-colors"
+              >
+                <Icon name="x" size={10} />
+              </button>
+            </div>
           )}
           {dockView === "terminal" &&
             terminalTabs.map((tab) => (
-              <button
+              <div
                 key={tab.id}
-                type="button"
                 onClick={() => setActiveTermTab(tab.id)}
-                className={`flex h-6 items-center gap-1.5 rounded-md px-2.5 text-[11.5px] font-medium transition-colors ${
+                className={`group flex h-6 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium transition-colors cursor-pointer select-none ${
                   activeTermTab === tab.id
-                    ? "bg-surface text-text"
-                    : "text-muted hover:bg-surface/40 hover:text-text"
+                    ? "border border-border/80 bg-surface text-text shadow-xs"
+                    : "border border-transparent text-muted hover:bg-surface/50 hover:text-text"
                 }`}
               >
                 <Icon name="terminal" size={12} className="text-muted-strong" />
                 <span>{tab.label}</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (terminalTabs.length <= 1) {
+                      setDockView("launcher");
+                    } else {
+                      const next = terminalTabs.filter((t) => t.id !== tab.id);
+                      setTerminalTabs(next);
+                      if (activeTermTab === tab.id && next[0]) {
+                        setActiveTermTab(next[0].id);
+                      }
+                    }
+                  }}
+                  title={`Close ${tab.label}`}
+                  aria-label={`Close ${tab.label}`}
+                  className="ml-0.5 rounded p-0.5 text-muted/60 opacity-60 group-hover:opacity-100 hover:bg-white/[0.1] hover:text-text cursor-pointer transition-colors"
+                >
+                  <Icon name="x" size={10} />
+                </button>
+              </div>
             ))}
-          <button
-            type="button"
-            onClick={() => {
-              setDockView("launcher");
-              setSearch("");
-              setTimeout(() => searchInputRef.current?.focus(), 20);
-            }}
-            title="Open a surface"
-            aria-label="Open a surface"
-            className={`flex h-6 w-6 items-center justify-center rounded-md transition-colors ${
-              dockView === "launcher"
-                ? "bg-surface/80 text-text"
-                : "text-muted hover:bg-surface/60 hover:text-text"
-            }`}
-          >
-            <Icon name="plus" size={13} />
-          </button>
+
+          <div ref={surfaceMenuRef} className="relative flex items-center shrink-0">
+            <button
+              type="button"
+              onClick={() => setSurfaceMenuOpen((prev) => !prev)}
+              title="Open a surface"
+              aria-label="Open a surface"
+              aria-expanded={surfaceMenuOpen}
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors cursor-pointer ${
+                surfaceMenuOpen
+                  ? "bg-surface text-text ring-1 ring-border"
+                  : "text-muted hover:bg-surface/60 hover:text-text"
+              }`}
+            >
+              <Icon name="plus" size={13} />
+            </button>
+
+            {surfaceMenuOpen && (
+              <div className="absolute left-0 top-7 w-[235px] rounded-xl border border-border/80 bg-[#161618]/98 p-1.5 text-xs shadow-2xl backdrop-blur-xl z-50 animate-in fade-in zoom-in-95">
+                <div className="flex flex-col gap-0.5">
+                  {surfaceLauncherItems.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        setSurfaceMenuOpen(false);
+                        item.action();
+                      }}
+                      className="flex w-full items-center gap-3 rounded-lg px-2.5 py-1.5 text-[12px] text-text/90 transition-colors hover:bg-white/[0.06] hover:text-text cursor-pointer group"
+                    >
+                      <span className="text-muted group-hover:text-text transition-colors">
+                        {item.isDevice ? (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                            <rect width="14" height="20" x="5" y="2" rx="2" ry="2" />
+                            <path d="M12 18h.01" />
+                          </svg>
+                        ) : (
+                          <Icon name={item.icon!} size={14} />
+                        )}
+                      </span>
+                      <span className="flex-1 text-left font-medium">{item.label}</span>
+                      {item.hasDropdown && (
+                        <Icon name="chevDown" size={12} className="text-muted/60 mr-1" />
+                      )}
+                      <kbd className="flex h-5 w-5 items-center justify-center rounded border border-border/80 bg-surface/50 font-mono text-[9px] font-semibold uppercase text-muted">
+                        {item.letter}
+                      </kbd>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-0.5">

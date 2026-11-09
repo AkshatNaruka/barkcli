@@ -99,9 +99,15 @@ export function ThreadsShell({ boardName, projectRoot = "current-project", proje
     {surfacesOpen && selectedId && <div className={`surfaces-frame ${focused ? "is-focused" : ""}`} style={focused ? undefined : { width }}>
       {!focused && <PaneResizeHandle label="Inspector width" width={width} min={320} max={620} reverse onChange={(next) => { setWidth(next); writeLocal("bark:inspector-width", String(next)); }} />}
       {showWorkbench ? (
-        <InspectorPane card={activeThread?.card} events={activeThread?.events || []} threadId={selectedId || undefined}
+        <InspectorPane
+          card={activeThread?.card}
+          events={activeThread?.events || []}
+          threadId={selectedId || undefined}
+          project={project}
+          boardName={boardName || project?.active_board || null}
           onBack={() => updateRouteState({ panel: undefined, file: undefined })}
-          onClose={onToggleSurfaces} />
+          onClose={onToggleSurfaces}
+        />
       ) : (
         <SurfacesPanel
           boardName={boardName || project?.active_board || null}
