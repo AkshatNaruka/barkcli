@@ -3,7 +3,7 @@ name = "barkcli"
 description = "The management layer for AI agents — intent, plans, worktrees, test gate, merge train"
 license = "MIT"
 authors = ["Akshat Naruka <narukaakshat@gmail.com>"]
-version = "0.4.18"
+version = "0.4.19"
 edition = "2021"
 repository = "https://github.com/AkshatNaruka/barkcli"
 homepage = "https://barkcli.vercel.app"
@@ -20,9 +20,9 @@ name = "gen-docs"
 path = "src/bin/gen-docs.rs"
 
 [dependencies]
-barkcli-core = { path = "../barkcli-core", version = "0.4.18" }
-barkcli-tui = { path = "../barkcli-tui", version = "0.4.18", optional = true }
-barkcli-server = { path = "../barkcli-server", version = "0.4.18", optional = true }
+barkcli-core = { path = "../barkcli-core", version = "0.4.19" }
+barkcli-tui = { path = "../barkcli-tui", version = "0.4.19", optional = true }
+barkcli-server = { path = "../barkcli-server", version = "0.4.19", optional = true }
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "signal", "time"] }
 sha2 = "0.10"
 hex = "0.4"
