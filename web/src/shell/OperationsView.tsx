@@ -37,19 +37,33 @@ type OpTab =
   | "rules";
 
 const TABS: Array<{ id: OpTab; label: string; icon: IconName }> = [
-  { id: "workspace", label: "Workspace", icon: "layers" },
-  { id: "code", label: "Code", icon: "code" },
-  { id: "timeline", label: "Timeline", icon: "clock" },
+  { id: "workspace", label: "Project Setup", icon: "layers" },
+  { id: "rules", label: "Rules", icon: "doc" },
+  { id: "automations", label: "Automations", icon: "clock" },
+  { id: "timeline", label: "Checkpoints", icon: "clock" },
+  { id: "code", label: "Code Search", icon: "code" },
+  { id: "agent", label: "Agent API", icon: "robot" },
+  { id: "history", label: "History", icon: "history" },
   { id: "calendar", label: "Calendar", icon: "calendar" },
   { id: "reports", label: "Reports", icon: "chart" },
-  { id: "agent", label: "Agent API", icon: "robot" },
   { id: "docs", label: "Docs", icon: "doc" },
   { id: "usage", label: "Usage", icon: "chart" },
   { id: "settings", label: "Settings", icon: "gear" },
   { id: "context", label: "Context", icon: "doc" },
-  { id: "history", label: "History", icon: "history" },
+  { id: "ship", label: "Ship", icon: "spark" },
+  { id: "specs", label: "Specs", icon: "doc" },
+];
+
+const VISIBLE_TABS: Array<{ id: OpTab; label: string; icon: IconName }> = [
+  { id: "workspace", label: "Project Setup", icon: "layers" },
   { id: "rules", label: "Rules", icon: "doc" },
   { id: "automations", label: "Automations", icon: "clock" },
+  { id: "timeline", label: "Checkpoints", icon: "clock" },
+  { id: "code", label: "Code Search", icon: "code" },
+  { id: "agent", label: "Agent API", icon: "robot" },
+  { id: "history", label: "History", icon: "history" },
+  { id: "calendar", label: "Calendar", icon: "calendar" },
+  { id: "reports", label: "Reports", icon: "chart" },
 ];
 
 function initialTab(): OpTab {
@@ -111,6 +125,21 @@ export function OperationsView({
 
   return (
     <div className="h-full flex flex-col min-h-0">
+      <div className="surface-tabs overflow-x-auto" role="tablist" aria-label="Operations views">
+        <span className="surface-tabs-label">Operations</span>
+        {VISIBLE_TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.id}
+            onClick={() => setTab(t.id)}
+          >
+            <Icon name={t.icon} size={12} />
+            <span>{t.label}</span>
+          </button>
+        ))}
+      </div>
       <div className="flex-1 overflow-hidden min-h-0">
         {tab === "rules" && <RulesView />}
         {tab === "automations" && <AutomationsView boardName={boardName} />}

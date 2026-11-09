@@ -30,7 +30,7 @@ describe("sidebar destinations", () => {
     expect(parseRouteState(routeHash(destination))).toEqual(destination);
   });
 
-  it.each([["team", "Agents"], ["orchestra", "Orchestration"], ["sprints", "Sprints"]])(
+  it.each([["team", "Agents"], ["orchestra", "Orchestration"], ["rules", "rules"], ["agent", "agent"], ["sprints", "Sprints"]])(
     "renders the distinct agents/%s surface", (tool, expected) => {
       window.location.hash = `#/agents?tool=${tool}`;
       render(<AgentsSurface boardName="dev" board={null} sprints={[]} onSprintChanged={() => {}} onEditCard={() => {}} />);

@@ -11,9 +11,9 @@ const BrainView = lazy(() =>
 type BrainViewId = "graph" | "memory" | "context";
 
 const VIEWS: { id: BrainViewId; label: string }[] = [
-  { id: "graph", label: "Graph" },
-  { id: "memory", label: "Memory" },
-  { id: "context", label: "Context" },
+  { id: "graph", label: "Contribution Graph" },
+  { id: "memory", label: "Context & Memory" },
+  { id: "context", label: "Project Context" },
 ];
 
 /**

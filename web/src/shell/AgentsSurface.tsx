@@ -3,13 +3,17 @@ import { navigate, useRouteState } from "../lib/hashnav";
 import { OrchestraWorkView } from "../components/OrchestraWorkView";
 import { SprintView } from "../components/SprintView";
 import { TeamView } from "../components/TeamView";
+import { RulesView } from "../components/RulesView";
+import { AgentPromptView } from "../components/AgentPromptView";
 import type { Board, Card, Sprint } from "../lib/types";
 
-type AgentsView = "team" | "orchestra" | "sprints";
+type AgentsView = "team" | "orchestra" | "rules" | "agent" | "sprints";
 
 const VIEWS: { id: AgentsView; label: string }[] = [
   { id: "team", label: "Team" },
   { id: "orchestra", label: "Orchestration" },
+  { id: "rules", label: "Rules" },
+  { id: "agent", label: "Agent API" },
   { id: "sprints", label: "Sprints" },
 ];
 
@@ -54,6 +58,8 @@ export function AgentsSurface({
       <div className="flex-1 min-h-0 overflow-hidden">
         {active === "team" && <TeamView boardName={boardName} />}
         {active === "orchestra" && <OrchestraWorkView boardName={boardName} board={board} />}
+        {active === "rules" && <RulesView />}
+        {active === "agent" && <AgentPromptView />}
         {active === "sprints" && (
           <SprintView
             board={board}
