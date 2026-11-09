@@ -38,6 +38,15 @@ export function ThreadsShell({ boardName, projectRoot = "current-project", proje
   const [threadMenu, setThreadMenu] = useState<{ target: ThreadActionTarget; x: number; y: number } | null>(null);
   const [width, setWidth] = useState(() => Math.min(560, Math.max(360, Number(readLocal("bark:inspector-width")) || 420)));
   const [available, setAvailable] = useState(() => window.innerWidth - 248);
+  const [terminalDrawerOpen, setTerminalDrawerOpen] = useState(false);
+  const toggleTerminalDrawer = () => setTerminalDrawerOpen((prev) => !prev);
+
+  useEffect(() => {
+    const handleToggle = () => setTerminalDrawerOpen((prev) => !prev);
+    window.addEventListener("bark-toggle-terminal-drawer", handleToggle);
+    return () => window.removeEventListener("bark-toggle-terminal-drawer", handleToggle);
+  }, []);
+
   const container = useRef<HTMLDivElement>(null);
   const showWorkbench = Boolean(location.panel && selectedId);
   const focused = showWorkbench && available < width + 600;
@@ -80,6 +89,7 @@ export function ThreadsShell({ boardName, projectRoot = "current-project", proje
     <div className="thread-document" hidden={focused}>
       {selectedId ? <ThreadPane key={`${scope}:${selectedId}:${threadRevision}`} threadId={selectedId} boardName={boardName || undefined} scope={scope} project={project}
         inspectorOpen={surfacesOpen} onThreadChange={setActiveThread}
+        terminalDrawerOpen={terminalDrawerOpen} onToggleTerminalDrawer={toggleTerminalDrawer}
         onOpenInspector={onToggleSurfaces} onReview={() => { if (!surfacesOpen) onToggleSurfaces(); updateRouteState({ panel: "changes" }); }}
         onRefreshInbox={() => window.dispatchEvent(new Event("bark-threads-changed"))}
         onThreadMenu={(target, x, y) => setThreadMenu({ target, x, y })} /> : <UniversalComposer
@@ -100,6 +110,14 @@ export function ThreadsShell({ boardName, projectRoot = "current-project", proje
           thread={activeThread}
           threadId={selectedId || undefined}
           project={project}
+          terminalDrawerOpen={terminalDrawerOpen}
+          onToggleTerminalDrawer={toggleTerminalDrawer}
+          isFocused={focused}
+          onToggleFocus={() => {
+            const nextWidth = focused ? 420 : Math.max(width, Math.min(available - 60, 800));
+            setWidth(nextWidth);
+            writeLocal("bark:inspector-width", String(nextWidth));
+          }}
           onSelectThread={openPanel}
           onClose={onToggleSurfaces}
         />

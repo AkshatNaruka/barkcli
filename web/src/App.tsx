@@ -541,6 +541,9 @@ export function App() {
       case "reveal-project":
         void revealProject().then((opened) => { if (!opened && isDesktop()) notify("Could not reveal this project in Finder."); });
         break;
+      case "toggle-terminal-drawer":
+        window.dispatchEvent(new CustomEvent("bark-toggle-terminal-drawer"));
+        break;
       case "toggle-workbench":
         if (route !== "chat") notify("Surfaces are available on a thread. Open Build to use them.");
         else toggleInspector();

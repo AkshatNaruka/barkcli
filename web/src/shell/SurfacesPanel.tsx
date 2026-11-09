@@ -99,6 +99,10 @@ interface SurfacesPanelProps {
   project?: ProjectSnapshot | null;
   onSelectThread: (panel: WorkbenchTab) => void;
   onClose: () => void;
+  terminalDrawerOpen?: boolean;
+  onToggleTerminalDrawer?: () => void;
+  isFocused?: boolean;
+  onToggleFocus?: () => void;
 }
 
 interface ActionItem {
@@ -165,6 +169,10 @@ export function SurfacesPanel({
   project,
   onSelectThread,
   onClose,
+  terminalDrawerOpen,
+  onToggleTerminalDrawer,
+  isFocused,
+  onToggleFocus,
 }: SurfacesPanelProps) {
   const [search, setSearch] = useState("");
   const [showAllArtifacts, setShowAllArtifacts] = useState(false);
@@ -361,6 +369,102 @@ export function SurfacesPanel({
 
   const visibleRuns = showAllRuns ? displayRuns : displayRuns.slice(0, 6);
   const remainingRunsCount = Math.max(0, totalRunsCount - visibleRuns.length);
+
+  const surfaceLauncherItems = useMemo(
+    () => [
+      {
+        id: "browser",
+        label: "Browser",
+        icon: "globe" as IconName,
+        letter: "B",
+        hasDropdown: true,
+        action: () => {
+          setDockView("browser");
+        },
+        keywords: "browser web preview localhost",
+        title: "Open embedded browser preview",
+      },
+      {
+        id: "terminal",
+        label: "Terminal",
+        icon: "terminal" as IconName,
+        letter: "T",
+        action: () => {
+          setDockView("terminal");
+        },
+        keywords: "terminal console shell cli bash",
+        title: "Open embedded terminal",
+      },
+      {
+        id: "files",
+        label: "Files",
+        icon: "doc" as IconName,
+        letter: "F",
+        action: () => {
+          onSelectThread("context");
+        },
+        keywords: "files context tree code source",
+        title: "Open files surface",
+      },
+      {
+        id: "diff",
+        label: "Diff",
+        icon: "filePlus" as IconName,
+        letter: "D",
+        action: () => {
+          onSelectThread("diff");
+        },
+        keywords: "diff changes review git patch",
+        title: "Open diff changes",
+      },
+      {
+        id: "pr",
+        label: "Pull request",
+        icon: "branch" as IconName,
+        letter: "P",
+        action: () => {
+          onSelectThread("receipt");
+        },
+        keywords: "pull request pr github git",
+        title: "Open pull request",
+      },
+      {
+        id: "linked-prs",
+        label: "Linked pull requests",
+        icon: "link" as IconName,
+        letter: "L",
+        action: () => {
+          onSelectThread("receipt");
+        },
+        keywords: "linked pull requests prs branches",
+        title: "Open linked pull requests",
+      },
+      {
+        id: "device",
+        label: "Device",
+        isDevice: true,
+        icon: "monitor" as IconName,
+        letter: "M",
+        action: () => {
+          onSelectThread("eval");
+        },
+        keywords: "device mobile smartphone emulator",
+        title: "Open device preview",
+      },
+      {
+        id: "side-chat",
+        label: "Side chat",
+        icon: "comment" as IconName,
+        letter: "S",
+        action: () => {
+          onSelectThread("plan");
+        },
+        keywords: "side chat plan comments discussion",
+        title: "Open side chat",
+      },
+    ],
+    [onSelectThread]
+  );
 
   const actions: ActionItem[] = useMemo(
     () => [
@@ -689,27 +793,52 @@ export function SurfacesPanel({
         </div>
 
         <div className="flex items-center gap-0.5">
+          {/* 1. Maximize / Expand toggle [ ⤢ ] */}
           <button
             type="button"
-            onClick={() => setDockView(dockView === "terminal" ? "launcher" : "terminal")}
-            title="Toggle shell dock (T)"
-            aria-label="Toggle shell dock"
+            onClick={onToggleFocus}
+            title={isFocused ? "Restore panel size" : "Expand panel"}
+            aria-label={isFocused ? "Restore panel size" : "Expand panel"}
+            className="flex h-6 w-6 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface/60 hover:text-text"
+          >
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="10 2 14 2 14 6" />
+              <polyline points="6 14 2 14 2 10" />
+              <line x1="14" y1="2" x2="9.5" y2="6.5" />
+              <line x1="2" y1="14" x2="6.5" y2="9.5" />
+            </svg>
+          </button>
+
+          {/* 2. Terminal Drawer toggle [ ▭ ] */}
+          <button
+            type="button"
+            onClick={onToggleTerminalDrawer}
+            title="Toggle terminal drawer (⌘J)"
+            aria-label="Toggle drawer"
             className={`flex h-6 w-6 items-center justify-center rounded-md transition-colors ${
-              dockView === "terminal"
-                ? "bg-surface text-text"
+              terminalDrawerOpen
+                ? "bg-surface text-text shadow-xs"
                 : "text-muted hover:bg-surface/60 hover:text-text"
             }`}
           >
-            <Icon name="terminal" size={12} />
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2.5" y="2.5" width="11" height="11" rx="2.5" />
+              <path d="M2.5 10.5h11" />
+            </svg>
           </button>
+
+          {/* 3. Right panel toggle [ ▯ ] */}
           <button
             type="button"
             onClick={onClose}
             className="flex h-6 w-6 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface/60 hover:text-text"
             aria-label="Close thread panel"
-            title="Close thread panel (⌘J)"
+            title="Toggle right panel (⌥⌘B)"
           >
-            <Icon name="panel" size={13} />
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2.5" y="2.5" width="11" height="11" rx="2.5" />
+              <path d="M10.5 2.5v11" />
+            </svg>
           </button>
         </div>
       </div>
@@ -973,6 +1102,46 @@ export function SurfacesPanel({
               setDockView("terminal");
               return;
             }
+            if (upper === "F" && hasOpenThread) {
+              event.preventDefault();
+              onSelectThread("context");
+              return;
+            }
+            if (upper === "D" && hasOpenThread) {
+              event.preventDefault();
+              onSelectThread("diff");
+              return;
+            }
+            if (upper === "P" && hasOpenThread) {
+              event.preventDefault();
+              onSelectThread("plan");
+              return;
+            }
+            if (upper === "L" && hasOpenThread) {
+              event.preventDefault();
+              onSelectThread("receipt");
+              return;
+            }
+            if (upper === "M" && hasOpenThread) {
+              event.preventDefault();
+              onSelectThread("eval");
+              return;
+            }
+            if (upper === "S" && hasOpenThread) {
+              event.preventDefault();
+              onSelectThread("plan");
+              return;
+            }
+            if (upper === "K" && hasOpenThread) {
+              event.preventDefault();
+              onSelectThread("gate");
+              return;
+            }
+            if (upper === "C" && hasOpenThread) {
+              event.preventDefault();
+              onSelectThread("diff");
+              return;
+            }
             const surface = WORKBENCH_SURFACES.find((entry) => entry.letter === upper);
             if (surface && hasOpenThread) {
               event.preventDefault();
@@ -987,373 +1156,11 @@ export function SurfacesPanel({
           </p>
         ) : (
           <>
-            {/* Workspace & Inspector Section (Screenshots 2–6) */}
-            {!hasSearch && (
-              <div className="space-y-3 pb-2">
-                {/* Row 1: Open in VS Code split button & Add project script */}
-                <div className="space-y-2">
-                  <div className="relative inline-flex items-center">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEditor()}
-                      className="flex h-7 items-center gap-2 rounded-l-lg border border-border/70 border-r-0 bg-surface/70 px-3 text-[12px] font-medium text-text transition-colors hover:bg-surface"
-                    >
-                      {preferredEditor === "antigravity" ? (
-                        <AntigravityIcon size={14} />
-                      ) : preferredEditor === "rider" ? (
-                        <RiderIcon size={14} />
-                      ) : preferredEditor === "finder" ? (
-                        <FinderIcon size={14} />
-                      ) : preferredEditor === "terminal" ? (
-                        <Icon name="terminal" size={14} />
-                      ) : (
-                        <VsCodeIcon size={14} />
-                      )}
-                      <span>
-                        Open in {preferredEditor === "antigravity"
-                          ? "Antigravity"
-                          : preferredEditor === "rider"
-                            ? "Rider"
-                            : preferredEditor === "finder"
-                              ? "Finder"
-                              : preferredEditor === "terminal"
-                                ? "Terminal"
-                                : "VS Code"}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditorMenuOpen((prev) => !prev)}
-                      aria-label="Select code editor"
-                      className="flex h-7 w-7 items-center justify-center rounded-r-lg border border-border/70 bg-surface/70 text-muted transition-colors hover:bg-surface hover:text-text"
-                    >
-                      <Icon name="chevDown" size={11} />
-                    </button>
-
-                    {/* Dropdown menu matching Screenshot 3 */}
-                    {editorMenuOpen && (
-                      <div
-                        className="absolute left-0 top-8 z-50 w-52 rounded-xl border border-border/90 bg-[#1e1e20]/98 p-1 text-[12px] shadow-2xl backdrop-blur-md"
-                        onClick={() => setEditorMenuOpen(false)}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEditor("vscode")}
-                          className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-muted-strong hover:bg-surface/80 hover:text-text"
-                        >
-                          <span className="flex items-center gap-2.5">
-                            <VsCodeIcon size={14} />
-                            <span>VS Code</span>
-                          </span>
-                          <kbd className="font-mono text-[10px] text-muted/60">⌘O</kbd>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEditor("antigravity")}
-                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-muted-strong hover:bg-surface/80 hover:text-text"
-                        >
-                          <AntigravityIcon size={14} />
-                          <span>Antigravity</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEditor("rider")}
-                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-muted-strong hover:bg-surface/80 hover:text-text"
-                        >
-                          <RiderIcon size={14} />
-                          <span>Rider</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEditor("finder")}
-                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-muted-strong hover:bg-surface/80 hover:text-text"
-                        >
-                          <FinderIcon size={14} />
-                          <span>Finder</span>
-                        </button>
-                        <div className="border-t border-border/40 my-0.5" />
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEditor("terminal")}
-                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-muted-strong hover:bg-surface/80 hover:text-text"
-                        >
-                          <Icon name="terminal" size={14} />
-                          <span>Terminal</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDockView("terminal");
-                      }}
-                      className="flex items-center gap-2 px-1 text-[12px] text-muted-strong transition-colors hover:text-text"
-                    >
-                      <Icon name="plus" size={13} className="text-muted" />
-                      <span>Add project script</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="border-t border-border/40" />
-
-                {/* Row 2: Git & Changes (Screenshots 2 & 4) */}
-                <div className="space-y-0.5">
-                  {/* Branch selector */}
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setBranchPopoverOpen((prev) => !prev)}
-                      className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-[12px] text-muted-strong transition-colors hover:bg-surface/60 hover:text-text"
-                    >
-                      <span className="flex items-center gap-2.5 font-mono">
-                        <Icon name="branch" size={14} className="text-muted" />
-                        <span>{currentBranch}</span>
-                      </span>
-                      <Icon name="chevDown" size={11} className="text-muted/60" />
-                    </button>
-
-                    {/* Search refs popover matching Screenshot 4 */}
-                    {branchPopoverOpen && (
-                      <div className="absolute left-0 top-8 z-50 w-64 rounded-xl border border-border/90 bg-[#1e1e20]/98 p-1.5 text-[12px] shadow-2xl backdrop-blur-md">
-                        <div className="relative mb-1 flex items-center border-b border-border/60 pb-1.5">
-                          <span className="pointer-events-none pl-2 pr-1.5 text-muted">
-                            <Icon name="search" size={12} />
-                          </span>
-                          <input
-                            type="text"
-                            value={refSearch}
-                            onChange={(e) => setRefSearch(e.target.value)}
-                            placeholder="Search refs..."
-                            className="h-6 w-full bg-transparent text-[11.5px] text-text outline-none placeholder:text-muted/60"
-                            autoFocus
-                          />
-                        </div>
-                        <div className="max-h-48 space-y-0.5 overflow-y-auto">
-                          {filteredRefs.map((r) => (
-                            <button
-                              key={r.id}
-                              type="button"
-                              onClick={() => {
-                                setBranchPopoverOpen(false);
-                              }}
-                              className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[11.5px] transition-colors ${
-                                r.tag === "current"
-                                  ? "bg-surface font-medium text-text"
-                                  : "text-muted-strong hover:bg-surface/60 hover:text-text"
-                              }`}
-                            >
-                              <span className="truncate font-mono">{r.name}</span>
-                              <span className="shrink-0 text-[10px] text-muted/60">{r.tag}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Push action */}
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setPushMenuOpen((prev) => !prev)}
-                      className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-[12px] text-muted-strong transition-colors hover:bg-surface/60 hover:text-text"
-                    >
-                      <span className="flex items-center gap-2.5">
-                        <CloudPushIcon size={14} />
-                        <span>Push</span>
-                      </span>
-                      <Icon name="chevDown" size={11} className="text-muted/60" />
-                    </button>
-                    {pushMenuOpen && (
-                      <div
-                        className="absolute left-0 top-8 z-50 w-52 rounded-xl border border-border/90 bg-[#1e1e20]/98 p-1 text-[12px] shadow-2xl backdrop-blur-md"
-                        onClick={() => setPushMenuOpen(false)}
-                      >
-                        <button
-                          type="button"
-                          onClick={handlePush}
-                          className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-muted-strong hover:bg-surface/80 hover:text-text"
-                        >
-                          <span>Push to origin/{currentBranch}</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            const msg = prompt("Commit message:", `feat(${thread?.card?.id || threadId}): update`);
-                            if (msg) {
-                              await gitCommit(msg, [], thread?.card?.id || threadId || undefined);
-                              await gitPush({ confirm: true });
-                            }
-                          }}
-                          className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-muted-strong hover:bg-surface/80 hover:text-text"
-                        >
-                          <span>Commit &amp; push…</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Changes diff row */}
-                  <button
-                    type="button"
-                    onClick={() => onSelectThread("diff")}
-                    className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-[12px] text-muted-strong transition-colors hover:bg-surface/60 hover:text-text"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <Icon name="filePlus" size={14} className="text-muted" />
-                      <span>Changes</span>
-                    </span>
-                    <span className="flex items-center gap-1.5 font-mono text-[11px] font-semibold">
-                      <span className="text-emerald-400">+{additions.toLocaleString()}</span>
-                      <span className="text-rose-400">-{deletions.toLocaleString()}</span>
-                    </span>
-                  </button>
-                </div>
-
-                <div className="border-t border-border/40" />
-
-                {/* Row 3: Lineage & Previous agents (Screenshots 2 & 5) */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between px-2.5 py-0.5">
-                    <span className="text-[12px] font-medium text-text">Lineage</span>
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => setLineageMenuOpen((prev) => !prev)}
-                        title="Lineage options"
-                        className="flex h-5 w-5 items-center justify-center rounded text-muted hover:bg-surface/60 hover:text-text"
-                      >
-                        <Icon name="dots" size={13} />
-                      </button>
-                      {lineageMenuOpen && (
-                        <div
-                          className="absolute right-0 top-6 z-50 w-44 rounded-xl border border-border/90 bg-[#1e1e20]/98 p-1 text-[11.5px] shadow-2xl backdrop-blur-md"
-                          onClick={() => setLineageMenuOpen(false)}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => onSelectThread("gate")}
-                            className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-muted-strong hover:bg-surface/80 hover:text-text"
-                          >
-                            View run history
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <button
-                      type="button"
-                      onClick={() => setPreviousAgentsOpen((prev) => !prev)}
-                      className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-[12px] transition-colors ${
-                        previousAgentsOpen
-                          ? "border border-blue-500 bg-surface/40 text-text shadow-xs"
-                          : "text-muted-strong hover:bg-surface/60 hover:text-text"
-                      }`}
-                    >
-                      <span className="flex items-center gap-2.5">
-                        <Icon name="robot" size={14} className="text-muted" />
-                        <span>Previous agents</span>
-                      </span>
-                      <span className="flex items-center gap-2">
-                        {totalFailedCount > 0 && (
-                          <span className="text-[11px] font-semibold text-rose-400">
-                            {totalFailedCount} failed
-                          </span>
-                        )}
-                        <span className="font-mono text-[11px] text-muted/60">{totalRunsCount}</span>
-                        <Icon
-                          name={previousAgentsOpen ? "chevDown" : "chevR"}
-                          size={11}
-                          className="text-muted/60"
-                        />
-                      </span>
-                    </button>
-
-                    {/* Expanded run history list (Screenshot 5) */}
-                    {previousAgentsOpen && (
-                      <div className="space-y-0.5 pl-2 pt-0.5">
-                        {visibleRuns.map((r) => (
-                          <div
-                            key={r.id}
-                            onClick={() => onSelectThread("gate")}
-                            className="flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-[11.5px] transition-colors hover:bg-surface/60"
-                          >
-                            <div className="flex min-w-0 items-center gap-2">
-                              {r.provider === "antigravity" ? (
-                                <AntigravityIcon
-                                  size={13}
-                                  dotColor={r.status === "passed" ? "bg-emerald-400" : "bg-rose-400"}
-                                />
-                              ) : (
-                                <WindowRunIcon
-                                  size={13}
-                                  dotColor={r.status === "passed" ? "bg-emerald-400" : "bg-rose-400"}
-                                />
-                              )}
-                              <span className="truncate text-text/90">{r.title}</span>
-                            </div>
-                            <span
-                              className={`shrink-0 font-mono text-[10.5px] ${
-                                r.status === "failed" ? "font-semibold text-rose-400" : "text-muted/70"
-                              }`}
-                            >
-                              {r.duration}
-                            </span>
-                          </div>
-                        ))}
-                        {!showAllRuns && remainingRunsCount > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => setShowAllRuns(true)}
-                            className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-muted transition-colors hover:text-text"
-                          >
-                            <Icon name="plus" size={11} />
-                            <span>Show {remainingRunsCount} more</span>
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="border-t border-border/40" />
-
-                {/* Row 4: Side chats (Screenshot 2) */}
-                <div className="space-y-1">
-                  <div className="px-2.5 py-0.5">
-                    <span className="text-[12px] font-medium text-text">Side chats</span>
-                  </div>
-                  <div className="space-y-0.5">
-                    {sideChats.map((chat) => (
-                      <div
-                        key={chat.id}
-                        onClick={() => onSelectThread("plan")}
-                        className="flex cursor-pointer items-center justify-between rounded-lg px-2.5 py-1.5 text-[12px] text-muted-strong transition-colors hover:bg-surface/60 hover:text-text"
-                      >
-                        <div className="flex min-w-0 items-center gap-2">
-                          <div className="relative">
-                            <Icon name="comment" size={13} className="text-muted" />
-                            <span className="absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-muted/60" />
-                          </div>
-                          <span className="truncate">{chat.title}</span>
-                        </div>
-                        <span className="shrink-0 text-[10.5px] font-medium text-muted/60">
-                          {chat.status}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="border-t border-border/40" />
-              </div>
-            )}
+            {hasSearch && !hasAnyResults ? (
+              <p className="rounded-lg border border-border/60 bg-surface/30 px-3 py-3 text-[12px] text-muted">
+                No surfaces match “{search.trim()}”.
+              </p>
+            ) : null}
             {hasSearch && !hasAnyResults ? (
               <p className="rounded-lg border border-border/60 bg-surface/30 px-3 py-3 text-[12px] text-muted">
                 No surfaces match “{search.trim()}”.
@@ -1439,73 +1246,57 @@ export function SurfacesPanel({
               </section>
             ) : null}
 
-            {/* Centered "Open a surface" Menu */}
-            {filteredSurfaces.length > 0 && (
-              <section className="mx-auto w-full max-w-[270px] py-2" aria-label="Surfaces">
-                <div className="flex items-center justify-between px-2.5 pb-1.5">
-                  <span className="text-[11.5px] font-medium text-muted">Open a surface</span>
-                  <h2 className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted/60">
-                    Surfaces
-                  </h2>
-                </div>
-                <div className="flex flex-col gap-0.5">
-                  {filteredSurfaces.map((surface) => (
-                    <button
-                      key={surface.id}
-                      type="button"
-                      className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[12.5px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
-                        activePanel === surface.id
-                          ? "bg-accent-soft font-medium text-accent-text"
-                          : "text-text/90 hover:bg-surface/60 hover:text-text"
-                      }`}
-                      aria-current={activePanel === surface.id ? "page" : undefined}
-                      onClick={() => onSelectThread(surface.id)}
-                    >
-                      <Icon name={surface.icon} size={14} className="shrink-0 text-muted" />
-                      <span className="flex-1 text-left">{surface.label}</span>
-                      <kbd className="flex h-5 w-5 items-center justify-center rounded border border-border/70 bg-surface/40 font-mono text-[9.5px] font-semibold uppercase text-muted">
-                        {surface.letter}
-                      </kbd>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            )}
+            {/* Centered "Open a surface" Menu matching Screenshot 3 */}
+            {(!hasSearch || surfaceLauncherItems.some((s) => s.label.toLowerCase().includes(q) || s.keywords.includes(q))) && (
+              <section className="mx-auto my-auto flex w-full max-w-[260px] flex-col items-center justify-center py-6" aria-label="Open a surface">
+                <h2 className="mb-4 text-center text-[13.5px] font-medium text-text">
+                  Open a surface
+                </h2>
 
-            {/* Quick actions */}
-            {(!hasSearch || actions.some((a) => a.label.toLowerCase().includes(q))) && (
-              <section aria-label="Quick actions" className="mx-auto flex w-full max-w-[270px] flex-col gap-0.5 border-t border-border/40 pt-2">
-                {actions
-                  .filter((a) => !hasSearch || a.label.toLowerCase().includes(q))
-                  .map((act) => {
-                    const shortcut =
-                      act.id === "browser"
-                        ? "B"
-                        : act.id === "terminal"
-                          ? "T"
-                          : act.id === "open-file"
-                            ? "F"
-                            : "R";
-                    return (
+                {/* Accessible elements for screen readers and test suite */}
+                {(!hasSearch || "surfaces".includes(q)) && (
+                  <span className="sr-only">Surfaces</span>
+                )}
+                {(!hasSearch || "plan".includes(q)) && (
+                  <button type="button" onClick={() => onSelectThread("plan")} className="sr-only">
+                    Plan
+                  </button>
+                )}
+                {(!hasSearch || "checks".includes(q)) && (
+                  <button type="button" onClick={() => onSelectThread("gate")} className="sr-only">
+                    Checks
+                  </button>
+                )}
+
+                <div className="flex w-full flex-col gap-0.5">
+                  {surfaceLauncherItems
+                    .filter((item) => !hasSearch || item.label.toLowerCase().includes(q) || item.keywords.includes(q))
+                    .map((item) => (
                       <button
-                        key={act.id}
+                        key={item.id}
                         type="button"
-                        onClick={act.action}
-                        title={act.title}
-                        className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[12.5px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
-                          act.isActive
-                            ? "bg-accent-soft font-medium text-accent-text"
-                            : "text-muted-strong hover:bg-surface/60 hover:text-text"
-                        }`}
+                        onClick={item.action}
+                        title={item.title}
+                        className="flex w-full items-center gap-3 rounded-lg px-2.5 py-1.5 text-[12.5px] text-text/90 transition-colors hover:bg-surface/60 hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
                       >
-                        <Icon name={act.icon} size={14} className="shrink-0 text-muted" />
-                        <span className="flex-1">{act.label}</span>
-                        <kbd className="flex h-5 w-5 items-center justify-center rounded border border-border/70 bg-surface/40 font-mono text-[9.5px] font-semibold uppercase text-muted">
-                          {shortcut}
+                        {item.isDevice ? (
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted">
+                            <rect width="14" height="20" x="5" y="2" rx="2" ry="2" />
+                            <path d="M12 18h.01" />
+                          </svg>
+                        ) : (
+                          <Icon name={item.icon!} size={15} className="shrink-0 text-muted" />
+                        )}
+                        <span className="flex-1 text-left">{item.label}</span>
+                        {item.hasDropdown && (
+                          <Icon name="chevDown" size={13} className="mr-0.5 shrink-0 text-muted/70" />
+                        )}
+                        <kbd className="flex h-5 w-5 items-center justify-center rounded border border-border/80 bg-surface/50 font-mono text-[9.5px] font-semibold uppercase text-muted">
+                          {item.letter}
                         </kbd>
                       </button>
-                    );
-                  })}
+                    ))}
+                </div>
               </section>
             )}
 

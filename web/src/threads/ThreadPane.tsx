@@ -52,6 +52,8 @@ import { useAgentSelection } from "../lib/useAgentSelection";
 import { useDraft } from "../lib/drafts";
 import { runLabel, checkState, checksPassed, isActiveRun } from "../lib/run-state";
 import type { ThreadActionTarget } from "../shell/ThreadActionsMenu";
+import { ThreadContextPopover } from "./ThreadContextPopover";
+import { ThreadTerminalDrawer } from "./ThreadTerminalDrawer";
 
 interface ThreadPaneProps {
   scope?: string;
@@ -60,6 +62,8 @@ interface ThreadPaneProps {
   threadId: string | null;
   boardName?: string;
   inspectorOpen?: boolean;
+  terminalDrawerOpen?: boolean;
+  onToggleTerminalDrawer?: () => void;
   onSelectCard?: (card: Card) => void;
   onOpenInspector?: () => void;
   onReview?: () => void;
@@ -306,6 +310,8 @@ export function ThreadPane({
   threadId,
   boardName,
   inspectorOpen,
+  terminalDrawerOpen,
+  onToggleTerminalDrawer,
   onSelectCard,
   onOpenInspector,
   onReview,
@@ -338,6 +344,32 @@ export function ThreadPane({
   const [startingRun, setStartingRun] = useState(false);
   const [runBusyId, setRunBusyId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [threadContextOpen, setThreadContextOpen] = useState(false);
+  const [localTerminalDrawerOpen, setLocalTerminalDrawerOpen] = useState(false);
+  const isTerminalOpen = terminalDrawerOpen ?? localTerminalDrawerOpen;
+  const toggleTerminalDrawer = onToggleTerminalDrawer ?? (() => setLocalTerminalDrawerOpen((prev) => !prev));
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      const isInput = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (e.target as HTMLElement)?.isContentEditable;
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "j") {
+        e.preventDefault();
+        toggleTerminalDrawer();
+      } else if ((e.metaKey || e.ctrlKey) && e.altKey && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        onOpenInspector?.();
+      }
+    };
+    const handleEventToggle = () => toggleTerminalDrawer();
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("bark-toggle-terminal-drawer", handleEventToggle);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("bark-toggle-terminal-drawer", handleEventToggle);
+    };
+  }, [onOpenInspector, toggleTerminalDrawer]);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const selectCardRef = useRef(onSelectCard);
   const refreshInboxRef = useRef(onRefreshInbox);
@@ -1047,44 +1079,20 @@ export function ThreadPane({
           </span>
         </div>
 
-        <div className="thread-header-actions flex items-center gap-1" role="toolbar" aria-label="Thread actions">
-          {onThreadMenu && (
+        <div className="thread-header-actions flex items-center gap-0.5" role="toolbar" aria-label="Thread actions">
+          {/* 1. Thread Context Popover Toggle [ ≡ ] matching Screenshot 1 */}
+          <div className="relative">
             <button
               type="button"
-              onClick={(event) => {
-                const rect = event.currentTarget.getBoundingClientRect();
-                onThreadMenu(
-                  {
-                    id: threadId,
-                    title: card?.title || threadId,
-                    pinned: Boolean(card?.pinned),
-                    settled: card?.column === "done",
-                  },
-                  rect.right - 220,
-                  rect.bottom + 6
-                );
-              }}
-              aria-label="Thread actions"
-              title="Thread actions"
-              className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-            >
-              <Icon name="dots" size={15} />
-            </button>
-          )}
-
-          {/* Window / Drawer Layout Toggles matching Screenshot 1 */}
-          <div className="flex items-center gap-0.5">
-            {/* 1. Console / Events Drawer Toggle [≡] */}
-            <button
-              type="button"
-              onClick={() => {
-                window.dispatchEvent(
-                  new CustomEvent("bark-command", { detail: "open-terminal" })
-                );
-              }}
-              aria-label="Toggle console drawer"
-              title="Toggle console / terminal drawer"
-              className="flex h-7 w-7 items-center justify-center rounded-md text-muted/80 transition-colors hover:bg-surface/80 hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+              onClick={() => setThreadContextOpen((prev) => !prev)}
+              aria-label="Toggle thread context"
+              aria-expanded={threadContextOpen}
+              title="Toggle thread context"
+              className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
+                threadContextOpen
+                  ? "bg-surface text-text shadow-xs"
+                  : "text-muted/80 hover:bg-surface/80 hover:text-text"
+              }`}
             >
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="2.5" y="2.5" width="11" height="11" rx="2.5" />
@@ -1094,41 +1102,67 @@ export function ThreadPane({
               </svg>
             </button>
 
-            {/* 2. Bottom Review Drawer Toggle [ __ ] */}
+            {threadContextOpen && (
+              <ThreadContextPopover
+                project={project}
+                card={card}
+                threadId={threadId}
+                runs={thread?.runs || []}
+                onClose={() => setThreadContextOpen(false)}
+                onSelectSurface={(surf) => {
+                  setThreadContextOpen(false);
+                  if (!inspectorOpen) onOpenInspector?.();
+                  onReview?.();
+                }}
+                onOpenTerminalDrawer={() => {
+                  setThreadContextOpen(false);
+                  if (!isTerminalOpen) toggleTerminalDrawer();
+                }}
+              />
+            )}
+          </div>
+
+          {/* 2. Bottom Terminal Drawer Toggle [ ▭ ] matching Screenshot 2 */}
+          {!inspectorOpen && (
             <button
               type="button"
-              onClick={() => onReview?.()}
-              aria-label="Toggle bottom drawer"
-              title="Toggle bottom drawer / review diff"
-              className="flex h-7 w-7 items-center justify-center rounded-md text-muted/80 transition-colors hover:bg-surface/80 hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+              onClick={toggleTerminalDrawer}
+              aria-label="Toggle terminal drawer"
+              aria-pressed={isTerminalOpen}
+              title="Toggle terminal drawer (⌘J)"
+              className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
+                isTerminalOpen
+                  ? "bg-surface text-text shadow-xs"
+                  : "text-muted/80 hover:bg-surface/80 hover:text-text"
+              }`}
             >
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="2.5" y="2.5" width="11" height="11" rx="2.5" />
                 <path d="M2.5 10.5h11" />
               </svg>
             </button>
+          )}
 
-            {/* 3. Right Inspector Drawer Toggle [ | ] */}
-            {onOpenInspector && (
-              <button
-                type="button"
-                onClick={onOpenInspector}
-                aria-label={inspectorOpen ? "Hide thread panel" : "Show thread panel"}
-                aria-pressed={inspectorOpen}
-                title={inspectorOpen ? "Hide thread panel (⌘J)" : "Show thread panel (⌘J)"}
-                className={`thread-action-inspector flex h-7 w-7 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
-                  inspectorOpen
-                    ? "bg-surface text-text shadow-xs"
-                    : "text-muted/80 hover:bg-surface/80 hover:text-text"
-                }`}
-              >
-                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="2.5" y="2.5" width="11" height="11" rx="2.5" />
-                  <path d="M10.5 2.5v11" />
-                </svg>
-              </button>
-            )}
-          </div>
+          {/* 3. Right Inspector Drawer Toggle [ ▯ ] matching Screenshot 3 */}
+          {onOpenInspector && (
+            <button
+              type="button"
+              onClick={onOpenInspector}
+              aria-label={inspectorOpen ? "Hide thread panel" : "Show thread panel"}
+              aria-pressed={inspectorOpen}
+              title="Toggle right panel (⌥⌘B)"
+              className={`thread-action-inspector flex h-7 w-7 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
+                inspectorOpen
+                  ? "hidden"
+                  : "text-muted/80 hover:bg-surface/80 hover:text-text"
+              }`}
+            >
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2.5" y="2.5" width="11" height="11" rx="2.5" />
+                <path d="M10.5 2.5v11" />
+              </svg>
+            </button>
+          )}
         </div>
       </header>
 
@@ -1798,6 +1832,13 @@ export function ThreadPane({
           <div ref={messagesEndRef} />
         </div>
       </div>
+
+      {isTerminalOpen && (
+        <ThreadTerminalDrawer
+          project={project}
+          onClose={toggleTerminalDrawer}
+        />
+      )}
 
       <div className="thread-composer-dock">
         {actionStatus && (

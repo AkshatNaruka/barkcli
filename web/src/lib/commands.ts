@@ -60,11 +60,19 @@ export const APP_COMMANDS: AppCommand[] = [
   { id: "settings", label: "Settings", icon: "gear", shortcut: ",", modifiers: "mod" },
   { id: "customize-sidebar", label: "Customize sidebar", icon: "sliders" },
   { id: "open-terminal", label: "Open terminal", icon: "terminal", shortcut: "t", modifiers: "mod+shift" },
-  { id: "toggle-workbench", label: "Toggle surfaces", icon: "panel", shortcut: "j", modifiers: "mod" },
+  { id: "toggle-terminal-drawer", label: "Toggle terminal drawer", icon: "terminal", shortcut: "j", modifiers: "mod" },
+  { id: "toggle-workbench", label: "Toggle right panel", icon: "panel", shortcut: "b", modifiers: "mod+alt" },
   { id: "toggle-sidebar", label: "Toggle sidebar", icon: "panel", shortcut: "b", modifiers: "mod+shift" },
 ];
 export function commandForKey(event: KeyboardEvent): string | undefined {
-  if (!(event.metaKey || event.ctrlKey) || event.altKey || event.isComposing) return;
-  return APP_COMMANDS.find((command) => command.shortcut === event.key.toLowerCase() &&
-    Boolean(command.modifiers?.includes("shift")) === event.shiftKey)?.id;
+  if (!(event.metaKey || event.ctrlKey) || event.isComposing) return;
+  const wantsAlt = Boolean(event.altKey);
+  const wantsShift = Boolean(event.shiftKey);
+  const key = event.key.toLowerCase();
+  return APP_COMMANDS.find((command) => {
+    if (command.shortcut !== key) return false;
+    const hasShift = Boolean(command.modifiers?.includes("shift"));
+    const hasAlt = Boolean(command.modifiers?.includes("alt"));
+    return hasShift === wantsShift && hasAlt === wantsAlt;
+  })?.id;
 }
