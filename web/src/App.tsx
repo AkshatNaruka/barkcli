@@ -917,6 +917,8 @@ export function App() {
           {route === "agents" && (
             <AgentsSurface
               boardName={boardName}
+              projectName={projectName || projectInfo?.name || null}
+              projectRoot={projectInfo?.root || projectRoot || ""}
               board={board}
               sprints={sprints}
               onSprintChanged={() => fetchSprints(boardName || undefined).then(setSprints)}
@@ -939,6 +941,8 @@ export function App() {
             <OperationsView
               board={board}
               boardName={boardName}
+              projectName={projectName || projectInfo?.name || null}
+              projectRoot={projectInfo?.root || projectRoot || ""}
               sprints={sprints}
               onOpenFile={(path, line) => openFileInEditor(path, line)}
               onEditCard={(card) => handleOpenForm({ card })}

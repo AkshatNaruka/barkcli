@@ -22,7 +22,13 @@ const RULE_PRESETS = [
   },
 ];
 
-export function RulesView() {
+export function RulesView({
+  boardName,
+  projectName,
+}: {
+  boardName?: string | null;
+  projectName?: string | null;
+} = {}) {
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState("");
@@ -47,7 +53,7 @@ export function RulesView() {
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, boardName, projectName]);
 
   const create = async (customTitle?: string, customBody?: string) => {
     const t = (customTitle || title).trim();
@@ -102,7 +108,14 @@ export function RulesView() {
             <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent-soft text-accent-text">
               <Icon name="doc" size={15} />
             </span>
-            <h1 className="text-[18px] font-semibold tracking-tight text-text">Rules</h1>
+            <div>
+              <h1 className="text-[18px] font-semibold tracking-tight text-text">Rules</h1>
+              {projectName && (
+                <p className="text-[10.5px] text-muted font-mono">
+                  {projectName}{boardName ? ` · ${boardName}` : ""}
+                </p>
+              )}
+            </div>
           </div>
           <span className="text-xs text-muted font-mono bg-card px-2 py-0.5 rounded border border-border">
             {rules.length} rule{rules.length === 1 ? "" : "s"} in AGENTS.md

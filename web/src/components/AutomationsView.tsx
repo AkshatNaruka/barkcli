@@ -12,6 +12,7 @@ import { QuietSelect } from "./QuietSelect";
 
 interface Props {
   boardName: string | null;
+  projectName?: string | null;
 }
 
 function formatInterval(seconds: number | undefined): string {
@@ -29,7 +30,7 @@ function formatTime(iso: string): string {
   }
 }
 
-export function AutomationsView({ boardName }: Props) {
+export function AutomationsView({ boardName, projectName }: Props) {
   const [schedules, setSchedules] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [intent, setIntent] = useState("");
@@ -53,7 +54,7 @@ export function AutomationsView({ boardName }: Props) {
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, boardName, projectName]);
 
   const create = async () => {
     const trimmed = intent.trim();
@@ -111,11 +112,23 @@ export function AutomationsView({ boardName }: Props) {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-[960px] px-5 py-5 md:px-7">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent-soft text-accent-text">
-            <Icon name="clock" size={15} />
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent-soft text-accent-text">
+              <Icon name="clock" size={15} />
+            </span>
+            <div>
+              <h1 className="text-[18px] font-semibold tracking-tight text-text">Automations</h1>
+              {projectName && (
+                <p className="text-[10.5px] text-muted font-mono">
+                  {projectName}{boardName ? ` · ${boardName}` : ""}
+                </p>
+              )}
+            </div>
+          </div>
+          <span className="text-xs text-muted font-mono bg-card px-2 py-0.5 rounded border border-border">
+            {schedules.length} schedule{schedules.length === 1 ? "" : "s"}
           </span>
-          <h1 className="text-[18px] font-semibold tracking-tight text-text">Automations</h1>
         </div>
         <p className="mt-2 max-w-[720px] text-[12px] leading-relaxed text-muted">
           Scheduled agent runs. Each due intent invokes the normal autonomy loop in

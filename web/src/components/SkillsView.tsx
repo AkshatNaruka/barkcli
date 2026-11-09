@@ -815,8 +815,8 @@ export function SkillsView() {
 
   return (
     <div className="h-full flex flex-col min-h-0">
-      <div className="px-4 pt-4 pb-3 border-b border-border/70 shrink-0">
-        <div className="flex items-start gap-4 flex-wrap">
+      <div className="px-4 pt-4 pb-3 border-b border-border/70 shrink-0 space-y-3">
+        <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex items-center gap-2.5">
               <h2 className="text-[15px] font-medium text-text">Skills & Toolchain</h2>
@@ -836,40 +836,7 @@ export function SkillsView() {
             </p>
           </div>
 
-          {/* Subsystem Tab Navigation */}
-          <div className="flex items-center gap-1 p-0.5 bg-card border border-border rounded-lg">
-            <button
-              type="button"
-              onClick={() => setViewTab("installed")}
-              className={`h-7 px-2.5 rounded-md text-[11px] font-medium transition-all ${
-                viewTab === "installed" ? "bg-accent text-white shadow-sm" : "text-muted hover:text-text hover:bg-white/[0.04]"
-              }`}
-            >
-              Installed ({skills.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewTab("skills_sh")}
-              className={`h-7 px-2.5 rounded-md text-[11px] font-medium transition-all flex items-center gap-1.5 ${
-                viewTab === "skills_sh" ? "bg-accent text-white shadow-sm" : "text-muted hover:text-text hover:bg-white/[0.04]"
-              }`}
-            >
-              <Icon name="layers" size={11} />
-              skills.sh Library
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewTab("toolchain")}
-              className={`h-7 px-2.5 rounded-md text-[11px] font-medium transition-all flex items-center gap-1.5 ${
-                viewTab === "toolchain" ? "bg-accent text-white shadow-sm" : "text-muted hover:text-text hover:bg-white/[0.04]"
-              }`}
-            >
-              <Icon name="terminal" size={11} />
-              Tools & Agents
-            </button>
-          </div>
-
-          <div className="ml-auto flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap shrink-0 ml-auto">
             {viewTab !== "toolchain" && (
               <div className="relative">
                 <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted/70 pointer-events-none">
@@ -924,6 +891,39 @@ export function SkillsView() {
               </button>
             )}
           </div>
+        </div>
+
+        {/* Subsystem Tab Navigation: fixed left-aligned position */}
+        <div className="flex items-center gap-1 p-0.5 bg-card border border-border rounded-lg w-fit">
+          <button
+            type="button"
+            onClick={() => setViewTab("installed")}
+            className={`h-7 px-2.5 rounded-md text-[11px] font-medium transition-all ${
+              viewTab === "installed" ? "bg-accent text-white shadow-sm" : "text-muted hover:text-text hover:bg-white/[0.04]"
+            }`}
+          >
+            Installed ({skills.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewTab("skills_sh")}
+            className={`h-7 px-2.5 rounded-md text-[11px] font-medium transition-all flex items-center gap-1.5 ${
+              viewTab === "skills_sh" ? "bg-accent text-white shadow-sm" : "text-muted hover:text-text hover:bg-white/[0.04]"
+            }`}
+          >
+            <Icon name="layers" size={11} />
+            skills.sh Library
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewTab("toolchain")}
+            className={`h-7 px-2.5 rounded-md text-[11px] font-medium transition-all flex items-center gap-1.5 ${
+              viewTab === "toolchain" ? "bg-accent text-white shadow-sm" : "text-muted hover:text-text hover:bg-white/[0.04]"
+            }`}
+          >
+            <Icon name="terminal" size={11} />
+            Tools & Agents
+          </button>
         </div>
       </div>
 

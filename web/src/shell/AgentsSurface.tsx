@@ -23,12 +23,16 @@ const VIEWS: { id: AgentsView; label: string }[] = [
  */
 export function AgentsSurface({
   boardName,
+  projectName,
+  projectRoot,
   board,
   sprints,
   onSprintChanged,
   onEditCard,
 }: {
   boardName: string | null;
+  projectName?: string | null;
+  projectRoot?: string | null;
   board: Board | null;
   sprints: Sprint[];
   onSprintChanged: () => void;
@@ -58,8 +62,14 @@ export function AgentsSurface({
       <div className="flex-1 min-h-0 overflow-hidden">
         {active === "team" && <TeamView boardName={boardName} />}
         {active === "orchestra" && <OrchestraWorkView boardName={boardName} board={board} />}
-        {active === "rules" && <RulesView />}
-        {active === "agent" && <AgentPromptView />}
+        {active === "rules" && <RulesView boardName={boardName} projectName={projectName} />}
+        {active === "agent" && (
+          <AgentPromptView
+            projectName={projectName}
+            boardName={boardName}
+            projectRoot={projectRoot}
+          />
+        )}
         {active === "sprints" && (
           <SprintView
             board={board}

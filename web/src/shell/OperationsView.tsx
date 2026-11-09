@@ -89,6 +89,8 @@ function initialTab(): OpTab {
 export function OperationsView({
   board,
   boardName,
+  projectName,
+  projectRoot,
   sprints,
   onOpenFile,
   onEditCard,
@@ -100,6 +102,8 @@ export function OperationsView({
 }: {
   board: Board | null;
   boardName: string | null;
+  projectName?: string | null;
+  projectRoot?: string | null;
   sprints: Sprint[];
   onOpenFile: (path: string, line?: number) => void;
   onEditCard: (card: Card) => void;
@@ -141,8 +145,8 @@ export function OperationsView({
         ))}
       </div>
       <div className="flex-1 overflow-hidden min-h-0">
-        {tab === "rules" && <RulesView />}
-        {tab === "automations" && <AutomationsView boardName={boardName} />}
+        {tab === "rules" && <RulesView boardName={boardName} projectName={projectName} />}
+        {tab === "automations" && <AutomationsView boardName={boardName} projectName={projectName} />}
         {tab === "workspace" && (
           <WorkspaceView
             boardName={boardName}
@@ -164,7 +168,13 @@ export function OperationsView({
           <CalendarView board={board} sprints={sprints} onEditCard={onEditCard} onAddCard={onAddCard} />
         )}
         {tab === "reports" && board && <ReportsView board={board} sprints={sprints} />}
-        {tab === "agent" && <AgentPromptView />}
+        {tab === "agent" && (
+          <AgentPromptView
+            projectName={projectName}
+            boardName={boardName}
+            projectRoot={projectRoot}
+          />
+        )}
         {tab === "docs" && <DocsView />}
         {tab === "usage" && <UsageView />}
         {tab === "settings" && board && <SettingsView board={board} onSaveBoard={onSaveBoard} />}

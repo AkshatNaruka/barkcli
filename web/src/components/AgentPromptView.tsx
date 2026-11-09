@@ -397,13 +397,23 @@ barkcli validate
 | \`BARKCLI_BOARD\` | Default board name |
 | \`BARKCLI_AGENT_ID\` | Default agent ID |`;
 
-export function AgentPromptView() {
+export function AgentPromptView({
+  projectName,
+  boardName,
+  projectRoot,
+}: {
+  projectName?: string | null;
+  boardName?: string | null;
+  projectRoot?: string | null;
+} = {}) {
   const [copied, setCopied] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [pingState, setPingState] = useState<PingResponse | null>(null);
   const [pingError, setPingError] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const access = apiAccess();
+  const effectiveBase = access.base || (access as any).url || "http://127.0.0.1:55701";
 
   useEffect(() => {
     let cancelled = false;
@@ -423,10 +433,12 @@ export function AgentPromptView() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [projectName, boardName]);
 
-  const livePrompt = `> Live workspace: ${access.base || "unknown"}
-> Health: ${access.base || ""}/api/ping
+  const livePrompt = `> Project: ${projectName || "Current Project"}${projectRoot ? ` (${projectRoot})` : ""}
+> Active Board: ${boardName || "default"}
+> Live Base URL: ${effectiveBase}
+> Health: ${effectiveBase}/api/ping
 > Auth: ${access.tokenSet ? "this server requires the token from the Bark window URL" : "no token required"}
 > MCP: barkcli mcp
 
@@ -467,8 +479,15 @@ ${AGENT_PROMPT}`;
             <Icon name="code" size={14} />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-text">Agent API</h2>
-            <p className="text-xs text-muted">Live local API details and the agent contract</p>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-text">Agent API</h2>
+              {projectName && (
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface border border-border text-muted">
+                  {projectName}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted">Live unique local API details and the agent contract</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -496,13 +515,37 @@ ${AGENT_PROMPT}`;
       <div className="border-b border-border bg-surface/40 px-4 py-3 shrink-0">
         <div className="mx-auto grid max-w-4xl gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-md border border-border/70 bg-bg/50 px-2.5 py-2">
-            <div className="text-[9px] uppercase tracking-[0.12em] text-muted">Base URL</div>
-            <div className="mt-0.5 truncate font-mono text-[10.5px] text-text" title={access.base}>
-              {access.base || "not in a browser"}
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] uppercase tracking-[0.12em] text-muted">Base URL</span>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(effectiveBase);
+                    setCopiedUrl(true);
+                    setTimeout(() => setCopiedUrl(false), 2000);
+                  } catch {}
+                }}
+                className="text-[9px] font-mono text-accent hover:underline flex items-center gap-1 cursor-pointer"
+                title="Copy Base URL"
+              >
+                {copiedUrl ? <Icon name="check" size={10} /> : <Icon name="copy" size={10} />}
+                <span>{copiedUrl ? "Copied" : "Copy"}</span>
+              </button>
+            </div>
+            <div className="mt-0.5 truncate font-mono text-[10.5px] text-accent font-semibold" title={effectiveBase}>
+              {effectiveBase}
             </div>
           </div>
           <div className="rounded-md border border-border/70 bg-bg/50 px-2.5 py-2">
-            <div className="text-[9px] uppercase tracking-[0.12em] text-muted">Server</div>
+            <div className="text-[9px] uppercase tracking-[0.12em] text-muted">Project & Board</div>
+            <div className="mt-0.5 truncate font-mono text-[10.5px] text-text" title={`${projectName || "barkcli"}${boardName ? ` · ${boardName}` : ""}`}>
+              <span className="font-semibold">{projectName || "barkcli"}</span>
+              {boardName ? <span className="text-muted"> · {boardName}</span> : ""}
+            </div>
+          </div>
+          <div className="rounded-md border border-border/70 bg-bg/50 px-2.5 py-2">
+            <div className="text-[9px] uppercase tracking-[0.12em] text-muted">Server & Version</div>
             <div className="mt-0.5 truncate font-mono text-[10.5px] text-text">
               {pingState
                 ? `${pingState.status} · v${pingState.version}`
@@ -512,20 +555,14 @@ ${AGENT_PROMPT}`;
             </div>
           </div>
           <div className="rounded-md border border-border/70 bg-bg/50 px-2.5 py-2">
-            <div className="text-[9px] uppercase tracking-[0.12em] text-muted">Auth</div>
+            <div className="text-[9px] uppercase tracking-[0.12em] text-muted">Auth & Token</div>
             <div className="mt-0.5 truncate font-mono text-[10.5px] text-text">
               {access.tokenSet ? "token required (set)" : "open local server"}
             </div>
           </div>
-          <div className="rounded-md border border-border/70 bg-bg/50 px-2.5 py-2">
-            <div className="text-[9px] uppercase tracking-[0.12em] text-muted">Uptime</div>
-            <div className="mt-0.5 truncate font-mono text-[10.5px] text-text">
-              {pingState ? `${Math.floor(pingState.uptime_seconds)}s` : "—"}
-            </div>
-          </div>
         </div>
         <p className="mx-auto mt-2 max-w-4xl font-mono text-[9.5px] text-muted">
-          GET {access.base || "http://127.0.0.1:<port>"}/api/ping · websocket /ws · REST /api/*
+          GET {effectiveBase}/api/ping · websocket /ws · REST /api/*
         </p>
       </div>
 
