@@ -112,4 +112,42 @@ describe("SettingsView", () => {
     expect(within(row as HTMLElement).getByRole("button", { name: "Sign in" })).toBeInTheDocument();
     expect(screen.getByText("Codex").closest(".settings-agent")).not.toHaveTextContent("Sign in");
   });
+
+  it("renders the MCP section with Bark MCP server and client snippet generator", async () => {
+    const user = userEvent.setup();
+    render(<SettingsView board={board} onSaveBoard={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: /^MCP/ }));
+    expect(await screen.findByRole("heading", { name: "Bark MCP Server" })).toBeInTheDocument();
+    expect(screen.getByText("barkcli mcp")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Client Configuration Generator" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy Snippet" })).toBeInTheDocument();
+  });
+
+  it("renders the Updates section with current version and check for updates button", async () => {
+    const user = userEvent.setup();
+    render(<SettingsView board={board} onSaveBoard={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: /^Updates/ }));
+    expect(await screen.findByRole("heading", { name: "Software Version" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Check for updates" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Release Channel" })).toBeInTheDocument();
+  });
+
+  it("renders the General, API Keys, and Terminal sections", async () => {
+    const user = userEvent.setup();
+    render(<SettingsView board={board} onSaveBoard={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: /^General/ }));
+    expect(await screen.findByRole("heading", { name: "Default Code Editor" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^API Keys/ }));
+    expect(await screen.findByRole("heading", { name: "Cloud Model Providers" })).toBeInTheDocument();
+    expect(screen.getByText("Anthropic API Key")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^Terminal/ }));
+    expect(await screen.findByRole("heading", { name: "Shell Environment" })).toBeInTheDocument();
+    expect(screen.getByText("Terminal Preview")).toBeInTheDocument();
+  });
 });
+

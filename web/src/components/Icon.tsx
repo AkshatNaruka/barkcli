@@ -34,6 +34,7 @@ import {
   GripVertical,
   History,
   Inbox,
+  Key,
   Layers,
   LayoutGrid,
   Link2,
@@ -76,7 +77,7 @@ export type IconName =
   | "chevL" | "chevR" | "chevDown" | "chevUp" | "flag" | "link" | "moon" | "sun" | "monitor"
   | "x" | "users" | "inbox" | "arrowUp" | "arrowFlat" | "arrowDown" | "arrowLeft"
   | "download" | "palette" | "eye" | "eyeOff" | "plus" | "stop" | "dots" | "grid" | "folder" | "filter" | "branch" | "terminal" | "list" | "sliders" | "grip"
-  | "play" | "wrap" | "globe" | "filePlus" | "checkSquare" | "folderPlus";
+  | "play" | "wrap" | "globe" | "filePlus" | "checkSquare" | "folderPlus" | "key";
 
 const GLYPHS: Record<IconName, LucideIcon> = {
   search: Search,
@@ -137,6 +138,7 @@ const GLYPHS: Record<IconName, LucideIcon> = {
   terminal: Terminal,
   list: List,
   sliders: SlidersHorizontal,
+  key: Key,
   grip: GripVertical,
   play: Play,
   wrap: WrapText,
