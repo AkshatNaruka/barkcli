@@ -1,0 +1,1 @@
+content/GETTING_STARTED.md

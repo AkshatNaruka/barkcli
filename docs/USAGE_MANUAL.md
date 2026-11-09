@@ -1,0 +1,1 @@
+content/USAGE_MANUAL.md

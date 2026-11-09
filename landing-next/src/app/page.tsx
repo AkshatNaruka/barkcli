@@ -93,6 +93,33 @@ const FEATURES = [
     href: "/features/real-local-agent-chat",
   },
   {
+    icon: Bot,
+    title: "Interactive Threads & Timeline",
+    description:
+      "Multi-turn agent threads with live tool-calling streams, a left-rail dashed timeline scrubber to inspect earlier execution checkpoints, and floating surface launcher.",
+    code: "$ barkcli serve --open # then launch thread or surface",
+    gradient: "from-indigo-500/20 to-purple-500/20",
+    href: "/features/interactive-threads",
+  },
+  {
+    icon: Globe,
+    title: "Inbuilt Web Browser",
+    description:
+      "Full-fledged embedded browser surface: test and interact with local development servers (http://localhost:*), preview web apps, and inspect documentation directly inside Bark.",
+    code: "$ barkcli serve --open # open Browser surface (B)",
+    gradient: "from-blue-500/20 to-emerald-500/20",
+    href: "/features/inbuilt-browser",
+  },
+  {
+    icon: BarChart3,
+    title: "Modern Delivery Analytics",
+    description:
+      "Interactive column throughput and effort metrics with SVG linear gradients, view filters (All, Cards, Effort), glassmorphic tooltips, and Donut priority charts with centered totals.",
+    code: "$ barkcli report # or view Reports surface in app",
+    gradient: "from-emerald-500/20 to-indigo-500/20",
+    href: "/features/modern-analytics",
+  },
+  {
     icon: Search,
     title: "Quick open & command runner",
     description:
@@ -224,11 +251,12 @@ const INTERFACES = [
     title: "macOS App",
     icon: Laptop,
     description:
-      "Native macOS desktop application (Bark.app) with embedded runtime, dock integration, ⌘K command palette, and window controls.",
+      "Native macOS desktop application (Bark.app) with embedded runtime, dock integration, ⌘K command palette, in-app auto updates, and window controls.",
     demo: `Applications/Bark.app
 ├── Embedded local server runtime
-├── Menu bar status & system notifications
-├── Instant ⌘K command palette
+├── Native menu bar & in-app auto-update from releases
+├── Instant ⌘K command palette & surface launcher
+├── Threads with execution timeline scrubber & inbuilt browser
 └── Real-time WebSocket sync across all workspaces`,
   },
   {
@@ -271,18 +299,14 @@ $ barkcli review --approve auth-01
     title: "Web App",
     icon: Globe,
     description:
-      "The management layer UI: Mind homepage, board with spec traceability, agent queue, review handoff, memory and skills — real-time via WebSocket.",
-    demo: `Mind · Board · Agents · Review Queue · Memory · Skills
-
-┌──────────┬──────────┬──────────┬──────────┐
-│ Todo     │ Doing    │ Review   │ Done     │
-│          │          │          │          │
-│ ┌──────┐ │ ┌──────┐ │ ┌──────┐ │ ┌──────┐ │
-│ │Auth  │ │ │API   │ │ │Tests │ │ │Merged│ │
-│ │Spec  │ │ │Work- │ │ │Passed│ │ │via   │ │
-│ │      │ │ │tree  │ │ │Gate  │ │ │Train │ │
-│ └──────┘ │ └──────┘ │ └──────┘ │ └──────┘ │
-└──────────┴──────────┴──────────┴──────────┘`,
+      "The management layer UI: Mind homepage, interactive Threads with execution timeline scrubber, Inbuilt Browser, floating surface launcher, 3D Brain graph, and modern analytics.",
+    demo: `Threads · Browser · Board · Mind · Brain (3D) · Reports
+┌───────────────────────────────┬──────────────────────────┐
+│ Left Rail: Execution Timeline │ Active Surface: Browser  │
+│ ├─ #1: git status [clean]     │ http://localhost:5173    │
+│ ├─ #2: read_file (models.rs)  │ Live Preview & DevTools  │
+│ └─ #3: cargo test [14 passed] │ Floating Launcher (B,T,F)│
+└───────────────────────────────┴──────────────────────────┘`,
   },
 ];
 

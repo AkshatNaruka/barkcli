@@ -55,6 +55,23 @@ project/
   - Agents committing app changes must ensure this deployment step runs and succeeds (either automatically via the post-commit hook or explicitly via `bash scripts/deploy_mac_app.sh` / `npm run app:update`).
   - To bypass the auto-update during fast rebase or non-app commits, set `BARK_NO_AUTO_UPDATE=1`.
 
+## Documentation, README & Public Website Rule (MANDATORY FOR AGENTS)
+
+- **Keep `README.md` Top-Tier, Highly Useful & Synchronized**:
+  - Whenever introducing new features, UI surfaces, commands, or architectural capabilities, `README.md` MUST be kept up-to-date, comprehensive, and absurdly useful.
+  - Showcase all key capabilities: Interactive Threads (with left-rail timeline scrubber), Inbuilt Web Browser, Floating Surface Launcher, 3D Orbit / 2D Flow Memory Graph, Modern T3-Style Analytics, Native Desktop App (Tauri v2 + background auto-updates), Living Context (`project_context.md`), and the Deterministic Trust Layer (`guard` + receipts).
+  - All documentation links in `README.md` MUST point to real, verified files in `docs/content/*.md` (or `docs/*.md`) and active live documentation URLs. No broken or dead links.
+  - Maintain a clean, copy-pasteable Quick Start, architecture diagram, tech stack overview, and complete CLI & interface reference tables so users and new agents immediately get everything needed.
+
+- **Keep the Public Marketing Website (`landing-next/`) Synchronized**:
+  - The live website deployed to GitHub Pages (`akshatnaruka.github.io/barkcli`) MUST reflect current capabilities and flex new features so visitors never see stale or missing information.
+  - When introducing or upgrading features to flex (e.g., interactive Threads, Inbuilt Browser, modern analytics charts, 3D Orbit graph), add/update feature entries in `landing-next/src/lib/features.ts` and feature showcases in `landing-next/src/app/page.tsx`.
+  - Always verify that the static export succeeds cleanly (`npm --prefix landing-next run build`).
+
+- **Living Context & Documentation Integrity**:
+  - Keep `project_context.md` fresh via `barkcli context digest`.
+  - Maintain doc parity between `docs/content/*.md`, in-app references, and website guides.
+
 ## Quick Start for AI Agents
 
 ### 1. Start the Web App (recommended)
@@ -383,18 +400,20 @@ barkcli listener     # Start coding agent listener
 
 | Doc | Description |
 |-----|-------------|
-| [AI Agent Prompt](docs/AI_AGENT_PROMPT.md) | **Start here** — Copy this into your agent's context to teach it barkcli |
-| [Usage Manual](docs/USAGE_MANUAL.md) | Complete how-to guide for using barkcli |
+| [AI Agent Prompt](docs/content/AI_AGENT_PROMPT.md) | **Start here** — Copy this into your agent's context to teach it barkcli |
+| [Usage Manual](docs/content/USAGE_MANUAL.md) | Complete how-to guide for using barkcli |
 
 ### Reference Documentation
 
-- [Commands](docs/COMMANDS.md) — Full CLI reference
-- [Interfaces](docs/INTERFACES.md) — Setup guides
-- [Code Context](docs/CONTEXT.md) — Link code to tasks
-- [Advanced](docs/ADVANCED.md) — Sessions, checkpoints, sprints
-- [MCP Agents](docs/MCP_AGENTS.md) — Agent integration guide
-- [API Reference](docs/API_REFERENCE.md) — REST API documentation
-- [Web App Guide](docs/WEB_APP_GUIDE.md) — Browser interface guide
+- [Commands](docs/content/COMMANDS.md) — Full CLI reference
+- [Interfaces](docs/content/INTERFACES.md) — Setup guides
+- [Code Context](docs/content/CONTEXT.md) — Link code to tasks
+- [Codebase Brain](docs/content/BRAIN.md) — Architecture graph & invariants
+- [Advanced](docs/content/ADVANCED.md) — Sessions, checkpoints, sprints
+- [MCP Agents](docs/content/MCP_AGENTS.md) — Agent integration guide
+- [API Reference](docs/content/API_REFERENCE.md) — REST API documentation
+- [Web App Guide](docs/content/WEB_APP_GUIDE.md) — Browser interface guide
+- [TUI Guide](docs/content/TUI.md) — Ratatui terminal UI reference
 
 # barkcli context (auto-maintained — `barkcli context digest`)
 <!-- barkcli-project-context -->

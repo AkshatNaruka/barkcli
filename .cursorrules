@@ -1,0 +1,7 @@
+# Barkcli Cursor Rules
+
+Follow all instructions in [AGENTS.md](AGENTS.md):
+- Positioning: "the management layer for AI agents" (intent → plan → isolated worktrees → test gate → merge train).
+- Desktop app: Target `desktop/` (Tauri v2) and `web/`. Do not modify `barkcli-ios/`.
+- Auto-update app on commit: Ensure `/Applications/Bark.app` is updated upon committing app changes.
+- Documentation & Website Rule: Keep `README.md`, `landing-next/` website, and `docs/content/` documentation synchronized whenever features are modified or added.

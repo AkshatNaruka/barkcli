@@ -28,7 +28,10 @@ You decide *what* gets built. Agents propose plans, do the work, and report back
 
 - [Why barkcli?](#why-barkcli)
 - [Features](#features)
+- [Interactive Threads & Live Surfaces](#interactive-threads--live-surfaces)
+- [Modern T3-Style Analytics](#modern-t3-style-analytics)
 - [Trust layer](#trust-layer)
+- [Collective memory](#collective-memory)
 - [Screenshots](#screenshots)
 - [Install](#install)
 - [Quick Start](#quick-start)
@@ -65,18 +68,53 @@ Intent in, plans out. barkcli is **the management layer for AI agents**: humans 
 
 | | |
 |---|---|
-| 🧬 **Collective memory** | Every run is a node in a Git-backed contribution graph. Independent verification, evidence scores, neglected-branch nudging, and UCB recommendations. Agents build on verified work instead of starting from zero. |
-| 🧠 **Mind** | Compiled project snapshot — health, blockers, stale work, next actions. One command answers "what's happening?". |
-| 📋 **Board** | Columns, priorities, labels, assignees, checklists, comments, effort, due dates, reminders. Drag-and-drop in the web app. |
-| 🔗 **Spec Traceability** | Specs → requirements → code. Every card links to its spec and to the code that implements it. |
-| 🛠 **MCP Server** | 76 tools for AI coding agents — board, task, memory, specs, orchestration, sessions. `barkcli mcp`. |
-| 🤖 **Autopilot** | Intent → plan gate → dispatched packets → review → merge gate. Or go fully autonomous: `barkcli run "<intent>" --agents 3 --yes` — parallel agents in worktrees, your tests as the gate, merge train for the winners. |
-| 🧠 **Memory** | Four-tier local memory + project facts that persist across sessions. Hybrid search. |
-| 📦 **Skills Registry** | Playbooks injected into agent prompts on trigger matches. Install from any git repo (`skills install owner/repo`), pinned in a committed `skills.lock` (rev + sha256), publish back via PR. |
-| 📅 **Sprints** | Time-boxed planning with velocity tracking. |
-| 🎯 **Code Context** | Symbol search (`barkcli code`), file-to-card mapping, git-aware refresh. |
-| ⏱ **Timeline** | Checkpoints, undo, diff, blame, validate, doctor. Your board, version-controlled. |
-| 🔀 **Import/Export** | YAML and JSON. Migrate from Linear, Jira, Trello, GitHub Projects. |
+| 💬 **Interactive Threads** | Multi-turn agent collaboration with live tool-calling streams, a left-rail dashed timeline scrubber to inspect earlier execution checkpoints, and full thread history. |
+| 🌐 **Inbuilt Web Browser** | Full-fledged embedded browser surface: test and interact with local development servers (`http://localhost:*`), preview web apps, and inspect documentation directly inside Bark. |
+| 🚀 **Floating Surface Launcher** | Fast launcher menu to open Browser, Terminal, Files, Diff, Pull Requests, Linked PRs, Devices, and Side Chats in clean, closable tabs. |
+| 📊 **Modern T3-Style Analytics** | Interactive column throughput and effort metrics with SVG linear gradients, view filters (`All`, `Cards`, `Effort`), glassmorphic tooltips, and Donut priority charts with centered totals. |
+| 🧠 **Codebase Brain (3D & 2D)** | Structural architecture graph discovering subsystems, modules, services, APIs, and invariants. Rendered in glowing 3D Orbit, 2D Flow, and contribution timeline. |
+| 🛡 **Deterministic Trust Layer** | `barkcli guard` pre-merge security scan (secrets, dangerous patterns, missing tests) + cryptographic SHA-256 receipts (`barkcli receipt show`) proving who built what and what passed. |
+| 🤖 **Autonomous Autopilot Loop** | `barkcli run "<intent>" --agents 3 --yes` — parallel agents in isolated git worktrees, your project's tests as the gate, and an atomic merge train for passing branches. |
+| ⚡ **Living Context Engine** | Self-healing `project_context.md` auto-maintained by `barkcli context digest`. Reduces cold-start agent token consumption by **57×**. |
+| 🛠 **MCP Server (76 Tools)** | First-class JSON-RPC 2.0 server for Claude Code, OpenCode, Codex, and Cursor covering boards, cards, tasks, memory, specs, and orchestration. |
+| 🧬 **Collective Memory** | Agora-inspired contribution DAG backed by Git. Evidence scores, independent reproduction, neglected-branch nudging, and UCB recommendations. |
+| 📦 **Skills Registry** | Composable playbooks injected into agent prompts on trigger matches. Install from git repos with sha256-pinned `skills.lock`. |
+| 💻 **Native macOS Desktop App** | Tauri v2 desktop application (`Bark.app`) packaging the web UI with native macOS menubar, window controls, and automated background update checks on release. |
+| 📋 **Board + Spec Traceability** | Kanban boards with `spec_id` linkage — specs ↔ cards ↔ code in O(1). Diff it, merge it, version-control it. |
+| ⏱ **Timeline & Rollback** | Checkpoints, undo, diff, blame, validate, doctor. Your board, completely version-controlled with zero cloud lock-in. |
+
+---
+
+## Interactive Threads & Live Surfaces
+
+> **Never lose track of agent decisions, tool invocations, or running servers.**
+
+Bark includes a built-in multi-surface workbench directly within the desktop and browser interfaces:
+
+- **Left-Rail Execution Timeline Scrubber**: An interactive vertical dashed line tracks every action an agent takes during a thread run. Hovering over any notch instantly exposes the exact tool call, file edit, or command executed at that point in time with full context.
+- **Inbuilt Web Browser**: An embedded web browser running directly inside Bark. Test and interact with local development servers (`http://localhost:*` or your API dev servers) as well as remote documentation and web applications without leaving your workspace or switching windows.
+- **Floating Surface Launcher**: Instant shortcut-driven launcher menu ("Open a surface") with dedicated keys for fast navigation:
+  - `B` — **Browser** (live web & localhost testing)
+  - `T` — **Terminal** (embedded interactive terminal)
+  - `F` — **Files** (source code tree explorer with quick preview)
+  - `D` — **Diff** (granular unified & side-by-side git diff view)
+  - `P` — **Pull request** (GitHub PR inspect, review, and merge)
+  - `L` — **Linked pull requests** (multi-branch and stacked PR review)
+  - `M` — **Device** (mobile and responsive device simulators)
+  - `S` — **Side chat** (parallel agent and thread queries)
+- **Tabbed Surface Management**: Open multiple surfaces as independent tabs with clean close buttons, persistence across workspace changes, and seamless switching without closing background jobs.
+
+---
+
+## Modern T3-Style Analytics
+
+> **Executive-grade delivery tracking built for engineering leads and autonomous agent fleets.**
+
+- **Column Throughput & Effort Chart**: Interactive dual-gradient bars (`#10b981` emerald for cards, `#6366f1` indigo for story point effort) tracking work movement across all board columns.
+- **Metric View Mode Toggles**: Instant segmented filters (`All`, `Cards`, `Effort`) allowing teams to drill into card counts, total effort, or both side-by-side.
+- **Glassmorphic Custom Tooltips**: Dark-theme tooltips providing card count share %, story points share %, and calculated average complexity per card.
+- **Priority Donut Chart**: Modern donut chart with centered live card counts and glowing indicators for High, Medium, and Low priorities.
+- **Zero Glare Hover**: Dark-theme hover cursor preventing light-mode glare artifacts in high-contrast dark workspaces.
 
 ---
 
@@ -382,20 +420,22 @@ and the smoke test exercises the Trust Layer and AI routes. See
 
 ## Documentation
 
-| Guide | What it covers |
-|---|---|
-| [Autopilot](https://akshatnaruka.github.io/barkcli/docs/autopilot) | The intent → approve → merge loop (start here) |
-| [Getting Started](https://akshatnaruka.github.io/barkcli/docs/getting-started) | Install + first task |
-| [Usage manual](docs/content/USAGE_MANUAL.md) | Complete how-to guide |
-| [Web app guide](docs/content/WEB_APP_GUIDE.md) | Browser interface, tabs, shortcuts, daemon mode |
-| [Interfaces](docs/content/INTERFACES.md) | CLI, TUI, web app, VS Code setup |
-| [Commands](docs/content/COMMANDS.md) | Full CLI reference |
-| [AI agent prompt](docs/content/AI_AGENT_PROMPT.md) | Paste into your coding agent |
-| [MCP agents](docs/content/MCP_AGENTS.md) | Agent integration via MCP |
-| [Code context](docs/content/CONTEXT.md) | Linking cards to code |
-| [API reference](docs/content/API_REFERENCE.md) | REST + WebSocket reference |
-| [Advanced](docs/content/ADVANCED.md) | Sessions, checkpoints, sprints, hooks |
-| [Live docs](https://akshatnaruka.github.io/barkcli/docs) | Searchable docs with comparisons |
+| Guide | Description | Local Link | Online Docs |
+|---|---|:---:|:---:|
+| **Autopilot** | The intent → plan → worktree → test gate → merge train loop | [Autopilot](docs/content/USAGE_MANUAL.md#the-autopilot-loop) | [Web Guide](https://akshatnaruka.github.io/barkcli/docs/autopilot) |
+| **Getting Started** | Fast-path installation and first project bootstrap | [GETTING_STARTED.md](docs/content/GETTING_STARTED.md) | [Web Guide](https://akshatnaruka.github.io/barkcli/docs/getting-started) |
+| **Usage Manual** | Comprehensive how-to manual for all core features | [USAGE_MANUAL.md](docs/content/USAGE_MANUAL.md) | [Web Guide](https://akshatnaruka.github.io/barkcli/docs) |
+| **CLI Commands** | Exhaustive reference for all CLI commands and flags | [COMMANDS.md](docs/content/COMMANDS.md) | [Commands Reference](https://akshatnaruka.github.io/barkcli/docs/commands) |
+| **Interfaces Guide** | Setup & usage for CLI, TUI, Web App, Desktop, and VS Code | [INTERFACES.md](docs/content/INTERFACES.md) | [Interfaces Hub](https://akshatnaruka.github.io/barkcli/interfaces) |
+| **Web App & Surfaces** | Browser UI, interactive threads, inbuilt browser, and shortcuts | [WEB_APP_GUIDE.md](docs/content/WEB_APP_GUIDE.md) | [Web App Preview](https://akshatnaruka.github.io/barkcli/app/) |
+| **AI Agent Prompt** | Copy-paste system instructions to teach agents barkcli | [AI_AGENT_PROMPT.md](docs/content/AI_AGENT_PROMPT.md) | [AI Agent Setup](https://akshatnaruka.github.io/barkcli/guides/ai-agent-setup) |
+| **MCP Integration** | Model Context Protocol server configuration (76 tools) | [MCP_AGENTS.md](docs/content/MCP_AGENTS.md) | [MCP Reference](https://akshatnaruka.github.io/barkcli/integrations) |
+| **Codebase Brain** | Repository structural graph & architectural invariants | [BRAIN.md](docs/content/BRAIN.md) | [Brain Docs](https://akshatnaruka.github.io/barkcli/docs) |
+| **Code Context** | Linking cards to AST symbols and tracking code changes | [CONTEXT.md](docs/content/CONTEXT.md) | [Code Context](https://akshatnaruka.github.io/barkcli/docs/concepts/code-context) |
+| **API Reference** | Full Axum REST API and WebSocket broadcast specification | [API_REFERENCE.md](docs/content/API_REFERENCE.md) | [API Docs](https://akshatnaruka.github.io/barkcli/docs) |
+| **Terminal TUI** | Ratatui terminal dashboard navigation and hotkeys | [TUI.md](docs/content/TUI.md) | [TUI Reference](https://akshatnaruka.github.io/barkcli/docs) |
+| **Advanced Features** | Checkpoints, undo, sprints, and hook automations | [ADVANCED.md](docs/content/ADVANCED.md) | [Advanced Docs](https://akshatnaruka.github.io/barkcli/docs) |
+| **Version History** | Evolutionary changelog and milestone tracking | [HISTORY.md](docs/content/HISTORY.md) | [Releases](https://github.com/AkshatNaruka/barkcli/releases) |
 
 ---
 

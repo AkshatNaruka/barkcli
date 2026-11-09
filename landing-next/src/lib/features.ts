@@ -497,6 +497,144 @@ export const FEATURES_DATA: FeatureDetail[] = [
     ],
     docsHref: "/docs/getting-started",
   },
+  {
+    slug: "interactive-threads",
+    title: "Interactive Threads & Timeline",
+    category: "Agent Collaboration & Surfaces",
+    description:
+      "Multi-turn agent threads with live tool-calling streams, a left-rail dashed timeline scrubber to inspect earlier execution checkpoints, and floating surface launcher.",
+    code: "$ barkcli serve --open # then launch thread or surface",
+    gradient: "from-indigo-500/20 to-purple-500/20",
+    iconName: "Bot",
+    overview:
+      "Threads give developers and autonomous agents a persistent workspace for multi-turn collaboration. Every action taken by an agent is tracked along an interactive vertical dashed timeline on the left rail. Hovering over any step reveals what happened at that exact execution checkpoint—including modified files, shell runs, and tool outputs. A top-level floating surface launcher connects directly to terminals, files, diffs, pull requests, and the inbuilt browser.",
+    capabilities: [
+      "Vertical dashed timeline scrubber with live tool execution step inspection on hover",
+      "Floating surface launcher with fast single-key hotkeys (Browser, Terminal, Files, Diff, PR)",
+      "Multi-turn streaming transcripts with collapsible thought processes and shell outputs",
+      "Tabbed surface management with clean close buttons and background task persistence",
+      "Automatic recovery and state synchronization across thread lifecycles",
+    ],
+    cliExamples: [
+      {
+        cmd: "barkcli serve --open",
+        output: "✓ Bark running on http://localhost:4321\n✓ Opening Threads workspace with timeline scrubber and floating surface launcher...",
+        desc: "Launch web/desktop app with interactive thread surfaces.",
+      },
+      {
+        cmd: "barkcli run \"implement OAuth2 refresh flow\" --agents 2",
+        output: "→ Spawning thread run_auth_01 (opencode)\n→ Left rail timeline checkpoints streaming in real-time",
+        desc: "Autonomous thread run with live streaming step timeline.",
+      },
+    ],
+    architecture: [
+      {
+        title: "Step Timeline Indexer",
+        description: "Captures step indices, source annotations, tool names, and affected file paths in real-time, feeding the interactive hover scrubber.",
+      },
+      {
+        title: "Floating Surface Dispatcher",
+        description: "Decouples workbench views into persistent tabs with isolated keyboard shortcuts, iframe/terminal shells, and git state bindings.",
+      },
+      {
+        title: "Multi-Turn Context Preservation",
+        description: "Thread memory and session history are saved to disk with zero cloud transmission, ensuring complete privacy and offline reproducibility.",
+      },
+    ],
+    docsHref: "/docs/interfaces",
+  },
+  {
+    slug: "inbuilt-browser",
+    title: "Inbuilt Web Browser",
+    category: "Live Surfaces & Previews",
+    description:
+      "Full-fledged embedded browser surface: test and interact with local development servers (http://localhost:*), preview web apps, and inspect documentation directly inside Bark.",
+    code: "$ barkcli serve --open # open Browser surface (B)",
+    gradient: "from-blue-500/20 to-emerald-500/20",
+    iconName: "Globe",
+    overview:
+      "Bark eliminates window context switching with a built-in browser surface embedded directly inside the application. When agents spin up local development servers, web endpoints, or documentation previews, developers can view, navigate, inspect, and interact with localhost ports or external URLs without leaving Bark.",
+    capabilities: [
+      "Embedded web surface supporting arbitrary URLs and local development servers (http://localhost:*)",
+      "Instant keyboard navigation with address bar, refresh, forward/back, and dev console inspection",
+      "Tabbed multitasking alongside Terminal, Code Files, and Git Diff surfaces",
+      "Zero external window bouncing — keep agent chat, code diffs, and live app output side-by-side",
+      "Automatic detection and preview link generation for common development ports (3000, 4321, 5173, 8080)",
+    ],
+    cliExamples: [
+      {
+        cmd: "barkcli serve --open",
+        output: "✓ Bark running on http://localhost:4321\n✓ Inbuilt browser ready: press 'B' in surface launcher to open any URL or localhost",
+        desc: "Open Bark with built-in embedded web browser.",
+      },
+      {
+        cmd: "npm run dev # on port 5173",
+        output: "→ Inbuilt browser opens http://localhost:5173 directly in surface tab",
+        desc: "Preview live development server inside Bark tabs.",
+      },
+    ],
+    architecture: [
+      {
+        title: "Loopback Proxy & Security Sandbox",
+        description: "Safely sandboxes web content and proxies loopback addresses without CORS restrictions or external browser redirection.",
+      },
+      {
+        title: "Tabbed Surface Integration",
+        description: "Mounts as a standard workbench tab with custom URL history, reload triggers, and full-screen expansion options.",
+      },
+      {
+        title: "Developer Workflow Efficiency",
+        description: "Allows users to inspect UI renders right next to agent diffs, eliminating multi-monitor window clutter.",
+      },
+    ],
+    docsHref: "/docs/web-app-guide",
+  },
+  {
+    slug: "modern-analytics",
+    title: "Modern Delivery Analytics",
+    category: "Metrics & Throughput",
+    description:
+      "Interactive column throughput and effort metrics with SVG linear gradients, view filters (All, Cards, Effort), glassmorphic tooltips, and Donut priority charts with centered totals.",
+    code: "$ barkcli report # or view Reports surface in app",
+    gradient: "from-emerald-500/20 to-indigo-500/20",
+    iconName: "BarChart3",
+    overview:
+      "Bark delivers executive-grade delivery metrics designed for modern engineering teams and autonomous fleets. The Reports surface provides real-time throughput analysis, story point effort distributions, priority breakdowns, and completion velocity with responsive dark-mode styling.",
+    capabilities: [
+      "Interactive dual-gradient Column Throughput & Effort Chart (emerald cards, indigo story points)",
+      "Segmented view mode filters (All, Cards, Effort) to drill into volume vs complexity",
+      "Custom glassmorphic tooltips displaying percentage shares of board totals and average complexity per card",
+      "Modern Donut Priority Distribution chart with dynamic centered card count labels",
+      "Zero-glare dark-mode cursor highlight eliminating light-theme hover artifacts",
+    ],
+    cliExamples: [
+      {
+        cmd: "barkcli report",
+        output: "Completion Rate: 78.4%\nDelivered Effort: 42 pts\nIn Flight Execution: 14 cards (22 pts)\nReady for Dispatch: 6 cards",
+        desc: "Generate terminal delivery and throughput report.",
+      },
+      {
+        cmd: "barkcli serve --open # navigate to Reports",
+        output: "✓ Reports surface loaded with SVG gradients, interactive toggles, and priority donut",
+        desc: "View interactive graphical delivery analytics in web/desktop app.",
+      },
+    ],
+    architecture: [
+      {
+        title: "Real-Time Aggregation Engine",
+        description: "Computes column card throughput, total and completed story points, and priority counts directly from YAML boards in sub-millisecond time.",
+      },
+      {
+        title: "T3-Style Visual Aesthetics",
+        description: "Utilizes Recharts with SVG linear gradient fills, rounded caps, segmented pills, and dark-theme rgba cursor boundaries.",
+      },
+      {
+        title: "Story Point Velocity & Ratio Analysis",
+        description: "Calculates live complexity ratios (average points per card) to help engineering leads identify bloated epics.",
+      },
+    ],
+    docsHref: "/docs/web-app-guide",
+  },
 ];
 
 export function getFeatureBySlug(slug: string): FeatureDetail | undefined {

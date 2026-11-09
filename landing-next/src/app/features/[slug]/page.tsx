@@ -21,6 +21,8 @@ import {
   Code2,
   Cpu,
   Rocket,
+  Globe,
+  BarChart3,
 } from "lucide-react";
 
 interface PageProps {
@@ -58,6 +60,8 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Bot,
   Database,
   Rocket,
+  Globe,
+  BarChart3,
 };
 
 export default async function FeatureDetailPage({ params }: PageProps) {
