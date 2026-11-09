@@ -11,9 +11,9 @@ import {
   openProjectDialog,
   type DesktopProject,
 } from "../lib/desktop";
-import { openInEditor, fetchReviewQueue } from "../lib/api";
+import { openInEditor, fetchReviewQueue, fetchGitStatus, runProjectCommand } from "../lib/api";
 import { readLocal, writeLocal } from "../lib/drafts";
-import type { ProjectSnapshot } from "../lib/types";
+import type { ProjectSnapshot, GitStatus } from "../lib/types";
 
 export interface ProjectNavbarProps {
   projectName?: string | null;
@@ -81,6 +81,44 @@ export function FinderIcon({ size = 14 }: { size?: number }) {
   );
 }
 
+export function CloudPullIcon({ size = 14, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
+      <path d="M12 12v9" />
+      <path d="m8 17 4 4 4-4" />
+    </svg>
+  );
+}
+
+export function CloudPushIcon({ size = 14, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
+      <path d="M12 21v-9" />
+      <path d="m16 16-4-4-4 4" />
+    </svg>
+  );
+}
+
+export function GitCommitIcon({ size = 14, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="12" cy="12" r="3" />
+      <line x1="3" y1="12" x2="9" y2="12" />
+      <line x1="15" y1="12" x2="21" y2="12" />
+    </svg>
+  );
+}
+
+export function GitHubIcon({ size = 14, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
+    </svg>
+  );
+}
+
 const ROUTE_TITLES: Record<string, string> = {
   hub: "Project Overview",
   chat: "Build & Threads",
@@ -110,8 +148,37 @@ export function ProjectNavbar({
   const [recent, setRecent] = useState<DesktopProject[]>([]);
   const [reviewCount, setReviewCount] = useState<number>(0);
 
+  // Git state & dropdown
+  const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
+  const [gitDropdownOpen, setGitDropdownOpen] = useState(false);
+  const [pullMenuOpen, setPullMenuOpen] = useState(false);
+  const [showCommitInput, setShowCommitInput] = useState(false);
+  const [commitMessage, setCommitMessage] = useState("");
+  const [pulling, setPulling] = useState(false);
+  const [pushing, setPushing] = useState(false);
+  const [committing, setCommitting] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
+
   const projectDropdownRef = useRef<HTMLDivElement>(null);
   const editorDropdownRef = useRef<HTMLDivElement>(null);
+  const gitDropdownRef = useRef<HTMLDivElement>(null);
+
+  const refreshGit = async () => {
+    try {
+      const res = await fetchGitStatus();
+      if (res) setGitStatus(res);
+    } catch {}
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchGitStatus().then((res) => {
+      if (!cancelled && res) setGitStatus(res);
+    }).catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [projectRoot, project]);
 
   // Load recent projects on desktop
   useEffect(() => {
@@ -140,10 +207,119 @@ export function ProjectNavbar({
       if (editorDropdownRef.current && !editorDropdownRef.current.contains(e.target as Node)) {
         setEditorMenuOpen(false);
       }
+      if (gitDropdownRef.current && !gitDropdownRef.current.contains(e.target as Node)) {
+        setGitDropdownOpen(false);
+        setPullMenuOpen(false);
+      }
     };
     window.addEventListener("mousedown", onPointer);
     return () => window.removeEventListener("mousedown", onPointer);
   }, []);
+
+  const handlePull = async (rebase = false) => {
+    setPulling(true);
+    setActionFeedback(null);
+    try {
+      const cmd = rebase ? "git pull --rebase" : "git pull";
+      const res = await runProjectCommand(cmd);
+      if (res && res.exit_code === 0) {
+        setActionFeedback("Pull successful: up to date");
+        await refreshGit();
+      } else {
+        setActionFeedback(res?.stderr || res?.stdout || "Pull completed");
+        await refreshGit();
+      }
+    } catch (err: any) {
+      setActionFeedback(err?.message || "Pull command failed");
+    } finally {
+      setPulling(false);
+    }
+  };
+
+  const handleFetch = async () => {
+    setPulling(true);
+    setActionFeedback(null);
+    try {
+      const res = await runProjectCommand("git fetch origin");
+      if (res && res.exit_code === 0) {
+        setActionFeedback("Fetched origin");
+        await refreshGit();
+      } else {
+        setActionFeedback(res?.stderr || res?.stdout || "Fetch completed");
+        await refreshGit();
+      }
+    } catch (err: any) {
+      setActionFeedback(err?.message || "Fetch failed");
+    } finally {
+      setPulling(false);
+    }
+  };
+
+  const handleCommit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!commitMessage.trim() || committing) return;
+    setCommitting(true);
+    setActionFeedback(null);
+    try {
+      const msg = commitMessage.trim();
+      const res = await runProjectCommand(`git add -A && git commit -m ${JSON.stringify(msg)}`);
+      if (res && res.exit_code === 0) {
+        setActionFeedback("Committed changes");
+        setCommitMessage("");
+        setShowCommitInput(false);
+        await refreshGit();
+      } else {
+        setActionFeedback(res?.stderr || res?.stdout || "Commit failed");
+      }
+    } catch (err: any) {
+      setActionFeedback(err?.message || "Commit failed");
+    } finally {
+      setCommitting(false);
+    }
+  };
+
+  const handlePush = async () => {
+    setPushing(true);
+    setActionFeedback(null);
+    try {
+      const res = await runProjectCommand(`git push origin ${branchName}`);
+      if (res && res.exit_code === 0) {
+        setActionFeedback(`Pushed to origin/${branchName}`);
+        await refreshGit();
+      } else {
+        setActionFeedback(res?.stderr || res?.stdout || "Push completed");
+        await refreshGit();
+      }
+    } catch (err: any) {
+      setActionFeedback(err?.message || "Push failed");
+    } finally {
+      setPushing(false);
+    }
+  };
+
+  const handleCreatePr = async () => {
+    setActionFeedback("Opening PR comparison...");
+    try {
+      const res = await runProjectCommand("git config --get remote.origin.url");
+      let remoteUrl = (res?.stdout || "").trim();
+      if (remoteUrl) {
+        if (remoteUrl.startsWith("git@")) {
+          remoteUrl = remoteUrl.replace(/^git@([^:]+):/, "https://$1/").replace(/\.git$/, "");
+        } else {
+          remoteUrl = remoteUrl.replace(/\.git$/, "");
+        }
+        const prUrl = `${remoteUrl}/compare/${encodeURIComponent(branchName)}?expand=1`;
+        if (typeof window !== "undefined") {
+          window.open(prUrl, "_blank");
+        }
+        setActionFeedback(`Opened ${prUrl}`);
+      } else {
+        navigate("chat", { board: boardName || undefined });
+      }
+    } catch {
+      navigate("chat", { board: boardName || undefined });
+    }
+  };
 
   const handleSwitchProject = async (p: DesktopProject) => {
     setProjectPickerOpen(false);
@@ -193,8 +369,12 @@ export function ProjectNavbar({
 
   // Git state
   const git = project?.git;
-  const isClean = git?.clean ?? true;
-  const branchName = git?.branch || "master";
+  const isClean = gitStatus ? gitStatus.clean : (git?.clean ?? true);
+  const branchName = gitStatus?.branch || git?.branch || "master";
+  const aheadCount = gitStatus?.ahead ?? git?.ahead ?? 0;
+  const behindCount = gitStatus?.behind ?? git?.behind ?? 0;
+  const gitChanges = gitStatus?.changes || [];
+  const changesCount = gitChanges.length || git?.changes || 0;
 
   const displayName = projectName || project?.name || (projectRoot ? projectRoot.split("/").filter(Boolean).pop() : "barkcli") || "barkcli";
   const activeTitle = ROUTE_TITLES[currentRoute] || "Project";
@@ -284,14 +464,209 @@ export function ProjectNavbar({
 
         {/* Right Action Buttons */}
         <div className="flex items-center gap-2.5">
-          {/* Git status pill */}
-          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-surface border border-border/60 text-[11px] font-mono">
-            <Icon name="branch" size={12} className="text-muted" />
-            <span className="text-text font-medium">{branchName}</span>
-            <span className="text-muted/40">•</span>
-            <span className={isClean ? "text-emerald-400" : "text-amber-400"}>
-              {isClean ? "Clean" : `${git?.changes || 1} modified`}
-            </span>
+          {/* Git status split button & actions popover (Screenshots 1 & 2) */}
+          <div ref={gitDropdownRef} className="relative hidden sm:flex items-center">
+            <button
+              type="button"
+              onClick={() => {
+                setGitDropdownOpen((o) => !o);
+                void refreshGit();
+              }}
+              aria-expanded={gitDropdownOpen}
+              aria-label="Git branch and sync status"
+              title={`Git branch: ${branchName} (${isClean ? "Clean" : `${changesCount} modified`})`}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-surface border text-[11px] font-mono transition-colors cursor-pointer group ${
+                gitDropdownOpen
+                  ? "border-accent/80 bg-accent/10 shadow-xs"
+                  : "border-border/60 hover:border-border hover:bg-white/[0.04]"
+              }`}
+            >
+              <Icon name="branch" size={12} className="text-muted group-hover:text-text transition-colors" />
+              <span className="text-text font-medium">{branchName}</span>
+              <span className="text-muted/40">•</span>
+              <span className={isClean ? "text-emerald-400" : "text-amber-400"}>
+                {isClean ? "Clean" : `${changesCount} modified`}
+              </span>
+            </button>
+
+            {gitDropdownOpen && (
+              <div className="absolute right-0 top-9 w-64 rounded-xl border border-border/80 bg-[#18181b]/98 p-1.5 text-xs shadow-2xl backdrop-blur-xl z-50 animate-in fade-in zoom-in-95">
+                {/* 1. Pull Split Button (Matching Screenshot 2) */}
+                <div className="flex items-center justify-between rounded-lg border border-border/70 bg-white/[0.04] hover:bg-white/[0.08] transition-colors p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => void handlePull(false)}
+                    disabled={pulling}
+                    className="flex flex-1 items-center gap-2 px-2.5 py-1.5 text-left text-text font-medium rounded-l-md hover:bg-white/[0.06] transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    <CloudPullIcon size={14} className={pulling ? "text-accent animate-spin" : "text-muted"} />
+                    <span>{pulling ? "Pulling..." : "Pull"}</span>
+                  </button>
+                  <div className="w-[1px] h-4 bg-border/60" />
+                  <button
+                    type="button"
+                    onClick={() => setPullMenuOpen((o) => !o)}
+                    title="Pull options"
+                    aria-label="Pull options"
+                    className="px-2 py-1.5 text-muted hover:text-text rounded-r-md hover:bg-white/[0.06] transition-colors cursor-pointer"
+                  >
+                    <Icon name="chevDown" size={11} className={pullMenuOpen ? "rotate-180 transition-transform" : "transition-transform"} />
+                  </button>
+                </div>
+
+                {pullMenuOpen && (
+                  <div className="mt-1 space-y-0.5 rounded-lg border border-border/60 bg-surface/80 p-1 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPullMenuOpen(false);
+                        void handlePull(false);
+                      }}
+                      className="flex w-full items-center justify-between rounded px-2 py-1 text-left text-muted-strong hover:bg-white/[0.06] hover:text-text cursor-pointer"
+                    >
+                      <span>git pull</span>
+                      <span className="font-mono text-[9.5px] text-muted/60">merge</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPullMenuOpen(false);
+                        void handlePull(true);
+                      }}
+                      className="flex w-full items-center justify-between rounded px-2 py-1 text-left text-muted-strong hover:bg-white/[0.06] hover:text-text cursor-pointer"
+                    >
+                      <span>git pull --rebase</span>
+                      <span className="font-mono text-[9.5px] text-muted/60">rebase</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPullMenuOpen(false);
+                        void handleFetch();
+                      }}
+                      className="flex w-full items-center justify-between rounded px-2 py-1 text-left text-muted-strong hover:bg-white/[0.06] hover:text-text cursor-pointer"
+                    >
+                      <span>git fetch origin</span>
+                      <span className="font-mono text-[9.5px] text-muted/60">fetch</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* 2. Menu Items: Commit, Push, Create PR (Matching Screenshot 2) */}
+                <div className="mt-1 space-y-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setShowCommitInput((prev) => !prev)}
+                    className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[12px] text-muted-strong hover:bg-white/[0.06] hover:text-text transition-colors cursor-pointer"
+                  >
+                    <GitCommitIcon size={14} className="text-muted" />
+                    <span className="flex-1">Commit</span>
+                    {changesCount > 0 && (
+                      <span className="font-mono text-[10px] text-amber-400 font-medium">
+                        +{changesCount}
+                      </span>
+                    )}
+                  </button>
+
+                  {showCommitInput && (
+                    <form onSubmit={handleCommit} className="rounded-lg border border-border/60 bg-surface/50 p-2 space-y-2 mt-1">
+                      <div className="text-[11px] font-medium text-text flex items-center justify-between">
+                        <span>Commit changes</span>
+                        <span className="text-[10px] text-muted font-mono">{changesCount} modified</span>
+                      </div>
+                      {gitChanges.length > 0 && (
+                        <div className="max-h-24 overflow-y-auto space-y-0.5 text-[10px] font-mono text-muted/80 bg-bg/50 p-1.5 rounded border border-border/40">
+                          {gitChanges.slice(0, 6).map((ch, idx) => (
+                            <div key={idx} className="truncate flex items-center justify-between">
+                              <span className="truncate">{ch.path}</span>
+                              <span className="text-[9px] text-amber-400 font-semibold shrink-0 ml-1">{ch.status}</span>
+                            </div>
+                          ))}
+                          {gitChanges.length > 6 && (
+                            <div className="text-[9.5px] text-muted/60 italic">+{gitChanges.length - 6} more files</div>
+                          )}
+                        </div>
+                      )}
+                      <input
+                        type="text"
+                        value={commitMessage}
+                        onChange={(e) => setCommitMessage(e.target.value)}
+                        placeholder="Commit message..."
+                        className="w-full rounded border border-border/80 bg-bg px-2 py-1 text-[11.5px] text-text placeholder:text-muted/60 outline-none focus:border-accent"
+                        autoFocus
+                      />
+                      <div className="flex items-center justify-end gap-1.5 pt-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setShowCommitInput(false)}
+                          className="px-2 py-0.5 rounded text-[10.5px] text-muted hover:text-text cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={!commitMessage.trim() || committing}
+                          className="px-2.5 py-0.5 rounded bg-accent text-bg text-[10.5px] font-semibold hover:opacity-90 disabled:opacity-50 cursor-pointer"
+                        >
+                          {committing ? "Committing..." : "Commit"}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => void handlePush()}
+                    disabled={pushing}
+                    className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[12px] text-muted-strong hover:bg-white/[0.06] hover:text-text transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    <CloudPushIcon size={14} className={pushing ? "text-accent animate-spin" : "text-muted"} />
+                    <span className="flex-1">{pushing ? "Pushing..." : "Push"}</span>
+                    {aheadCount > 0 && (
+                      <span className="font-mono text-[10px] text-emerald-400 font-medium">
+                        ↑{aheadCount}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => void handleCreatePr()}
+                    className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[12px] text-muted-strong hover:bg-white/[0.06] hover:text-text transition-colors cursor-pointer"
+                  >
+                    <GitHubIcon size={14} className="text-muted" />
+                    <span>Create PR</span>
+                  </button>
+                </div>
+
+                {/* 3. Status Note in Orange/Amber (Matching Screenshot 2) */}
+                <div className="border-t border-border/40 mt-1.5 pt-1.5 px-2 pb-0.5 text-[11px] leading-snug">
+                  {behindCount > 0 ? (
+                    <p className="text-amber-400 font-medium">
+                      Behind upstream. Pull/rebase first.
+                    </p>
+                  ) : aheadCount > 0 ? (
+                    <p className="text-emerald-400 font-medium">
+                      Ahead of upstream by {aheadCount} commit{aheadCount === 1 ? "" : "s"}. Push your changes.
+                    </p>
+                  ) : !isClean ? (
+                    <p className="text-amber-400 font-medium">
+                      {changesCount || 1} uncommitted file{changesCount === 1 ? "" : "s"}.
+                    </p>
+                  ) : (
+                    <p className="text-muted/80">
+                      Working tree clean. Up to date.
+                    </p>
+                  )}
+
+                  {actionFeedback && (
+                    <p className="mt-1 font-mono text-[10px] text-accent truncate" title={actionFeedback}>
+                      {actionFeedback}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Open in Editor Split Button */}
