@@ -197,19 +197,9 @@ export function BrainView({
   return (
     <div className="h-full flex flex-col p-4 gap-3 bg-bg">
       {/* Command header */}
-      <div className="flex items-center justify-between shrink-0 flex-wrap gap-2">
-        <div className="flex items-center gap-2 text-xs text-muted">
-          <span>
-            {mode === "contributions" ? (
-              "Run ancestry and evidence links."
-            ) : (
-              `${filteredNodeMap.size} of ${nodes.length} nodes · ${edges.length} links`
-            )}
-          </span>
-        </div>
-
-        {/* Mode Selector: 3D Orbit (Second Brain OS) | 2D Flow | Contributions */}
-        <div className="flex items-center rounded-lg border border-border/80 bg-surface/60 p-0.5 shadow-sm">
+      <div className="flex items-center gap-3 shrink-0 flex-wrap">
+        {/* Mode Selector: fixed left-aligned position just like SkillsView */}
+        <div className="flex items-center rounded-lg border border-border/80 bg-surface/60 p-0.5 shadow-sm shrink-0 w-fit">
           <button
             type="button"
             onClick={() => setMode("3d")}
@@ -245,8 +235,18 @@ export function BrainView({
           </button>
         </div>
 
+        <div className="flex items-center gap-2 text-xs text-muted min-w-0">
+          <span>
+            {mode === "contributions" ? (
+              "Run ancestry and evidence links."
+            ) : (
+              `${filteredNodeMap.size} of ${nodes.length} nodes · ${edges.length} links`
+            )}
+          </span>
+        </div>
+
         {mode !== "contributions" && (
-          <div className="flex gap-2 items-center flex-wrap">
+          <div className="flex gap-2 items-center flex-wrap ml-auto">
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
