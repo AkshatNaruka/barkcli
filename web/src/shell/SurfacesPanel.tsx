@@ -175,12 +175,8 @@ export function SurfacesPanel({
   isFocused,
   onToggleFocus,
 }: SurfacesPanelProps) {
-  const [search, setSearch] = useState("");
-  const [showAllArtifacts, setShowAllArtifacts] = useState(false);
-  const [showAllTasks, setShowAllTasks] = useState(false);
   const [dockView, setDockView] = useState<DockView>("launcher");
   const [surfaceMenuOpen, setSurfaceMenuOpen] = useState(false);
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const surfaceMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -643,48 +639,6 @@ export function SurfacesPanel({
     });
   }, [thread]);
 
-  const q = search.trim().toLowerCase();
-  const filteredSurfaces = useMemo(() => {
-    if (!q) return WORKBENCH_SURFACES;
-    return WORKBENCH_SURFACES.filter(
-      (s) =>
-        s.label.toLowerCase().includes(q) ||
-        s.letter.toLowerCase() === q ||
-        s.id.toLowerCase().includes(q)
-    );
-  }, [q]);
-  const filteredArtifacts = useMemo(
-    () =>
-      !q
-        ? artifacts
-        : artifacts.filter((a) => `${a.title} ${a.meta || ""}`.toLowerCase().includes(q)),
-    [artifacts, q]
-  );
-  const filteredSubagents = useMemo(
-    () => (!q ? subagents : subagents.filter((s) => `${s.name} ${s.meta || ""}`.toLowerCase().includes(q))),
-    [subagents, q]
-  );
-  const filteredTasks = useMemo(
-    () => (!q ? tasks : tasks.filter((t) => `${t.title} ${t.meta || ""}`.toLowerCase().includes(q))),
-    [tasks, q]
-  );
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const value = search.trim();
-    if (!value) return;
-    if (value.startsWith("http://") || value.startsWith("https://")) {
-      setBrowserInput(value);
-      setBrowserUrl(value);
-      setDockView("browser");
-    } else if (value.startsWith("localhost:") || value.startsWith("127.0.0.1:")) {
-      const normalized = `http://${value}`;
-      setBrowserInput(normalized);
-      setBrowserUrl(normalized);
-      setDockView("browser");
-    }
-  };
-
   const handleBrowserNavigate = (e: React.FormEvent) => {
     e.preventDefault();
     const raw = browserInput.trim();
@@ -754,28 +708,6 @@ export function SurfacesPanel({
       setTimeout(() => termInputRef.current?.focus(), 20);
     }
   };
-
-  const visibleArtifacts = showAllArtifacts ? filteredArtifacts : filteredArtifacts.slice(0, 5);
-  const visibleTasks = showAllTasks ? filteredTasks : filteredTasks.slice(0, 5);
-  const hasSearch = q.length > 0;
-  const hasAnyResults =
-    filteredSurfaces.length + filteredArtifacts.length + filteredSubagents.length + filteredTasks.length > 0;
-
-  const latestCheck = latestRun ? checkState(latestRun.gate) : null;
-  const openReviewComments = (review?.comments || []).filter((c) => !c.resolved).length;
-  const reviewFiles = review ? Object.values(review.files || {}) : [];
-  const viewedCount = reviewFiles.filter((f) => f.viewed).length;
-  const verification = latestRun?.gate?.verification || runGate?.gate?.verification;
-  const revisionStale =
-    verification?.outcome === "stale" ||
-    Boolean(
-      verification?.tested_head &&
-        verification?.target_head &&
-        verification.tested_head !== verification.target_head
-    );
-  const gateReason = runGate?.eligibility?.reason;
-  const needsReviewAction =
-    Boolean(latestRun) && !activeRun && latestRun?.status !== "merged" && (openReviewComments > 0 || revisionStale || latestCheck?.tone === "danger");
 
   const projectLabel = project?.name || boardName || "barkcli";
 
@@ -943,35 +875,6 @@ export function SurfacesPanel({
         </div>
       </div>
 
-      {/* Search bar (kept accessible for filtering & entering URLs directly) */}
-      {dockView === "launcher" && (
-        <div className="border-b border-border/40 px-3 py-2">
-          <form onSubmit={handleSearchSubmit} className="relative flex items-center">
-            <span className="pointer-events-none absolute left-3 text-muted/70">
-              <Icon name="search" size={13} />
-            </span>
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search surfaces or enter a URL"
-              aria-label="Search surfaces"
-              className="h-7 w-full rounded-lg border border-border/60 bg-surface/30 pl-8 pr-7 text-[11.5px] text-text outline-none transition-colors placeholder:text-muted/60 hover:bg-surface/50 focus:border-border-strong focus:bg-surface"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-2 rounded p-0.5 text-muted hover:text-text"
-                aria-label="Clear search"
-              >
-                <Icon name="x" size={12} />
-              </button>
-            )}
-          </form>
-        </div>
-      )}
 
       {/* EMBEDDED BROWSER SURFACE */}
       {dockView === "browser" && (
@@ -1258,274 +1161,48 @@ export function SurfacesPanel({
             Start a thread to see its plan, changes, checks, and evidence here. Project tools stay in the left rail.
           </p>
         ) : (
-          <>
-            {hasSearch && !hasAnyResults ? (
-              <p className="rounded-lg border border-border/60 bg-surface/30 px-3 py-3 text-[12px] text-muted">
-                No surfaces match “{search.trim()}”.
-              </p>
-            ) : null}
-            {hasSearch && !hasAnyResults ? (
-              <p className="rounded-lg border border-border/60 bg-surface/30 px-3 py-3 text-[12px] text-muted">
-                No surfaces match “{search.trim()}”.
-              </p>
-            ) : null}
+          <div className="mx-auto my-auto flex w-full max-w-[270px] flex-col items-center justify-center py-6">
+            <h2 className="mb-4 text-center text-[15px] font-medium text-text">
+              Open a surface
+            </h2>
 
-            {(activeRun || latestRun) && !hasSearch ? (
-              <section
-                aria-label="Thread status"
-                aria-live="polite"
-                className="rounded-xl border border-border/60 bg-surface/25 px-3 py-2.5"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="text-[11px] font-mono uppercase tracking-wider text-muted/70">Now</div>
-                    <div className="mt-0.5 truncate text-[12.5px] font-medium text-text">
-                      {activeRun
-                        ? `Attempt ${activeRun.ordinal} running`
-                        : latestRun
-                          ? `Attempt ${latestRun.ordinal} · ${latestRun.status}`
-                          : "No attempts yet"}
-                    </div>
-                    {(activeRun?.branch || latestRun?.branch) && (
-                      <div className="mt-0.5 truncate font-mono text-[10.5px] text-muted">
-                        {activeRun?.branch || latestRun?.branch}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-1">
-                    {latestCheck ? (
-                      <span
-                        className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${
-                          latestCheck.tone === "success"
-                            ? "border-success/30 bg-success-soft text-success"
-                            : latestCheck.tone === "danger"
-                              ? "border-danger/30 bg-danger-soft text-danger"
-                              : "border-border/70 bg-surface/50 text-muted-strong"
-                        }`}
-                      >
-                        {latestCheck.label}
-                      </span>
-                    ) : null}
-                    {revisionStale ? (
-                      <span className="rounded-full border border-warning/30 bg-warning-soft px-2 py-0.5 text-[10px] font-medium text-warning">
-                        checks stale
-                      </span>
-                    ) : null}
-                    {openReviewComments > 0 ? (
-                      <span className="rounded-full border border-warning/30 bg-warning-soft px-2 py-0.5 text-[10px] font-medium text-warning">
-                        {openReviewComments} open comment{openReviewComments === 1 ? "" : "s"}
-                      </span>
-                    ) : null}
-                    {openReviewComments === 0 && reviewFiles.length > 0 ? (
-                      <span className="text-[10px] text-muted/70">
-                        {viewedCount}/{reviewFiles.length} viewed
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-                {(gateReason || needsReviewAction) && (
-                  <div className="mt-2 border-t border-border/40 pt-2">
-                    {gateReason ? <p className="text-[10.5px] leading-relaxed text-muted">{gateReason}</p> : null}
-                    {needsReviewAction ? (
-                      <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => onSelectThread("diff")}
-                          className="rounded border border-border/70 bg-card px-2 py-1 text-[10px] font-medium text-text hover:bg-surface/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-                        >
-                          Review changes
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onSelectThread("gate")}
-                          className="rounded border border-border/70 bg-card px-2 py-1 text-[10px] font-medium text-text hover:bg-surface/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-                        >
-                          View checks
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-                )}
-              </section>
-            ) : null}
+            {/* Accessible elements for screen readers and test suite */}
+            <span className="sr-only">Surfaces</span>
+            <button type="button" onClick={() => onSelectThread("plan")} className="sr-only">
+              Plan
+            </button>
+            <button type="button" onClick={() => onSelectThread("gate")} className="sr-only">
+              Checks
+            </button>
 
-            {/* Centered "Open a surface" Menu matching Screenshot 3 */}
-            {(!hasSearch || surfaceLauncherItems.some((s) => s.label.toLowerCase().includes(q) || s.keywords.includes(q))) && (
-              <section className="mx-auto my-auto flex w-full max-w-[260px] flex-col items-center justify-center py-6" aria-label="Open a surface">
-                <h2 className="mb-4 text-center text-[13.5px] font-medium text-text">
-                  Open a surface
-                </h2>
-
-                {/* Accessible elements for screen readers and test suite */}
-                {(!hasSearch || "surfaces".includes(q)) && (
-                  <span className="sr-only">Surfaces</span>
-                )}
-                {(!hasSearch || "plan".includes(q)) && (
-                  <button type="button" onClick={() => onSelectThread("plan")} className="sr-only">
-                    Plan
-                  </button>
-                )}
-                {(!hasSearch || "checks".includes(q)) && (
-                  <button type="button" onClick={() => onSelectThread("gate")} className="sr-only">
-                    Checks
-                  </button>
-                )}
-
-                <div className="flex w-full flex-col gap-0.5">
-                  {surfaceLauncherItems
-                    .filter((item) => !hasSearch || item.label.toLowerCase().includes(q) || item.keywords.includes(q))
-                    .map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={item.action}
-                        title={item.title}
-                        className="flex w-full items-center gap-3 rounded-lg px-2.5 py-1.5 text-[12.5px] text-text/90 transition-colors hover:bg-surface/60 hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-                      >
-                        {item.isDevice ? (
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted">
-                            <rect width="14" height="20" x="5" y="2" rx="2" ry="2" />
-                            <path d="M12 18h.01" />
-                          </svg>
-                        ) : (
-                          <Icon name={item.icon!} size={15} className="shrink-0 text-muted" />
-                        )}
-                        <span className="flex-1 text-left">{item.label}</span>
-                        {item.hasDropdown && (
-                          <Icon name="chevDown" size={13} className="mr-0.5 shrink-0 text-muted/70" />
-                        )}
-                        <kbd className="flex h-5 w-5 items-center justify-center rounded border border-border/80 bg-surface/50 font-mono text-[9.5px] font-semibold uppercase text-muted">
-                          {item.letter}
-                        </kbd>
-                      </button>
-                    ))}
-                </div>
-              </section>
-            )}
-
-            {filteredArtifacts.length > 0 && (
-              <section className="border-t border-border/40 pt-2" aria-label="Artifacts">
-                <div className="flex items-center justify-between px-3 pb-1">
-                  <h2 className="flex items-center gap-1.5 text-[11.5px] font-medium text-muted-strong">
-                    <span>Artifacts</span>
-                    <span className="rounded-full bg-surface px-1.5 py-0.5 font-mono text-[10px] text-muted">
-                      {filteredArtifacts.length}
-                    </span>
-                  </h2>
-                </div>
-                <div className="mt-0.5 flex flex-col gap-0.5">
-                  {visibleArtifacts.map((art) => (
-                    <button
-                      key={art.id}
-                      type="button"
-                      onClick={() => onSelectThread(art.tab)}
-                      className="flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-left text-[12px] text-muted-strong transition-colors hover:bg-surface/60 hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-                      title={art.meta ? `${art.title} — ${art.meta}` : art.title}
-                    >
-                      <Icon name={art.icon} size={13} className="shrink-0 text-muted" />
-                      <span className="min-w-0 flex-1 truncate">{art.title}</span>
-                      {art.meta ? <span className="shrink-0 text-[10px] text-muted/70">{art.meta}</span> : null}
-                    </button>
-                  ))}
-                  {filteredArtifacts.length > 5 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowAllArtifacts(!showAllArtifacts)}
-                      className="px-3 py-1 text-left text-[11px] font-medium text-muted transition-colors hover:text-accent-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-                    >
-                      {showAllArtifacts ? "Show less" : "See all"}
-                    </button>
+            <div className="flex w-full flex-col gap-1">
+              {surfaceLauncherItems.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={item.action}
+                  title={item.title}
+                  className="group flex w-full items-center gap-3.5 rounded-xl px-3 py-2 text-[13px] text-text/90 transition-colors hover:bg-surface/70 hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent cursor-pointer"
+                >
+                  {item.isDevice ? (
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted group-hover:text-text transition-colors">
+                      <rect width="14" height="20" x="5" y="2" rx="2" ry="2" />
+                      <path d="M12 18h.01" />
+                    </svg>
+                  ) : (
+                    <Icon name={item.icon!} size={15} className="shrink-0 text-muted group-hover:text-text transition-colors" />
                   )}
-                </div>
-              </section>
-            )}
-
-            {filteredSubagents.length > 0 && (
-              <section className="border-t border-border/40 pt-2" aria-label="Subagents">
-                <div className="flex items-center justify-between px-3 pb-1">
-                  <h2 className="flex items-center gap-1.5 text-[11.5px] font-medium text-muted-strong">
-                    <span>Subagents</span>
-                    <span className="rounded-full bg-surface px-1.5 py-0.5 font-mono text-[10px] text-muted">
-                      {filteredSubagents.length}
-                    </span>
-                  </h2>
-                </div>
-                <div className="mt-0.5 flex flex-col gap-1">
-                  {filteredSubagents.map((sub) => (
-                    <div key={sub.id} className="flex items-center gap-2 px-3 py-1 text-[12px] text-muted-strong">
-                      <span
-                        className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border ${
-                          sub.status === "active"
-                            ? "border-accent/40 bg-accent-soft text-accent-text"
-                            : "border-success/40 bg-success-soft text-success"
-                        }`}
-                        aria-hidden="true"
-                      >
-                        <Icon name={sub.status === "active" ? "pulse" : "check"} size={9} />
-                      </span>
-                      <span className="min-w-0 flex-1 truncate">{sub.name}</span>
-                      {sub.meta ? <span className="shrink-0 text-[10px] text-muted/60">{sub.meta}</span> : null}
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {filteredTasks.length > 0 && (
-              <section className="border-t border-border/40 pt-2" aria-label="Background tasks">
-                <div className="flex items-center justify-between px-3 pb-1">
-                  <h2 className="flex items-center gap-1.5 text-[11.5px] font-medium text-muted-strong">
-                    <span>Background Tasks</span>
-                    <span className="rounded-full bg-surface px-1.5 py-0.5 font-mono text-[10px] text-muted">
-                      {filteredTasks.length}
-                    </span>
-                  </h2>
-                </div>
-                <div className="mt-0.5 flex flex-col gap-0.5">
-                  {visibleTasks.map((task) => (
-                    <button
-                      key={task.id}
-                      type="button"
-                      onClick={() => onSelectThread("gate")}
-                      className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-left text-[12px] text-muted-strong transition-colors hover:bg-surface/60 hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-                      title={task.meta ? `${task.title} — ${task.meta}` : task.title}
-                    >
-                      {task.status === "running" ? (
-                        <Icon name="terminal" size={13} className="shrink-0 text-accent-text" />
-                      ) : task.status === "passed" ? (
-                        <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-success/40 bg-success-soft text-success">
-                          <Icon name="check" size={9} />
-                        </span>
-                      ) : (
-                        <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-danger/40 bg-danger-soft text-danger">
-                          <Icon name="x" size={9} />
-                        </span>
-                      )}
-                      <span className="min-w-0 flex-1 truncate">{task.title}</span>
-                      {task.meta ? (
-                        <span className={`shrink-0 text-[10px] ${toneForRun(task.status)}`}>{task.meta}</span>
-                      ) : null}
-                    </button>
-                  ))}
-                  {filteredTasks.length > 5 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowAllTasks(!showAllTasks)}
-                      className="px-3 py-1 text-left text-[11px] font-medium text-muted transition-colors hover:text-accent-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-                    >
-                      {showAllTasks ? "Show less" : "See all"}
-                    </button>
+                  <span className="flex-1 text-left font-normal">{item.label}</span>
+                  {item.hasDropdown && (
+                    <Icon name="chevDown" size={13} className="mr-0.5 shrink-0 text-muted/70" />
                   )}
-                </div>
-              </section>
-            )}
-
-            {!hasSearch && artifacts.length === 0 && subagents.length === 0 && tasks.length === 0 ? (
-              <p className="px-3 py-1 text-[11.5px] leading-relaxed text-muted">
-                No thread artifacts yet. Plan, changes, checks, and evidence will appear here as the thread produces them.
-              </p>
-            ) : null}
-          </>
+                  <kbd className="flex h-5 w-5 items-center justify-center rounded border border-border/80 bg-surface/50 font-mono text-[9.5px] font-semibold uppercase text-muted">
+                    {item.letter}
+                  </kbd>
+                </button>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 

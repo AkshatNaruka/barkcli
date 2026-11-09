@@ -150,33 +150,43 @@ describe("SurfacesPanel", () => {
     expect(screen.getByLabelText("Terminal command input")).toBeInTheDocument();
   });
 
-  it("renders real artifacts, subagents, and background tasks from thread data without mocks", () => {
+  it("does not render attempt cards, artifacts, subagents, or background tasks in launcher mode", () => {
     renderPanel({ thread: threadWithData });
 
-    expect(screen.queryByText("Mac App Ui Ux Modernization Plan")).not.toBeInTheDocument();
-    expect(screen.getByText("Artifacts")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Thread title plan/i })).toBeInTheDocument();
-    expect(screen.getAllByText("Changes").length).toBeGreaterThan(0);
-    expect(screen.getByText("Subagents")).toBeInTheDocument();
-    expect(screen.getByText("Coder")).toBeInTheDocument();
-    expect(screen.getByText("Background Tasks")).toBeInTheDocument();
-    expect(screen.getAllByText(/Attempt 1/).length).toBeGreaterThan(0);
+    // Streamlined minimal view: no noisy attempt boxes, artifacts, subagents, or tasks
+    expect(screen.queryByText("Now")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Thread status")).not.toBeInTheDocument();
+    expect(screen.queryByText("Artifacts")).not.toBeInTheDocument();
+    expect(screen.queryByText("Subagents")).not.toBeInTheDocument();
+    expect(screen.queryByText("Background Tasks")).not.toBeInTheDocument();
+    expect(screen.queryByText(/No thread artifacts yet/i)).not.toBeInTheDocument();
+
+    // Renders the clean "Open a surface" header and all 8 items
+    expect(screen.getByRole("heading", { name: "Open a surface" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Browser/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Terminal/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Files/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Diff/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Pull request[A-Z]?$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Linked pull requests/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Device/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Side chat/i })).toBeInTheDocument();
   });
 
-  it("shows an honest empty state when the thread has no artifacts yet", () => {
-    renderPanel({ thread: { id: "card-1", card, events: [], runs: [] } });
-    expect(screen.queryByText("Mac App Ui Ux Modernization Plan")).not.toBeInTheDocument();
-    expect(screen.getByText(/No thread artifacts yet/i)).toBeInTheDocument();
-  });
-
-  it("filters items when typing in the search bar", async () => {
-    renderPanel({ thread: threadWithData });
+  it("triggers actions when clicking launcher items", async () => {
+    const handlers = renderPanel({ thread: threadWithData });
     const user = userEvent.setup();
 
-    const searchInput = screen.getByPlaceholderText("Search surfaces or enter a URL");
-    await user.type(searchInput, "plan");
+    await user.click(screen.getByRole("button", { name: /^Files/i }));
+    expect(handlers.onSelectThread).toHaveBeenCalledWith("context");
 
-    expect(screen.getByRole("button", { name: /Thread title plan/i })).toBeInTheDocument();
-    expect(screen.queryByText("Checks")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^Diff/i }));
+    expect(handlers.onSelectThread).toHaveBeenCalledWith("diff");
+
+    await user.click(screen.getByRole("button", { name: /^Pull request[A-Z]?$/i }));
+    expect(handlers.onSelectThread).toHaveBeenCalledWith("receipt");
+
+    await user.click(screen.getByRole("button", { name: /^Device/i }));
+    expect(handlers.onSelectThread).toHaveBeenCalledWith("eval");
   });
 });
