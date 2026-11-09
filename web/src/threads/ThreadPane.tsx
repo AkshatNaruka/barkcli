@@ -55,6 +55,7 @@ import type { ThreadActionTarget } from "../shell/ThreadActionsMenu";
 import { ThreadContextPopover } from "./ThreadContextPopover";
 import { ThreadTerminalDrawer } from "./ThreadTerminalDrawer";
 import { openInbuiltBrowser } from "../lib/inbuiltBrowser";
+import { ThreadGutterTimeline } from "./ThreadGutterTimeline";
 
 interface ThreadPaneProps {
   scope?: string;
@@ -202,6 +203,7 @@ function UserMessageCard({
   return (
     <article
       key={`${event.id}:${event.seq}`}
+      id={`thread-event-${event.id}`}
       className="chat-message chat-message-user group"
       aria-label="Your message"
     >
@@ -384,6 +386,7 @@ export function ThreadPane({
   }, [onOpenInspector, toggleTerminalDrawer]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const selectCardRef = useRef(onSelectCard);
   const refreshInboxRef = useRef(onRefreshInbox);
 
@@ -1186,6 +1189,7 @@ export function ThreadPane({
       )}
 
       <div
+        ref={scrollContainerRef}
         className="flex-1 overflow-y-auto min-h-0 thread-events"
         onScroll={(event) => {
           const node = event.currentTarget;
@@ -1193,7 +1197,12 @@ export function ThreadPane({
           if (stickToBottom.current) setNewOutput(false);
         }}
       >
-        <div className="thread-conversation">
+        <div className="thread-conversation relative">
+          <ThreadGutterTimeline
+            events={thread?.events || []}
+            runs={thread?.runs || (latestRun ? [latestRun] : [])}
+            containerRef={scrollContainerRef}
+          />
           {loading && (
             <div className="space-y-6" aria-label="Loading thread">
               {[0, 1, 2].map((row) => (
