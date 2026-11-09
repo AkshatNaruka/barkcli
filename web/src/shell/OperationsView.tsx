@@ -56,12 +56,9 @@ const TABS: Array<{ id: OpTab; label: string; icon: IconName }> = [
 
 const VISIBLE_TABS: Array<{ id: OpTab; label: string; icon: IconName }> = [
   { id: "workspace", label: "Project Setup", icon: "layers" },
-  { id: "rules", label: "Rules", icon: "doc" },
   { id: "automations", label: "Automations", icon: "clock" },
   { id: "timeline", label: "Checkpoints", icon: "clock" },
   { id: "code", label: "Code Search", icon: "code" },
-  { id: "agent", label: "Agent API", icon: "robot" },
-  { id: "history", label: "History", icon: "history" },
   { id: "calendar", label: "Calendar", icon: "calendar" },
   { id: "reports", label: "Reports", icon: "chart" },
 ];
