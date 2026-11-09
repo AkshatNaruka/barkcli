@@ -69,6 +69,17 @@ export function ThreadsShell({ boardName, projectRoot = "current-project", proje
   }, []);
   const openPanel = (panel: WorkbenchTab) => updateRouteState({ panel: TAB_TO_PANEL[panel] });
   useEffect(() => {
+    const handleOpenBrowser = () => {
+      if (!surfacesOpen) {
+        onToggleSurfaces();
+      }
+      updateRouteState({ panel: "browser" });
+    };
+    window.addEventListener("bark-open-browser", handleOpenBrowser);
+    return () => window.removeEventListener("bark-open-browser", handleOpenBrowser);
+  }, [surfacesOpen, onToggleSurfaces]);
+
+  useEffect(() => {
     const openThread = (event: Event) => {
       const id = (event as CustomEvent<string>).detail;
       if (id) navigate("chat", { thread: id, board: boardName || undefined });

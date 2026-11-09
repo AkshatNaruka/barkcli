@@ -51,6 +51,7 @@ import { useRouteState, updateRouteState } from "../lib/hashnav";
 import { PANEL_TO_TAB, TAB_TO_PANEL, WORKBENCH_SURFACES, type WorkbenchTab } from "../lib/workbench";
 import { ChecksPanel } from "./ChecksPanel";
 import { QuietSelect } from "../components/QuietSelect";
+import { normalizeBrowserUrl, toInbuiltBrowserUrl } from "../lib/inbuiltBrowser";
 
 export interface SurfaceItem {
   id: string;
@@ -351,6 +352,25 @@ export function InspectorPane({
   const [browserUrl, setBrowserUrl] = useState("http://localhost:5173");
   const [browserInput, setBrowserInput] = useState("http://localhost:5173");
   const [browserKey, setBrowserKey] = useState(0);
+  const [copiedBrowserUrl, setCopiedBrowserUrl] = useState(false);
+  const browserIframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Listen for in-app browser open events so links in chat/threads/receipts open right here
+  useEffect(() => {
+    const onOpenBrowser = (event: Event) => {
+      const ce = event as CustomEvent<{ url?: string } | string>;
+      const targetUrl = typeof ce.detail === "string" ? ce.detail : ce.detail?.url;
+      if (targetUrl) {
+        const normalized = normalizeBrowserUrl(targetUrl);
+        setBrowserInput(normalized);
+        setBrowserUrl(normalized);
+        setBrowserKey((k) => k + 1);
+      }
+      handleOpenSurface("browser");
+    };
+    window.addEventListener("bark-open-browser", onOpenBrowser);
+    return () => window.removeEventListener("bark-open-browser", onOpenBrowser);
+  }, []);
 
   // Terminal surface state
   const [termEntriesByTab, setTermEntriesByTab] = useState<
@@ -1740,10 +1760,7 @@ export function InspectorPane({
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  let target = browserInput.trim();
-                  if (target && !/^https?:\/\//i.test(target)) {
-                    target = `http://${target}`;
-                  }
+                  const target = normalizeBrowserUrl(browserInput);
                   setBrowserUrl(target);
                   setBrowserKey((k) => k + 1);
                 }}
@@ -1763,20 +1780,24 @@ export function InspectorPane({
                 type="button"
                 onClick={() => {
                   const url = browserUrl || "http://localhost:5173";
-                  window.open(url, "_blank", "noopener,noreferrer");
+                  navigator.clipboard.writeText(url).catch(() => {});
+                  setCopiedBrowserUrl(true);
+                  setTimeout(() => setCopiedBrowserUrl(false), 1500);
                 }}
                 className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface hover:text-text cursor-pointer"
-                title="Open in external browser"
+                title={copiedBrowserUrl ? "Copied URL!" : "Copy URL"}
               >
-                <Icon name="link" size={12} />
+                <Icon name={copiedBrowserUrl ? "check" : "copy"} size={12} />
               </button>
             </div>
 
             {browserUrl ? (
               <iframe
                 key={`${browserUrl}:${browserKey}`}
-                src={browserUrl}
+                ref={browserIframeRef}
+                src={toInbuiltBrowserUrl(browserUrl)}
                 title="Surface browser preview"
+                sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
                 className="h-full w-full flex-1 border-0 bg-white"
               />
             ) : (
@@ -2091,8 +2112,10 @@ export function InspectorPane({
                   </div>
                 )}
                 <iframe
-                  src={browserUrl || "http://localhost:5173"}
+                  key={`device:${browserUrl}:${browserKey}`}
+                  src={toInbuiltBrowserUrl(browserUrl || "http://localhost:5173")}
                   title="Device emulator preview"
+                  sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
                   className="w-full h-full border-0 bg-white"
                 />
                 <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-28 h-1 bg-white/40 rounded-full pointer-events-none" />

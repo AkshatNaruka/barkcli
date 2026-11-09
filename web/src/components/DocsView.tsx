@@ -3,6 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import { fetchDocs, fetchDoc, type DocEntry } from "../lib/api";
+import { openInbuiltBrowser } from "../lib/inbuiltBrowser";
 
 // Curated display order for docs
 const DOC_ORDER = [
@@ -202,9 +203,13 @@ export function DocsView() {
                     a: ({ href, children }) => (
                       <a
                         href={href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-accent hover:text-accent-hover underline underline-offset-2"
+                        onClick={(e) => {
+                          if (href && (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("localhost"))) {
+                            e.preventDefault();
+                            openInbuiltBrowser(href);
+                          }
+                        }}
+                        className="text-accent hover:text-accent-hover underline underline-offset-2 cursor-pointer"
                       >
                         {children}
                       </a>

@@ -6,6 +6,7 @@ import { fetchReview, fetchRunGate, fetchWorktrees, gitCommit, gitPush, openInEd
 import { revealProject, openTerminal, isDesktop } from "../lib/desktop";
 import { readLocal, writeLocal } from "../lib/drafts";
 import { checkState, isActiveRun } from "../lib/run-state";
+import { normalizeBrowserUrl, toInbuiltBrowserUrl } from "../lib/inbuiltBrowser";
 
 function VsCodeIcon({ size = 15 }: { size?: number }) {
   return (
@@ -209,6 +210,24 @@ export function SurfacesPanel({
   const [browserInput, setBrowserInput] = useState("");
   const [browserUrl, setBrowserUrl] = useState<string | null>(null);
   const [browserKey, setBrowserKey] = useState(0);
+  const [copiedBrowserUrl, setCopiedBrowserUrl] = useState(false);
+
+  // Listen for in-app browser open events
+  useEffect(() => {
+    const onOpenBrowser = (event: Event) => {
+      const ce = event as CustomEvent<{ url?: string } | string>;
+      const targetUrl = typeof ce.detail === "string" ? ce.detail : ce.detail?.url;
+      if (targetUrl) {
+        const normalized = normalizeBrowserUrl(targetUrl);
+        setBrowserInput(normalized);
+        setBrowserUrl(normalized);
+        setBrowserKey((k) => k + 1);
+      }
+      setDockView("browser");
+    };
+    window.addEventListener("bark-open-browser", onOpenBrowser);
+    return () => window.removeEventListener("bark-open-browser", onOpenBrowser);
+  }, []);
 
   // Embedded Terminal Surface state
   const [terminalTabs, setTerminalTabs] = useState<Array<{ id: number; label: string }>>([
@@ -673,14 +692,10 @@ export function SurfacesPanel({
       setBrowserUrl(null);
       return;
     }
-    const normalized =
-      raw.startsWith("http://") || raw.startsWith("https://")
-        ? raw
-        : raw.startsWith("localhost") || raw.startsWith("127.0.0.1") || raw.includes(":")
-          ? `http://${raw}`
-          : `https://${raw}`;
+    const normalized = normalizeBrowserUrl(raw);
     setBrowserInput(normalized);
     setBrowserUrl(normalized);
+    setBrowserKey((k) => k + 1);
   };
 
   const handleTerminalRun = async (e: React.FormEvent) => {
@@ -1003,20 +1018,23 @@ export function SurfacesPanel({
               onClick={() => {
                 const port = window.location.port || "5173";
                 const url = browserUrl || `http://localhost:${port}`;
-                window.open(url, "_blank", "noopener,noreferrer");
+                navigator.clipboard.writeText(url).catch(() => {});
+                setCopiedBrowserUrl(true);
+                setTimeout(() => setCopiedBrowserUrl(false), 1500);
               }}
-              className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface hover:text-text"
-              title="Open in external browser"
+              className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface hover:text-text cursor-pointer"
+              title={copiedBrowserUrl ? "Copied URL!" : "Copy URL"}
             >
-              <Icon name="link" size={12} />
+              <Icon name={copiedBrowserUrl ? "check" : "copy"} size={12} />
             </button>
           </div>
 
           {browserUrl ? (
             <iframe
               key={`${browserUrl}:${browserKey}`}
-              src={browserUrl}
+              src={toInbuiltBrowserUrl(browserUrl)}
               title="Surface browser preview"
+              sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
               className="h-full w-full flex-1 border-0 bg-white"
             />
           ) : (

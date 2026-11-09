@@ -14,6 +14,7 @@ import {
 import { openInEditor, fetchReviewQueue, fetchGitStatus, runProjectCommand } from "../lib/api";
 import { readLocal, writeLocal } from "../lib/drafts";
 import type { ProjectSnapshot, GitStatus } from "../lib/types";
+import { openInbuiltBrowser } from "../lib/inbuiltBrowser";
 
 export interface ProjectNavbarProps {
   projectName?: string | null;
@@ -310,7 +311,7 @@ export function ProjectNavbar({
         }
         const prUrl = `${remoteUrl}/compare/${encodeURIComponent(branchName)}?expand=1`;
         if (typeof window !== "undefined") {
-          window.open(prUrl, "_blank");
+          openInbuiltBrowser(prUrl);
         }
         setActionFeedback(`Opened ${prUrl}`);
       } else {

@@ -204,6 +204,7 @@ where
         .route("/api/worktrees", get(worktrees_handler))
         .route("/api/worktrees/{slug}/checkpoint", post(worktree_checkpoint_handler))
         .route("/api/health", get(health_handler))
+        .route("/api/proxy", get(browser_proxy_handler))
         .route("/api/agent-loop/tools", get(agent_loop_tools_handler))
         .route("/api/history", get(history_handler))
         .route("/api/sessions", get(sessions_handler))
@@ -1517,6 +1518,107 @@ async fn worktree_checkpoint_handler(
 async fn health_handler() -> Result<Json<serde_json::Value>, ServerError> {
     let report = barkcli_core::commands::health::health().map_err(|e| ServerError::internal(e.to_string()))?;
     Ok(Json(serde_json::to_value(&report).unwrap_or(serde_json::json!({}))))
+}
+
+#[derive(Deserialize)]
+struct BrowserProxyQuery {
+    url: String,
+}
+
+async fn browser_proxy_handler(Query(query): Query<BrowserProxyQuery>) -> Response {
+    let target = query.url.trim().to_string();
+    if target.is_empty() {
+        return (StatusCode::BAD_REQUEST, "Missing url parameter").into_response();
+    }
+
+    let url_str = if !target.starts_with("http://") && !target.starts_with("https://") {
+        format!("http://{}", target)
+    } else {
+        target.clone()
+    };
+
+    let fetch_result = tokio::task::spawn_blocking(move || {
+        let agent = ureq::AgentBuilder::new()
+            .timeout(Duration::from_secs(15))
+            .redirects(5)
+            .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            .build();
+
+        let res = agent.get(&url_str).call();
+        match res {
+            Ok(resp) => {
+                let status = resp.status();
+                let content_type = resp.header("content-type").unwrap_or("text/html").to_string();
+                let mut reader = resp.into_reader();
+                let mut bytes = Vec::new();
+                use std::io::Read;
+                let _ = reader.read_to_end(&mut bytes);
+                Ok((status, content_type, bytes, url_str))
+            }
+            Err(e) => Err(e.to_string()),
+        }
+    }).await;
+
+    match fetch_result {
+        Ok(Ok((status, content_type, mut bytes, final_url))) => {
+            if content_type.contains("text/html") {
+                if let Ok(html_str) = String::from_utf8(bytes.clone()) {
+                    let base_tag = format!("<base href=\"{}\" target=\"_self\" />\n", final_url);
+                    let modified = if let Some(idx) = html_str.find("<head>") {
+                        let mut s = html_str;
+                        s.insert_str(idx + 6, &base_tag);
+                        s
+                    } else if let Some(idx) = html_str.find("<HEAD>") {
+                        let mut s = html_str;
+                        s.insert_str(idx + 6, &base_tag);
+                        s
+                    } else {
+                        format!("{}{}", base_tag, html_str)
+                    };
+                    bytes = modified.into_bytes();
+                }
+            }
+
+            let mut resp = (
+                StatusCode::from_u16(status).unwrap_or(StatusCode::OK),
+                bytes,
+            ).into_response();
+
+            let headers = resp.headers_mut();
+            if let Ok(ct) = header::HeaderValue::from_str(&content_type) {
+                headers.insert(header::CONTENT_TYPE, ct);
+            }
+            headers.remove(header::HeaderName::from_static("x-frame-options"));
+            headers.remove(header::HeaderName::from_static("content-security-policy"));
+            headers.remove(header::HeaderName::from_static("content-security-policy-report-only"));
+            headers.remove(header::HeaderName::from_static("cross-origin-opener-policy"));
+            headers.remove(header::HeaderName::from_static("cross-origin-embedder-policy"));
+            headers.insert(
+                header::HeaderName::from_static("access-control-allow-origin"),
+                header::HeaderValue::from_static("*"),
+            );
+            resp
+        }
+        Ok(Err(err)) => {
+            let error_html = format!(
+                r#"<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><style>body{{font-family:system-ui,-apple-system,sans-serif;padding:32px;background:#0d0d0f;color:#e4e4e7;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:75vh;text-align:center;}}h2{{margin:0 0 8px 0;font-size:16px;color:#f87171;font-weight:600;}}p{{color:#a1a1aa;font-size:12.5px;max-width:440px;line-height:1.6;margin:0 0 12px 0;}}code{{background:#1e1e24;padding:2px 6px;border-radius:4px;font-size:11.5px;color:#cbd5e1;}}</style></head>
+<body>
+  <h2>Unable to load page</h2>
+  <p>The inbuilt browser could not load <code>{}</code>: {}</p>
+</body>
+</html>"#,
+                target, err
+            );
+            let mut resp = (StatusCode::BAD_GATEWAY, error_html).into_response();
+            resp.headers_mut().insert(header::CONTENT_TYPE, header::HeaderValue::from_static("text/html; charset=utf-8"));
+            resp
+        }
+        Err(join_err) => {
+            (StatusCode::INTERNAL_SERVER_ERROR, format!("Proxy task panicked: {}", join_err)).into_response()
+        }
+    }
 }
 
 async fn agent_loop_tools_handler() -> Result<Json<serde_json::Value>, ServerError> {

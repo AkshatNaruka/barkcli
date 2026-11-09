@@ -54,6 +54,7 @@ import { runLabel, checkState, checksPassed, isActiveRun } from "../lib/run-stat
 import type { ThreadActionTarget } from "../shell/ThreadActionsMenu";
 import { ThreadContextPopover } from "./ThreadContextPopover";
 import { ThreadTerminalDrawer } from "./ThreadTerminalDrawer";
+import { openInbuiltBrowser } from "../lib/inbuiltBrowser";
 
 interface ThreadPaneProps {
   scope?: string;
@@ -85,9 +86,11 @@ function formatErrorMessage(text: string): React.ReactNode {
         <a
           key={i}
           href={part}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-accent-text underline underline-offset-2 hover:opacity-80 break-all"
+          onClick={(e) => {
+            e.preventDefault();
+            openInbuiltBrowser(part);
+          }}
+          className="text-accent-text underline underline-offset-2 hover:opacity-80 break-all cursor-pointer"
         >
           {part}
         </a>
@@ -107,8 +110,18 @@ function Prose({ text, onRunCommand }: { text: string; onRunCommand?: (cmd: stri
         skipHtml
         disallowedElements={["img"]}
         components={{
-          a: ({ node, children, ...props }) => (
-            <a {...props} target="_blank" rel="noopener noreferrer">
+          a: ({ node, children, href, ...props }) => (
+            <a
+              {...props}
+              href={href}
+              onClick={(e) => {
+                if (href && (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("localhost"))) {
+                  e.preventDefault();
+                  openInbuiltBrowser(href);
+                }
+              }}
+              className="cursor-pointer"
+            >
               {children}
             </a>
           ),
