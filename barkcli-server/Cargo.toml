@@ -3,7 +3,7 @@ name = "barkcli-server"
 description = "Web server for barkcli — the management layer for AI agents, in the browser (Axum)"
 license = "MIT"
 authors = ["Akshat Naruka <narukaakshat@gmail.com>"]
-version = "0.4.19"
+version = "0.4.20"
 edition = "2021"
 repository = "https://github.com/AkshatNaruka/barkcli"
 homepage = "https://barkcli.vercel.app"
@@ -12,7 +12,7 @@ keywords = ["kanban", "web", "axum"]
 categories = ["command-line-utilities"]
 
 [dependencies]
-barkcli-core = { path = "../barkcli-core", version = "0.4.19" }
+barkcli-core = { path = "../barkcli-core", version = "0.4.20" }
 anyhow = "1"
 axum = { version = "0.8", features = ["ws"] }
 tokio = { version = "1", features = ["full"] }
