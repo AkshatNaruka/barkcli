@@ -2,9 +2,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import { connectWs, fetchPullRequests, fetchReviewQueue, fetchThreadRuns } from "../lib/api";
 import { sortQueue } from "../components/ReviewQueuePanel";
 import { CheckChip } from "../components/CheckStatus";
-import { navigate } from "../lib/hashnav";
+import { navigate, updateRouteState, useRouteState } from "../lib/hashnav";
 import type { PullRequestItem, QueueItem } from "../lib/types";
 import { Icon } from "../components/Icon";
+import { PullRequestDetailView } from "./PullRequestDetailView";
 
 function hasBuild(item: QueueItem): boolean {
   return Boolean(item.branch) && (item.files > 0 || item.additions > 0 || item.deletions > 0);
@@ -67,7 +68,13 @@ function ReviewRow({
   );
 }
 
-function PullRequestRow({ item }: { item: PullRequestItem }) {
+function PullRequestRow({
+  item,
+  onSelect,
+}: {
+  item: PullRequestItem;
+  onSelect: (item: PullRequestItem) => void;
+}) {
   const isDraft = item.is_draft || item.title.toLowerCase().startsWith("draft:");
   const isOpen = item.state === "OPEN";
   const isMerged = item.state === "MERGED";
@@ -93,7 +100,20 @@ function PullRequestRow({ item }: { item: PullRequestItem }) {
   };
 
   return (
-    <article className="review-pr-row" data-pr-number={item.number}>
+    <article
+      className="review-pr-row"
+      data-pr-number={item.number}
+      onClick={() => onSelect(item)}
+      role="button"
+      tabIndex={0}
+      aria-label={`Inspect pull request #${item.number}: ${item.title}`}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect(item);
+        }
+      }}
+    >
       <div className="review-pr-header">
         <div className="review-pr-title-wrap">
           <span className={`review-pr-badge ${stateCls}`}>{stateLabel}</span>
@@ -101,6 +121,19 @@ function PullRequestRow({ item }: { item: PullRequestItem }) {
           <span className="review-pr-title">{item.title}</span>
         </div>
         <div className="review-pr-actions">
+          <button
+            type="button"
+            className="bark-button is-primary"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect(item);
+            }}
+            title="Inspect pull request details, code diff, and timeline"
+            aria-label={`Inspect pull request #${item.number}`}
+          >
+            <Icon name="eye" size={12} />
+            <span>Inspect</span>
+          </button>
           <button
             type="button"
             className="bark-button"
@@ -117,6 +150,7 @@ function PullRequestRow({ item }: { item: PullRequestItem }) {
             className="bark-button"
             title="Open repository pull request externally"
             aria-label={`Open PR #${item.number} externally`}
+            onClick={(e) => e.stopPropagation()}
           >
             <Icon name="link" size={12} />
           </a>
@@ -151,6 +185,10 @@ function PullRequestRow({ item }: { item: PullRequestItem }) {
 }
 
 export function ReviewSurface({ boardName }: { boardName: string | null }) {
+  const routeState = useRouteState();
+  const selectedPrNumber = routeState.pr ? parseInt(routeState.pr, 10) : null;
+  const [selectedPrItem, setSelectedPrItem] = useState<PullRequestItem | null>(null);
+
   const [items, setItems] = useState<QueueItem[]>([]);
   const [prs, setPrs] = useState<PullRequestItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -159,6 +197,24 @@ export function ReviewSurface({ boardName }: { boardName: string | null }) {
   const [revision, setRevision] = useState(0);
   const [activeTab, setActiveTab] = useState<"all" | "prs" | "ready" | "plans">("all");
   const [prFilter, setPrFilter] = useState<"pending" | "all">("pending");
+
+  const activePrNumber = selectedPrItem
+    ? selectedPrItem.number
+    : selectedPrNumber && !isNaN(selectedPrNumber)
+    ? selectedPrNumber
+    : null;
+  const activePrItem =
+    selectedPrItem ?? (activePrNumber ? prs.find((p) => p.number === activePrNumber) ?? null : null);
+
+  const handleSelectPr = (pr: PullRequestItem) => {
+    setSelectedPrItem(pr);
+    updateRouteState({ pr: String(pr.number) });
+  };
+
+  const handleClosePrDetail = () => {
+    setSelectedPrItem(null);
+    updateRouteState({ pr: undefined });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -232,6 +288,16 @@ export function ReviewSurface({ boardName }: { boardName: string | null }) {
   }, [prFilter, pendingPrs, prs]);
 
   const hasAnyItems = items.length > 0 || prs.length > 0;
+
+  if (activePrNumber) {
+    return (
+      <PullRequestDetailView
+        prNumber={activePrNumber}
+        initialItem={activePrItem}
+        onClose={handleClosePrDetail}
+      />
+    );
+  }
 
   return (
     <div className="review-surface">
@@ -339,7 +405,7 @@ export function ReviewSurface({ boardName }: { boardName: string | null }) {
 
               {displayedPrs.length > 0 ? (
                 displayedPrs.map((pr) => (
-                  <PullRequestRow key={pr.number} item={pr} />
+                  <PullRequestRow key={pr.number} item={pr} onSelect={handleSelectPr} />
                 ))
               ) : prFilter === "pending" && prs.length > 0 ? (
                 <div className="review-pr-empty-note">

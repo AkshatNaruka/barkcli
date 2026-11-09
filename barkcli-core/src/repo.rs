@@ -107,6 +107,63 @@ pub struct PullRequestInfo {
     pub review_decision: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PullRequestFileChange {
+    pub path: String,
+    pub additions: u64,
+    pub deletions: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub change_type: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PullRequestCommit {
+    pub oid: String,
+    pub message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub author: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub date: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PullRequestComment {
+    pub author: String,
+    pub body: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PullRequestDetail {
+    pub number: u64,
+    pub title: String,
+    pub body: String,
+    pub head_ref: String,
+    pub base_ref: String,
+    pub state: String,
+    pub is_draft: bool,
+    pub url: String,
+    pub updated_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
+    pub author: PullRequestAuthor,
+    pub additions: u64,
+    pub deletions: u64,
+    pub changed_files: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mergeable: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub review_decision: Option<String>,
+    #[serde(default)]
+    pub files: Vec<PullRequestFileChange>,
+    #[serde(default)]
+    pub commits: Vec<PullRequestCommit>,
+    #[serde(default)]
+    pub comments: Vec<PullRequestComment>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diff: Option<String>,
+}
+
 /// A command Bark can offer in the project command runner. These are
 /// discovered from real project files, never invented.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -571,6 +628,178 @@ pub fn git_list_prs(
         .collect();
 
     Ok(prs)
+}
+
+pub fn git_pr_detail(root: &Path, number: u64) -> Result<PullRequestDetail> {
+    let num_str = number.to_string();
+    let view_output = Command::new("gh")
+        .args([
+            "pr",
+            "view",
+            &num_str,
+            "--json",
+            "number,title,body,state,isDraft,url,headRefName,baseRefName,author,createdAt,updatedAt,comments,files,commits,additions,deletions,mergeable,reviewDecision",
+        ])
+        .current_dir(root)
+        .output()
+        .map_err(|e| anyhow!("gh is not available: {e}"))?;
+
+    if !view_output.status.success() {
+        return Err(anyhow!(
+            "failed to view pull request #{}: {}",
+            number,
+            String::from_utf8_lossy(&view_output.stderr).trim()
+        ));
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct RawAuthor {
+        login: Option<String>,
+        name: Option<String>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct RawFile {
+        path: String,
+        additions: Option<u64>,
+        deletions: Option<u64>,
+        change_type: Option<String>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct RawCommitAuthor {
+        login: Option<String>,
+        name: Option<String>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct RawCommit {
+        oid: String,
+        message_headline: Option<String>,
+        committed_date: Option<String>,
+        authors: Option<Vec<RawCommitAuthor>>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct RawComment {
+        author: Option<RawAuthor>,
+        body: Option<String>,
+        created_at: Option<String>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct RawDetail {
+        number: u64,
+        title: String,
+        body: Option<String>,
+        state: Option<String>,
+        is_draft: Option<bool>,
+        url: Option<String>,
+        head_ref_name: Option<String>,
+        base_ref_name: Option<String>,
+        author: Option<RawAuthor>,
+        created_at: Option<String>,
+        updated_at: Option<String>,
+        mergeable: Option<String>,
+        review_decision: Option<String>,
+        additions: Option<u64>,
+        deletions: Option<u64>,
+        files: Option<Vec<RawFile>>,
+        commits: Option<Vec<RawCommit>>,
+        comments: Option<Vec<RawComment>>,
+    }
+
+    let parsed: RawDetail = serde_json::from_slice(&view_output.stdout)
+        .map_err(|e| anyhow!("failed to parse pull request detail JSON: {e}"))?;
+
+    let diff = Command::new("gh")
+        .args(["pr", "diff", &num_str])
+        .current_dir(root)
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).to_string());
+
+    let files = parsed
+        .files
+        .unwrap_or_default()
+        .into_iter()
+        .map(|f| PullRequestFileChange {
+            path: f.path,
+            additions: f.additions.unwrap_or(0),
+            deletions: f.deletions.unwrap_or(0),
+            change_type: f.change_type,
+        })
+        .collect::<Vec<_>>();
+
+    let changed_files = files.len() as u64;
+
+    let commits = parsed
+        .commits
+        .unwrap_or_default()
+        .into_iter()
+        .map(|c| {
+            let author_name = c
+                .authors
+                .and_then(|mut a| a.pop())
+                .and_then(|a| a.name.or(a.login));
+            PullRequestCommit {
+                oid: c.oid,
+                message: c.message_headline.unwrap_or_default(),
+                author: author_name,
+                date: c.committed_date,
+            }
+        })
+        .collect();
+
+    let comments = parsed
+        .comments
+        .unwrap_or_default()
+        .into_iter()
+        .map(|c| PullRequestComment {
+            author: c
+                .author
+                .and_then(|a| a.login)
+                .unwrap_or_else(|| "unknown".to_string()),
+            body: c.body.unwrap_or_default(),
+            created_at: c.created_at.unwrap_or_default(),
+        })
+        .collect();
+
+    Ok(PullRequestDetail {
+        number: parsed.number,
+        title: parsed.title,
+        body: parsed.body.unwrap_or_default(),
+        head_ref: parsed.head_ref_name.unwrap_or_default(),
+        base_ref: parsed.base_ref_name.unwrap_or_else(|| "main".to_string()),
+        state: parsed.state.unwrap_or_else(|| "OPEN".to_string()),
+        is_draft: parsed.is_draft.unwrap_or(false),
+        url: parsed.url.unwrap_or_default(),
+        updated_at: parsed.updated_at.unwrap_or_default(),
+        created_at: parsed.created_at,
+        author: PullRequestAuthor {
+            login: parsed
+                .author
+                .as_ref()
+                .and_then(|a| a.login.clone())
+                .unwrap_or_else(|| "unknown".to_string()),
+            name: parsed.author.and_then(|a| a.name),
+        },
+        additions: parsed.additions.unwrap_or(0),
+        deletions: parsed.deletions.unwrap_or(0),
+        changed_files,
+        mergeable: parsed.mergeable.filter(|s| !s.is_empty()),
+        review_decision: parsed.review_decision.filter(|s| !s.is_empty()),
+        files,
+        commits,
+        comments,
+        diff,
+    })
 }
 
 pub fn git_worktrees(root: &Path) -> Result<Vec<WorktreeInfo>> {

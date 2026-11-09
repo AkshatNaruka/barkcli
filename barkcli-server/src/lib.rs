@@ -263,6 +263,7 @@ where
         .route("/api/git/merge", post(git_merge_handler))
         .route("/api/git/pr", post(git_pr_handler))
         .route("/api/git/pull-requests", get(git_list_prs_handler))
+        .route("/api/git/pull-requests/{number}", get(git_get_pr_handler))
         // Liveness probe (public — see `auth_layer`); no disk access.
         .route("/api/ping", get(ping_handler))
         // Management layer endpoints
@@ -7171,6 +7172,18 @@ async fn git_list_prs_handler(
         .unwrap_or_default();
     Ok(Json(serde_json::json!({
         "pull_requests": prs,
+    })))
+}
+
+async fn git_get_pr_handler(
+    Path(number): Path<u64>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let root = barkcli_core::repo::project_root()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let detail = barkcli_core::repo::git_pr_detail(&root, number)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    Ok(Json(serde_json::json!({
+        "pull_request": detail,
     })))
 }
 

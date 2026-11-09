@@ -1070,6 +1070,46 @@ const ROUTES: Route[] = [
     }),
   },
   {
+    method: "GET",
+    re: /^\/api\/git\/pull-requests\/(\d+)$/,
+    handle: (m: RegExpMatchArray) => {
+      const num = Number(m[1]);
+      return {
+        pull_request: {
+          number: num,
+          title: num === 34 ? "feat(shell): streamline project and thread system" : `Pull Request #${num}`,
+          body: "### Overview\n\nThis merge request introduces modern review tools and inspector parity with T3 Code.\n\n- Detailed file breakdown\n- Unified inline git diff\n- Full commit history and timeline",
+          head_ref: "feat/t3codes-project-thread-system",
+          base_ref: "master",
+          state: num === 34 ? "MERGED" : "OPEN",
+          is_draft: false,
+          url: `https://github.com/AkshatNaruka/barkcli/pull/${num}`,
+          updated_at: new Date(Date.now() - 3600000).toISOString(),
+          created_at: new Date(Date.now() - 7200000).toISOString(),
+          author: { login: "AkshatNaruka", name: "Akshat Naruka" },
+          additions: 2554,
+          deletions: 727,
+          changed_files: 35,
+          mergeable: "MERGEABLE",
+          review_decision: "APPROVED",
+          files: [
+            { path: "web/src/shell/ReviewSurface.tsx", additions: 180, deletions: 12, change_type: "MODIFIED" },
+            { path: "barkcli-core/src/repo.rs", additions: 95, deletions: 4, change_type: "MODIFIED" },
+            { path: "barkcli-server/src/lib.rs", additions: 32, deletions: 2, change_type: "MODIFIED" },
+          ],
+          commits: [
+            { oid: "21458ea1", message: "feat(review): display repository merge requests and pull requests", author: "Akshat Naruka", date: new Date().toISOString() },
+            { oid: "fde3af79", message: "docs: update agent guidelines and README", author: "Akshat Naruka", date: new Date(Date.now() - 3600000).toISOString() },
+          ],
+          comments: [
+            { author: "AkshatNaruka", body: "Ready for review across macOS desktop and web builds.", created_at: new Date().toISOString() },
+          ],
+          diff: "diff --git a/web/src/shell/ReviewSurface.tsx b/web/src/shell/ReviewSurface.tsx\n--- a/web/src/shell/ReviewSurface.tsx\n+++ b/web/src/shell/ReviewSurface.tsx\n@@ -1,5 +1,8 @@\n+import { PullRequestDetail } from \"../lib/types\";\n+// Support in-app PR inspection",
+        },
+      };
+    },
+  },
+  {
     method: "GET", re: /^\/api\/contributions$/, handle: () => ({
       nodes: [], edges: [], duplicates: [], leading: [], neglected: [], contested: [],
       open_hypotheses: [], recommendations: [],

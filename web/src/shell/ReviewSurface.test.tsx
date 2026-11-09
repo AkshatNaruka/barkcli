@@ -4,14 +4,15 @@ import userEvent from "@testing-library/user-event";
 import { ReviewSurface } from "./ReviewSurface";
 import type { PullRequestItem, QueueItem } from "../lib/types";
 
-const { fetchReviewQueue, fetchThreadRuns, fetchPullRequests, connectWs } = vi.hoisted(() => ({
+const { fetchReviewQueue, fetchThreadRuns, fetchPullRequests, fetchPullRequestDetail, connectWs } = vi.hoisted(() => ({
   fetchReviewQueue: vi.fn(),
   fetchThreadRuns: vi.fn(async () => [] as any[]),
   fetchPullRequests: vi.fn(async () => [] as any[]),
+  fetchPullRequestDetail: vi.fn(async () => null as any),
   connectWs: vi.fn(() => () => {}),
 }));
 
-vi.mock("../lib/api", () => ({ fetchReviewQueue, fetchThreadRuns, fetchPullRequests, connectWs }));
+vi.mock("../lib/api", () => ({ fetchReviewQueue, fetchThreadRuns, fetchPullRequests, fetchPullRequestDetail, connectWs }));
 
 const risk = { score: 0, tier: "unknown" as const, reasons: [] };
 
@@ -50,6 +51,24 @@ function samplePr(overrides: Partial<PullRequestItem> = {}): PullRequestItem {
   };
 }
 
+function samplePrDetail(overrides: any = {}) {
+  return {
+    ...samplePr(),
+    body: "Closes #12. Implement full pull request detail view in review surface.",
+    diff: "diff --git a/file.ts b/file.ts\n--- a/file.ts\n+++ b/file.ts\n@@ -1,3 +1,4 @@\n context\n+new line\n",
+    files: [
+      { path: "file.ts", additions: 1, deletions: 0, status: "modified" },
+    ],
+    commits: [
+      { oid: "abc1234", message: "feat: add pr detail", author: { name: "Test Dev", login: "testdev" }, committed_date: new Date().toISOString() },
+    ],
+    comments: [
+      { id: "c1", body: "Looks great to me!", author: { login: "reviewer" }, created_at: new Date().toISOString() },
+    ],
+    ...overrides,
+  };
+}
+
 describe("ReviewSurface", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/");
@@ -58,6 +77,8 @@ describe("ReviewSurface", () => {
     fetchThreadRuns.mockResolvedValue([]);
     fetchPullRequests.mockReset();
     fetchPullRequests.mockResolvedValue([]);
+    fetchPullRequestDetail.mockReset();
+    fetchPullRequestDetail.mockResolvedValue(null);
   });
 
   it("states when nothing has been built instead of showing a zero-file diff", async () => {
@@ -143,5 +164,41 @@ describe("ReviewSurface", () => {
     // Switch subfilter to "All MRs"
     await user.click(screen.getByRole("button", { name: /All MRs/i }));
     expect(screen.getByText(/Merged MR/)).toBeInTheDocument();
+  });
+
+  it("opens pull request detail view on inspect and returns on back click", async () => {
+    const user = userEvent.setup();
+    fetchReviewQueue.mockResolvedValue({ items: [] });
+    fetchPullRequests.mockResolvedValue([samplePr({ number: 42, title: "feat: add merge request review support" })]);
+    fetchPullRequestDetail.mockResolvedValue(samplePrDetail({ number: 42 }));
+
+    render(<ReviewSurface boardName="dev" />);
+
+    expect(await screen.findByText("#42")).toBeInTheDocument();
+
+    const inspectBtn = screen.getByRole("button", { name: "Inspect pull request #42" });
+    await user.click(inspectBtn);
+
+    // Should render detail view
+    expect(await screen.findByRole("heading", { level: 1, name: /feat: add merge request review support/ })).toBeInTheDocument();
+    expect(screen.getByText(/Closes #12/)).toBeInTheDocument();
+    expect(screen.getByText("file.ts")).toBeInTheDocument();
+
+    // Check tabs: Code diff and Timeline
+    const codeTab = screen.getByRole("tab", { name: /Changes & Diff/ });
+    await user.click(codeTab);
+    expect(screen.getByText("new line")).toBeInTheDocument();
+
+    const timelineTab = screen.getByRole("tab", { name: /Commits & Discussion/ });
+    await user.click(timelineTab);
+    expect(screen.getByText("Looks great to me!")).toBeInTheDocument();
+    expect(screen.getByText("abc1234")).toBeInTheDocument();
+
+    // Back to review
+    const backBtn = screen.getByRole("button", { name: /Back to review list/ });
+    await user.click(backBtn);
+
+    expect(await screen.findByText("Work that needs your review")).toBeInTheDocument();
+    expect(screen.getByText("#42")).toBeInTheDocument();
   });
 });

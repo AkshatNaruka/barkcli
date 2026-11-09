@@ -1192,6 +1192,49 @@ export interface PullRequestItem {
   review_decision?: string;
 }
 
+export interface PullRequestFileChange {
+  path: string;
+  additions: number;
+  deletions: number;
+  change_type?: string;
+}
+
+export interface PullRequestCommit {
+  oid: string;
+  message: string;
+  author?: string;
+  date?: string;
+}
+
+export interface PullRequestComment {
+  author: string;
+  body: string;
+  created_at: string;
+}
+
+export interface PullRequestDetail {
+  number: number;
+  title: string;
+  body: string;
+  head_ref: string;
+  base_ref: string;
+  state: "OPEN" | "MERGED" | "CLOSED" | string;
+  is_draft: boolean;
+  url: string;
+  updated_at: string;
+  created_at?: string;
+  author: PullRequestAuthor;
+  additions: number;
+  deletions: number;
+  changed_files: number;
+  mergeable?: string;
+  review_decision?: string;
+  files: PullRequestFileChange[];
+  commits: PullRequestCommit[];
+  comments: PullRequestComment[];
+  diff?: string;
+}
+
 // ── Contributions (Agora-style contribution graph) ──
 
 export type ContributionKind =

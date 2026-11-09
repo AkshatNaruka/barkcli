@@ -50,6 +50,7 @@ import type {
   EditorDetection,
   WorktreeInfo,
   PullRequestItem,
+  PullRequestDetail,
   ProjectSnapshot,
   Rule,
   OnboardResult,
@@ -2533,5 +2534,16 @@ export async function fetchPullRequests(state = "all", limit = 30): Promise<Pull
     return Array.isArray(data.pull_requests) ? data.pull_requests : [];
   } catch {
     return [];
+  }
+}
+
+export async function fetchPullRequestDetail(number: number): Promise<PullRequestDetail | null> {
+  try {
+    const res = await fetch(withToken(`/api/git/pull-requests/${number}`));
+    if (!res.ok) return null;
+    const data = (await res.json()) as { pull_request?: PullRequestDetail };
+    return data.pull_request || null;
+  } catch {
+    return null;
   }
 }
