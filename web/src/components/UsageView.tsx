@@ -644,8 +644,9 @@ export function UsageView() {
                       width={48}
                     />
                     <Tooltip
+                      cursor={{ stroke: "rgba(255, 255, 255, 0.15)", strokeWidth: 1, strokeDasharray: "3 3" }}
                       contentStyle={{
-                        backgroundColor: "#14171f",
+                        backgroundColor: "#12141a",
                         borderColor: "rgba(255,255,255,0.12)",
                         borderRadius: "10px",
                         fontSize: "11px",
@@ -707,8 +708,9 @@ export function UsageView() {
                       width={48}
                     />
                     <Tooltip
+                      cursor={{ fill: "rgba(255, 255, 255, 0.04)", rx: 8 }}
                       contentStyle={{
-                        backgroundColor: "#14171f",
+                        backgroundColor: "#12141a",
                         borderColor: "rgba(255,255,255,0.12)",
                         borderRadius: "10px",
                         fontSize: "11px",

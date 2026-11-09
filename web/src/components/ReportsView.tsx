@@ -15,6 +15,84 @@ import type { Board as BoardType, Card, Sprint } from "../lib/types";
 import { fetchReportsData } from "../lib/api";
 import { Icon } from "./Icon";
 
+function CustomColumnTooltip({ active, payload, label, totalCards, totalEffort }: {
+  active?: boolean;
+  payload?: any[];
+  label?: string;
+  totalCards: number;
+  totalEffort: number;
+}) {
+  if (!active || !payload || !payload.length) return null;
+  const data = payload[0]?.payload;
+  if (!data) return null;
+
+  const cardShare = totalCards > 0 ? Math.round((data.cards / totalCards) * 100) : 0;
+  const effortShare = totalEffort > 0 ? Math.round((data.effort / totalEffort) * 100) : 0;
+  const avgEffort = data.cards > 0 ? (data.effort / data.cards).toFixed(1) : "0.0";
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-[#12141a]/95 p-3 text-xs shadow-2xl backdrop-blur-xl space-y-2 min-w-[170px] select-none pointer-events-none">
+      <div className="flex items-center justify-between border-b border-border/50 pb-1.5">
+        <span className="font-semibold text-text text-[13px]">{label || data.name}</span>
+        <span className="rounded-full bg-surface/80 px-2 py-0.5 text-[9.5px] font-mono text-muted border border-border/40">
+          Column
+        </span>
+      </div>
+
+      <div className="space-y-1.5 pt-0.5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5 text-muted">
+            <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-xs shadow-emerald-500/50" />
+            <span>Cards</span>
+          </div>
+          <div className="flex items-baseline gap-1 font-mono">
+            <span className="font-semibold text-text">{data.cards}</span>
+            <span className="text-[10px] text-muted">({cardShare}%)</span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5 text-muted">
+            <span className="h-2 w-2 rounded-full bg-indigo-400 shadow-xs shadow-indigo-500/50" />
+            <span>Effort</span>
+          </div>
+          <div className="flex items-baseline gap-1 font-mono">
+            <span className="font-semibold text-text">{data.effort} pts</span>
+            <span className="text-[10px] text-muted">({effortShare}%)</span>
+          </div>
+        </div>
+      </div>
+
+      {data.cards > 0 && data.effort > 0 && (
+        <div className="border-t border-border/40 pt-1.5 text-[10.5px] text-muted flex items-center justify-between">
+          <span>Avg complexity</span>
+          <span className="font-mono text-text/80">{avgEffort} pts/card</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CustomPieTooltip({ active, payload }: any) {
+  if (!active || !payload || !payload.length) return null;
+  const item = payload[0];
+  const value = item.value || 0;
+  const name = item.name || "";
+  const color = item.payload?.color || item.payload?.fill || "#888";
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-[#12141a]/95 px-3 py-2 text-xs shadow-2xl backdrop-blur-xl select-none pointer-events-none">
+      <div className="flex items-center gap-2">
+        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+        <span className="font-semibold text-text">{name} Priority</span>
+      </div>
+      <div className="mt-1 font-mono text-[13px] text-text">
+        {value} <span className="text-xs text-muted font-sans">card{value === 1 ? "" : "s"}</span>
+      </div>
+    </div>
+  );
+}
+
 function Bar({
   label,
   value,
@@ -30,22 +108,22 @@ function Bar({
 }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0;
   return (
-    <div className="flex items-center gap-2 text-xs">
-      <div className="w-28 shrink-0 truncate text-muted text-right font-medium" title={label}>
+    <div className="flex items-center gap-2.5 text-xs">
+      <div className="w-28 shrink-0 truncate text-muted text-right font-medium text-[11.5px]" title={label}>
         {label}
       </div>
-      <div className="flex-1 h-3.5 bg-card rounded-md overflow-hidden p-0.5 border border-border">
+      <div className="flex-1 h-3 bg-card/80 rounded-full overflow-hidden p-0.5 border border-border/60">
         <div
-          className={`h-full ${tone} rounded transition-all`}
-          style={{ width: `${Math.max(pct, value > 0 ? 5 : 0)}%` }}
+          className={`h-full ${tone} rounded-full transition-all duration-500`}
+          style={{ width: `${Math.max(pct, value > 0 ? 6 : 0)}%` }}
         />
       </div>
       <div className="w-20 shrink-0 font-mono text-[11px] text-muted-strong flex items-baseline gap-1 justify-end">
-        <span>
+        <span className="font-semibold text-text">
           {value}
           {suffix || ""}
         </span>
-        {pct > 0 && <span className="text-muted text-[10px]">({pct}%)</span>}
+        {pct > 0 && <span className="text-muted/70 text-[10px]">({pct}%)</span>}
       </div>
     </div>
   );
@@ -53,7 +131,7 @@ function Bar({
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-surface rounded-2xl p-5 border border-border shadow-sm space-y-3">
+    <div className="bg-surface/90 rounded-2xl p-5 border border-border/70 shadow-xs space-y-3.5">
       <h3 className="text-xs font-bold text-text uppercase tracking-wider">{title}</h3>
       <div className="space-y-2.5">{children}</div>
     </div>
@@ -66,6 +144,7 @@ function sprintTag(s: Sprint) {
 
 export function ReportsView({ board, sprints }: { board: BoardType; sprints: Sprint[] }) {
   const today = new Date().toISOString().slice(0, 10);
+  const [chartViewMode, setChartViewMode] = useState<"all" | "cards" | "effort">("all");
   const [reportsData, setReportsData] = useState<{
     board_name: string;
     total_cards: number;
@@ -406,22 +485,69 @@ export function ReportsView({ board, sprints }: { board: BoardType; sprints: Spr
 
         {/* Interactive Recharts Analytics Overview */}
         <div className="grid gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2 bg-surface rounded-2xl p-5 border border-border shadow-sm space-y-3">
-            <div className="flex items-center justify-between">
+          <div className="lg:col-span-2 bg-surface/90 rounded-2xl p-5 border border-border/70 shadow-xs flex flex-col justify-between space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border/50 pb-3">
               <div>
-                <h3 className="text-xs font-bold text-text uppercase tracking-wider">
-                  Column Throughput & Effort Chart
-                </h3>
-                <p className="text-[11px] text-muted">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs font-bold text-text uppercase tracking-wider">
+                    Column Throughput & Effort Chart
+                  </h3>
+                  <span className="rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400 border border-emerald-500/20">
+                    Live
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted mt-0.5">
                   Interactive comparison of card count and story point effort per board column
                 </p>
               </div>
+
+              <div className="flex items-center gap-2">
+                {/* Segmented view mode toggle */}
+                <div className="flex items-center rounded-lg border border-border/70 bg-card/60 p-0.5 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => setChartViewMode("all")}
+                    className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
+                      chartViewMode === "all"
+                        ? "bg-surface text-text shadow-xs"
+                        : "text-muted hover:text-text"
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChartViewMode("cards")}
+                    className={`rounded-md px-2.5 py-1 font-medium transition-colors flex items-center gap-1.5 ${
+                      chartViewMode === "cards"
+                        ? "bg-surface text-text shadow-xs"
+                        : "text-muted hover:text-text"
+                    }`}
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    Cards
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChartViewMode("effort")}
+                    className={`rounded-md px-2.5 py-1 font-medium transition-colors flex items-center gap-1.5 ${
+                      chartViewMode === "effort"
+                        ? "bg-surface text-text shadow-xs"
+                        : "text-muted hover:text-text"
+                    }`}
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
+                    Effort
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="h-56 w-full" data-testid="reports-column-rechart">
+
+            <div className="h-60 w-full" data-testid="reports-column-rechart">
               <ResponsiveContainer
                 width="100%"
                 height="100%"
-                initialDimension={{ width: 640, height: 220 }}
+                initialDimension={{ width: 640, height: 240 }}
               >
                 <BarChart
                   data={(board.columns || []).map((col) => ({
@@ -429,47 +555,102 @@ export function ReportsView({ board, sprints }: { board: BoardType; sprints: Spr
                     cards: report.colEffort[col.id]?.count || 0,
                     effort: report.colEffort[col.id]?.effort || 0,
                   }))}
-                  margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
+                  margin={{ top: 12, right: 12, left: -10, bottom: 0 }}
+                  barGap={6}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                  <defs>
+                    <linearGradient id="columnGradCards" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#34d399" stopOpacity={0.95} />
+                      <stop offset="100%" stopColor="#059669" stopOpacity={0.8} />
+                    </linearGradient>
+                    <linearGradient id="columnGradEffort" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#a5b4fc" stopOpacity={0.95} />
+                      <stop offset="100%" stopColor="#4f46e5" stopOpacity={0.8} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
                   <XAxis
                     dataKey="name"
-                    tick={{ fill: "#8b93a7", fontSize: 11 }}
-                    axisLine={false}
+                    tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 500 }}
+                    axisLine={{ stroke: "rgba(255, 255, 255, 0.08)" }}
                     tickLine={false}
+                    dy={6}
                   />
                   <YAxis
-                    tick={{ fill: "#8b93a7", fontSize: 11 }}
+                    tick={{ fill: "#64748b", fontSize: 11, fontFamily: "monospace" }}
                     axisLine={false}
                     tickLine={false}
-                    width={36}
+                    width={34}
+                    allowDecimals={false}
                   />
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#14171f",
-                      borderColor: "rgba(255,255,255,0.12)",
-                      borderRadius: "10px",
-                      fontSize: "11px",
-                      color: "#f3f4f6",
+                    cursor={{
+                      fill: "rgba(255, 255, 255, 0.04)",
+                      stroke: "rgba(255, 255, 255, 0.08)",
+                      strokeWidth: 1,
+                      rx: 8,
+                      ry: 8,
                     }}
+                    content={
+                      <CustomColumnTooltip
+                        totalCards={safeData.total_cards}
+                        totalEffort={safeData.total_effort}
+                      />
+                    }
                   />
-                  <RechartsBar dataKey="cards" name="Cards" fill="#10b981" radius={[5, 5, 0, 0]} />
-                  <RechartsBar dataKey="effort" name="Effort (pts)" fill="#6366f1" radius={[5, 5, 0, 0]} />
+                  {(chartViewMode === "all" || chartViewMode === "cards") && (
+                    <RechartsBar
+                      dataKey="cards"
+                      name="Cards"
+                      fill="url(#columnGradCards)"
+                      stroke="#10b981"
+                      strokeWidth={1}
+                      radius={[6, 6, 2, 2]}
+                      maxBarSize={40}
+                    />
+                  )}
+                  {(chartViewMode === "all" || chartViewMode === "effort") && (
+                    <RechartsBar
+                      dataKey="effort"
+                      name="Effort (pts)"
+                      fill="url(#columnGradEffort)"
+                      stroke="#6366f1"
+                      strokeWidth={1}
+                      radius={[6, 6, 2, 2]}
+                      maxBarSize={40}
+                    />
+                  )}
                 </BarChart>
               </ResponsiveContainer>
             </div>
+
+            <div className="flex items-center justify-between text-xs pt-2 border-t border-border/40 text-muted">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                  <span>Total Cards: <strong className="font-mono text-text">{safeData.total_cards}</strong></span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-indigo-400" />
+                  <span>Total Points: <strong className="font-mono text-text">{safeData.total_effort}</strong></span>
+                </div>
+              </div>
+              <span className="text-[11px] text-muted/70 font-mono">
+                {board.columns?.length || 0} columns
+              </span>
+            </div>
           </div>
 
-          <div className="bg-surface rounded-2xl p-5 border border-border shadow-sm space-y-3">
+          <div className="bg-surface/90 rounded-2xl p-5 border border-border/70 shadow-xs flex flex-col justify-between space-y-3">
             <div>
               <h3 className="text-xs font-bold text-text uppercase tracking-wider">
                 Priority Distribution
               </h3>
-              <p className="text-[11px] text-muted">
+              <p className="text-[11px] text-muted mt-0.5">
                 Share of high, medium, and low priority cards
               </p>
             </div>
-            <div className="h-44 w-full" data-testid="reports-priority-pie">
+            <div className="relative h-44 w-full" data-testid="reports-priority-pie">
               <ResponsiveContainer
                 width="100%"
                 height="100%"
@@ -480,42 +661,45 @@ export function ReportsView({ board, sprints }: { board: BoardType; sprints: Spr
                     data={(["high", "medium", "low"] as const).map((p) => ({
                       name: p.toUpperCase(),
                       value: report.prioCount[p] || 0,
+                      color: p === "high" ? "#f43f5e" : p === "medium" ? "#f59e0b" : "#64748b",
                     }))}
                     dataKey="value"
                     nameKey="name"
                     cx="50%"
                     cy="50%"
-                    innerRadius={40}
-                    outerRadius={66}
-                    paddingAngle={3}
+                    innerRadius={48}
+                    outerRadius={72}
+                    paddingAngle={4}
+                    cornerRadius={5}
                   >
-                    <Cell fill="#f43f5e" />
-                    <Cell fill="#f59e0b" />
-                    <Cell fill="#64748b" />
+                    <Cell fill="#f43f5e" stroke="rgba(244, 63, 94, 0.4)" strokeWidth={1} />
+                    <Cell fill="#f59e0b" stroke="rgba(245, 158, 11, 0.4)" strokeWidth={1} />
+                    <Cell fill="#64748b" stroke="rgba(100, 116, 139, 0.4)" strokeWidth={1} />
                   </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#14171f",
-                      borderColor: "rgba(255,255,255,0.12)",
-                      borderRadius: "10px",
-                      fontSize: "11px",
-                      color: "#f3f4f6",
-                    }}
-                  />
+                  <Tooltip content={<CustomPieTooltip />} />
                 </PieChart>
               </ResponsiveContainer>
+              {/* Centered label inside Donut */}
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-lg font-bold font-mono text-text leading-none">
+                  {safeData.total_cards}
+                </span>
+                <span className="text-[9px] uppercase font-semibold text-muted tracking-wider mt-0.5">
+                  Cards
+                </span>
+              </div>
             </div>
-            <div className="flex items-center justify-around text-xs pt-1">
+            <div className="flex items-center justify-around text-xs pt-1 border-t border-border/40">
               <span className="flex items-center gap-1.5 text-muted">
-                <span className="h-2.5 w-2.5 rounded-full bg-rose-500" />
+                <span className="h-2 w-2 rounded-full bg-rose-500 shadow-xs shadow-rose-500/50" />
                 High ({report.prioCount.high || 0})
               </span>
               <span className="flex items-center gap-1.5 text-muted">
-                <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+                <span className="h-2 w-2 rounded-full bg-amber-500 shadow-xs shadow-amber-500/50" />
                 Med ({report.prioCount.medium || 0})
               </span>
               <span className="flex items-center gap-1.5 text-muted">
-                <span className="h-2.5 w-2.5 rounded-full bg-slate-500" />
+                <span className="h-2 w-2 rounded-full bg-slate-500 shadow-xs shadow-slate-500/50" />
                 Low ({report.prioCount.low || 0})
               </span>
             </div>
