@@ -239,17 +239,6 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
                       worktree
                     </span>
                   )}
-                  <svg
-                    viewBox="0 0 16 16"
-                    width="12"
-                    height="12"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    className="opacity-60"
-                  >
-                    <rect x="2.5" y="2.5" width="11" height="11" rx="1.5" />
-                  </svg>
                 </div>
               </div>
             </button>
