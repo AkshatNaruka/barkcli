@@ -80,6 +80,33 @@ pub struct WorktreeInfo {
     pub locked: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct PullRequestAuthor {
+    pub login: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PullRequestInfo {
+    pub number: u64,
+    pub title: String,
+    pub head_ref: String,
+    pub base_ref: String,
+    pub state: String,
+    pub is_draft: bool,
+    pub url: String,
+    pub updated_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
+    pub author: PullRequestAuthor,
+    pub additions: u64,
+    pub deletions: u64,
+    pub changed_files: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub review_decision: Option<String>,
+}
+
 /// A command Bark can offer in the project command runner. These are
 /// discovered from real project files, never invented.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -448,6 +475,102 @@ pub fn git_pr(
         ));
     }
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+pub fn git_list_prs(
+    root: &Path,
+    state: Option<&str>,
+    limit: Option<usize>,
+) -> Result<Vec<PullRequestInfo>> {
+    let state_filter = match state.unwrap_or("open").to_lowercase().as_str() {
+        "all" => "all",
+        "closed" => "closed",
+        "merged" => "merged",
+        _ => "open",
+    };
+    let limit_str = limit.unwrap_or(30).clamp(1, 100).to_string();
+
+    let output = Command::new("gh")
+        .args([
+            "pr",
+            "list",
+            "--state",
+            state_filter,
+            "--limit",
+            &limit_str,
+            "--json",
+            "number,title,headRefName,baseRefName,state,url,updatedAt,createdAt,author,reviewDecision,isDraft,additions,deletions,changedFiles",
+        ])
+        .current_dir(root)
+        .output();
+
+    let output = match output {
+        Ok(out) => out,
+        Err(_) => return Ok(Vec::new()),
+    };
+
+    if !output.status.success() {
+        return Ok(Vec::new());
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct RawAuthor {
+        login: Option<String>,
+        name: Option<String>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct RawPr {
+        number: u64,
+        title: String,
+        head_ref_name: Option<String>,
+        base_ref_name: Option<String>,
+        state: Option<String>,
+        is_draft: Option<bool>,
+        url: Option<String>,
+        updated_at: Option<String>,
+        created_at: Option<String>,
+        author: Option<RawAuthor>,
+        additions: Option<u64>,
+        deletions: Option<u64>,
+        changed_files: Option<u64>,
+        review_decision: Option<String>,
+    }
+
+    let parsed: Vec<RawPr> = match serde_json::from_slice(&output.stdout) {
+        Ok(items) => items,
+        Err(_) => return Ok(Vec::new()),
+    };
+
+    let prs = parsed
+        .into_iter()
+        .map(|pr| PullRequestInfo {
+            number: pr.number,
+            title: pr.title,
+            head_ref: pr.head_ref_name.unwrap_or_default(),
+            base_ref: pr.base_ref_name.unwrap_or_else(|| "main".to_string()),
+            state: pr.state.unwrap_or_else(|| "OPEN".to_string()),
+            is_draft: pr.is_draft.unwrap_or(false),
+            url: pr.url.unwrap_or_default(),
+            updated_at: pr.updated_at.unwrap_or_default(),
+            created_at: pr.created_at,
+            author: PullRequestAuthor {
+                login: pr
+                    .author
+                    .as_ref()
+                    .and_then(|a| a.login.clone())
+                    .unwrap_or_else(|| "unknown".to_string()),
+                name: pr.author.and_then(|a| a.name),
+            },
+            additions: pr.additions.unwrap_or(0),
+            deletions: pr.deletions.unwrap_or(0),
+            changed_files: pr.changed_files.unwrap_or(0),
+            review_decision: pr.review_decision.filter(|s| !s.is_empty()),
+        })
+        .collect();
+
+    Ok(prs)
 }
 
 pub fn git_worktrees(root: &Path) -> Result<Vec<WorktreeInfo>> {

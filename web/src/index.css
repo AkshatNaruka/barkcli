@@ -682,6 +682,37 @@ summary.sidebar-group { cursor: pointer; }
 .review-next { grid-column: 2; grid-row: 1 / 3; align-self: center; display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--muted-strong); }
 .review-row details { font-size: 12px; color: var(--muted); }
 .review-row summary { min-height: 24px; cursor: pointer; }
+
+/* Review tabs & Merge Request (MR / PR) list */
+.review-tabs { display: flex; align-items: center; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+.review-tab-btn { display: inline-flex; align-items: center; gap: 7px; padding: 6px 14px; border-radius: 9999px; font-size: 12.5px; font-weight: 500; color: var(--muted); background: color-mix(in srgb, var(--surface) 60%, transparent); border: 1px solid var(--border); transition: all 120ms ease; cursor: pointer; white-space: nowrap; }
+.review-tab-btn:hover { color: var(--text); border-color: var(--border-strong); }
+.review-tab-btn.is-active { color: var(--accent-text); background: color-mix(in srgb, var(--card) 95%, transparent); border-color: var(--accent); }
+.review-tab-badge { font-family: ui-monospace, monospace; font-size: 11px; padding: 1px 6px; border-radius: 9999px; background: color-mix(in srgb, var(--surface) 80%, transparent); color: var(--muted-strong); }
+.review-tab-btn.is-active .review-tab-badge { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent-text); }
+
+.review-subfilter { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.review-subfilter-btn { font-size: 11.5px; padding: 3px 10px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; transition: all 120ms ease; }
+.review-subfilter-btn.is-active { background: color-mix(in srgb, var(--card) 90%, transparent); color: var(--text); border-color: var(--border-strong); }
+
+.review-pr-row { margin-bottom: 10px; border: 1px solid var(--border); border-radius: 10px; background: color-mix(in srgb, var(--surface) 58%, transparent); transition: background-color 120ms, border-color 120ms; padding: 14px 16px; display: grid; gap: 8px; }
+.review-pr-row:hover { background: var(--card); border-color: var(--border-strong); }
+.review-pr-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.review-pr-title-wrap { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; flex: 1; }
+.review-pr-num { font-family: ui-monospace, monospace; font-size: 13px; color: var(--muted); font-weight: 600; }
+.review-pr-title { font-size: 14px; font-weight: 500; letter-spacing: -.01em; color: var(--text); }
+.review-pr-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.review-pr-actions .bark-button { min-height: 28px; padding: 3px 10px; font-size: 11.5px; display: inline-flex; align-items: center; gap: 5px; }
+.review-pr-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; font-size: 12px; color: var(--muted); }
+.review-branch-chip { font-family: ui-monospace, monospace; font-size: 11px; padding: 2px 7px; border-radius: 4px; background: color-mix(in srgb, var(--card) 90%, transparent); border: 1px solid var(--border); color: var(--text); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.review-stat-add { color: #10b981; font-family: ui-monospace, monospace; font-weight: 600; }
+.review-stat-del { color: #ef4444; font-family: ui-monospace, monospace; font-weight: 600; }
+.review-pr-badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 500; }
+.review-pr-badge.status-open { background: color-mix(in srgb, #10b981 14%, transparent); color: #10b981; border: 1px solid color-mix(in srgb, #10b981 30%, transparent); }
+.review-pr-badge.status-merged { background: color-mix(in srgb, #a855f7 14%, transparent); color: #c084fc; border: 1px solid color-mix(in srgb, #a855f7 30%, transparent); }
+.review-pr-badge.status-closed { background: color-mix(in srgb, #ef4444 14%, transparent); color: #f87171; border: 1px solid color-mix(in srgb, #ef4444 30%, transparent); }
+.review-pr-badge.status-draft { background: color-mix(in srgb, var(--surface) 90%, transparent); color: var(--muted); border: 1px solid var(--border); }
+.review-pr-empty-note { padding: 24px; text-align: center; border: 1px dashed var(--border); border-radius: 8px; color: var(--muted); font-size: 13px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .review-empty { max-width: 600px; margin-top: 64px; color: var(--muted); }
 .review-empty h3 { font-size: 16px; color: var(--text); margin: 16px 0 8px; }
 .review-empty .bark-button { margin-top: 20px; }

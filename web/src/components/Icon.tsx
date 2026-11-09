@@ -30,6 +30,7 @@ import {
   Folder,
   FolderPlus,
   GitBranch,
+  GitPullRequest,
   Globe,
   GripVertical,
   History,
@@ -76,7 +77,7 @@ export type IconName =
   | "board" | "panel" | "spark" | "layers" | "cycle" | "code" | "db" | "star"
   | "chevL" | "chevR" | "chevDown" | "chevUp" | "flag" | "link" | "moon" | "sun" | "monitor"
   | "x" | "users" | "inbox" | "arrowUp" | "arrowFlat" | "arrowDown" | "arrowLeft"
-  | "download" | "palette" | "eye" | "eyeOff" | "plus" | "stop" | "dots" | "grid" | "folder" | "filter" | "branch" | "terminal" | "list" | "sliders" | "grip"
+  | "download" | "palette" | "eye" | "eyeOff" | "plus" | "stop" | "dots" | "grid" | "folder" | "filter" | "branch" | "pr" | "terminal" | "list" | "sliders" | "grip"
   | "play" | "wrap" | "globe" | "filePlus" | "checkSquare" | "folderPlus" | "key";
 
 const GLYPHS: Record<IconName, LucideIcon> = {
@@ -135,6 +136,7 @@ const GLYPHS: Record<IconName, LucideIcon> = {
   folder: Folder,
   filter: ListFilter,
   branch: GitBranch,
+  pr: GitPullRequest,
   terminal: Terminal,
   list: List,
   sliders: SlidersHorizontal,

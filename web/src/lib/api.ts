@@ -49,6 +49,7 @@ import type {
   GitStatus,
   EditorDetection,
   WorktreeInfo,
+  PullRequestItem,
   ProjectSnapshot,
   Rule,
   OnboardResult,
@@ -2520,5 +2521,17 @@ export async function fetchWorktrees(): Promise<WorktreeInfo[] | null> {
     return await res.json();
   } catch {
     return null;
+  }
+}
+
+export async function fetchPullRequests(state = "all", limit = 30): Promise<PullRequestItem[]> {
+  try {
+    const q = new URLSearchParams({ state, limit: String(limit) });
+    const res = await fetch(withToken(`/api/git/pull-requests?${q.toString()}`));
+    if (!res.ok) return [];
+    const data = (await res.json()) as { pull_requests?: PullRequestItem[] };
+    return Array.isArray(data.pull_requests) ? data.pull_requests : [];
+  } catch {
+    return [];
   }
 }

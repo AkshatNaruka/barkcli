@@ -262,6 +262,7 @@ where
         .route("/api/git/push", post(git_push_handler))
         .route("/api/git/merge", post(git_merge_handler))
         .route("/api/git/pr", post(git_pr_handler))
+        .route("/api/git/pull-requests", get(git_list_prs_handler))
         // Liveness probe (public — see `auth_layer`); no disk access.
         .route("/api/ping", get(ping_handler))
         // Management layer endpoints
@@ -1134,7 +1135,8 @@ fn route_scope(method: &str, path: &str) -> AuthScope {
     if path.starts_with("/api/git/commit")
         || path.starts_with("/api/git/push")
         || path.starts_with("/api/git/merge")
-        || path.starts_with("/api/git/pr")
+        || path == "/api/git/pr"
+        || path.starts_with("/api/git/pr/")
         || path.starts_with("/api/git/assign")
         || path.starts_with("/api/project/init-git")
         || path.starts_with("/api/hooks/install")
@@ -7149,6 +7151,26 @@ async fn git_pr_handler(
     Ok(Json(serde_json::json!({
         "dry_run": req.dry_run,
         "output": output,
+    })))
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct GitListPrsQuery {
+    #[serde(default)]
+    state: Option<String>,
+    #[serde(default)]
+    limit: Option<usize>,
+}
+
+async fn git_list_prs_handler(
+    Query(query): Query<GitListPrsQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let root = barkcli_core::repo::project_root()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let prs = barkcli_core::repo::git_list_prs(&root, query.state.as_deref(), query.limit)
+        .unwrap_or_default();
+    Ok(Json(serde_json::json!({
+        "pull_requests": prs,
     })))
 }
 

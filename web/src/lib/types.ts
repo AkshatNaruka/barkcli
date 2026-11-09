@@ -1170,6 +1170,28 @@ export interface WorktreeInfo {
   locked: boolean;
 }
 
+export interface PullRequestAuthor {
+  login: string;
+  name?: string;
+}
+
+export interface PullRequestItem {
+  number: number;
+  title: string;
+  head_ref: string;
+  base_ref: string;
+  state: "OPEN" | "MERGED" | "CLOSED" | string;
+  is_draft: boolean;
+  url: string;
+  updated_at: string;
+  created_at?: string;
+  author: PullRequestAuthor;
+  additions: number;
+  deletions: number;
+  changed_files: number;
+  review_decision?: string;
+}
+
 // ── Contributions (Agora-style contribution graph) ──
 
 export type ContributionKind =
