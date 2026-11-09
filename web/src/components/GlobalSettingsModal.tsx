@@ -1,7 +1,7 @@
 import React from "react";
 import { AccessibleDialog } from "./AccessibleDialog";
 import { Icon } from "./Icon";
-import { SettingsView } from "./SettingsView";
+import { SettingsView, type SettingsSection } from "./SettingsView";
 import type { Board as BoardType } from "../lib/types";
 
 export interface GlobalSettingsModalProps {
@@ -9,6 +9,7 @@ export interface GlobalSettingsModalProps {
   onClose: () => void;
   board?: BoardType | null;
   onSaveBoard?: (b: BoardType) => void;
+  initialSection?: SettingsSection;
 }
 
 export function GlobalSettingsModal({
@@ -16,6 +17,7 @@ export function GlobalSettingsModal({
   onClose,
   board,
   onSaveBoard,
+  initialSection = "projects",
 }: GlobalSettingsModalProps) {
   if (!open) return null;
 
@@ -40,7 +42,7 @@ export function GlobalSettingsModal({
           <SettingsView
             board={board}
             onSaveBoard={onSaveBoard}
-            initialSection="projects"
+            initialSection={initialSection}
           />
         </div>
       </div>

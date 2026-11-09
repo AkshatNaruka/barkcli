@@ -34,7 +34,7 @@ export function AppRail({
 }: {
   surface: Surface;
   onNavigate: (s: Surface) => void;
-  onCustomize: () => void;
+  onCustomize?: () => void;
   counts?: RailCounts;
   projectName?: string | null;
   projectRoot?: string;
@@ -231,16 +231,6 @@ export function AppRail({
         >
           <Icon name="chart" size={17} />
           {labels && <span className="app-rail-item-label">Usage</span>}
-        </button>
-        <button
-          type="button"
-          className="app-rail-item"
-          onClick={onCustomize}
-          title="Appearance"
-          aria-label="Appearance"
-        >
-          <Icon name="palette" size={17} />
-          {labels && <span className="app-rail-item-label">Appearance</span>}
         </button>
         <button
           type="button"

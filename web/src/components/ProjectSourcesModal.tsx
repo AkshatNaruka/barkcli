@@ -221,7 +221,7 @@ export function ProjectSourcesModal({
               <button
                 type="button"
                 onClick={() => setCloningUrl(false)}
-                className="px-3 py-1.5 text-[12px] text-muted hover:text-text rounded"
+                className="px-3 py-1.5 text-[12px] text-muted hover:text-text rounded cursor-pointer"
               >
                 Cancel
               </button>
@@ -234,7 +234,7 @@ export function ProjectSourcesModal({
                     onClose();
                   }
                 }}
-                className="px-3.5 py-1.5 text-[12px] font-medium bg-accent text-accent-text rounded-lg"
+                className="px-3.5 py-1.5 text-[12px] font-medium bg-accent text-accent-text rounded-lg cursor-pointer"
               >
                 Clone
               </button>
@@ -264,7 +264,7 @@ export function ProjectSourcesModal({
               <button
                 type="button"
                 onClick={() => setNewProjectMode(false)}
-                className="px-3 py-1.5 text-[12px] text-muted hover:text-text rounded"
+                className="px-3 py-1.5 text-[12px] text-muted hover:text-text rounded cursor-pointer"
               >
                 Cancel
               </button>
@@ -277,16 +277,16 @@ export function ProjectSourcesModal({
                     onClose();
                   }
                 }}
-                className="px-3.5 py-1.5 text-[12px] font-medium bg-accent text-accent-text rounded-lg"
+                className="px-3.5 py-1.5 text-[12px] font-medium bg-accent text-accent-text rounded-lg cursor-pointer"
               >
                 Create
               </button>
             </div>
           </div>
         ) : (
-          <div className="p-2 max-h-[380px] overflow-y-auto">
-            <div className="px-3 py-1 text-[11px] font-semibold text-muted-dim">Sources</div>
-            <div className="flex flex-col gap-0.5">
+          <div className="p-2.5 max-h-[min(480px,calc(85vh-120px))] overflow-y-auto">
+            <div className="px-3 py-1 text-[11px] font-semibold text-muted-dim uppercase tracking-wider">Sources</div>
+            <div className="flex flex-col gap-1 mt-0.5">
               {filtered.map((item, idx) => {
                 const isSelected = idx === selectedIndex;
                 return (
@@ -295,9 +295,9 @@ export function ProjectSourcesModal({
                     type="button"
                     onClick={() => handleSelect(item)}
                     onMouseEnter={() => setSelectedIndex(idx)}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-colors ${
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-colors cursor-pointer ${
                       isSelected
-                        ? "bg-[#18181c] text-text"
+                        ? "bg-[#18181c] text-text ring-1 ring-white/10"
                         : "text-muted-strong hover:bg-[#141417] hover:text-text"
                     }`}
                   >
@@ -334,20 +334,20 @@ export function ProjectSourcesModal({
         {/* Modal Footer with Keyboard Navigation hints */}
         <div className="flex items-center gap-4 px-4 py-2.5 bg-[#09090b] border-t border-[#1c1c20] text-[11px] text-muted-dim select-none">
           <span className="flex items-center gap-1.5">
-            <kbd className="px-1.5 py-0.5 rounded bg-[#1e1e24] text-[#a1a1aa] text-[10px] border border-[#2d2d34]">↑</kbd>
-            <kbd className="px-1.5 py-0.5 rounded bg-[#1e1e24] text-[#a1a1aa] text-[10px] border border-[#2d2d34]">↓</kbd>
+            <kbd className="px-1.5 py-0.5 rounded bg-[#1e1e24] text-[#a1a1aa] text-[10px] border border-[#2d2d34] font-mono">↑</kbd>
+            <kbd className="px-1.5 py-0.5 rounded bg-[#1e1e24] text-[#a1a1aa] text-[10px] border border-[#2d2d34] font-mono">↓</kbd>
             <span>Navigate</span>
           </span>
           <span className="flex items-center gap-1.5">
-            <kbd className="px-1.5 py-0.5 rounded bg-[#1e1e24] text-[#a1a1aa] text-[10px] border border-[#2d2d34]">Enter</kbd>
+            <kbd className="px-1.5 py-0.5 rounded bg-[#1e1e24] text-[#a1a1aa] text-[10px] border border-[#2d2d34] font-mono">Enter</kbd>
             <span>Select</span>
           </span>
           <span className="flex items-center gap-1.5">
-            <kbd className="px-1.5 py-0.5 rounded bg-[#1e1e24] text-[#a1a1aa] text-[10px] border border-[#2d2d34]">Backspace</kbd>
+            <kbd className="px-1.5 py-0.5 rounded bg-[#1e1e24] text-[#a1a1aa] text-[10px] border border-[#2d2d34] font-mono">Backspace</kbd>
             <span>Back</span>
           </span>
           <span className="flex items-center gap-1.5">
-            <kbd className="px-1.5 py-0.5 rounded bg-[#1e1e24] text-[#a1a1aa] text-[10px] border border-[#2d2d34]">Esc</kbd>
+            <kbd className="px-1.5 py-0.5 rounded bg-[#1e1e24] text-[#a1a1aa] text-[10px] border border-[#2d2d34] font-mono">Esc</kbd>
             <span>Close</span>
           </span>
         </div>

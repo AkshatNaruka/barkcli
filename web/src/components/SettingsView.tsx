@@ -10,13 +10,14 @@ import {
   type BoardConfig,
 } from "../lib/api";
 import { isDesktop, openLogs, openProviderLogin, openTerminal } from "../lib/desktop";
-import { THEMES, useTheme } from "../lib/theme";
+import { THEMES, ACCENT_IDS, accentLabel, accentColor, useTheme } from "../lib/theme";
+import { SURFACES } from "../lib/surfaces";
 import { navigate } from "../lib/hashnav";
 import { Icon, type IconName } from "./Icon";
 import { ProviderIcon } from "./ProviderIcon";
 import { ProjectsSettings } from "./ProjectsSettings";
 
-type SettingsSection = "projects" | "project" | "appearance" | "agents" | "diagnostics";
+export type SettingsSection = "projects" | "project" | "appearance" | "agents" | "diagnostics";
 
 const SECTIONS: Array<{
   id: SettingsSection;
@@ -71,13 +72,19 @@ export function SettingsView({
   const [section, setSection] = useState<SettingsSection>(
     initialSection || (board ? "project" : "projects")
   );
+
+  useEffect(() => {
+    if (initialSection) setSection(initialSection);
+  }, [initialSection]);
+
   const [title, setTitle] = useState(board?.title || "");
   const [description, setDescription] = useState(board?.description || "");
   const [cols, setCols] = useState(
     board ? board.columns.map((c) => ({ id: c.id, name: c.name })) : []
   );
   const [ai, setAi] = useState<BoardConfig["ai"] | null>(null);
-  const { theme, setTheme } = useTheme();
+  const app = useTheme();
+  const { theme, setTheme } = app;
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [providers, setProviders] = useState<ProviderStatus[]>([]);
   const [providersBusy, setProvidersBusy] = useState(false);
@@ -413,18 +420,107 @@ export function SettingsView({
             </Section>
 
             <Section
-              title="Custom appearance"
-              description="Accent colors and shareable presets."
+              title="Accent Color"
+              description="Primary action highlights, badges, and active indicators."
+            >
+              <div className="flex flex-wrap gap-2 pt-1">
+                {ACCENT_IDS.map((id) => {
+                  const isAct = app.accent === id;
+                  const color = accentColor(id, theme === "light" ? "light" : "dark");
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => app.setAccent(id)}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs transition-colors cursor-pointer ${
+                        isAct
+                          ? "border-accent bg-accent/15 text-text font-medium shadow-xs"
+                          : "border-border/60 hover:border-border hover:bg-white/[0.04] text-muted-strong"
+                      }`}
+                    >
+                      <span
+                        className="w-3.5 h-3.5 rounded-full shrink-0 ring-1 ring-white/10"
+                        style={{ background: color }}
+                      />
+                      <span>{accentLabel(id)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </Section>
+
+            <Section
+              title="Activity Rail Style"
+              description="Choose between compact icon-only or icon with text labels."
+            >
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => app.setRailStyle("icons")}
+                  className={`px-3.5 py-1.5 rounded-lg border text-xs transition-colors cursor-pointer ${
+                    app.railStyle === "icons"
+                      ? "border-accent bg-accent/15 text-text font-medium shadow-xs"
+                      : "border-border/60 hover:border-border hover:bg-white/[0.04] text-muted-strong"
+                  }`}
+                >
+                  Icons only
+                </button>
+                <button
+                  type="button"
+                  onClick={() => app.setRailStyle("labels")}
+                  className={`px-3.5 py-1.5 rounded-lg border text-xs transition-colors cursor-pointer ${
+                    app.railStyle === "labels"
+                      ? "border-accent bg-accent/15 text-text font-medium shadow-xs"
+                      : "border-border/60 hover:border-border hover:bg-white/[0.04] text-muted-strong"
+                  }`}
+                >
+                  Icons + Labels
+                </button>
+              </div>
+            </Section>
+
+            <Section
+              title="Navigation Surfaces"
+              description="Toggle which tools and views appear directly on your primary navigation rail."
+            >
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+                {SURFACES.filter((s) => s.id !== "chat").map((s) => {
+                  const isVisible = !app.hidden.includes(s.id);
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => app.toggleSurface(s.id)}
+                      className={`flex items-center justify-between px-3 py-2 rounded-lg border text-xs transition-colors cursor-pointer text-left ${
+                        isVisible
+                          ? "border-accent/60 bg-accent/10 text-text font-medium"
+                          : "border-border/50 bg-surface/40 text-muted hover:border-border"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <Icon name={s.icon} size={13} className={isVisible ? "text-accent" : "text-muted"} />
+                        <span className="truncate">{s.label}</span>
+                      </div>
+                      <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${isVisible ? "bg-accent/20 text-text" : "text-muted/60"}`}>
+                        {isVisible ? "Shown" : "Hidden"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </Section>
+
+            <Section
+              title="Reset Appearance"
+              description="Restore the factory default theme, neutral accent, and rail arrangement."
             >
               <button
                 type="button"
-                className="bark-button"
-                onClick={() =>
-                  window.dispatchEvent(new CustomEvent("bark-command", { detail: "appearance" }))
-                }
+                className="bark-button cursor-pointer"
+                onClick={() => app.reset()}
               >
-                <Icon name="palette" size={13} />
-                Customize appearance
+                <Icon name="refresh" size={12} />
+                Reset to default appearance
               </button>
             </Section>
           </>

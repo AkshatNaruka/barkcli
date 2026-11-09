@@ -64,6 +64,7 @@ import { AgentsSurface } from "./shell/AgentsSurface";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { CustomizePanel } from "./shell/CustomizePanel";
 import { GlobalSettingsModal } from "./components/GlobalSettingsModal";
+import type { SettingsSection } from "./components/SettingsView";
 import { GlobalUsageModal } from "./components/GlobalUsageModal";
 import { GlobalDocsModal } from "./components/GlobalDocsModal";
 import { useTheme } from "./lib/theme";
@@ -285,6 +286,7 @@ export function App() {
   const [reviewCount, setReviewCount] = useState<number>(0);
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>("projects");
   const [usageOpen, setUsageOpen] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
   const [composeSeed, setComposeSeed] = useState<{
@@ -552,12 +554,18 @@ export function App() {
         if (window.innerWidth < 900) setSidebarOpen((open) => !open);
         else setListCollapsed((collapsed) => !collapsed);
         break;
-      case "settings": setSettingsOpen(true); break;
+      case "settings":
+        setSettingsSection("projects");
+        setSettingsOpen(true);
+        break;
       case "usage": setUsageOpen(true); break;
       case "docs": setDocsOpen(true); break;
       case "projects": navigate("projects"); break;
-      case "appearance": setCustomizeOpen(true); break;
-      case "customize-sidebar": setCustomizeOpen(true); break;
+      case "appearance":
+      case "customize-sidebar":
+        setSettingsSection("appearance");
+        setSettingsOpen(true);
+        break;
       case "help": setHelpOpen(true); break;
     }
   }, [handleOpenProject, notify, openOperationsTab, route, toggleInspector]);
@@ -809,7 +817,7 @@ export function App() {
       <AppRail
         surface={route}
         onNavigate={(next) => { setSidebarOpen(false); navigate(next, { board: boardName || undefined }); }}
-        onCustomize={() => setCustomizeOpen(true)}
+        onCustomize={() => { setSettingsSection("appearance"); setSettingsOpen(true); }}
         counts={{ chat: 0, board: boardOpen, agents: projectInfo?.counts.agents || 0, review: reviewCount }}
         projectName={projectName}
         projectRoot={projectInfo?.root || projectRoot || ""}
@@ -861,7 +869,7 @@ export function App() {
               boards={boardList}
               onSwitchBoard={switchBoard}
               onOpenPalette={() => setPaletteOpen(true)}
-              onCustomize={() => setCustomizeOpen(true)}
+              onCustomize={() => { setSettingsSection("appearance"); setSettingsOpen(true); }}
               seed={composeSeed}
               onOpenCardForm={(card) => handleOpenForm({ card })}
               surfacesOpen={inspectorOpen}
@@ -1007,7 +1015,7 @@ export function App() {
           onNavigate={(colId, cardId) => { setRoute("board"); }}
           onAddCard={(colId) => { setForm({ columnId: colId }); setPaletteOpen(false); }}
           onEditCard={(card) => { setForm({ card }); setPaletteOpen(false); }}
-          onCustomize={() => setCustomizeOpen(true)}
+          onCustomize={() => { setSettingsSection("appearance"); setSettingsOpen(true); }}
           onCommand={executeCommand}
           onQuickOpen={() => { setPaletteOpen(false); setQuickOpenOpen(true); }}
           onCommandRunner={() => { setPaletteOpen(false); setCommandRunnerOpen(true); }}
@@ -1029,6 +1037,7 @@ export function App() {
         onClose={() => setSettingsOpen(false)}
         board={board}
         onSaveBoard={doSave}
+        initialSection={settingsSection}
       />
       <GlobalUsageModal
         open={usageOpen}

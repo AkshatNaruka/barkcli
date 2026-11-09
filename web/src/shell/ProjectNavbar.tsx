@@ -402,7 +402,7 @@ export function ProjectNavbar({
 
             {/* Project Picker Dropdown */}
             {projectPickerOpen && (
-              <div className="absolute left-0 top-9 w-64 bg-card border border-border/80 rounded-xl shadow-2xl p-1 z-50 text-xs backdrop-blur-xl animate-in fade-in zoom-in-95">
+              <div className="absolute left-0 top-9 w-64 bg-[#141416] border border-border rounded-xl shadow-2xl p-1 z-50 text-xs">
                 <div className="px-2 py-1 text-[11px] font-semibold text-muted-dim uppercase tracking-wider">
                   Local Projects
                 </div>
@@ -491,7 +491,7 @@ export function ProjectNavbar({
             </button>
 
             {gitDropdownOpen && (
-              <div className="absolute right-0 top-9 w-64 rounded-xl border border-border/80 bg-[#18181b]/98 p-1.5 text-xs shadow-2xl backdrop-blur-xl z-50 animate-in fade-in zoom-in-95">
+              <div className="absolute right-0 top-9 w-64 rounded-xl border border-border bg-[#141416] p-1.5 text-xs shadow-2xl z-50">
                 {/* 1. Pull Split Button (Matching Screenshot 2) */}
                 <div className="flex items-center justify-between rounded-lg border border-border/70 bg-white/[0.04] hover:bg-white/[0.08] transition-colors p-0.5">
                   <button
@@ -516,7 +516,7 @@ export function ProjectNavbar({
                 </div>
 
                 {pullMenuOpen && (
-                  <div className="mt-1 space-y-0.5 rounded-lg border border-border/60 bg-surface/80 p-1 text-[11px]">
+                  <div className="mt-1 space-y-0.5 rounded-lg border border-border bg-[#1c1c1f] p-1 text-[11px] shadow-lg">
                     <button
                       type="button"
                       onClick={() => {
@@ -570,13 +570,13 @@ export function ProjectNavbar({
                   </button>
 
                   {showCommitInput && (
-                    <form onSubmit={handleCommit} className="rounded-lg border border-border/60 bg-surface/50 p-2 space-y-2 mt-1">
+                    <form onSubmit={handleCommit} className="rounded-lg border border-border bg-[#1a1a1d] p-2 space-y-2 mt-1 shadow-md">
                       <div className="text-[11px] font-medium text-text flex items-center justify-between">
                         <span>Commit changes</span>
                         <span className="text-[10px] text-muted font-mono">{changesCount} modified</span>
                       </div>
                       {gitChanges.length > 0 && (
-                        <div className="max-h-24 overflow-y-auto space-y-0.5 text-[10px] font-mono text-muted/80 bg-bg/50 p-1.5 rounded border border-border/40">
+                        <div className="max-h-24 overflow-y-auto space-y-0.5 text-[10px] font-mono text-muted/80 bg-[#121214] p-1.5 rounded border border-border/40">
                           {gitChanges.slice(0, 6).map((ch, idx) => (
                             <div key={idx} className="truncate flex items-center justify-between">
                               <span className="truncate">{ch.path}</span>
@@ -695,7 +695,7 @@ export function ProjectNavbar({
             </div>
 
             {editorMenuOpen && (
-              <div className="absolute right-0 top-9 w-48 bg-card border border-border/80 rounded-xl shadow-2xl p-1 z-50 text-xs backdrop-blur-xl animate-in fade-in zoom-in-95">
+              <div className="absolute right-0 top-9 w-48 bg-[#141416] border border-border rounded-xl shadow-2xl p-1 z-50 text-xs">
                 <button
                   type="button"
                   onClick={() => void handleOpenEditor("vscode")}
