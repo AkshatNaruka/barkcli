@@ -1188,21 +1188,22 @@ export function ThreadPane({
         </div>
       )}
 
-      <div
-        ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto min-h-0 thread-events"
-        onScroll={(event) => {
-          const node = event.currentTarget;
-          stickToBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 100;
-          if (stickToBottom.current) setNewOutput(false);
-        }}
-      >
-        <div className="thread-conversation relative">
-          <ThreadGutterTimeline
-            events={thread?.events || []}
-            runs={thread?.runs || (latestRun ? [latestRun] : [])}
-            containerRef={scrollContainerRef}
-          />
+      <div className="relative flex-1 min-h-0 flex flex-col">
+        <ThreadGutterTimeline
+          events={thread?.events || []}
+          runs={thread?.runs || (latestRun ? [latestRun] : [])}
+          containerRef={scrollContainerRef}
+        />
+        <div
+          ref={scrollContainerRef}
+          className="flex-1 overflow-y-auto min-h-0 thread-events"
+          onScroll={(event) => {
+            const node = event.currentTarget;
+            stickToBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 100;
+            if (stickToBottom.current) setNewOutput(false);
+          }}
+        >
+          <div className="thread-conversation relative">
           {loading && (
             <div className="space-y-6" aria-label="Loading thread">
               {[0, 1, 2].map((row) => (
@@ -1853,6 +1854,7 @@ export function ThreadPane({
           })()}
           <div ref={messagesEndRef} />
         </div>
+      </div>
       </div>
 
       {isTerminalOpen && (

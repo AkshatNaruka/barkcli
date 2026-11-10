@@ -71,17 +71,14 @@ describe("ThreadGutterTimeline", () => {
 
     // Should display the user prompt title
     expect(await screen.findByText(/i tried running plan in thread/)).toBeInTheDocument();
-    // Should display the eyebrow
-    expect(screen.getByText("What happened in that thread")).toBeInTheDocument();
-    // Should display run info and model
-    expect(screen.getByText(/opencode\/crouton-alpha-free/)).toBeInTheDocument();
+    // Should display the assistant message text
+    expect(screen.getByText(/The plan\/build succeeded with all test gates passing/)).toBeInTheDocument();
     // Should display duration
-    expect(screen.getByText("Working for 12m 55s")).toBeInTheDocument();
+    expect(screen.getByText("12m 55s")).toBeInTheDocument();
     // Should display files changed and diff stats
     expect(screen.getByText("+189")).toBeInTheDocument();
     expect(screen.getByText("-59")).toBeInTheDocument();
-    expect(screen.getByText("barkcli/web/src/lib/updater.ts")).toBeInTheDocument();
-    expect(screen.getByText("Click to jump to turn")).toBeInTheDocument();
+    expect(screen.getByText("updater.ts")).toBeInTheDocument();
   });
 
   it("smoothly scrolls to turn element on click", () => {

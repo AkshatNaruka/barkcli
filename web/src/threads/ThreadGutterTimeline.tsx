@@ -7,6 +7,7 @@ export interface ThreadTurnInfo {
   elementId: string;
   userText: string;
   fullUserText: string;
+  assistantText?: string | null;
   runId?: string;
   provider?: string;
   model?: string;
@@ -24,6 +25,23 @@ interface ThreadGutterTimelineProps {
   runs?: RunRecord[];
   containerRef: React.RefObject<HTMLDivElement | null>;
   className?: string;
+}
+
+function cleanPreviewText(text?: string | null): string {
+  if (!text) return "";
+  return text
+    .replace(/```[\s\S]*?```/g, " [code] ")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/<[^>]+>/g, "")
+    .replace(/^#+\s+/gm, "")
+    .replace(/^>\s+/gm, "")
+    .replace(/^[-*+]\s+/gm, "")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function ThreadGutterTimeline({
@@ -44,12 +62,13 @@ export function ThreadGutterTimeline({
     let currentTurn: Partial<ThreadTurnInfo> | null = null;
 
     for (const event of events) {
-      if (event.kind === "user") {
+      if (event.kind === "user" || event.author === "user") {
         if (currentTurn && currentTurn.id) {
           list.push(currentTurn as ThreadTurnInfo);
         }
         const text = (event.text || "").trim();
-        const firstLine = text.split("\n")[0] || text;
+        const cleaned = cleanPreviewText(text);
+        const firstLine = cleaned.split("\n")[0] || cleaned;
         const truncated = firstLine.length > 70 ? firstLine.slice(0, 68) + "…" : firstLine;
 
         currentTurn = {
@@ -59,12 +78,15 @@ export function ThreadGutterTimeline({
           fullUserText: text,
           timestamp: event.created_at,
           index: list.length,
+          assistantText: null,
         };
       } else if (currentTurn) {
-        if (event.kind === "assistant" && !currentTurn.summary) {
-          const text = (event.text || "").trim();
-          const firstLine = text.split("\n")[0] || text;
-          currentTurn.summary = firstLine.length > 90 ? firstLine.slice(0, 88) + "…" : firstLine;
+        if ((event.kind === "assistant" || event.author === "assistant") && event.text?.trim()) {
+          // Captures final assistant message in the turn up to 1500 chars
+          const cleaned = cleanPreviewText(event.text.slice(0, 1500));
+          if (cleaned) {
+            currentTurn.assistantText = cleaned;
+          }
         }
       }
     }
@@ -91,7 +113,7 @@ export function ThreadGutterTimeline({
           const secs = Math.floor((diffMs % 60000) / 1000);
           t.duration = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
         }
-        if (run.summary && !t.summary) {
+        if (run.summary && !t.assistantText && !t.summary) {
           t.summary = run.summary;
         }
       }
@@ -107,8 +129,8 @@ export function ThreadGutterTimeline({
 
     const updateHeight = () => {
       const h = el.clientHeight || 400;
-      // ~6px per tick (2px tick + 4px gap)
-      const count = Math.max(30, Math.min(180, Math.floor(h / 6)));
+      // ~5.5px per tick (1.5px tick + 4px gap)
+      const count = Math.max(30, Math.min(220, Math.floor(h / 5.5)));
       setTickCount(count);
     };
 
@@ -163,6 +185,12 @@ export function ThreadGutterTimeline({
     setHoveredY(null);
   };
 
+  const handleWheel = (e: React.WheelEvent) => {
+    if (containerRef.current) {
+      containerRef.current.scrollTop += e.deltaY;
+    }
+  };
+
   const scrollToTurn = (turn: ThreadTurnInfo) => {
     const el = document.getElementById(turn.elementId);
     if (el) {
@@ -175,16 +203,17 @@ export function ThreadGutterTimeline({
   return (
     <div
       ref={timelineRef}
-      className={`absolute left-1 top-4 bottom-4 w-6 z-20 select-none group/timeline ${className}`}
+      className={`absolute left-1.5 top-3 bottom-3 w-7 z-30 select-none group/timeline ${className}`}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
+      onWheel={handleWheel}
       onClick={() => {
         if (activeTurn) scrollToTurn(activeTurn);
       }}
       title="Thread history timeline (click to jump)"
       aria-label="Thread history timeline"
     >
-      {/* Vertical Dashed Tick Marks */}
+      {/* Vertical Dashed Tick Marks & Pins */}
       <div className="flex flex-col items-start gap-[4px] h-full w-full py-1 cursor-pointer">
         {Array.from({ length: tickCount }).map((_, i) => {
           const ratio = i / (tickCount - 1);
@@ -195,93 +224,84 @@ export function ThreadGutterTimeline({
           const isHovered = hoveredTurnIndex !== null && mappedTurnIdx === hoveredTurnIndex;
           const isActive = activeTurnIndex === mappedTurnIdx;
 
+          // Distance in turn indices from hovered turn
+          const turnDistance = hoveredTurnIndex !== null ? Math.abs(mappedTurnIdx - hoveredTurnIndex) : null;
+
           return (
             <div
               key={i}
-              className={`h-[1.5px] transition-all duration-100 rounded-full ${
+              className={`h-[1.5px] transition-all duration-150 rounded-full ${
                 isHovered
-                  ? "w-5 bg-white shadow-[0_0_8px_rgba(255,255,255,0.7)]"
-                  : isTurnMarker
-                    ? "w-3.5 bg-white/50"
-                    : isActive
-                      ? "w-3 bg-accent/70"
-                      : "w-2 bg-white/15 group-hover/timeline:bg-white/25"
+                  ? "w-6 bg-white shadow-[0_0_8px_rgba(255,255,255,0.85)] scale-x-100 origin-left"
+                  : turnDistance === 1 && isTurnMarker
+                    ? "w-4.5 bg-white/70"
+                    : turnDistance === 2 && isTurnMarker
+                      ? "w-3.5 bg-white/45"
+                      : isTurnMarker
+                        ? "w-3 bg-white/50"
+                        : isActive
+                          ? "w-3 bg-accent/80 shadow-[0_0_6px_var(--accent)]"
+                          : "w-2 bg-white/15 group-hover/timeline:bg-white/25"
               }`}
             />
           );
         })}
       </div>
 
-      {/* Floating Hover Card (Matching Screenshot) */}
+      {/* Floating Hover Card (Matching T3 Code & User Reference) */}
       {activeTurn && hoveredY !== null && (
         <div
-          className="absolute left-7 z-50 w-72 rounded-xl border border-border/90 bg-[#161618] p-3 text-xs shadow-2xl backdrop-blur-md pointer-events-auto animate-in fade-in zoom-in-95"
+          className="absolute left-8 z-50 w-80 rounded-xl border border-border/80 bg-[#161618]/95 p-3.5 text-xs shadow-2xl backdrop-blur-md pointer-events-auto animate-in fade-in zoom-in-95"
           style={{
-            top: Math.max(10, Math.min(hoveredY - 50, (timelineRef.current?.clientHeight || 400) - 180)),
+            top: Math.max(8, Math.min(hoveredY - 45, (timelineRef.current?.clientHeight || 400) - 170)),
           }}
           onClick={(e) => {
             e.stopPropagation();
             scrollToTurn(activeTurn);
           }}
         >
-          {/* Connector notch line pointing to hovered tick */}
-          <div className="absolute -left-2 top-6 h-[2px] w-2 bg-white/80" />
+          {/* Connector notch line pointing to hovered pin */}
+          <div className="absolute -left-2 top-5 h-[2px] w-2 bg-white/90 rounded-full" />
 
-          {/* User Prompt Title */}
-          <h4 className="font-semibold text-text text-[12.5px] leading-snug line-clamp-2">
+          {/* User Prompt Title - clean single line truncated with ellipsis */}
+          <div className="font-medium text-text text-sm leading-5 truncate">
             {activeTurn.userText}
-          </h4>
-
-          {/* Eyebrow Label */}
-          <span className="text-[10px] text-muted-dim font-medium block mt-1.5 uppercase tracking-wider">
-            What happened in that thread
-          </span>
-
-          {/* Agent Run & Model & Summary */}
-          <p className="text-[11px] text-muted font-mono leading-relaxed mt-0.5 line-clamp-2">
-            {activeTurn.runId
-              ? `(${activeTurn.runId.slice(0, 16)}…: ${
-                  activeTurn.provider && activeTurn.model
-                    ? `${activeTurn.provider}/${activeTurn.model}`
-                    : activeTurn.model || activeTurn.provider || "agent"
-                }) `
-              : ""}
-            {activeTurn.summary || "The plan/build succeeded with verified test gate checks."}
-          </p>
-
-          {/* Duration */}
-          {activeTurn.duration && (
-            <span className="text-[11px] text-muted-strong block mt-1 font-mono">
-              Working for {activeTurn.duration}
-            </span>
-          )}
-
-          {/* Files Changed & Diff Stats */}
-          {activeTurn.diffStats && (activeTurn.diffStats.additions > 0 || activeTurn.diffStats.deletions > 0) && (
-            <div className="flex items-center gap-2 text-[11px] font-mono text-muted mt-1.5">
-              <span>{activeTurn.diffStats.files || 1} files changed</span>
-              <span className="text-emerald-400">+{activeTurn.diffStats.additions}</span>
-              <span className="text-red-400">-{activeTurn.diffStats.deletions}</span>
-            </div>
-          )}
-
-          {/* Key Modified File */}
-          {activeTurn.filesChanged && activeTurn.filesChanged.length > 0 && (
-            <div className="flex items-center gap-1.5 text-[11px] font-mono text-accent mt-1.5 truncate">
-              <Icon name="pencil" size={11} className="shrink-0" />
-              <span className="truncate">{activeTurn.filesChanged[0]}</span>
-            </div>
-          )}
-
-          {/* Footer jump hint */}
-          <div className="mt-2 pt-1.5 border-t border-border/40 flex items-center justify-between text-[10px] text-muted">
-            <span className="text-accent/90 hover:underline">Click to jump to turn</span>
-            {activeTurn.timestamp && (
-              <span className="font-mono">
-                {new Date(activeTurn.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              </span>
-            )}
           </div>
+
+          {/* Assistant Response / Work Summary */}
+          {(activeTurn.assistantText || activeTurn.summary) && (
+            <p
+              className="mt-1 text-muted text-[13px] leading-relaxed overflow-hidden"
+              style={{
+                display: "-webkit-box",
+                WebkitBoxOrient: "vertical",
+                WebkitLineClamp: 3,
+              }}
+            >
+              {activeTurn.assistantText || activeTurn.summary}
+            </p>
+          )}
+
+          {/* Footer Metadata: duration, diff stats, touched files */}
+          {(activeTurn.duration || activeTurn.diffStats || (activeTurn.filesChanged && activeTurn.filesChanged.length > 0)) && (
+            <div className="mt-2.5 pt-2 border-t border-border/40 flex items-center justify-between text-[11px] font-mono text-muted">
+              <div className="flex items-center gap-2">
+                {activeTurn.duration && <span>{activeTurn.duration}</span>}
+                {activeTurn.diffStats && (activeTurn.diffStats.additions > 0 || activeTurn.diffStats.deletions > 0) && (
+                  <span className="flex items-center gap-1">
+                    <span className="text-emerald-400 font-semibold">+{activeTurn.diffStats.additions}</span>
+                    <span className="text-red-400 font-semibold">-{activeTurn.diffStats.deletions}</span>
+                  </span>
+                )}
+              </div>
+              {activeTurn.filesChanged && activeTurn.filesChanged.length > 0 && (
+                <div className="flex items-center gap-1 text-accent/90 max-w-[120px] truncate" title={activeTurn.filesChanged[0]}>
+                  <Icon name="pencil" size={10} className="shrink-0" />
+                  <span className="truncate">{activeTurn.filesChanged[0].split("/").pop()}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
