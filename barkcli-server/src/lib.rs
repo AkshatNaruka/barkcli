@@ -6207,8 +6207,30 @@ async fn start_thread_run_handler(
     let sink: barkcli_core::runtime::ThreadSink = Arc::new(move |event| {
         let _ = tx.send(event);
     });
-    let service = barkcli_core::runtime::RunService::from_project(&board_name)
-        .map_err(|e| ServerError::internal(e.to_string()))?;
+    // Resolve the thread's project root so execution (worktree/gate/merge) runs
+    // in the correct project context, not just the server's current project.
+    let events = barkcli_core::threads::read_events(&card_id).unwrap_or_default();
+    let board = barkcli_core::storage::board_file::read_board(&board_name).ok();
+    let card = board.as_ref().and_then(|b| b.cards.iter().find(|c| c.id == card_id).cloned());
+    let (project_root, _, _) = barkcli_core::threads::extract_thread_project_metadata(
+        card.as_ref(),
+        &events,
+        None,
+    );
+    let service = if let Some(ref root) = project_root {
+        let path = std::path::Path::new(root);
+        if path.is_dir() {
+            barkcli_core::runtime::RunService::from_project_root(&board_name, path)
+                .or_else(|_| barkcli_core::runtime::RunService::from_project(&board_name))
+                .map_err(|e| ServerError::internal(e.to_string()))?
+        } else {
+            barkcli_core::runtime::RunService::from_project(&board_name)
+                .map_err(|e| ServerError::internal(e.to_string()))?
+        }
+    } else {
+        barkcli_core::runtime::RunService::from_project(&board_name)
+            .map_err(|e| ServerError::internal(e.to_string()))?
+    };
     let run = service
         .start_for_card(&card_id, req.run, Some(sink))
         .map_err(|e| ServerError::bad(e.to_string()))?;

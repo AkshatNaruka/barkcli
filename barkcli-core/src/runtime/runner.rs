@@ -113,6 +113,16 @@ impl RunService {
         })
     }
 
+    pub fn from_project_root(
+        board_name: impl Into<String>,
+        project_root: &std::path::Path,
+    ) -> Result<Self> {
+        Ok(Self {
+            runtime: RuntimeService::from_project_root(project_root)?,
+            board_name: board_name.into(),
+        })
+    }
+
     pub fn with_runtime(board_name: impl Into<String>, runtime: RuntimeService) -> Self {
         Self {
             runtime,

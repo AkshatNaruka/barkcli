@@ -1,46 +1,48 @@
-# Implementation Plan: barkcli Management-Layer Upgrade
+# Implementation Plan: Bark Threads Work Like T3 (End-to-End)
 
 ## Overview
-Upgrade barkcli from MVP management shell to production-ready orchestration platform: merge train with conflict handling, first-class agent loop (DeepSeek-style), milestones/roadmap, gate hardening, and worktree lifecycle v2. All changes file-is-truth, offline-first, no DB.
+Make Bark's thread system work end-to-end for any project: from prompt input, through planning, worktree acquisition, agent execution with artifacts, acceptance gate, merge, and completion reporting. UI should follow Bark's T3-inspired design (graphite, minimal, progressive disclosure). Projects are saved in settings and threads can be initialized for any saved project.
 
 ## Architecture Decisions
-- **Milestones as first-class model** alongside Sprint/Spec: Milestone { id, title, target_date, status, card_ids, spec_ids } persisted `.board/milestones/<board>.json`. Roadmap view via CLI + MCP.
-- **Merge Train as dedicated service** (`runtime/merge_train.rs`): batch of gate-passed runs, topological order (dependency-free first), dry-run conflict detection via `git merge-tree`, sequential merge with rollback, per-item verdicts.
-- **Gate v2** (`agent/gate.rs`): profile steps with parallel option, head-SHA cache, retry (1 on flake), evidence bundle (per-step tail), integration with verify profiles and guard scan.
-- **Agent Loop v1** (`agent/agent_loop.rs`): DeepSeek-inspired turn/step lifecycle with append-only session log per card (threads), inbox, tool registry, approval seam, compaction trigger, subagent spawn hook. Embedded, offline-friendly via ProviderAdapter.
-- **Worktree Lifecycle v2** (`agent/worktree_lifecycle.rs`): persisted status map, setup tracking (cargo/npm feasibility), health probe, checkpoint refs, prune policy.
-- **Production readiness**: structured JSON health (`barkcli health`), Prometheus-style metrics file, doctor expansion, graceful merge-train lock, idempotent operations.
+- **Project binding**: RunService/RuntimeService/RuntimeStore accept an optional `project_root` override. When a thread's project_root differs from the server's current root, execution switches context to that project (desktop: restart sidecar; web: cross-root execution via project_root param).
+- **Saved projects**: Durable registry in desktop app state + server API, separate from transient recents.
+- **Thread lifecycle**: Prompt → plan → worktree → execute → artifacts → gate → merge → report, all using the thread's project_root.
+- **UI**: Thread details with progress/steps/timings in a single Details control; VS Code-inspired status bars; inspector stable/resizable.
 
-## Task List
+## Phase 1: Execution respects thread's project_root (CRITICAL)
+- [ ] Task 1: Add `from_project_root(path)` to RuntimeStore, RuntimeService, RunService
+- [ ] Task 2: Update server start_thread_build handler to extract project_root from thread and use it
+- [ ] Task 3: Update server start_thread_chat handler similarly
+- [ ] Task 4: Update run_cmd.rs to accept project_root override
+- [ ] Checkpoint: cargo test + manual verification
 
-### Phase 1: Foundation
-- [x] Task 1: Milestones model + storage + CLI `milestone` + MCP tools + tests
-- [x] Task 2: Gate v2 module (multi-step profile, cache, retry, evidence) + integrate with RunService.check + verify.rs
+## Phase 2: Saved projects registry
+- [ ] Task 5: Desktop app state: saved projects (add/remove/reorder) in app.json
+- [ ] Task 6: Tauri commands for saved projects
+- [ ] Task 7: Server API: GET/POST/DELETE /api/projects/saved
+- [ ] Task 8: Settings UI: Projects section
+- [ ] Task 9: Composer: use saved projects in picker
+- [ ] Checkpoint: web tests + build + desktop verification
 
-### Checkpoint: Foundation
-- [x] cargo test --lib passes, cargo clippy clean
+## Phase 3: Thread lifecycle UI completeness
+- [ ] Task 10: Thread details: merge steps/progress/timings into single Details control
+- [ ] Task 11: VS Code-inspired thread status bar (already partially done)
+- [ ] Task 12: Global status bar VS Code-inspired (already done)
+- [ ] Task 13: Artifacts display in inspector during/after run
+- [ ] Checkpoint: web tests + build
 
-### Phase 2: Core Features
-- [x] Task 3: Merge Train service (conflict detection via merge-tree, batch merge, rollback) + CLI `merge-train` + MCP
-- [x] Task 4: Worktree Lifecycle v2 (status persistence, setup tracking, health, checkpoint) + enhance worktree.rs
-- [x] Task 5: First-class Agent Loop (turn/step, inbox, tool registry, compaction, subagents) + `agent-loop` CLI + MCP
-
-### Checkpoint: Core Features
-- [x] End-to-end: milestone -> plan -> run -> gate -> merge-train -> merged
-
-### Phase 3: Polish / Production
-- [x] Task 6: Health/metrics/doctor/prod hardening + docs + README/AGENTS updates
-- [x] Task 7: Full test suite + integration tests + clippy + fmt
-
-### Checkpoint: Complete
-- [x] All acceptance criteria met, production-ready
+## Phase 4: Full lifecycle verification
+- [ ] Task 14: End-to-end test: prompt → plan → worktree → execute → gate → merge → report
+- [ ] Task 15: Fix any issues found
+- [ ] Task 16: Rebuild/install desktop app + push
 
 ## Risks and Mitigations
 | Risk | Impact | Mitigation |
 |------|--------|------------|
-| Git worktree concurrency | Merge corruption | File locks + merge-train lock, dry-run first |
-| Agent loop over-scope | Bloated code | Minimal viable loop: turn/step + inbox + tools; delegate to providers |
-| Backward compat | Broken boards | Serde defaults on all new models; migrate-on-read |
+| Cross-project execution complexity | High | Use project_root param in RunService; desktop switches context |
+| Gate failures in nested worktrees | Med | Already fixed (doc-only skip + better tails) |
+| Large scope | High | Phase by phase, verify each checkpoint |
 
 ## Open Questions
-- None — proceed with defaults above.
+- Should "Open folder…" in composer auto-save to saved projects? (default: yes, with option)
+- Where should Projects live in nav? (default: Settings or Projects dashboard)

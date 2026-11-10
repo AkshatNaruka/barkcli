@@ -91,6 +91,19 @@ export async function recentProjects(): Promise<DesktopProject[]> {
   return (await invoke<DesktopProject[]>("recent_projects")) ?? [];
 }
 
+export async function savedProjects(): Promise<DesktopProject[]> {
+  return (await invoke<DesktopProject[]>("saved_projects")) ?? [];
+}
+
+export async function saveProject(path: string): Promise<DesktopProject | null> {
+  return invoke<DesktopProject>("save_project", { path });
+}
+
+export async function removeSavedProject(path: string): Promise<boolean> {
+  const result = await invoke<void>("remove_saved_project", { path });
+  return result !== null || true;
+}
+
 /** App preferences survive the sidecar's per-launch port and project changes. */
 export async function loadSidebarLayout(): Promise<unknown> {
   return invoke<unknown>("sidebar_layout_get");

@@ -32,6 +32,19 @@ impl RuntimeStore {
         Ok(Self::new(board_dir))
     }
 
+    /// Construct a store rooted at an explicit project directory (used for
+    /// cross-project threads whose project_root differs from the server's).
+    pub fn from_project_root(project_root: &std::path::Path) -> Result<Self> {
+        let board_dir = project_root.join(".board");
+        if !board_dir.is_dir() {
+            return Err(anyhow::anyhow!(
+                "no .board directory at {}",
+                project_root.display()
+            ));
+        }
+        Ok(Self::new(board_dir))
+    }
+
     pub fn board_dir(&self) -> &Path {
         &self.board_dir
     }

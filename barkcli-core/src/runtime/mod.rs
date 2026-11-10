@@ -55,6 +55,13 @@ impl RuntimeService {
         })
     }
 
+    pub fn from_project_root(project_root: &std::path::Path) -> Result<Self> {
+        Ok(Self {
+            store: RuntimeStore::from_project_root(project_root)?,
+            registry: ProviderRegistry::standard(),
+        })
+    }
+
     pub fn store(&self) -> &RuntimeStore {
         &self.store
     }

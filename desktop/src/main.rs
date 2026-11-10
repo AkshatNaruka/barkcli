@@ -24,6 +24,20 @@ struct DesktopProject {
     name: String,
 }
 
+impl DesktopProject {
+    fn from_path(path: PathBuf) -> Self {
+        let name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("Project")
+            .to_string();
+        Self {
+            path: path.display().to_string(),
+            name,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 struct ProjectGitSummary {
     branch: String,
@@ -154,6 +168,9 @@ fn main() {
             open_project_dialog,
             switch_project,
             recent_projects,
+            saved_projects,
+            save_project,
+            remove_saved_project,
             project_summaries,
             reveal_project,
             open_provider_login,
@@ -541,6 +558,46 @@ fn recent_projects(state: State<'_, ServerState>) -> Vec<DesktopProject> {
     projects.insert(0, current);
     projects.truncate(8);
     projects
+}
+
+#[tauri::command]
+fn saved_projects() -> Vec<DesktopProject> {
+    load_state()
+        .and_then(|state| state.get("saved_projects").cloned())
+        .and_then(|value| serde_json::from_value::<Vec<DesktopProject>>(value).ok())
+        .unwrap_or_default()
+}
+
+#[tauri::command]
+fn save_project(path: String) -> Result<DesktopProject, String> {
+    let project = DesktopProject::from_path(PathBuf::from(&path));
+    if !Path::new(&path).is_dir() {
+        return Err(format!("Not a directory: {path}"));
+    }
+    update_state(|state| {
+        let mut saved = state
+            .get("saved_projects")
+            .and_then(|value| serde_json::from_value::<Vec<DesktopProject>>(value.clone()).ok())
+            .unwrap_or_default();
+        saved.retain(|p| p.path != project.path);
+        saved.insert(0, project.clone());
+        saved.truncate(50);
+        state.insert("saved_projects".into(), serde_json::to_value(&saved).unwrap_or_default());
+    });
+    Ok(project)
+}
+
+#[tauri::command]
+fn remove_saved_project(path: String) -> Result<(), String> {
+    update_state(|state| {
+        let mut saved = state
+            .get("saved_projects")
+            .and_then(|value| serde_json::from_value::<Vec<DesktopProject>>(value.clone()).ok())
+            .unwrap_or_default();
+        saved.retain(|p| p.path != path);
+        state.insert("saved_projects".into(), serde_json::to_value(&saved).unwrap_or_default());
+    });
+    Ok(())
 }
 
 /// Read only what Bark already keeps on disk for a project. This never starts

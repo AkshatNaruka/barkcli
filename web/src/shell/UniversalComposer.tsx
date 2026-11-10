@@ -6,7 +6,7 @@ import { ThreadComposer, type ComposerProjectOption } from "../threads/ThreadCom
 import { Icon } from "../components/Icon";
 import { AccessibleDialog } from "../components/AccessibleDialog";
 import { useComposerMode } from "../lib/composer";
-import { currentProject, openProjectDialog, recentProjects, type DesktopProject } from "../lib/desktop";
+import { currentProject, openProjectDialog, recentProjects, savedProjects, saveProject, type DesktopProject } from "../lib/desktop";
 
 interface UniversalComposerProps {
   isOpen: boolean;
@@ -40,7 +40,7 @@ function DraftComposer({ onClose, onCreated, boardName, initialText = "", initia
 
   useEffect(() => {
     let cancelled = false;
-    void Promise.all([currentProject(), recentProjects()]).then(([cur, recents]) => {
+    void Promise.all([currentProject(), recentProjects(), savedProjects()]).then(([cur, recents, saved]) => {
       if (cancelled) return;
       const seen = new Set<string>();
       const list: DesktopProject[] = [];
@@ -49,6 +49,12 @@ function DraftComposer({ onClose, onCreated, boardName, initialText = "", initia
         list.push(cur);
         setDefaultProject(cur);
         setSelectedProject((prev) => prev || cur.path);
+      }
+      for (const item of saved) {
+        if (item.path && !seen.has(item.path)) {
+          seen.add(item.path);
+          list.push(item);
+        }
       }
       for (const item of recents) {
         if (item.path && !seen.has(item.path)) {
@@ -99,6 +105,8 @@ function DraftComposer({ onClose, onCreated, boardName, initialText = "", initia
         );
         setSelectedProject(picked.path);
         if (workspaceStrategy === "scratch") setWorkspaceStrategy("root");
+        // Persist to saved projects registry so it appears in Settings and future pickers.
+        void saveProject(picked.path).catch(() => {});
       }
       return;
     }
