@@ -6,6 +6,8 @@ import {
   currentProject,
   openTerminal,
   recentProjects,
+  savedProjects,
+  removeSavedProject,
   revealProject,
   switchProject,
   type DesktopProject,
@@ -26,7 +28,7 @@ export function ProjectsSettings({ onClose, onOpenSources }: ProjectsSettingsPro
 
   useEffect(() => {
     let cancelled = false;
-    void Promise.all([currentProject(), recentProjects()]).then(([cur, recents]) => {
+    void Promise.all([currentProject(), recentProjects(), savedProjects()]).then(([cur, recents, saved]) => {
       if (cancelled) return;
       const list: Array<DesktopProject & { isScratch?: boolean }> = [];
       const seen = new Set<string>();
@@ -41,6 +43,13 @@ export function ProjectsSettings({ onClose, onOpenSources }: ProjectsSettingsPro
         path: "~/.barkcli/scratch",
         isScratch: true,
       });
+
+      for (const s of saved) {
+        if (s.path && !seen.has(s.path)) {
+          seen.add(s.path);
+          list.push(s);
+        }
+      }
 
       for (const r of recents) {
         if (r.path && !seen.has(r.path)) {
@@ -150,6 +159,18 @@ export function ProjectsSettings({ onClose, onOpenSources }: ProjectsSettingsPro
                 >
                   <Icon name="play" size={13} />
                   <span>Switch Workspace</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await removeSavedProject(selectedProject.path);
+                    setProjects((prev) => prev.filter((p) => p.path !== selectedProject.path));
+                    setSelectedProject(null);
+                  }}
+                  className="px-3 py-1.5 text-[12px] font-medium bg-surface hover:bg-card-hover border border-border rounded-lg flex items-center gap-1.5 transition-colors text-danger"
+                >
+                  <Icon name="trash" size={13} />
+                  <span>Remove from saved</span>
                 </button>
                 <button
                   type="button"

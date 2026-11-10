@@ -89,6 +89,53 @@ export function ThreadsShell({ boardName, projectRoot = "current-project", proje
       const queued = window.sessionStorage.getItem("bark:thread");
       if (queued) { window.sessionStorage.removeItem("bark:thread"); navigate("chat", { thread: queued, board: boardName || undefined }); }
     } catch { /* storage is optional */ }
+    // Resume a thread creation that was deferred across a project switch.
+    try {
+      const pending = window.sessionStorage.getItem("bark:pending-thread");
+      if (pending) {
+        window.sessionStorage.removeItem("bark:pending-thread");
+        const data = JSON.parse(pending);
+        if (data?.text) {
+          // Re-create the thread in the now-active project context.
+          void (async () => {
+            const { createThread, startThreadBuild, startThreadChat } = await import("../lib/api");
+            const result = await createThread({
+              text: data.text,
+              kind: "feature",
+              backend: data.backend,
+              model: data.model,
+              mode: data.mode || "plan_first",
+              board: data.board,
+              project_root: data.projectRoot,
+              project_name: data.projectName,
+              workspace_strategy: data.workspaceStrategy,
+            });
+            if (result?.thread_id) {
+              if (data.mode === "build") {
+                await startThreadBuild(result.thread_id, {
+                  provider: data.backend === "claude" ? "claude-code" : data.backend,
+                  model: data.model,
+                  role: "builder",
+                  prompt: data.text,
+                  board: data.board,
+                });
+              }
+              if (data.mode === "chat") {
+                await startThreadChat(result.thread_id, {
+                  text: data.text,
+                  provider: data.backend === "claude" ? "claude-code" : data.backend,
+                  model: data.model,
+                  board: data.board,
+                  skip_user_event: true,
+                });
+              }
+              window.dispatchEvent(new Event("bark-threads-changed"));
+              navigate("chat", { thread: result.thread_id, board: data.board || boardName || undefined });
+            }
+          })();
+        }
+      }
+    } catch { /* storage optional */ }
     return () => window.removeEventListener("bark-open-thread", openThread);
   }, [boardName]);
   const created = (id: string) => {

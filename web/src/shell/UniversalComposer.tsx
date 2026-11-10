@@ -6,7 +6,7 @@ import { ThreadComposer, type ComposerProjectOption } from "../threads/ThreadCom
 import { Icon } from "../components/Icon";
 import { AccessibleDialog } from "../components/AccessibleDialog";
 import { useComposerMode } from "../lib/composer";
-import { currentProject, openProjectDialog, recentProjects, savedProjects, saveProject, type DesktopProject } from "../lib/desktop";
+import { currentProject, openProjectDialog, recentProjects, savedProjects, saveProject, switchProject, isDesktop, type DesktopProject } from "../lib/desktop";
 
 interface UniversalComposerProps {
   isOpen: boolean;
@@ -128,6 +128,33 @@ function DraftComposer({ onClose, onCreated, boardName, initialText = "", initia
         chosenProject && (!defaultProject || chosenProject.path !== defaultProject.path)
       );
       const isScratch = selectedProject === "__scratch__" || workspaceStrategy === "scratch";
+      // If the chosen project differs from the active one, switch the desktop
+      // app to that project first so execution runs in the correct context.
+      if (isCustomProject && chosenProject && isDesktop()) {
+        const opened = await switchProject(chosenProject.path, "chat");
+        if (!opened) {
+          throw new Error("Could not open that project. Your draft is saved.");
+        }
+        // Persist the thread creation intent so the new project context can
+        // resume it after the sidecar restarts.
+        try {
+          window.sessionStorage.setItem("bark:pending-thread", JSON.stringify({
+            text: text.trim(),
+            mode: mode === "ask" ? "chat" : mode === "plan" ? "plan_first" : "build",
+            board: boardName,
+            backend: agent.backend || undefined,
+            model: agent.model.trim() || undefined,
+            workspaceStrategy,
+            projectRoot: chosenProject.path,
+            projectName: chosenProject.name,
+          }));
+        } catch { /* storage optional */ }
+        // The switchProject call restarts the sidecar; thread creation will
+        // happen in the new context via the pending-thread handoff.
+        setText("");
+        onClose();
+        return;
+      }
       const result = created.current ? { thread_id: created.current } : await createThread({
         text: text.trim(), kind: "feature", backend: agent.backend || undefined,
         model: agent.model.trim() || undefined, mode: mode === "ask" ? "chat" : mode === "plan" ? "plan_first" : "build", board: boardName,
