@@ -1,6 +1,6 @@
 [package]
 name = "barkcli-desktop"
-version = "0.4.33"
+version = "0.4.34"
 edition = "2021"
 description = "Bark — the desktop shell for barkcli"
 publish = false
