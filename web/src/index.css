@@ -787,7 +787,7 @@ summary.sidebar-group { cursor: pointer; }
 .quick-open-dialog { width: min(1080px, 100%); padding: 0; overflow: hidden; }
 .command-runner-dialog { width: min(920px, 100%); padding: 0; overflow: hidden; }
 .appearance-dialog { width: min(440px, 100%); padding: 0; height: min(800px, calc(100dvh - 40px)); overflow: hidden; }
-.global-settings-dialog { width: min(980px, 100%); padding: 0; height: min(720px, calc(100dvh - 40px)); overflow: hidden; }
+.global-settings-dialog { width: min(1080px, calc(100vw - 32px)); padding: 0; height: min(760px, calc(100dvh - 32px)); max-height: 860px; overflow: hidden; border-radius: 12px; }
 .global-usage-dialog { width: min(1120px, 100%); padding: 0; height: min(820px, calc(100dvh - 40px)); overflow: hidden; }
 .global-docs-dialog { width: min(1120px, 100%); padding: 0; height: min(820px, calc(100dvh - 40px)); overflow: hidden; }
 @media (max-width: 699px) {
@@ -801,7 +801,8 @@ summary.sidebar-group { cursor: pointer; }
 
 /* Settings: project/global split with a stable section nav. */
 /* Settings: a quiet two-pane index with flat grouped rows. */
-.settings-shell { display: grid; grid-template-columns: 240px minmax(0, 1fr); height: 100%; min-height: 0; }
+.settings-shell, .settings-body { display: flex; width: 100%; height: 100%; min-height: 0; overflow: hidden; }
+
 .settings-nav {
   display: flex;
   flex-direction: column;
@@ -884,15 +885,13 @@ summary.sidebar-group { cursor: pointer; }
 .settings-note code { font-family: ui-monospace, "SF Mono", monospace; font-size: 10px; color: var(--text); }
 .settings-copy-row { display: flex; gap: 7px; }
 .settings-copy-row input { flex: 1; font-family: ui-monospace, "SF Mono", monospace; font-size: 10.5px; }
-@media (max-width: 900px) {
-  .settings-shell { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
-  .settings-nav { flex-direction: row; align-items: center; gap: 4px; padding: 8px 12px; border-right: 0; border-bottom: 1px solid var(--border); overflow-x: auto; }
-  .settings-nav-head { display: none; }
-  .settings-nav button { width: auto; flex-shrink: 0; padding: 7px 9px; }
-  .settings-nav button small { display: none; }
+@media (max-width: 580px) {
+  .settings-shell, .settings-body { flex-direction: column; }
+  .settings-nav { width: 100% !important; border-right: 0; border-bottom: 1px solid var(--border); max-height: 180px; }
   .settings-content { padding: 20px 16px 56px; }
   .settings-content > * { max-width: none; }
 }
+
 
 /* Help: teach the product loop before listing shortcuts. */
 .help-loop { margin-bottom: 20px; padding: 13px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }

@@ -77,6 +77,29 @@ const SECTIONS: Array<{
   { id: "diagnostics", label: "Diagnostics", icon: "pulse", hint: "Health, logs, and access" },
 ];
 
+const SECTION_GROUPS: Array<{
+  name: string;
+  ids: SettingsSection[];
+}> = [
+  {
+    name: "General",
+    ids: ["general", "appearance", "projects"],
+  },
+  {
+    name: "Agents & AI",
+    ids: ["agents", "mcp", "keys"],
+  },
+  {
+    name: "Workspace",
+    ids: ["project", "terminal"],
+  },
+  {
+    name: "System",
+    ids: ["updates", "diagnostics"],
+  },
+];
+
+
 function Section({
   title,
   description,
@@ -108,18 +131,22 @@ export function SettingsView({
   board,
   onSaveBoard,
   initialSection,
+  onClose,
 }: {
   board?: BoardType | null;
   onSaveBoard?: (b: BoardType) => void;
   initialSection?: SettingsSection;
+  onClose?: () => void;
 }) {
   const [section, setSection] = useState<SettingsSection>(
     initialSection || (board ? "project" : "projects")
   );
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     if (initialSection) setSection(initialSection);
   }, [initialSection]);
+
 
   const [title, setTitle] = useState(board?.title || "");
   const [description, setDescription] = useState(board?.description || "");
@@ -510,44 +537,171 @@ export function SettingsView({
     notify(`Removed ${key}`);
   };
 
+  const currentSection = SECTIONS.find((item) => item.id === section) || SECTIONS[0];
+
   return (
-    <div className="settings-body">
-      <nav className="settings-nav" aria-label="Settings sections">
-        <div className="settings-nav-head">
-          <span className="settings-nav-eyebrow">Settings</span>
-          <strong>{board?.title || "Preferences"}</strong>
-        </div>
-        {SECTIONS.filter((item) => (item.id === "project" ? Boolean(board) : true)).map((item) => {
-          const active = section === item.id;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              aria-current={active ? "page" : undefined}
-              onClick={() => setSection(item.id)}
-            >
-              <Icon name={item.icon} size={14} />
-              <span>
-                <strong>{item.label}</strong>
-                <small>{item.hint}</small>
-              </span>
-            </button>
-          );
-        })}
-      </nav>
-
-      <div className="settings-content">
-        <div className="settings-content-head">
-          <h2>{SECTIONS.find((item) => item.id === section)?.label}</h2>
-          <p>{SECTIONS.find((item) => item.id === section)?.hint}</p>
-        </div>
-
-        {savedMsg && (
-          <div className="settings-saved" role="status">
-            <Icon name="check" size={12} />
-            {savedMsg}
+    <div className="settings-shell flex h-full w-full min-h-0 overflow-hidden bg-bg text-text">
+      {/* Left Sidebar */}
+      <aside className="w-64 shrink-0 border-r border-border bg-[#141416]/95 flex flex-col h-full min-h-0 select-none">
+        {/* Sidebar Header */}
+        <div className="h-12 px-4 flex items-center justify-between border-b border-border shrink-0 bg-surface/30">
+          <div className="flex items-center gap-2.5">
+            <div className="w-6 h-6 rounded-md bg-accent/15 text-accent-text flex items-center justify-center">
+              <Icon name="gear" size={14} />
+            </div>
+            <span className="text-[13px] font-semibold tracking-tight text-text">Settings</span>
           </div>
-        )}
+          <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface border border-border text-muted">
+            ⌘,
+          </kbd>
+        </div>
+
+        {/* Live Search */}
+        <div className="p-3 border-b border-border/60">
+          <div className="relative">
+            <Icon
+              name="search"
+              size={13}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
+            />
+            <input
+              type="text"
+              placeholder="Search settings..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-8 pr-7 py-1.5 text-xs bg-bg border border-border rounded-lg text-text placeholder:text-muted/60 focus:outline-none focus:border-border-strong focus:ring-1 focus:ring-accent/30 transition-all"
+            />
+            {searchQuery ? (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-text p-0.5"
+                title="Clear"
+              >
+                <Icon name="x" size={12} />
+              </button>
+            ) : (
+              <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-muted/60 font-mono px-1 py-0.2 rounded border border-border/60">
+                /
+              </kbd>
+            )}
+          </div>
+        </div>
+
+        {/* Navigation list */}
+        <nav
+          className="settings-nav flex-1 min-h-0 overflow-y-auto p-2 space-y-4"
+          aria-label="Settings sections"
+        >
+          {SECTION_GROUPS.map((group) => {
+            const groupItems = group.ids
+              .map((id) => SECTIONS.find((s) => s.id === id)!)
+              .filter(Boolean)
+              .filter((item) => (item.id === "project" ? Boolean(board) : true))
+              .filter((item) => {
+                if (!searchQuery.trim()) return true;
+                const q = searchQuery.toLowerCase();
+                return item.label.toLowerCase().includes(q) || item.hint.toLowerCase().includes(q);
+              });
+
+            if (groupItems.length === 0) return null;
+
+            return (
+              <div key={group.name} className="space-y-0.5">
+                <div className="px-2.5 py-1 text-[10px] font-semibold text-muted/70 uppercase tracking-wider">
+                  {group.name}
+                </div>
+                {groupItems.map((item) => {
+                  const active = section === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      aria-current={active ? "page" : undefined}
+                      onClick={() => setSection(item.id)}
+                      className={`group flex items-start gap-2.5 w-full px-2.5 py-2 rounded-lg text-left transition-colors ${
+                        active
+                          ? "bg-white/[0.08] text-text shadow-sm"
+                          : "text-muted hover:text-text hover:bg-white/[0.04]"
+                      }`}
+                    >
+                      <div
+                        className={`mt-0.5 shrink-0 transition-colors ${
+                          active ? "text-accent-text" : "text-muted group-hover:text-text"
+                        }`}
+                      >
+                        <Icon name={item.icon} size={15} />
+                      </div>
+                      <span className="min-w-0 flex-1">
+                        <strong
+                          className={`block text-[12.5px] leading-tight font-medium ${
+                            active ? "text-text" : "text-text/85"
+                          }`}
+                        >
+                          {item.label}
+                        </strong>
+                        <small className="block mt-0.5 text-[10.5px] leading-tight text-muted truncate">
+                          {item.hint}
+                        </small>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </nav>
+
+        {/* Sidebar Footer */}
+        <div className="h-10 px-3.5 border-t border-border flex items-center justify-between text-[11px] text-muted shrink-0 bg-surface/30">
+          <span className="flex items-center gap-1.5 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            v{CURRENT_VERSION}
+          </span>
+          <span className="font-mono text-[10px] text-muted/60">
+            {CURRENT_BUILD_HASH ? CURRENT_BUILD_HASH.slice(0, 7) : "master"}
+          </span>
+        </div>
+      </aside>
+
+      {/* Right Content Area */}
+      <div className="flex-1 min-h-0 min-w-0 flex flex-col h-full bg-bg">
+        {/* Top Header Bar */}
+        <header className="h-12 border-b border-border flex items-center justify-between px-6 shrink-0 bg-surface/30 backdrop-blur-sm pr-14">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs">
+            <span className="text-muted">Settings</span>
+            <span className="text-muted/40 font-mono">/</span>
+            <span className="text-text font-semibold">{currentSection?.label}</span>
+            {board && currentSection?.id === "project" && (
+              <>
+                <span className="text-muted/40 font-mono">/</span>
+                <span className="text-muted/80 truncate max-w-[160px]">{board.title}</span>
+              </>
+            )}
+          </nav>
+          {savedMsg && (
+            <div
+              className="flex items-center gap-1.5 text-[11px] text-success font-medium bg-success-soft px-2.5 py-1 rounded-md"
+              role="status"
+            >
+              <Icon name="check" size={12} />
+              <span>{savedMsg}</span>
+            </div>
+          )}
+        </header>
+
+        {/* Scrollable Content */}
+        <div className="settings-content flex-1 min-h-0 overflow-y-auto px-8 py-6">
+          <div className="max-w-3xl w-full mx-auto pb-16">
+            <div className="settings-content-head mb-6">
+              <h2 className="text-xl font-bold tracking-tight text-text">
+                {currentSection?.label}
+              </h2>
+              <p className="mt-1 text-xs text-muted leading-relaxed">
+                {currentSection?.hint}
+              </p>
+            </div>
+
 
         {/* 1. Projects Section */}
         {section === "projects" && <ProjectsSettings />}
@@ -1738,7 +1892,10 @@ export function SettingsView({
             </Section>
           </>
         )}
+          </div>
+        </div>
       </div>
     </div>
   );
 }
+
