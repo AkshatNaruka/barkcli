@@ -65,13 +65,13 @@ function Toggle({
       title={title}
       aria-label={title}
       aria-pressed={enabled}
-      className={`relative w-[30px] h-[17px] rounded-full transition-colors shrink-0 ${
-        enabled ? "bg-accent" : "bg-white/[0.14]"
+      className={`relative w-[30px] h-[17px] rounded-full transition-colors shrink-0 border ${
+        enabled ? "bg-accent border-accent" : "bg-white/[0.08] border-border"
       }`}
     >
       <span
-        className={`absolute top-[2px] w-[13px] h-[13px] rounded-full bg-white shadow transition-all ${
-          enabled ? "left-[15px]" : "left-[2px]"
+        className={`absolute top-[2px] w-[13px] h-[13px] rounded-full shadow transition-all ${
+          enabled ? "left-[15px] bg-white" : "left-[2px] bg-muted-strong"
         }`}
       />
     </button>
