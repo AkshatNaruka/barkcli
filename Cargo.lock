@@ -175,7 +175,7 @@ dependencies = [
 
 [[package]]
 name = "barkcli"
-version = "0.4.33"
+version = "0.4.34"
 dependencies = [
  "anyhow",
  "barkcli-core",
@@ -196,7 +196,7 @@ dependencies = [
 
 [[package]]
 name = "barkcli-core"
-version = "0.4.33"
+version = "0.4.34"
 dependencies = [
  "anyhow",
  "chrono",
@@ -219,7 +219,7 @@ dependencies = [
 
 [[package]]
 name = "barkcli-server"
-version = "0.4.33"
+version = "0.4.34"
 dependencies = [
  "anyhow",
  "axum",
@@ -239,7 +239,7 @@ dependencies = [
 
 [[package]]
 name = "barkcli-tui"
-version = "0.4.33"
+version = "0.4.34"
 dependencies = [
  "anyhow",
  "barkcli-core",

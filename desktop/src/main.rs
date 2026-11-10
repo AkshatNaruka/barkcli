@@ -546,7 +546,6 @@ fn restart_old_project(runtime: &mut ServerRuntime, bin: &Path, old_project: &Pa
 }
 
 #[tauri::command]
-#[tauri::command]
 fn project_favicon(path: String) -> Option<String> {
     let root = PathBuf::from(&path);
     let candidates = [
@@ -584,6 +583,7 @@ fn project_favicon(path: String) -> Option<String> {
     None
 }
 
+#[tauri::command]
 fn recent_projects(state: State<'_, ServerState>) -> Vec<DesktopProject> {
     let current = {
         let runtime = state.runtime.lock().unwrap();
