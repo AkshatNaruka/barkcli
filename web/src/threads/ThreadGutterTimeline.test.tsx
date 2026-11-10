@@ -53,9 +53,9 @@ describe("ThreadGutterTimeline", () => {
 
     const timeline = screen.getByLabelText("Thread history timeline");
     expect(timeline).toBeInTheDocument();
-    // Verify tick marks are present inside
-    const ticks = container.querySelectorAll(".rounded-full");
-    expect(ticks.length).toBeGreaterThan(10);
+    // Verify minimap strips and track line are present
+    const strips = container.querySelectorAll("[data-minimap-strip]");
+    expect(strips.length).toBe(1); // 1 user turn in test (ev-1)
   });
 
   it("displays hover card with thread details on mouse move", async () => {
@@ -100,5 +100,30 @@ describe("ThreadGutterTimeline", () => {
     expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
 
     document.body.removeChild(targetElement);
+  });
+
+  it("renders navigation buttons and supports keyboard navigation", () => {
+    const multiEvents: ThreadEvent[] = [
+      { id: "ev-1", card_id: "card-1", kind: "user", author: "user", text: "prompt 1", created_at: "2026-11-09T10:00:00Z" },
+      { id: "ev-2", card_id: "card-1", kind: "assistant", author: "assistant", text: "answer 1", created_at: "2026-11-09T10:01:00Z" },
+      { id: "ev-3", card_id: "card-1", kind: "user", author: "user", text: "prompt 2", created_at: "2026-11-09T10:02:00Z" },
+      { id: "ev-4", card_id: "card-1", kind: "assistant", author: "assistant", text: "answer 2", created_at: "2026-11-09T10:03:00Z" },
+    ];
+
+    const containerRef = { current: document.createElement("div") };
+    render(<ThreadGutterTimeline events={multiEvents} containerRef={containerRef} />);
+
+    // Navigation buttons
+    expect(screen.getByLabelText("Previous turn")).toBeInTheDocument();
+    expect(screen.getByLabelText("Next turn")).toBeInTheDocument();
+
+    // 2 turn strips rendered
+    const strips = screen.getAllByRole("region", { name: "Minimap rail" })[0].querySelectorAll("[data-minimap-strip]");
+    expect(strips.length).toBe(2);
+
+    // Keyboard navigation
+    const rail = screen.getByLabelText("Minimap rail");
+    fireEvent.keyDown(rail, { key: "ArrowDown" });
+    fireEvent.keyDown(rail, { key: "Enter" });
   });
 });
