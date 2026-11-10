@@ -7,6 +7,7 @@ import {
   openTerminal,
   recentProjects,
   savedProjects,
+  saveProject,
   removeSavedProject,
   revealProject,
   switchProject,
@@ -276,7 +277,8 @@ export function ProjectsSettings({ onClose, onOpenSources }: ProjectsSettingsPro
       <ProjectSourcesModal
         isOpen={showSources}
         onClose={() => setShowSources(false)}
-        onSelectProject={(p) => {
+        onSelectProject={async (p) => {
+          try { await saveProject(p.path); } catch { /* best effort */ }
           setProjects((prev) => (prev.some((x) => x.path === p.path) ? prev : [p, ...prev]));
           setShowSources(false);
         }}

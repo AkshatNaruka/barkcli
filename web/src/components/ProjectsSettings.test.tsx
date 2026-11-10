@@ -16,6 +16,7 @@ vi.mock("../lib/desktop", () => ({
   currentProject: () => currentProject(),
   recentProjects: () => recentProjects(),
   savedProjects: () => Promise.resolve([]),
+  saveProject: () => Promise.resolve({ name: "x", path: "/x" }),
   removeSavedProject: () => Promise.resolve(true),
   switchProject: (path: string) => switchProject(path),
   revealProject: (path: string) => revealProject(path),
