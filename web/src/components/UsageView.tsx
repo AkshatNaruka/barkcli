@@ -23,6 +23,7 @@ import {
 } from "../lib/api";
 import { Icon } from "./Icon";
 import { ProviderIcon } from "./ProviderIcon";
+import { ChartContainer, ChartTooltip } from "./charts";
 
 export type WindowFilter = "24h" | "7d" | "30d" | "all";
 export type MetricMode = "tokens" | "cost";

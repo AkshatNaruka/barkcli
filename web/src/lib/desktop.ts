@@ -91,6 +91,10 @@ export async function recentProjects(): Promise<DesktopProject[]> {
   return (await invoke<DesktopProject[]>("recent_projects")) ?? [];
 }
 
+export async function projectFavicon(path: string): Promise<string | null> {
+  return invoke<string>("project_favicon", { path });
+}
+
 export async function savedProjects(): Promise<DesktopProject[]> {
   return (await invoke<DesktopProject[]>("saved_projects")) ?? [];
 }

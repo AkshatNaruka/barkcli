@@ -3,12 +3,30 @@ import { getProjectBadge } from "../lib/projectBadge";
 
 export interface ProjectAvatarProps {
   name?: string | null;
+  path?: string | null;
   size?: "xs" | "sm" | "md" | "lg";
   className?: string;
+  favicon?: string | null;
 }
 
-export function ProjectAvatar({ name, size = "sm", className = "" }: ProjectAvatarProps) {
+export function ProjectAvatar({ name, path, size = "sm", className = "", favicon }: ProjectAvatarProps) {
   const badge = getProjectBadge(name);
+
+  if (favicon) {
+    const sizeClasses = {
+      xs: "w-3.5 h-3.5 rounded-[3px]",
+      sm: "w-4 h-4 rounded-[4px]",
+      md: "w-5 h-5 rounded-[5px]",
+      lg: "w-7 h-7 rounded-[6px]",
+    }[size];
+    return (
+      <img
+        src={favicon}
+        alt={name || "Project"}
+        className={`shrink-0 object-contain ${sizeClasses} ${className}`}
+      />
+    );
+  }
 
   const sizeClasses = {
     xs: "w-3.5 h-3.5 text-[9px] rounded-[3px]",

@@ -8,7 +8,7 @@ import { ThreadActionsMenu, type ThreadActionTarget } from "./ThreadActionsMenu"
 import { AccessibleDialog } from "../components/AccessibleDialog";
 import { ProjectAvatar } from "../components/ProjectAvatar";
 import { ProjectSourcesModal } from "../components/ProjectSourcesModal";
-import { switchProject } from "../lib/desktop";
+import { switchProject, projectFavicon } from "../lib/desktop";
 
 export function ThreadList({ boardName, open = false, onClose, collapsed = false }: { boardName: string | null; open?: boolean; onClose?: () => void; collapsed?: boolean }) {
   const location = useRouteState();
@@ -25,6 +25,7 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [projectFilter, setProjectFilter] = useState<string>("all");
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
+  const [favicons, setFavicons] = useState<Record<string, string | null>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -55,6 +56,25 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
       }
     }
     return Array.from(names);
+  }, [threads]);
+
+  // Load favicons for distinct projects
+  useEffect(() => {
+    let cancelled = false;
+    const roots = new Map<string, string>();
+    for (const t of threads) {
+      const name = (t.project_name || "").trim();
+      if (name && t.project_root && !roots.has(name)) {
+        roots.set(name, t.project_root);
+      }
+    }
+    for (const [name, root] of roots) {
+      if (favicons[name] !== undefined) continue;
+      void projectFavicon(root).then((fav) => {
+        if (!cancelled) setFavicons((prev) => ({ ...prev, [name]: fav }));
+      });
+    }
+    return () => { cancelled = true; };
   }, [threads]);
 
   const filtered = useMemo(() => {
@@ -187,13 +207,13 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
                 openMenu(thread, event.clientX, event.clientY);
               }}
             >
-              {/* Row 1: Project Avatar, Project Name, Status / Time */}
+              {/* Row 1: Project Avatar (only when not grouped), Project Name, Status / Time */}
               <div className="thread-row-top">
                 <div className="flex items-center gap-1.5 min-w-0">
                   {current && (
                     <Icon name="pencil" size={11} className="text-amber-400 shrink-0" />
                   )}
-                  <ProjectAvatar name={thread.project_name || "barkcli"} size="xs" />
+                  {/* Avoid repeating the project icon that is already shown in the group header */}
                   <span
                     className="thread-row-project text-[12px] font-medium text-muted-strong hover:text-text truncate"
                     title={thread.project_root || thread.project_name || "barkcli"}
@@ -430,7 +450,7 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
                       size={10}
                       className={`text-muted/60 transition-transform duration-150 ${isCollapsed ? "" : "rotate-90"}`}
                     />
-                    <ProjectAvatar name={projectName} size="xs" />
+                    <ProjectAvatar name={projectName} size="xs" favicon={favicons[projectName]} />
                     <span className="truncate font-semibold text-text text-[12px]">{projectName}</span>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0 ml-1">

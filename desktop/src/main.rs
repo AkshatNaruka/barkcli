@@ -168,6 +168,7 @@ fn main() {
             open_project_dialog,
             switch_project,
             recent_projects,
+            project_favicon,
             saved_projects,
             save_project,
             remove_saved_project,
@@ -545,6 +546,44 @@ fn restart_old_project(runtime: &mut ServerRuntime, bin: &Path, old_project: &Pa
 }
 
 #[tauri::command]
+#[tauri::command]
+fn project_favicon(path: String) -> Option<String> {
+    let root = PathBuf::from(&path);
+    let candidates = [
+        "favicon.ico",
+        "favicon.png",
+        "favicon.svg",
+        "public/favicon.ico",
+        "public/favicon.png",
+        "public/favicon.svg",
+        "static/favicon.ico",
+        "static/favicon.png",
+        "assets/favicon.ico",
+        "assets/favicon.png",
+        "src/favicon.ico",
+        "app/favicon.ico",
+        "app/icon.png",
+        "app/icon.svg",
+    ];
+    for candidate in candidates {
+        let full = root.join(candidate);
+        if full.is_file() {
+            if let Ok(bytes) = std::fs::read(&full) {
+                let mime = match full.extension().and_then(|e| e.to_str()).unwrap_or("") {
+                    "png" => "image/png",
+                    "svg" => "image/svg+xml",
+                    "ico" => "image/x-icon",
+                    _ => "image/png",
+                };
+                use base64::Engine;
+                let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                return Some(format!("data:{};base64,{}", mime, b64));
+            }
+        }
+    }
+    None
+}
+
 fn recent_projects(state: State<'_, ServerState>) -> Vec<DesktopProject> {
     let current = {
         let runtime = state.runtime.lock().unwrap();
