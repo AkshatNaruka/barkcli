@@ -177,6 +177,7 @@ fn main() {
             open_provider_login,
             open_terminal,
             open_logs,
+            open_external_url,
             notify,
             sidebar_layout_get,
             sidebar_layout_set,
@@ -933,6 +934,23 @@ fn open_provider_login(provider: String) -> bool {
     );
     Command::new("osascript")
         .args(["-e", script.as_str()])
+        .spawn()
+        .map(|mut child| {
+            let _ = child.wait();
+            true
+        })
+        .unwrap_or(false)
+}
+
+#[tauri::command]
+fn open_external_url(url: String) -> bool {
+    // Only http(s): a settings pane must never be able to run a local app.
+    let trimmed = url.trim();
+    if !(trimmed.starts_with("https://") || trimmed.starts_with("http://")) {
+        return false;
+    }
+    Command::new("open")
+        .arg(trimmed)
         .spawn()
         .map(|mut child| {
             let _ = child.wait();

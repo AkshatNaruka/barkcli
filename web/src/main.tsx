@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { ThemeProvider } from "./lib/theme.tsx";
 import { isDemoMode, installDemoApi } from "./lib/demo";
+import { hydrateSettings } from "./lib/settingsHydrate";
 // React Flow's stylesheet loads at entry so our custom theme block in
 // index.css always wins the cascade (lazy-chunk CSS would otherwise be
 // injected after index.css and restore RF's white defaults).
@@ -15,6 +16,15 @@ import "./index.css";
 // GitHub Pages / static hosting: no backend behind this page, so the demo
 // API layer intercepts /api/* and serves local demo data (see lib/demo.ts).
 if (isDemoMode()) installDemoApi();
+
+// Pull the authoritative settings once at startup so synchronous readers (the
+// composer's default agent, "open in editor") see them even if the user never
+// opens the Settings pane in this session.
+if (!isDemoMode()) {
+  void hydrateSettings().catch(() => {
+    /* the local server may not be up yet — cached values still render */
+  });
+}
 
 // Installable web app (Notion/Linear-style): register the service worker for
 // offline support. Production only — the dev server must not cache modules.

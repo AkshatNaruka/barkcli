@@ -11,6 +11,9 @@ export interface ApiKeySettings {
   geminiKey: string;
   openrouterKey: string;
   ollamaEndpoint: string;
+  /** Provider pre-selected in the composer for new conversations. */
+  defaultBackend: string;
+  /** Model pre-selected for that provider. */
   defaultModel: string;
 }
 
@@ -21,6 +24,14 @@ export interface TerminalSettings {
   lineHeight: number;
   cursorStyle: "block" | "bar" | "underline";
   envVars: Array<{ key: string; value: string }>;
+}
+
+/** The shape the server stores in `~/.bark/settings.json`. */
+export interface StoredSettings {
+  general: GeneralSettings;
+  apiKeys: ApiKeySettings;
+  terminal: TerminalSettings;
+  mcpServers: unknown[];
 }
 
 export const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
@@ -36,7 +47,8 @@ export const DEFAULT_API_KEY_SETTINGS: ApiKeySettings = {
   geminiKey: "",
   openrouterKey: "",
   ollamaEndpoint: "http://127.0.0.1:11434",
-  defaultModel: "claude-3-7-sonnet",
+  defaultBackend: "",
+  defaultModel: "",
 };
 
 export const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
@@ -95,4 +107,27 @@ export function loadTerminalSettings(): TerminalSettings {
 
 export function saveTerminalSettings(s: TerminalSettings): void {
   saveToStorage(TERMINAL_KEY, s);
+}
+
+/**
+ * Write a server payload into the local cache.
+ *
+ * The cache exists for two reasons: synchronous readers (`openInEditor`, the
+ * composer default) cannot await a request, and the browser build can still
+ * render before the first fetch resolves. The server copy stays authoritative.
+ */
+export function cacheSettings(settings: StoredSettings): void {
+  saveGeneralSettings(settings.general);
+  saveApiKeySettings(settings.apiKeys);
+  saveTerminalSettings(settings.terminal);
+}
+
+/** The cached settings in server shape, used when the server is unreachable. */
+export function cachedSettings(mcpServers: unknown[] = []): StoredSettings {
+  return {
+    general: loadGeneralSettings(),
+    apiKeys: loadApiKeySettings(),
+    terminal: loadTerminalSettings(),
+    mcpServers,
+  };
 }

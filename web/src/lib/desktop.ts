@@ -140,6 +140,20 @@ export async function openLogs(): Promise<boolean> {
   return (await invoke<boolean>("open_logs")) ?? false;
 }
 
+/** Open an http(s) URL in the user's browser. Falls back to a new tab on the web. */
+export async function openExternalUrl(url: string): Promise<boolean> {
+  const trimmed = (url || "").trim();
+  if (!/^https?:\/\//i.test(trimmed)) return false;
+  const opened = await invoke<boolean>("open_external_url", { url: trimmed });
+  if (opened) return true;
+  try {
+    window.open(trimmed, "_blank", "noopener,noreferrer");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Post a native macOS notification. No-op outside the desktop shell. */
 export async function notify(title: string, body: string): Promise<boolean> {
   return (await invoke<boolean>("notify", { title, body })) ?? false;

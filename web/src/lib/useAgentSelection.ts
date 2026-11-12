@@ -2,19 +2,31 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchProviderModels, fetchProviders, fetchRoles } from "./api";
 import type { ProviderStatus, RoleDef } from "./types";
 import { readLocal, writeLocal } from "./drafts";
+import { loadApiKeySettings } from "./appSettings";
 
 export interface AgentChoice { backend: string; model: string; role: string; testCommand: string; }
 export function useAgentSelection(scope: string) {
   const key = `bark:agent:v1:${scope}`;
+  // A thread that never picked an agent inherits the Settings default. An
+  // explicit per-thread choice always wins.
+  const fallback = loadApiKeySettings();
   const [backend, changeBackend] = useState(() => {
-    try { return JSON.parse(readLocal(key) || "{}").backend || ""; } catch { return ""; }
+    try {
+      const saved = JSON.parse(readLocal(key) || "{}").backend || "";
+      return saved || fallback.defaultBackend || "";
+    } catch {
+      return fallback.defaultBackend || "";
+    }
   });
   const [model, changeModel] = useState(() => {
     try {
-      const saved = JSON.parse(readLocal(key) || "{}").model || "";
-      if (saved === "opencode/deepseek-v4.1-flash-free") return "opencode/pulse-alpha-free";
-      return saved;
-    } catch { return ""; }
+      const saved = JSON.parse(readLocal(key) || "{}");
+      const value = saved.model || (saved.backend ? "" : fallback.defaultModel || "");
+      if (value === "opencode/deepseek-v4.1-flash-free") return "opencode/pulse-alpha-free";
+      return value;
+    } catch {
+      return fallback.defaultModel || "";
+    }
   });
   const [role, setRole] = useState(() => { try { return JSON.parse(readLocal(key) || "{}").role || "builder"; } catch { return "builder"; } });
   const [testCommand, setTestCommand] = useState(() => { try { return JSON.parse(readLocal(key) || "{}").testCommand || ""; } catch { return ""; } });

@@ -560,6 +560,12 @@ impl RunHandle for CliHandle {
 }
 
 fn spawn_cli(mut cmd: Command, req: StartRun, sink: EventSink) -> Result<Box<dyn RunHandle>> {
+    // Settings-driven environment: API keys and custom variables configured in
+    // the app must reach the agent process, otherwise those Settings panes
+    // would be decoration.
+    for (key, value) in crate::settings::load().env_for_runs() {
+        cmd.env(key, value);
+    }
     cmd.current_dir(&req.cwd)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())

@@ -69,6 +69,8 @@ Intent in, plans out. barkcli is **the management layer for AI agents**: humans 
 | | |
 |---|---|
 | 💬 **Interactive Threads** | Multi-turn agent collaboration with live tool-calling streams, a left-rail dashed timeline scrubber to inspect earlier execution checkpoints, and full thread history. |
+| ❓ **In-Thread Questions** | Agents ask structured questions (options, multi-select, a recommended pick, plus "type your own answer") and request missing credentials without leaving the conversation. Answers resume the same turn; secrets go to local settings, never into the thread or the model. |
+| ⚙️ **Settings That Apply** | Every Settings pane changes real behavior: API keys and custom env vars are injected into every agent process and shell, the shell powers the embedded terminal, and your default agent/model seeds new threads. Stored in `~/.bark/settings.json`. |
 | 🌐 **Inbuilt Web Browser** | Full-fledged embedded browser surface: test and interact with local development servers (`http://localhost:*`), preview web apps, and inspect documentation directly inside Bark. |
 | 🚀 **Floating Surface Launcher** | Fast launcher menu to open Browser, Terminal, Files, Diff, Pull Requests, Linked PRs, Devices, and Side Chats in clean, closable tabs. |
 | 📊 **Modern T3-Style Analytics** | Interactive column throughput and effort metrics with SVG linear gradients, view filters (`All`, `Cards`, `Effort`), glassmorphic tooltips, and Donut priority charts with centered totals. |
@@ -103,6 +105,7 @@ Bark includes a built-in multi-surface workbench directly within the desktop and
   - `M` — **Device** (mobile and responsive device simulators)
   - `S` — **Side chat** (parallel agent and thread queries)
 - **Tabbed Surface Management**: Open multiple surfaces as independent tabs with clean close buttons, persistence across workspace changes, and seamless switching without closing background jobs.
+- **Questions in the Thread, Not a Modal**: When an agent is blocked it ends its turn with a structured block that Bark lifts out of the reply and renders as a dock above the composer — one tab per question, numbered options in the agent's recommended order, multi-select when several apply, an automatic "type your own answer", and a credential form for keys the agent is missing. Skipping keeps the question in the log; answering appends an immutable `answer` event and resumes the agent with the same provider session. Nothing is lost if the app closes while a question is open.
 
 ---
 

@@ -147,6 +147,7 @@ where
 
     let app = Router::new()
         .route("/api/project", get(project_handler))
+        .route("/api/settings", get(get_settings_handler).put(save_settings_handler))
         .route("/api/project/onboard", post(onboard_project_handler))
         .route("/api/project/init-git", post(init_git_handler))
         .route("/api/hooks", get(hooks_status_handler))
@@ -159,6 +160,7 @@ where
         .route("/api/threads/{id}/messages", post(post_thread_message_handler))
         .route("/api/threads/{id}/chat", post(chat_thread_handler))
         .route("/api/threads/{id}/chat/stop", post(stop_chat_handler))
+        .route("/api/threads/{id}/answer", post(answer_thread_question_handler))
         .route("/api/threads/{id}/stream", get(stream_thread_handler))
         .route(
             "/api/threads/{id}/runs",
@@ -2447,6 +2449,24 @@ fn ping_payload(started_at: Instant, now: DateTime<Utc>) -> PingResponse {
         version: env!("CARGO_PKG_VERSION"),
         uptime_seconds: started_at.elapsed().as_secs(),
     }
+}
+
+/// Read the user's stored settings. The server is local (or token-guarded), so
+/// the app can read values back to edit them; they are never sent to a model.
+async fn get_settings_handler(
+) -> Result<Json<barkcli_core::settings::StoredSettings>, ServerError> {
+    Ok(Json(barkcli_core::settings::load()))
+}
+
+/// Persist settings. Everything here is applied at execution time: API keys and
+/// environment variables are injected into agent processes and shells, so an
+/// empty value genuinely removes the variable.
+async fn save_settings_handler(
+    Json(req): Json<barkcli_core::settings::StoredSettings>,
+) -> Result<Json<barkcli_core::settings::StoredSettings>, ServerError> {
+    let saved = barkcli_core::settings::save(&req)
+        .map_err(|error| ServerError::internal(error.to_string()))?;
+    Ok(Json(saved))
 }
 
 /// Liveness probe: infallible, dependency-free (no board or config reads).
@@ -7682,10 +7702,172 @@ async fn approve_run_handler(
 }
 
 #[derive(Deserialize)]
+struct SecretValue {
+    key: String,
+    #[serde(default)]
+    value: String,
+}
+
+#[derive(Deserialize)]
+struct AnswerThreadQuestionRequest {
+    /// One entry per question, each a list of selected/typed answers.
+    #[serde(default)]
+    answers: Vec<Vec<String>>,
+    /// Credentials requested with a `bark-secret` block.
+    #[serde(default)]
+    secrets: Vec<SecretValue>,
+    /// Specific question event; defaults to the newest pending one.
+    #[serde(default)]
+    question_event_id: Option<String>,
+}
+
+/// Answer the pending question in a thread.
+///
+/// The event log is append-only: the question stays where it was asked and an
+/// `answer` event with `parent_event_id` closes it. The response carries the
+/// continuation prompt so the client can resume the agent immediately; the
+/// answer is also readable later by any client, including after a restart.
+/// The question that a thread answer belongs to.
+///
+/// Questions are append-only, so "pending" means: no `answer` event points at
+/// it yet. An explicit `question_event_id` wins even when it is already
+/// answered — a caller retrying a lost response must not attach the answer to a
+/// *different* question that happens to be newer.
+fn pending_question_event<'a>(
+    events: &'a [barkcli_core::threads::ThreadEvent],
+    requested: Option<&str>,
+) -> Option<&'a barkcli_core::threads::ThreadEvent> {
+    if let Some(requested) = requested {
+        return events
+            .iter()
+            .find(|event| {
+                event.kind == barkcli_core::threads::ThreadEventKind::Question
+                    && event.id == requested
+            });
+    }
+    let answered: Vec<&str> = events
+        .iter()
+        .filter(|event| event.kind == barkcli_core::threads::ThreadEventKind::Answer)
+        .filter_map(|event| event.parent_event_id.as_deref())
+        .collect();
+    events
+        .iter()
+        .rev()
+        .filter(|event| event.kind == barkcli_core::threads::ThreadEventKind::Question)
+        .find(|event| !answered.iter().any(|id| id == &event.id))
+}
+
+async fn answer_thread_question_handler(
+    State(state): State<Arc<AppState>>,
+    Path(card_id): Path<String>,
+    Json(req): Json<AnswerThreadQuestionRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let questions_dir = barkcli_core::storage::board_dir::find_board_dir()
+        .map_err(|error| ServerError::internal(error.to_string()))?
+        .join("threads");
+    let events = barkcli_core::threads::read_events_from_dir(&questions_dir, &card_id)
+        .map_err(|error| ServerError::internal(error.to_string()))?;
+
+    let pending = pending_question_event(&events, req.question_event_id.as_deref()).cloned();
+
+    let question = pending.ok_or_else(|| ServerError::bad("no pending question in this thread"))?;
+    let data = question.data.clone().unwrap_or(serde_json::Value::Null);
+    let kind = data
+        .get("kind")
+        .and_then(|value| value.as_str())
+        .unwrap_or("question");
+
+    let mut resume_parts: Vec<String> = Vec::new();
+    let mut event_text = String::new();
+    let mut secrets_set: Vec<String> = Vec::new();
+
+    if kind == "secret" {
+        let requested: Vec<barkcli_core::runtime::question::SecretRequest> =
+            serde_json::from_value(data.get("secrets").cloned().unwrap_or(serde_json::Value::Null))
+                .unwrap_or_default();
+        let mut settings = barkcli_core::settings::load();
+        for item in &req.secrets {
+            if item.value.trim().is_empty() {
+                continue;
+            }
+            settings.set_secret(&item.key, &item.value);
+            secrets_set.push(barkcli_core::settings::normalize_env_key(&item.key));
+        }
+        if secrets_set.is_empty() {
+            return Err(ServerError::bad("a value is required for at least one credential"));
+        }
+        barkcli_core::settings::save(&settings)
+            .map_err(|error| ServerError::internal(error.to_string()))?;
+        let _ = requested;
+        resume_parts.push(barkcli_core::runtime::question::secrets_to_text(
+            &secrets_set,
+        ));
+        event_text = format!("Supplied credentials: {}", secrets_set.join(", "));
+    } else {
+        let prompts: Vec<barkcli_core::runtime::question::QuestionPrompt> =
+            serde_json::from_value(data.get("questions").cloned().unwrap_or(serde_json::Value::Null))
+                .unwrap_or_default();
+        let has_answer = req
+            .answers
+            .iter()
+            .any(|answer| answer.iter().any(|item| !item.trim().is_empty()));
+        if !has_answer {
+            return Err(ServerError::bad("at least one answer is required"));
+        }
+        resume_parts.push(barkcli_core::runtime::question::answers_to_text(
+            &prompts,
+            &req.answers,
+        ));
+        event_text = prompts
+            .iter()
+            .enumerate()
+            .map(|(index, prompt)| {
+                let answer = req
+                    .answers
+                    .get(index)
+                    .map(|values| values.join(", "))
+                    .unwrap_or_default();
+                format!(
+                    "{}: {}",
+                    prompt.header,
+                    if answer.is_empty() { "Unanswered" } else { answer.as_str() }
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(" · ");
+        if event_text.chars().count() > 600 {
+            event_text = event_text.chars().take(597).collect::<String>() + "…";
+        }
+    }
+
+    // Secrets must never be written into the thread log.
+    let mut event = barkcli_core::threads::ThreadEvent::new(
+        &card_id,
+        barkcli_core::threads::ThreadEventKind::Answer,
+        "you",
+        &event_text,
+        Some(serde_json::json!({
+            "question_event_id": question.id,
+            "answers": req.answers,
+            "secrets_set": secrets_set,
+        })),
+    );
+    event.parent_event_id = Some(question.id.clone());
+    let _ = barkcli_core::threads::append_event_to_dir(&questions_dir, &card_id, &event);
+    let _ = state.thread_tx.send(event.clone());
+
+    Ok(Json(serde_json::json!({
+        "ok": true,
+        "event": event,
+        "resume_text": resume_parts.join("\n\n"),
+        "secrets_set": secrets_set,
+    })))
+}
+
+#[derive(Deserialize)]
 struct AnswerRunRequest {
     text: String,
 }
-
 async fn answer_run_handler(
     State(state): State<Arc<AppState>>,
     Path(run_id): Path<String>,
@@ -7863,34 +8045,56 @@ async fn chat_thread_handler(
         match &event {
             barkcli_core::runtime::RuntimeEvent::Assistant { text, partial } => {
                 if *partial {
+                    let mut hold = false;
                     if let Ok(mut buffer) = buffer_for_sink.lock() {
                         buffer.push_str(text);
+                        // Once the reply starts a question block, stop
+                        // streaming: the raw JSON must never reach the
+                        // transcript. The final event replaces this bubble.
+                        hold = barkcli_core::runtime::question::contains_marker(&buffer);
                     }
-                    let mut delta = barkcli_core::threads::ThreadEvent::new(
-                        &card_for_sink,
-                        barkcli_core::threads::ThreadEventKind::AssistantDelta,
-                        &provider_for_sink,
-                        text.clone(),
-                        None,
-                    );
-                    delta.run_id = Some(turn_for_sink.clone());
-                    delta.turn_id = Some(turn_for_sink.clone());
-                    let _ = tx_for_sink.send(delta);
+                    if !hold {
+                        let mut delta = barkcli_core::threads::ThreadEvent::new(
+                            &card_for_sink,
+                            barkcli_core::threads::ThreadEventKind::AssistantDelta,
+                            &provider_for_sink,
+                            text.clone(),
+                            None,
+                        );
+                        delta.run_id = Some(turn_for_sink.clone());
+                        delta.turn_id = Some(turn_for_sink.clone());
+                        let _ = tx_for_sink.send(delta);
+                    }
                 } else {
                     if let Ok(mut buffer) = buffer_for_sink.lock() {
                         buffer.clear();
                     }
                     final_for_sink.store(true, Ordering::SeqCst);
-                    let mut event = barkcli_core::threads::ThreadEvent::new(
-                        &card_for_sink,
-                        barkcli_core::threads::ThreadEventKind::Assistant,
-                        &provider_for_sink,
-                        text.clone(),
-                        Some(serde_json::json!({ "provider": provider_for_sink, "mode": "ask" })),
-                    );
-                    event.run_id = Some(turn_for_sink.clone());
-                    event.turn_id = Some(turn_for_sink.clone());
-                    persist_chat_event(&card_for_sink, &tx_for_sink, &event);
+                    let (visible, request) = barkcli_core::runtime::question::extract(text);
+                    if !visible.trim().is_empty() {
+                        let mut event = barkcli_core::threads::ThreadEvent::new(
+                            &card_for_sink,
+                            barkcli_core::threads::ThreadEventKind::Assistant,
+                            &provider_for_sink,
+                            visible,
+                            Some(serde_json::json!({ "provider": provider_for_sink, "mode": "ask" })),
+                        );
+                        event.run_id = Some(turn_for_sink.clone());
+                        event.turn_id = Some(turn_for_sink.clone());
+                        persist_chat_event(&card_for_sink, &tx_for_sink, &event);
+                    }
+                    if let Some(request) = request {
+                        let mut event = barkcli_core::threads::ThreadEvent::new(
+                            &card_for_sink,
+                            barkcli_core::threads::ThreadEventKind::Question,
+                            &provider_for_sink,
+                            request.summary(),
+                            Some(request.payload()),
+                        );
+                        event.run_id = Some(turn_for_sink.clone());
+                        event.turn_id = Some(turn_for_sink.clone());
+                        persist_chat_event(&card_for_sink, &tx_for_sink, &event);
+                    }
                 }
             }
             barkcli_core::runtime::RuntimeEvent::ToolCall { .. } => {
@@ -8134,9 +8338,18 @@ async fn exec_handler(
     let root = project_root_or_cwd();
     let timeout_secs = req.timeout_secs.unwrap_or(120).clamp(1, 600);
     let started = Instant::now();
-    let child = tokio::process::Command::new("sh")
-        .arg("-lc")
-        .arg(command)
+    let settings = barkcli_core::settings::load();
+    let shell = if settings.terminal.shell.trim().is_empty() {
+        "sh".to_string()
+    } else {
+        settings.terminal.shell.trim().to_string()
+    };
+    let mut child_cmd = tokio::process::Command::new(shell);
+    child_cmd.arg("-lc").arg(command);
+    for (key, value) in settings.env_for_runs() {
+        child_cmd.env(key, value);
+    }
+    let child = child_cmd
         .current_dir(&root)
         .kill_on_drop(true)
         .output();
@@ -8780,6 +8993,49 @@ mod tests {
             .uri(uri)
             .body(axum::body::Body::empty())
             .unwrap()
+    }
+
+    #[test]
+    fn pending_question_event_prefers_the_newest_unanswered_question() {
+        use barkcli_core::threads::{ThreadEvent, ThreadEventKind};
+
+        let asked = ThreadEvent::new("card-1", ThreadEventKind::Question, "opencode", "first?", None);
+        let mut answer = ThreadEvent::new("card-1", ThreadEventKind::Answer, "you", "yes", None);
+        answer.parent_event_id = Some(asked.id.clone());
+        let newer = ThreadEvent::new("card-1", ThreadEventKind::Question, "opencode", "second?", None);
+
+        let events = vec![asked.clone(), answer, newer.clone()];
+        let pending = pending_question_event(&events, None).expect("a pending question");
+        assert_eq!(pending.id, newer.id);
+
+        // An explicit id wins over "newest", so a retry cannot land elsewhere.
+        let explicit = pending_question_event(&events, Some(&asked.id)).expect("explicit question");
+        assert_eq!(explicit.id, asked.id);
+    }
+
+    #[test]
+    fn pending_question_event_is_none_when_everything_is_answered() {
+        use barkcli_core::threads::{ThreadEvent, ThreadEventKind};
+
+        let asked = ThreadEvent::new("card-1", ThreadEventKind::Question, "opencode", "q?", None);
+        let mut answer = ThreadEvent::new("card-1", ThreadEventKind::Answer, "you", "a", None);
+        answer.parent_event_id = Some(asked.id.clone());
+
+        let events = vec![asked, answer];
+        assert!(pending_question_event(&events, None).is_none());
+    }
+
+    #[test]
+    fn pending_question_event_ignores_a_non_question_reply_and_unknown_ids() {
+        use barkcli_core::threads::{ThreadEvent, ThreadEventKind};
+
+        let asked = ThreadEvent::new("card-1", ThreadEventKind::Question, "opencode", "q?", None);
+        let mut stray = ThreadEvent::new("card-1", ThreadEventKind::Answer, "you", "a", None);
+        stray.parent_event_id = Some("evt_missing".into());
+
+        let events = vec![asked.clone(), stray];
+        assert_eq!(pending_question_event(&events, None).map(|e| e.id.clone()), Some(asked.id));
+        assert!(pending_question_event(&events, Some("evt_nope")).is_none());
     }
 
     #[test]

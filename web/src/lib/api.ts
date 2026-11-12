@@ -1,7 +1,6 @@
 import type {
   Board,
-  CardContext,
-  HistoryEntry,
+  CardContext,  HistoryEntry,
   SessionEntry,
   Sprint,
   MemoryEntry,
@@ -60,6 +59,8 @@ import type {
   ContributionKind,
   ContributionNode,
 } from "./types";
+import type { StoredSettings } from "./appSettings";
+import { loadGeneralSettings } from "./appSettings";
 import { load as yamlParse, dump as yamlDump } from "js-yaml";
 import { isDemoMode, getDemoCardHistory, onDemoChange } from "./demo";
 
@@ -803,7 +804,9 @@ export async function openInEditor(
     vscodeApi?.postMessage({ type: "openFile", path, line: line ?? 0 });
     return { opened: true };
   }
-  return postJson("/api/open", { path, line, run_id: runId, editor });
+  // Respect the editor chosen in Settings when the caller has no preference.
+  const preferred = editor || loadGeneralSettings().defaultEditor;
+  return postJson("/api/open", { path, line, run_id: runId, editor: preferred });
 }
 
 export function openFileInEditor(path: string, line?: number) {
@@ -2223,6 +2226,61 @@ export async function approveRun(
 
 export async function answerRun(runId: string, text: string): Promise<any | null> {
   return postJson(`/api/runs/${encodeURIComponent(runId)}/answer`, { text });
+}
+
+// ── Settings (server-persisted, applied at execution time) ──
+
+export async function fetchSettings(): Promise<StoredSettings | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(withToken("/api/settings"));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+async function putJson(url: string, body: any): Promise<any | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(withToken(url), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function saveSettings(settings: StoredSettings): Promise<StoredSettings | null> {
+  return putJson("/api/settings", settings);
+}
+
+export interface AnswerThreadResponse {
+  ok: boolean;
+  event?: any;
+  resume_text?: string;
+  secrets_set?: string[];
+}
+
+/**
+ * Answer the pending question in a thread. Credentials are written to local
+ * settings by the server and never echoed back; the returned `resume_text` is
+ * the continuation prompt for the agent.
+ */
+export async function answerThreadQuestion(
+  threadId: string,
+  payload: {
+    answers?: string[][];
+    secrets?: Array<{ key: string; value: string }>;
+    question_event_id?: string;
+  }
+): Promise<AnswerThreadResponse | null> {
+  return postJson(`/api/threads/${encodeURIComponent(threadId)}/answer`, payload);
 }
 
 // ---------------------------------------------------------------------------

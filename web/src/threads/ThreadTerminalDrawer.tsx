@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Icon } from "../components/Icon";
 import { runProjectCommand } from "../lib/api";
 import { openTerminal, isDesktop } from "../lib/desktop";
+import { loadTerminalSettings } from "../lib/appSettings";
 import type { ProjectSnapshot } from "../lib/types";
 
 interface TerminalEntry {
@@ -23,8 +24,17 @@ export function ThreadTerminalDrawer({ project, onClose }: ThreadTerminalDrawerP
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [isSplit, setIsSplit] = useState(false);
+  // Settings → Terminal → Typography applies to this drawer (and to any other
+  // console surface that reads the same cache), not just the preview swatch.
+  const [terminalPrefs] = useState(loadTerminalSettings);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const caretClass =
+    terminalPrefs.cursorStyle === "bar"
+      ? "inline-block w-px h-3.5 bg-white -ml-0.5 pointer-events-none animate-pulse"
+      : terminalPrefs.cursorStyle === "underline"
+        ? "inline-block w-2 h-px bg-white -ml-0.5 mb-0.5 pointer-events-none animate-pulse"
+        : "inline-block w-2 h-3.5 bg-white -ml-0.5 pointer-events-none animate-pulse";
 
   const hostname =
     (project as any)?.host ||
@@ -142,7 +152,12 @@ export function ThreadTerminalDrawer({ project, onClose }: ThreadTerminalDrawerP
   return (
     <div
       className="thread-terminal-drawer relative flex flex-col border-t border-border/70 bg-[#0c0c0e] font-mono text-[12px] text-text select-text"
-      style={{ height: "190px" }}
+      style={{
+        height: "190px",
+        fontFamily: `"${terminalPrefs.fontFamily}", ui-monospace, monospace`,
+        fontSize: `${terminalPrefs.fontSize}px`,
+        lineHeight: terminalPrefs.lineHeight,
+      }}
       onClick={() => inputRef.current?.focus()}
     >
       {/* Top right toolbar matching Screenshot 2 */}
@@ -218,15 +233,15 @@ export function ThreadTerminalDrawer({ project, onClose }: ThreadTerminalDrawerP
         <div className="space-y-1.5 min-w-0">
           {entries.map((item) => (
             <div key={item.id} className="space-y-0.5">
-              <div className="flex items-center gap-1.5 text-[11.5px] leading-snug">
+              <div className="flex items-center gap-1.5 leading-snug">
                 <span className="shrink-0 text-muted-strong font-medium">{promptLabel}</span>
                 <span className="text-text font-semibold">{item.command}</span>
               </div>
               {item.running ? (
-                <div className="text-[11px] text-muted animate-pulse">Running…</div>
+                <div className="text-muted animate-pulse opacity-80">Running…</div>
               ) : item.output ? (
                 <pre
-                  className={`whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed pl-1 ${
+                  className={`whitespace-pre-wrap break-words font-mono leading-relaxed pl-1 ${
                     item.exitCode !== 0 ? "text-rose-400" : "text-zinc-300"
                   }`}
                 >
@@ -237,7 +252,7 @@ export function ThreadTerminalDrawer({ project, onClose }: ThreadTerminalDrawerP
           ))}
 
           {/* Interactive prompt row matching Screenshot 2 */}
-          <form onSubmit={handleSubmit} className="flex items-center gap-1.5 text-[11.5px] leading-snug">
+          <form onSubmit={handleSubmit} className="flex items-center gap-1.5 leading-snug">
             <span className="shrink-0 text-text/90 font-medium">{promptLabel}</span>
             <div className="relative flex-1 flex items-center min-w-0">
               <input
@@ -251,19 +266,35 @@ export function ThreadTerminalDrawer({ project, onClose }: ThreadTerminalDrawerP
                 autoComplete="off"
                 autoCorrect="off"
                 autoCapitalize="off"
-                className="w-full border-0 bg-transparent p-0 font-mono text-[11.5px] text-text caret-white outline-none ring-0 focus:border-0 focus:outline-none focus:ring-0"
+                className="w-full border-0 bg-transparent p-0 font-mono text-text caret-white outline-none ring-0 focus:border-0 focus:outline-none focus:ring-0"
               />
               {!command && (
-                <span className="inline-block w-2 h-3.5 bg-white -ml-0.5 pointer-events-none animate-pulse" />
+                <span className={caretClass} />
               )}
             </div>
           </form>
         </div>
 
         {isSplit && (
-          <div className="border-l border-border/40 pl-3 space-y-1.5 text-[11px] text-muted">
-            <div className="text-muted-strong font-medium">Split pane (read-only monitor)</div>
-            <p className="text-[10.5px]">Commands executed in primary pane output here simultaneously.</p>
+          <div className="border-l border-border/40 pl-3 space-y-1.5 min-w-0 text-muted">
+            <div className="text-muted-strong font-medium">Mirror (read-only)</div>
+            {entries.length === 0 ? (
+              <p className="opacity-70">Run a command to mirror its output here.</p>
+            ) : (
+              entries.map((item) => (
+                <div key={`mirror-${item.id}`} className="space-y-0.5">
+                  <div className="flex items-center gap-1.5 leading-snug">
+                    <span className="shrink-0 text-muted-strong font-medium">{promptLabel}</span>
+                    <span className="text-text/80 font-semibold">{item.command}</span>
+                  </div>
+                  {item.output ? (
+                    <pre className="whitespace-pre-wrap break-words font-mono leading-relaxed pl-1 opacity-80">
+                      {item.output}
+                    </pre>
+                  ) : null}
+                </div>
+              ))
+            )}
           </div>
         )}
       </div>

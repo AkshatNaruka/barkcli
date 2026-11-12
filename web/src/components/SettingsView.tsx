@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { Board as BoardType, ProviderStatus } from "../lib/types";
 import {
   apiAccess,
@@ -6,10 +6,14 @@ import {
   fetchHooks,
   fetchProject,
   fetchProviders,
+  fetchProviderModels,
+  fetchSettings,
+  ping,
+  saveSettings,
   validateBoards,
   type BoardConfig,
 } from "../lib/api";
-import { isDesktop, openLogs, openProviderLogin, openTerminal } from "../lib/desktop";
+import { isDesktop, openExternalUrl, openLogs, openProviderLogin, openTerminal } from "../lib/desktop";
 import { THEMES, ACCENT_IDS, accentLabel, accentColor, useTheme } from "../lib/theme";
 import { SURFACES } from "../lib/surfaces";
 import { navigate } from "../lib/hashnav";
@@ -36,6 +40,7 @@ import {
   type UpdatePreferences,
 } from "../lib/updater";
 import {
+  cacheSettings,
   loadGeneralSettings,
   saveGeneralSettings,
   loadApiKeySettings,
@@ -163,6 +168,9 @@ export function SettingsView({
   const [diagnosticsBusy, setDiagnosticsBusy] = useState(false);
   const [authBusy, setAuthBusy] = useState<string | null>(null);
   const [authNote, setAuthNote] = useState<string | null>(null);
+  const [settingsReady, setSettingsReady] = useState(false);
+  const persistedSignature = useRef<string | null>(null);
+  const [serverVersion, setServerVersion] = useState(CURRENT_VERSION);
 
   // General Settings State
   const [general, setGeneral] = useState<GeneralSettings>(loadGeneralSettings);
@@ -185,12 +193,11 @@ export function SettingsView({
     "idle" | "checking" | "up-to-date" | "available" | "downloading" | "ready" | "error"
   >("idle");
   const [latestRelease, setLatestRelease] = useState<ReleaseInfo | null>(null);
-  const [downloadProgress, setDownloadProgress] = useState(0);
-  const [downloadSpeed, setDownloadSpeed] = useState("");
   const [copiedCliInstall, setCopiedCliInstall] = useState(false);
 
   // API Keys State
   const [apiKeys, setApiKeys] = useState<ApiKeySettings>(loadApiKeySettings);
+  const [defaultModels, setDefaultModels] = useState<string[]>([]);
   const [showKey, setShowKey] = useState<Record<string, boolean>>({});
   const [ollamaTesting, setOllamaTesting] = useState(false);
   const [ollamaStatus, setOllamaStatus] = useState<string | null>(null);
@@ -211,7 +218,75 @@ export function SettingsView({
   useEffect(() => {
     fetchConfig().then((c) => setAi(c?.ai ?? null)).catch(() => setAi(null));
     void loadProviders();
+    void ping()
+      .then((payload) => {
+        if (payload?.version) setServerVersion(payload.version);
+      })
+      .catch(() => {});
+    void fetchSettings()
+      .then((stored) => {
+        if (!stored) return;
+        // Server copy is authoritative; the local cache keeps synchronous
+        // readers (editor open, composer defaults) working.
+        setGeneral(stored.general);
+        setApiKeys(stored.apiKeys);
+        setTerminal(stored.terminal);
+        if (Array.isArray(stored.mcpServers) && stored.mcpServers.length > 0) {
+          setMcpServers(stored.mcpServers as McpServerConfig[]);
+          saveMcpServers(stored.mcpServers as McpServerConfig[]);
+        }
+        cacheSettings(stored);
+        // Record what the server already holds so the save effect below skips
+        // the mount-time no-op.
+        persistedSignature.current = JSON.stringify({
+          general: stored.general,
+          apiKeys: stored.apiKeys,
+          terminal: stored.terminal,
+          mcpServers: stored.mcpServers,
+        });
+      })
+      .catch(() => {})
+      .finally(() => setSettingsReady(true));
   }, []);
+
+  // Persist to the server once the initial load has landed. The server applies
+  // these values to agent processes, so a failed save must be visible — but a
+  // no-op mount must not rewrite the file or warn when nothing changed.
+  useEffect(() => {
+    if (!settingsReady) return;
+    const payload = { general, apiKeys, terminal, mcpServers } as any;
+    const signature = JSON.stringify(payload);
+    if (persistedSignature.current === signature) return;
+    const timer = window.setTimeout(() => {
+      void saveSettings(payload).then((saved) => {
+        if (saved) {
+          persistedSignature.current = JSON.stringify(saved);
+          cacheSettings(saved as any);
+        } else {
+          notify("Could not save settings — is the local server running?");
+        }
+      });
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [settingsReady, general, apiKeys, terminal, mcpServers]);
+
+  useEffect(() => {
+    if (!apiKeys.defaultBackend) {
+      setDefaultModels([]);
+      return;
+    }
+    let cancelled = false;
+    void fetchProviderModels(apiKeys.defaultBackend)
+      .then((models) => {
+        if (!cancelled) setDefaultModels(models);
+      })
+      .catch(() => {
+        if (!cancelled) setDefaultModels([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [apiKeys.defaultBackend]);
 
   const loadProviders = async () => {
     setProvidersBusy(true);
@@ -425,7 +500,7 @@ export function SettingsView({
         setUpdateStatus("error");
         return;
       }
-      const cmp = compareSemver(CURRENT_VERSION, release.version);
+      const cmp = compareSemver(serverVersion, release.version);
       if (cmp > 0 || channel === "beta" || channel === "nightly") {
         setUpdateStatus("available");
       } else {
@@ -439,28 +514,24 @@ export function SettingsView({
     }
   };
 
-  const startAutoDownload = () => {
-    setUpdateStatus("downloading");
-    setDownloadProgress(0);
-    setDownloadSpeed("2.4 MB/s");
-
-    let current = 0;
-    const timer = setInterval(() => {
-      current += Math.floor(Math.random() * 15) + 8;
-      if (current >= 100) {
-        clearInterval(timer);
-        setDownloadProgress(100);
-        setDownloadSpeed("Complete");
-        setTimeout(() => {
-          setUpdateStatus("ready");
-          notify("Update downloaded and verified");
-        }, 600);
-      } else {
-        setDownloadProgress(current);
-        const speeds = ["3.8 MB/s", "4.2 MB/s", "5.1 MB/s", "4.6 MB/s"];
-        setDownloadSpeed(speeds[Math.floor(Math.random() * speeds.length)]);
-      }
-    }, 120);
+  /**
+   * Start a real download instead of pretending to.
+   *
+   * Bark cannot install a macOS app in place without the signed updater, so the
+   * button opens the release asset (or the release page) and the pane explains
+   * what happens next. No progress bar, no fake "ready to apply".
+   */
+  const downloadUpdate = async () => {
+    if (!latestRelease) return;
+    const asset =
+      latestRelease.assets.find((item) => item.platform === "macos") || latestRelease.assets[0];
+    const url = asset?.downloadUrl || latestRelease.htmlUrl;
+    const opened = await openExternalUrl(url);
+    notify(
+      opened
+        ? `Opening ${asset?.name || latestRelease.tag} download`
+        : "Could not open the download link"
+    );
   };
 
   const copyCliInstall = async () => {
@@ -656,7 +727,7 @@ export function SettingsView({
         <div className="h-10 px-3.5 border-t border-border flex items-center justify-between text-[11px] text-muted shrink-0 bg-surface/30">
           <span className="flex items-center gap-1.5 font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            v{CURRENT_VERSION}
+            v{serverVersion}
           </span>
           <span className="font-mono text-[10px] text-muted/60">
             {CURRENT_BUILD_HASH ? CURRENT_BUILD_HASH.slice(0, 7) : "master"}
@@ -747,7 +818,7 @@ export function SettingsView({
                   <div>
                     <strong className="text-xs font-medium text-text block">Agent Task Alerts</strong>
                     <span className="text-[11px] text-muted block">
-                      Send a system notification when an agent completes a task, pauses for approval, or needs user input.
+                      Send a system notification when an agent finishes, fails, or asks a question while Bark is in the background.
                     </span>
                   </div>
                 </label>
@@ -760,9 +831,9 @@ export function SettingsView({
                     className="rounded border-border accent-accent"
                   />
                   <div>
-                    <strong className="text-xs font-medium text-text block">Auto-save Intents & Cards</strong>
+                    <strong className="text-xs font-medium text-text block">Keep unsent prompts</strong>
                     <span className="text-[11px] text-muted block">
-                      Persist intent drafts and card edits automatically without requiring manual save clicks.
+                      Restore a half-written prompt when you switch threads or restart Bark. Turn this off to start every composer empty.
                     </span>
                   </div>
                 </label>
@@ -1313,26 +1384,45 @@ export function SettingsView({
             </Section>
 
             <Section
-              title="Default Reasoning Model"
-              description="Primary model chosen when starting new task sessions or generating plans."
+              title="Default agent & model"
+              description="Pre-selected for new conversations. Every thread can still switch agent from its composer."
             >
               <div className="settings-fields">
+                <label>
+                  <span>Agent</span>
+                  <select
+                    value={apiKeys.defaultBackend}
+                    onChange={(e) => updateApiKey("defaultBackend", e.target.value)}
+                    className="bark-select"
+                  >
+                    <option value="">Ask me in each new thread</option>
+                    {providers.map((provider) => (
+                      <option key={provider.id} value={provider.id} disabled={!provider.available}>
+                        {provider.name}
+                        {provider.available ? "" : " (not installed)"}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <label>
                   <span>Model</span>
                   <select
                     value={apiKeys.defaultModel}
                     onChange={(e) => updateApiKey("defaultModel", e.target.value)}
                     className="bark-select"
+                    disabled={!apiKeys.defaultBackend}
                   >
-                    <option value="claude-3-7-sonnet">Claude 3.7 Sonnet (Recommended)</option>
-                    <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
-                    <option value="gpt-4o">OpenAI GPT-4o</option>
-                    <option value="gemini-2.0-flash">Google Gemini 2.0 Flash</option>
-                    <option value="deepseek-r1">DeepSeek R1</option>
-                    <option value="local:ollama">Local Model via Ollama</option>
+                    <option value="">Agent default</option>
+                    {defaultModels.map((model) => (
+                      <option key={model} value={model}>{model}</option>
+                    ))}
                   </select>
                 </label>
               </div>
+              <p className="settings-note">
+                Models come from the selected agent, not a hardcoded list. Credentials for cloud
+                providers are injected into the agent's environment from this page.
+              </p>
             </Section>
           </>
         )}
@@ -1482,7 +1572,7 @@ export function SettingsView({
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2">
-                      <strong className="text-sm font-semibold text-text">Bark v{CURRENT_VERSION}</strong>
+                      <strong className="text-sm font-semibold text-text">Bark v{serverVersion}</strong>
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/[0.06] text-muted">
                         git: {CURRENT_BUILD_HASH}
                       </span>
@@ -1501,16 +1591,6 @@ export function SettingsView({
                     {updateStatus === "available" && (
                       <span className="flex items-center gap-1.5 text-xs text-amber-400 font-medium bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
                         <Icon name="download" size={13} /> Update available
-                      </span>
-                    )}
-                    {updateStatus === "downloading" && (
-                      <span className="flex items-center gap-1.5 text-xs text-accent font-medium bg-accent/10 px-2.5 py-1 rounded-full border border-accent/20">
-                        <Icon name="refresh" size={13} className="animate-spin" /> Downloading…
-                      </span>
-                    )}
-                    {updateStatus === "ready" && (
-                      <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
-                        <Icon name="check" size={13} /> Ready to apply
                       </span>
                     )}
                   </div>
@@ -1537,7 +1617,7 @@ export function SettingsView({
             </Section>
 
             {/* Active Update / Download Card */}
-            {(updateStatus === "available" || updateStatus === "downloading" || updateStatus === "ready") && latestRelease && (
+            {updateStatus === "available" && latestRelease && (
               <Section
                 title={`New Version Available: ${latestRelease.tag}`}
                 description={`Published ${new Date(latestRelease.publishedAt).toLocaleDateString()}`}
@@ -1550,72 +1630,30 @@ export function SettingsView({
                     </p>
                   </div>
 
-                  {/* Download Progress Bar */}
-                  {updateStatus === "downloading" && (
-                    <div className="space-y-2 pt-2 border-t border-border/60">
-                      <div className="flex items-center justify-between text-xs font-mono">
-                        <span className="text-text">Downloading release asset…</span>
-                        <span className="text-muted">{downloadProgress}% ({downloadSpeed})</span>
-                      </div>
-                      <div className="w-full h-2 rounded-full bg-white/[0.08] overflow-hidden">
-                        <div
-                          className="h-full bg-accent transition-all duration-150 rounded-full"
-                          style={{ width: `${downloadProgress}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Ready to Restart */}
-                  {updateStatus === "ready" && (
-                    <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 space-y-2">
-                      <div className="flex items-center gap-2 font-medium">
-                        <Icon name="check" size={15} />
-                        <span>Update package downloaded and verified against checksums.</span>
-                      </div>
-                      <p className="text-[11px] text-text/80">
-                        Relaunch Bark to complete the installation and activate v{latestRelease.version}.
-                      </p>
-                    </div>
-                  )}
-
                   {/* Action Buttons */}
-                  <div className="flex items-center gap-2.5 pt-1">
-                    {updateStatus === "available" && (
-                      <button
-                        type="button"
-                        onClick={startAutoDownload}
-                        className="bark-primary text-xs flex items-center gap-1.5"
-                      >
-                        <Icon name="download" size={13} />
-                        Download & Install Automatically
-                      </button>
-                    )}
-
-                    {updateStatus === "ready" && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          notify("Relaunching Bark…");
-                          if (typeof window !== "undefined") window.location.reload();
-                        }}
-                        className="bark-primary text-xs flex items-center gap-1.5"
-                      >
-                        <Icon name="refresh" size={13} />
-                        Restart Bark Now
-                      </button>
-                    )}
-
-                    <a
-                      href={latestRelease.htmlUrl}
-                      target="_blank"
-                      rel="noreferrer"
+                  <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => void downloadUpdate()}
+                      className="bark-primary text-xs flex items-center gap-1.5"
+                    >
+                      <Icon name="download" size={13} />
+                      Download update
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void openExternalUrl(latestRelease.htmlUrl)}
                       className="bark-button text-xs flex items-center gap-1"
                     >
                       <Icon name="globe" size={12} />
                       View on GitHub
-                    </a>
+                    </button>
                   </div>
+                  <p className="text-[11px] leading-relaxed text-muted">
+                    The signed installer opens in your browser. Replace the app in
+                    Applications, then relaunch Bark. Your projects, threads, and settings stay
+                    exactly where they are.
+                  </p>
 
                   {/* Direct Assets */}
                   {latestRelease.assets.length > 0 && (

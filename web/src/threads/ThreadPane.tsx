@@ -33,6 +33,7 @@ import {
   gitCommit,
   mergeRun,
   openInEditor,
+  answerThreadQuestion,
 } from "../lib/api";
 import { notify as desktopNotify, revealProject } from "../lib/desktop";
 import { activeChatTurn, useComposerMode } from "../lib/composer";
@@ -50,12 +51,15 @@ import { ExecutionTimeline } from "../components/ExecutionTimeline";
 import { RunReviewCard } from "./RunReviewCard";
 import { useAgentSelection } from "../lib/useAgentSelection";
 import { useDraft } from "../lib/drafts";
+import { loadGeneralSettings } from "../lib/appSettings";
 import { runLabel, checkState, checksPassed, isActiveRun } from "../lib/run-state";
 import type { ThreadActionTarget } from "../shell/ThreadActionsMenu";
 import { ThreadContextPopover } from "./ThreadContextPopover";
 import { ThreadTerminalDrawer } from "./ThreadTerminalDrawer";
 import { openInbuiltBrowser } from "../lib/inbuiltBrowser";
 import { ThreadGutterTimeline } from "./ThreadGutterTimeline";
+import { QuestionDock } from "./QuestionDock";
+import { pendingQuestion } from "../lib/threadQuestions";
 
 interface ThreadPaneProps {
   scope?: string;
@@ -73,7 +77,7 @@ interface ThreadPaneProps {
   onThreadMenu?: (target: ThreadActionTarget, x: number, y: number) => void;
 }
 
-const MESSAGE_KINDS = new Set(["user", "assistant", "assistant_delta", "plan_proposed", "plan_approved", "question", "approval_requested", "merge"]);
+const MESSAGE_KINDS = new Set(["user", "answer", "assistant", "assistant_delta", "plan_proposed", "plan_approved", "question", "approval_requested", "merge"]);
 function isMessage(event: ThreadEvent): boolean {
   return MESSAGE_KINDS.has(event.kind) || (event.kind === "run_failed" && (!event.run_id || event.run_id.startsWith("chat_")));
 }
@@ -354,6 +358,9 @@ export function ThreadPane({
   const [gitMenuOpen, setGitMenuOpen] = useState(false);
   const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>([]);
   const [approvalBusyId, setApprovalBusyId] = useState<string | null>(null);
+  const [dismissedQuestionId, setDismissedQuestionId] = useState<string | null>(null);
+  const [answeringQuestion, setAnsweringQuestion] = useState(false);
+  const [answerError, setAnswerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [actionStatus, setActionStatus] = useState<string | null>(null);
   const [startingRun, setStartingRun] = useState(false);
@@ -363,6 +370,16 @@ export function ThreadPane({
   const [localTerminalDrawerOpen, setLocalTerminalDrawerOpen] = useState(false);
   const isTerminalOpen = terminalDrawerOpen ?? localTerminalDrawerOpen;
   const toggleTerminalDrawer = onToggleTerminalDrawer ?? (() => setLocalTerminalDrawerOpen((prev) => !prev));
+  const pendingAgentQuestion = useMemo(
+    () => (thread ? pendingQuestion(thread.events) : null),
+    [thread]
+  );
+
+  useEffect(() => {
+    if (!pendingAgentQuestion) return;
+    setDismissedQuestionId(null);
+    setAnswerError(null);
+  }, [pendingAgentQuestion?.eventId]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -557,15 +574,19 @@ export function ThreadPane({
           if (
             (parsed.kind === "run_completed" ||
               parsed.kind === "run_failed" ||
-              parsed.kind === "chat_done") &&
+              parsed.kind === "chat_done" ||
+              parsed.kind === "question") &&
             typeof document !== "undefined" &&
-            document.hidden
+            document.hidden &&
+            loadGeneralSettings().notifications
           ) {
             void desktopNotify(
               "Bark",
               parsed.kind === "run_failed"
                 ? parsed.text || "An agent run failed."
-                : "An agent finished and is ready for review."
+                : parsed.kind === "question"
+                  ? parsed.text || "An agent needs your input."
+                  : "An agent finished and is ready for review."
             );
           }
           if (
@@ -605,6 +626,72 @@ export function ThreadPane({
       setActionStatus(
         "Available slash commands: /build, /plan, /ask, /claude, /opencode, /codex, /agent, /tdd, /mvp, /review, /security, /refactor, /skills, /gate, /diff, /context, /doctor, /clear, /help"
       );
+    }
+  };
+
+  /**
+   * Answer the dock's question, then resume the agent.
+   *
+   * The answer is persisted server-side first (append-only), so closing the app
+   * loses nothing. The continuation turn is hidden from the transcript because
+   * the `answer` event above already shows what the user said.
+   */
+  const handleAnswerQuestion = async (payload: {
+    answers?: string[][];
+    secrets?: Array<{ key: string; value: string }>;
+  }) => {
+    if (!threadId || !pendingAgentQuestion) return;
+    setAnsweringQuestion(true);
+    setAnswerError(null);
+    try {
+      const result = await answerThreadQuestion(threadId, {
+        ...payload,
+        question_event_id: pendingAgentQuestion.eventId,
+      });
+      if (!result?.ok) {
+        setAnswerError("Could not send that answer. Check the local server and try again.");
+        return;
+      }
+      setDismissedQuestionId(pendingAgentQuestion.eventId);
+      const refreshed = await fetchThread(threadId, boardName);
+      if (refreshed) setThread(refreshed);
+      refreshInboxRef.current?.();
+      const resume = (result.resume_text || "").trim();
+      if (!resume) return;
+      const provider = backend === "claude" ? "claude-code" : backend;
+      setChatBusy(true);
+      // The question is emitted just before the previous turn writes
+      // `chat_done`, so the thread can still look busy for a moment. Retry
+      // briefly instead of leaving the user with a dangling answer.
+      let started = await startThreadChat(threadId, {
+        text: resume,
+        provider,
+        model: model.trim() || undefined,
+        board: boardName,
+        skip_user_event: true,
+      });
+      for (let attempt = 0; !started && attempt < 3; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 700));
+        started = await startThreadChat(threadId, {
+          text: resume,
+          provider,
+          model: model.trim() || undefined,
+          board: boardName,
+          skip_user_event: true,
+        });
+      }
+      if (!started) {
+        setChatBusy(false);
+        setActionStatus("Answer saved. Send a follow-up message to continue.");
+        return;
+      }
+      stickToBottom.current = true;
+      const after = await fetchThread(threadId, boardName);
+      if (after) setThread(after);
+    } catch (error) {
+      setAnswerError(error instanceof Error ? error.message : "Could not send that answer.");
+    } finally {
+      setAnsweringQuestion(false);
     }
   };
 
@@ -1253,7 +1340,7 @@ export function ThreadPane({
               {(() => {
                 const latestFailedEvent = [...displayEvents].reverse().find((e) => e.kind === "run_failed");
                 return displayEvents.filter((e) => !isLowImportanceThreadEvent(e)).map((event, eventIdx, visibleEvents) => {
-                if (event.kind === "user") {
+                if (event.kind === "user" || event.kind === "answer") {
                   return (
                     <UserMessageCard
                       key={`${event.id}:${event.seq}`}
@@ -1973,6 +2060,15 @@ export function ThreadPane({
             setQueuedMessages((prev) => prev.filter((m) => m.id !== id));
           }}
         />
+        {pendingAgentQuestion && pendingAgentQuestion.eventId !== dismissedQuestionId && (
+          <QuestionDock
+            question={pendingAgentQuestion}
+            busy={answeringQuestion}
+            error={answerError}
+            onSubmit={handleAnswerQuestion}
+            onDismiss={() => setDismissedQuestionId(pendingAgentQuestion.eventId)}
+          />
+        )}
         <ThreadComposer
           value={input}
           onChange={setInput}

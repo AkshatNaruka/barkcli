@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { loadGeneralSettings } from "./appSettings";
 
 type PreferenceWindow = Window & {
   __BARK_THREAD_PREFERENCES__?: Record<string, string | null>;
@@ -36,7 +37,10 @@ export function writeLocal(key: string, value: string | null) {
 }
 export function useDraft(scope: string, thread: string, initialText = "") {
   const key = `bark:draft:v1:${scope}:${thread}`;
-  const [text, setText] = useState(() => initialText || readLocal(key) || "");
-  useEffect(() => { writeLocal(key, text || null); }, [key, text]);
+  // Settings → General → "Keep unsent prompts" controls persistence: when it
+  // is off, switching threads or restarting starts from an empty composer.
+  const keepDrafts = () => loadGeneralSettings().autoSave;
+  const [text, setText] = useState(() => initialText || (keepDrafts() ? readLocal(key) : null) || "");
+  useEffect(() => { writeLocal(key, keepDrafts() && text ? text : null); }, [key, text]);
   return [text, setText] as const;
 }

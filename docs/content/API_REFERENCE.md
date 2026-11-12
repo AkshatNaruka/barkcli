@@ -668,6 +668,9 @@ resolved). Unknown items sort last.
 | `POST` | `/api/context/clear?name=` | Clear context |
 | `GET` | `/api/code?name=&q=&top=` | Symbol search |
 | `GET` | `/api/config` | AI settings from config.json |
+| `GET` | `/api/settings` | Stored user settings (`~/.bark/settings.json`): keys, env vars, shell, defaults |
+| `PUT` | `/api/settings` | Persist settings; applied to agent processes and shells |
+| `POST` | `/api/threads/{id}/answer` | Answer a pending thread question or supply requested credentials |
 | `GET` | `/api/ping` | Liveness probe: `status`, `timestamp`, `version`, `uptime_seconds` (public) |
 | `WS` | `/ws` | WebSocket for live reload |
 

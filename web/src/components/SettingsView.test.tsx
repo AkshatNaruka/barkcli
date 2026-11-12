@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SettingsView } from "./SettingsView";
 import type { Board, ProviderStatus } from "../lib/types";
@@ -10,11 +10,16 @@ vi.mock("../lib/api", () => ({
   fetchHooks: vi.fn(async () => ({ installed: true })),
   fetchProject: vi.fn(async () => ({ root: "/tmp/project", is_git: true, setup: { complete: true } })),
   fetchProviders: vi.fn(async () => []),
+  fetchProviderModels: vi.fn(async () => []),
+  fetchSettings: vi.fn(async () => null),
+  ping: vi.fn(async () => ({ status: "ok", timestamp: "", version: "0.0.0-test", uptime_seconds: 0 })),
+  saveSettings: vi.fn(async () => null),
   validateBoards: vi.fn(async () => ({ all_valid: true })),
 }));
 
 vi.mock("../lib/desktop", () => ({
   isDesktop: () => false,
+  openExternalUrl: vi.fn(async () => true),
   openLogs: vi.fn(async () => true),
   openProviderLogin: vi.fn(async () => true),
   openTerminal: vi.fn(async () => true),
@@ -148,6 +153,61 @@ describe("SettingsView", () => {
     await user.click(screen.getByRole("button", { name: /^Terminal/ }));
     expect(await screen.findByRole("heading", { name: "Shell Environment" })).toBeInTheDocument();
     expect(screen.getByText("Terminal Preview")).toBeInTheDocument();
+  });
+
+  it("loads the server copy of settings over the local cache", async () => {
+    const { fetchSettings } = await import("../lib/api");
+    localStorage.setItem(
+      "barkcli-settings-general-v1",
+      JSON.stringify({ defaultEditor: "terminal", notifications: true })
+    );
+    vi.mocked(fetchSettings).mockResolvedValue({
+      general: { defaultEditor: "cursor", notifications: false, autoSave: true, telemetry: false },
+      apiKeys: {
+        anthropicKey: "",
+        openaiKey: "",
+        geminiKey: "",
+        openrouterKey: "",
+        ollamaEndpoint: "http://127.0.0.1:11434",
+        defaultBackend: "",
+        defaultModel: "",
+      },
+      terminal: {
+        shell: "/bin/zsh",
+        fontFamily: "JetBrains Mono",
+        fontSize: 13,
+        lineHeight: 1.5,
+        cursorStyle: "block",
+        envVars: [],
+      },
+      mcpServers: [],
+    });
+
+    const user = userEvent.setup();
+    render(<SettingsView board={board} onSaveBoard={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: /^General/ }));
+
+    const editor = (await screen.findByRole("combobox", {
+      name: /Default Code Editor|Editor/i,
+    })) as HTMLSelectElement;
+    await waitFor(() => expect(editor.value).toBe("cursor"));
+  });
+
+  it("persists a change to the server instead of only localStorage", async () => {
+    const { saveSettings } = await import("../lib/api");
+    const user = userEvent.setup();
+    render(<SettingsView board={board} onSaveBoard={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: /^General/ }));
+    const editor = (await screen.findByRole("combobox", {
+      name: /Default Code Editor|Editor/i,
+    })) as HTMLSelectElement;
+    await user.selectOptions(editor, "sublime");
+
+    await waitFor(() => expect(saveSettings).toHaveBeenCalled(), { timeout: 2000 });
+    const calls = vi.mocked(saveSettings).mock.calls;
+    const sent = calls[calls.length - 1][0];
+    expect(sent.general.defaultEditor).toBe("sublime");
   });
 });
 

@@ -19,6 +19,7 @@ pub mod repo;
 pub mod review;
 pub mod review_risk;
 pub mod runtime;
+pub mod settings;
 pub mod skills;
 pub mod storage;
 pub mod threads;

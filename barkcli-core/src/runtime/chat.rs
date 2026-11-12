@@ -94,7 +94,14 @@ fn prepare_chat_at(
             files.push(mention);
         }
     }
-    let prompt = compile_prompt(root, request, &files)?;
+    let mut prompt = compile_prompt(root, request, &files)?;
+    // The thread dock can only answer questions the agent actually asks, so the
+    // contract travels with every chat prompt.
+    if !prompt.contains("Asking the user (Bark thread dock)") {
+        prompt.push_str("\n\n");
+        prompt.push_str(super::question::contract());
+        prompt.push('\n');
+    }
     let turn_id = format!("chat_{}", uuid::Uuid::new_v4().simple());
     let start = StartRun {
         run_id: turn_id.clone(),
