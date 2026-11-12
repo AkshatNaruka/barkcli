@@ -947,6 +947,19 @@ export interface TaskDiff {
   files: string[];
 }
 
+/** Uncommitted project changes (working tree vs HEAD). */
+export interface WorkingTreeDiff {
+  branch: string;
+  head: string;
+  clean: boolean;
+  diff: string;
+  files: string[];
+  additions: number;
+  deletions: number;
+  truncated: boolean;
+  changes: Array<{ status: string; path: string }>;
+}
+
 export interface ReviewComment {
   id: string;
   path: string;

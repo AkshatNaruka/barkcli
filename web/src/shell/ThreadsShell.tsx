@@ -8,6 +8,7 @@ import { UniversalComposer } from "./UniversalComposer";
 import { PaneResizeHandle } from "../components/PaneResizeHandle";
 import { ThreadActionsMenu, type ThreadActionTarget } from "./ThreadActionsMenu";
 import { SurfacesPanel } from "./SurfacesPanel";
+import { WorkingTreeDiffView } from "./WorkingTreeDiffView";
 import { ThreadList } from "./ThreadList";
 import { PANEL_TO_TAB, TAB_TO_PANEL, type WorkbenchTab } from "../lib/workbench";
 
@@ -48,8 +49,9 @@ export function ThreadsShell({ boardName, projectRoot = "current-project", proje
   }, []);
 
   const container = useRef<HTMLDivElement>(null);
-  const showWorkbench = Boolean(location.panel && selectedId);
-  const focused = showWorkbench && available < width + 600;
+  const workingTreeOpen = location.panel === "working";
+  const showWorkbench = Boolean(location.panel && selectedId && !workingTreeOpen);
+  const focused = (showWorkbench || workingTreeOpen) && available < width + 600;
   const activeTab: WorkbenchTab | undefined = location.panel ? PANEL_TO_TAB[location.panel] : undefined;
   useEffect(() => { setActiveThread(null); }, [selectedId]);
   useEffect(() => {
@@ -77,6 +79,19 @@ export function ThreadsShell({ boardName, projectRoot = "current-project", proje
     };
     window.addEventListener("bark-open-browser", handleOpenBrowser);
     return () => window.removeEventListener("bark-open-browser", handleOpenBrowser);
+  }, [surfacesOpen, onToggleSurfaces]);
+
+  // Top-right "Show changes" opens the project working-tree diff in the
+  // surfaces panel. It is project-scoped, so it works with or without a thread.
+  useEffect(() => {
+    const handleOpenWorkingChanges = () => {
+      if (!surfacesOpen) {
+        onToggleSurfaces();
+      }
+      updateRouteState({ panel: "working" });
+    };
+    window.addEventListener("bark-show-working-changes", handleOpenWorkingChanges);
+    return () => window.removeEventListener("bark-show-working-changes", handleOpenWorkingChanges);
   }, [surfacesOpen, onToggleSurfaces]);
 
   useEffect(() => {
@@ -154,9 +169,16 @@ export function ThreadsShell({ boardName, projectRoot = "current-project", proje
           key={`${scope}:${seed?.nonce || "new"}`} isOpen inline scope={scope} boardName={boardName || undefined}
           initialText={seed?.text} initialMode={seed?.mode} onClose={() => {}} onCreated={created} />}
     </div>
-    {surfacesOpen && selectedId && <div className={`surfaces-frame ${focused ? "is-focused" : ""}`} style={focused ? undefined : { width }}>
+    {surfacesOpen && (selectedId || workingTreeOpen) && <div className={`surfaces-frame ${focused ? "is-focused" : ""}`} style={focused ? undefined : { width }}>
       {!focused && <PaneResizeHandle label="Inspector width" width={width} min={320} max={620} reverse onChange={(next) => { setWidth(next); writeLocal("bark:inspector-width", String(next)); }} />}
-      {showWorkbench ? (
+      {workingTreeOpen ? (
+        <WorkingTreeDiffView
+          onClose={() => {
+            updateRouteState({ panel: undefined });
+            if (surfacesOpen) onToggleSurfaces();
+          }}
+        />
+      ) : showWorkbench ? (
         <InspectorPane
           card={activeThread?.card}
           events={activeThread?.events || []}

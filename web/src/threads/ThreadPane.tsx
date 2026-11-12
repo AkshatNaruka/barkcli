@@ -839,6 +839,14 @@ export function ThreadPane({
   );
   const activeRun =
     [...runs].reverse().find(isActiveRun) || null;
+  const openChanges = () => {
+    if (onReview) {
+      onReview();
+      return;
+    }
+    if (!inspectorOpen) onOpenInspector?.();
+    updateRouteState({ panel: "changes" });
+  };
 
   useEffect(() => {
     if (chatBusy || activeRun) setActivityOpen(true);
@@ -1703,13 +1711,7 @@ export function ThreadPane({
           {!loading && !loadError && latestRun && !activeRun && (latestRun.diff_stats?.files ?? 0) > 0 && (
             <DiffSummaryCard
               run={latestRun}
-              onOpenDiff={() => {
-                if (onReview) onReview();
-                else {
-                  if (!inspectorOpen) onOpenInspector?.();
-                  updateRouteState({ panel: "changes" });
-                }
-              }}
+              onOpenDiff={openChanges}
               onCopy={(text) => handleCopyText(`diff-${latestRun.id}`, text)}
             />
           )}
@@ -1912,7 +1914,7 @@ export function ThreadPane({
                 {hasFiles ? (
                   <button
                     className="thread-statusbar-action"
-                    onClick={onReview}
+                    onClick={openChanges}
                     aria-label={`${latestRun!.diff_stats.files} ${latestRun!.diff_stats.files === 1 ? "file" : "files"} changed`}
                   >
                     <Icon name="code" size={12} />

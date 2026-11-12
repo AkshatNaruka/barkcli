@@ -257,6 +257,7 @@ where
         .route("/api/schedules/{id}", delete(delete_schedule_handler))
         .route("/api/schedules-run-due", post(run_schedules_handler))
         .route("/api/git/status", get(git_status_handler))
+        .route("/api/git/diff", get(git_working_diff_handler))
         .route("/api/git/worktrees", get(git_worktrees_handler))
         .route("/api/git/commit", post(git_commit_handler))
         .route("/api/git/push", post(git_push_handler))
@@ -7017,6 +7018,16 @@ async fn git_status_handler() -> Result<Json<serde_json::Value>, ServerError> {
         .map_err(|e| ServerError::internal(e.to_string()))?;
     Ok(Json(
         serde_json::to_value(status).unwrap_or_else(|_| serde_json::json!(null)),
+    ))
+}
+
+async fn git_working_diff_handler() -> Result<Json<serde_json::Value>, ServerError> {
+    let root = barkcli_core::repo::project_root()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let diff = barkcli_core::repo::git_working_diff(&root)
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(
+        serde_json::to_value(diff).unwrap_or_else(|_| serde_json::json!(null)),
     ))
 }
 

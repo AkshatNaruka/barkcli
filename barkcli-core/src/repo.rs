@@ -52,6 +52,24 @@ pub struct GitChange {
     pub path: String,
 }
 
+/// Working-tree diff (uncommitted changes vs HEAD, including untracked files).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitWorkingDiff {
+    pub branch: String,
+    pub head: String,
+    pub clean: bool,
+    pub diff: String,
+    pub files: Vec<String>,
+    pub additions: u32,
+    pub deletions: u32,
+    /// True when the patch exceeded [`MAX_WORKING_DIFF_BYTES`] and was cut.
+    pub truncated: bool,
+    pub changes: Vec<GitChange>,
+}
+
+const MAX_WORKING_DIFF_BYTES: usize = 2 * 1024 * 1024;
+const MAX_UNTRACKED_FILES: usize = 200;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GitStatus {
     pub branch: String,
@@ -419,6 +437,86 @@ pub fn git_status(root: &Path) -> Result<GitStatus> {
 fn is_generated_path(path: &str) -> bool {
     let path = path.trim();
     path == "project_context.md" || path.ends_with(".board.lock")
+}
+
+/// Unified diff of the working tree against HEAD. Untracked (not ignored)
+/// files are rendered as new-file diffs so nothing a user typed is invisible
+/// in the Review surface.
+pub fn git_working_diff(root: &Path) -> Result<GitWorkingDiff> {
+    let status = git_status(root)?;
+
+    // `diff HEAD` covers staged + unstaged edits. It fails on a repo with no
+    // commits yet, which is fine: untracked files still get rendered below.
+    let mut diff = run_git_raw(root, &["diff", "--no-color", "HEAD"]).unwrap_or_default();
+
+    let untracked =
+        run_git_raw(root, &["ls-files", "--others", "--exclude-standard"]).unwrap_or_default();
+    let mut included = 0usize;
+    for path in untracked
+        .lines()
+        .map(str::trim)
+        .filter(|path| !path.is_empty() && !is_generated_path(path))
+    {
+        if included >= MAX_UNTRACKED_FILES {
+            break;
+        }
+        included += 1;
+        // Exits with 1 when the files differ; the patch on stdout is still valid.
+        let output = Command::new("git")
+            .args(["diff", "--no-color", "--no-index", "--", "/dev/null", path])
+            .current_dir(root)
+            .output();
+        if let Ok(output) = output {
+            let text = String::from_utf8_lossy(&output.stdout);
+            if !text.trim().is_empty() {
+                diff.push_str(&text);
+            }
+        }
+    }
+
+    let mut files: Vec<String> = Vec::new();
+    let mut additions = 0u32;
+    let mut deletions = 0u32;
+    for line in diff.lines() {
+        if let Some(rest) = line.strip_prefix("diff --git ") {
+            if let Some(path) = rest.rsplit_once(" b/").map(|(_, path)| path.trim()) {
+                if !is_generated_path(path) && !files.iter().any(|known| known == path) {
+                    files.push(path.to_string());
+                }
+            }
+            continue;
+        }
+        if line.starts_with("+++") || line.starts_with("---") {
+            continue;
+        }
+        if line.starts_with('+') {
+            additions += 1;
+        } else if line.starts_with('-') {
+            deletions += 1;
+        }
+    }
+
+    let truncated = diff.len() > MAX_WORKING_DIFF_BYTES;
+    if truncated {
+        let mut end = MAX_WORKING_DIFF_BYTES;
+        while end > 0 && !diff.is_char_boundary(end) {
+            end -= 1;
+        }
+        let cut = diff[..end].rfind('\n').map(|index| index + 1).unwrap_or(0);
+        diff.truncate(cut);
+    }
+
+    Ok(GitWorkingDiff {
+        branch: status.branch,
+        head: status.head,
+        clean: status.clean,
+        diff,
+        files,
+        additions,
+        deletions,
+        truncated,
+        changes: status.changes,
+    })
 }
 
 pub fn git_commit(root: &Path, message: &str, paths: &[String]) -> Result<GitCommitResult> {
@@ -973,6 +1071,45 @@ mod tests {
         assert_eq!(git(&["log", "-1", "--pretty=%s"]), message);
         assert!(!root.join("SHOULD_NOT_EXIST").exists());
         assert!(git_status(&root).unwrap().clean);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn working_diff_includes_edits_and_untracked_files() {
+        let root = temp_root();
+        let git = |args: &[&str]| {
+            let output = Command::new("git")
+                .args(args)
+                .current_dir(&root)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "git {:?}: {}",
+                args,
+                String::from_utf8_lossy(&output.stderr)
+            );
+            String::from_utf8_lossy(&output.stdout).trim().to_string()
+        };
+        git(&["init"]);
+        git(&["config", "user.email", "test@example.com"]);
+        git(&["config", "user.name", "Test"]);
+        git(&["add", "-A"]);
+        git(&["commit", "-m", "base"]);
+
+        fs::write(root.join("README.md"), "hello\nworld\n").unwrap();
+        fs::write(root.join("fresh.txt"), "one\ntwo\n").unwrap();
+        fs::write(root.join("project_context.md"), "generated\n").unwrap();
+
+        let diff = git_working_diff(&root).unwrap();
+        assert!(diff.diff.contains("+world"));
+        assert!(diff.diff.contains("+one"));
+        assert!(diff.files.contains(&"README.md".to_string()));
+        assert!(diff.files.contains(&"fresh.txt".to_string()));
+        assert!(!diff.files.contains(&"project_context.md".to_string()));
+        assert!(diff.additions >= 3);
+        assert!(!diff.clean);
+        assert!(!diff.truncated);
         let _ = fs::remove_dir_all(root);
     }
 

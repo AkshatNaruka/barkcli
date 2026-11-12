@@ -7,7 +7,7 @@ export interface RouteState {
   board?: string;
   thread?: string;
   run?: string;
-  panel?: "plan" | "changes" | "checks" | "evidence" | "context" | "diagnostics" | "browser" | "terminal";
+  panel?: "plan" | "changes" | "checks" | "evidence" | "context" | "diagnostics" | "browser" | "terminal" | "working";
   file?: string;
   tool?: string;
   draft?: string;
@@ -15,7 +15,7 @@ export interface RouteState {
   pr?: string;
 }
 const KEYS = ["board", "thread", "run", "panel", "file", "tool", "draft", "focus", "pr"] as const;
-const PANELS = ["plan", "changes", "checks", "evidence", "context", "diagnostics", "browser", "terminal"];
+const PANELS = ["plan", "changes", "checks", "evidence", "context", "diagnostics", "browser", "terminal", "working"];
 const validValue = (value: string | null): value is string => Boolean(value && value.length <= 1000 && !/[\u0000-\u001f\u007f]/.test(value));
 
 export function parseRouteState(hash: string): RouteState {

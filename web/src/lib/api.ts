@@ -47,6 +47,7 @@ import type {
   RepoEntry,
   RepoFile,
   GitStatus,
+  WorkingTreeDiff,
   EditorDetection,
   WorktreeInfo,
   PullRequestItem,
@@ -2462,6 +2463,17 @@ export async function fetchGitStatus(): Promise<GitStatus | null> {
   if (isVscode) return null;
   try {
     const res = await fetch(withToken("/api/git/status"));
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchWorkingTreeDiff(): Promise<WorkingTreeDiff | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(withToken("/api/git/diff"));
     if (!res.ok) return null;
     return await res.json();
   } catch {

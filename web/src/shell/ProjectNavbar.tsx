@@ -465,6 +465,18 @@ export function ProjectNavbar({
 
         {/* Right Action Buttons */}
         <div className="flex items-center gap-2.5">
+          {currentRoute === "chat" && !isClean && (
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event("bark-show-working-changes"))}
+              aria-label={`Show changes — ${changesCount} modified ${changesCount === 1 ? "file" : "files"}`}
+              title="Show working-tree changes in the side panel"
+              className="hidden sm:flex items-center gap-1.5 rounded-md border border-border/60 bg-surface px-2.5 py-1 text-[11px] font-medium text-muted-strong transition-colors hover:border-border hover:bg-white/[0.04] hover:text-text cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+            >
+              <Icon name="code" size={12} />
+              <span>Changes</span>
+            </button>
+          )}
           {/* Git status split button & actions popover (Screenshots 1 & 2) */}
           <div ref={gitDropdownRef} className="relative hidden sm:flex items-center">
             <button
