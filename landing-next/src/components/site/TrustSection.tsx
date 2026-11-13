@@ -45,7 +45,9 @@ export function TrustSection() {
         <Reveal>
           <div className="overflow-hidden rounded-xl border border-line bg-[#070a0f]">
             <div className="flex items-center justify-between border-b border-line bg-white/[0.02] px-3.5 py-2.5">
-              <span className="font-mono text-[10.5px] text-muted-dim">verify · worktree</span>
+              <span className="font-mono text-[10.5px] text-muted-dim">
+                verify · worktree <span className="text-muted-dim/70">(example output)</span>
+              </span>
               <span className="rounded border border-danger/30 bg-danger/10 px-1.5 py-0.5 font-mono text-[9.5px] text-danger">
                 gate failed
               </span>

@@ -6,7 +6,7 @@ import { CopyButton } from "./CopyButton";
 import { HeroFlow } from "./HeroFlow";
 
 const INSTALL =
-  "curl -fsSL https://raw.githubusercontent.com/AkshatNaruka/barkcli/master/install.sh | sh";
+  "curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh";
 
 export function Hero() {
   return (

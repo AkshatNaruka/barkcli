@@ -9,7 +9,7 @@ const SURFACES = [
     subtitle: "Bark.app",
     body:
       "A native desktop app with the local runtime embedded: command palette, threads with a timeline scrubber, embedded browser, and in-app updates from releases.",
-    meta: "signed bundle · auto-updates",
+    meta: "ad-hoc signed · auto-updates",
   },
   {
     icon: Terminal,

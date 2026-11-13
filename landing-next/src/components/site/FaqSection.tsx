@@ -10,7 +10,7 @@ export const FAQ_ITEMS = [
   {
     question: "Do I have to switch coding agents?",
     answer:
-      "No. It runs the agents you already have installed — Claude Code, Codex, OpenCode, or Cursor — and also exposes its own MCP tools so an agent can read tasks, claim work, and report verdicts from inside its normal session. You keep your subscriptions.",
+      "No. It runs the agents you already have installed — Claude Code, Codex, or OpenCode, plus any command via BARKCLI_AGENT_CMD — and exposes its own MCP tools so an agent can read tasks, claim work, and report verdicts from inside its normal session. You keep your subscriptions.",
   },
   {
     question: "What happens when an agent's work fails the tests?",

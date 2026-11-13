@@ -5,40 +5,44 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { CopyButton } from "./CopyButton";
 
-const METHODS = [
+const RELEASE = "https://github.com/AkshatNaruka/barkcli/releases/latest/download";
+
+type Method = {
+  id: string;
+  label: string;
+  command: string;
+  note: string;
+  recommended?: boolean;
+  isLink?: boolean;
+};
+
+const METHODS: Method[] = [
   {
     id: "unix",
     label: "macOS / Linux",
-    command:
-      "curl -fsSL https://raw.githubusercontent.com/AkshatNaruka/barkcli/master/install.sh | sh",
-    note: "Downloads the release binary and puts barkcli on your PATH.",
+    command: `curl -fsSL ${RELEASE}/install.sh | sh`,
+    note: "Fetches the release binary for your architecture, checks it against the published SHA256SUMS, and puts barkcli on your PATH.",
     recommended: true,
-  },
-  {
-    id: "app",
-    label: "macOS app",
-    command:
-      "curl -fsSL https://raw.githubusercontent.com/AkshatNaruka/barkcli/master/install-app.sh | sh",
-    note: "Installs Bark.app with the local runtime embedded.",
-  },
-  {
-    id: "brew",
-    label: "Homebrew",
-    command: "brew tap AkshatNaruka/barkcli && brew install barkcli",
-    note: "For Homebrew users who prefer to manage updates themselves.",
-  },
-  {
-    id: "cargo",
-    label: "Cargo",
-    command: "cargo install barkcli",
-    note: "Build from source with a Rust toolchain.",
   },
   {
     id: "windows",
     label: "Windows",
+    command: `irm ${RELEASE}/install.ps1 | iex`,
+    note: "PowerShell installer with the same checksum step, for the Windows release build.",
+  },
+  {
+    id: "source",
+    label: "From source",
     command:
-      "irm https://raw.githubusercontent.com/AkshatNaruka/barkcli/master/install.ps1 | iex",
-    note: "PowerShell installer, published next to the other release targets.",
+      "git clone https://github.com/AkshatNaruka/barkcli && cd barkcli && cargo build --release",
+    note: "Needs a Rust toolchain and a few minutes. The binary lands in target/release/.",
+  },
+  {
+    id: "releases",
+    label: "Direct download",
+    command: "https://github.com/AkshatNaruka/barkcli/releases/latest",
+    note: "Prebuilt archives per platform, plus SHA256SUMS. Useful when you manage your own binaries.",
+    isLink: true,
   },
 ];
 
@@ -72,8 +76,8 @@ export function InstallSection() {
               One binary. About ten seconds.
             </h2>
             <p className="mt-4 max-w-md text-[15px] leading-[1.65] text-muted">
-              No account, no cloud dependency, no telemetry. The installer verifies the release
-              checksum before it writes anything to your machine.
+              No account, no cloud dependency, no telemetry. The installer checksum-verifies the
+              archive it downloads whenever the release publishes SHA256SUMS.
             </p>
             <div className="mt-6 flex flex-wrap gap-3 text-[12.5px]">
               <Link
@@ -135,13 +139,29 @@ export function InstallSection() {
 
             <div id="install-panel" role="tabpanel" aria-labelledby={`install-tab-${current.id}`}>
               <div className="flex items-start gap-3 border-b border-line px-4 py-5">
-                <span className="select-none pt-1 font-mono text-[12px] text-copper" aria-hidden>
-                  $
-                </span>
-                <code className="min-w-0 flex-1 break-all font-mono text-[12px] leading-[1.75] text-fg/85">
-                  {current.command}
-                </code>
-                <CopyButton value={current.command} label="Copy command" />
+                {current.isLink ? (
+                  <>
+                    <a
+                      href={current.command}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="min-w-0 flex-1 break-all font-mono text-[12px] leading-[1.75] text-copper-soft underline-offset-4 hover:underline"
+                    >
+                      github.com/AkshatNaruka/barkcli/releases
+                    </a>
+                    <CopyButton value={current.command} label="Copy link" />
+                  </>
+                ) : (
+                  <>
+                    <span className="select-none pt-1 font-mono text-[12px] text-copper" aria-hidden>
+                      $
+                    </span>
+                    <code className="min-w-0 flex-1 break-all font-mono text-[12px] leading-[1.75] text-fg/85">
+                      {current.command}
+                    </code>
+                    <CopyButton value={current.command} label="Copy command" />
+                  </>
+                )}
               </div>
               <div className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-[12px] text-muted">{current.note}</p>

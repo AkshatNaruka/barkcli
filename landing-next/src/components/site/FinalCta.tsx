@@ -4,7 +4,7 @@ import { GitHubMark } from "./Brand";
 import { CopyButton } from "./CopyButton";
 
 const INSTALL =
-  "curl -fsSL https://raw.githubusercontent.com/AkshatNaruka/barkcli/master/install.sh | sh";
+  "curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh";
 
 export function FinalCta() {
   return (

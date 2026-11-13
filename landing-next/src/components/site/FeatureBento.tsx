@@ -64,7 +64,6 @@ export function FeatureBento() {
                   { name: "claude-code", Logo: ClaudeCodeLogo },
                   { name: "codex", Logo: CodexLogo },
                   { name: "opencode", Logo: OpenCodeLogo },
-                  { name: "cursor", Logo: null },
                 ].map((agent) => (
                   <span
                     key={agent.name}
@@ -79,7 +78,7 @@ export function FeatureBento() {
                   </span>
                 ))}
                 <span className="inline-flex items-center rounded-md border border-dashed border-line px-2 py-1 font-mono text-[10.5px] text-muted-dim">
-                  + any MCP agent
+                  + any script via BARKCLI_AGENT_CMD
                 </span>
               </div>
               <LearnMore href="/features/agent-queue" label="Agent queue and roles" />
