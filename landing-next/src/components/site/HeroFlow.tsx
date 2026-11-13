@@ -88,18 +88,13 @@ export function HeroFlow() {
       transition={{ duration: reduce ? 0 : 0.6, ease: [0.16, 1, 0.3, 1] }}
     >
       <div
-        className="pointer-events-none absolute -inset-x-10 -top-10 bottom-0 -z-10 bg-[radial-gradient(ellipse_60%_55%_at_60%_20%,rgba(217,149,92,0.14),transparent_70%)]"
+        className="pointer-events-none absolute -inset-x-2 -top-8 bottom-0 -z-10 bg-[radial-gradient(ellipse_60%_55%_at_60%_20%,rgba(217,149,92,0.14),transparent_70%)]"
         aria-hidden
       />
 
       <div className="overflow-hidden rounded-xl border border-line bg-surface shadow-[0_24px_80px_-32px_rgba(0,0,0,0.9)]">
-        {/* Window chrome */}
-        <div className="flex items-center justify-between gap-3 border-b border-line bg-white/[0.015] px-3.5 py-2.5">
-          <div className="flex items-center gap-1.5" aria-hidden>
-            <span className="size-2.5 rounded-full bg-[#e5675e]/70" />
-            <span className="size-2.5 rounded-full bg-[#d9a35c]/70" />
-            <span className="size-2.5 rounded-full bg-[#42c995]/70" />
-          </div>
+        {/* Command strip. No fake window controls, just what produced the run. */}
+        <div className="flex items-center justify-between gap-3 overflow-hidden border-b border-line bg-white/[0.015] px-3.5 py-2.5">
           <code className="min-w-0 flex-1 truncate font-mono text-[10.5px] text-muted-dim">
             barkcli run &quot;Add OAuth login&quot; --agents 3
           </code>
@@ -191,7 +186,7 @@ export function HeroFlow() {
                 <span className="font-mono text-[10.5px] text-success">14 passed</span>
               </div>
               <p className="mt-1 text-[11.5px] leading-relaxed text-muted-dim">
-                Done means the gate passed in the worktree — not that the agent said so.
+                Done means the gate passed in the worktree, not that the agent said so.
               </p>
             </div>
           </motion.div>

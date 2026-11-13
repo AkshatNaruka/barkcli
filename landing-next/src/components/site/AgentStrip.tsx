@@ -1,26 +1,22 @@
-import {
-  ClaudeCodeLogo,
-  CodexLogo,
-  CursorLogo,
-  OpenCodeLogo,
-} from "@/components/AgentLogos";
+import { ClaudeCodeLogo, CodexLogo, OpenCodeLogo } from "@/components/AgentLogos";
 
 const AGENTS = [
   { name: "Claude Code", Logo: ClaudeCodeLogo, note: "claude" },
   { name: "Codex", Logo: CodexLogo, note: "codex" },
   { name: "OpenCode", Logo: OpenCodeLogo, note: "opencode" },
-  { name: "Cursor", Logo: CursorLogo, note: "cursor" },
 ];
 
 /**
- * Compatibility, stated plainly.
+ * Integration compatibility, stated plainly.
  *
- * These are integrations, not customers — the label says so, and there are no
- * fake logos or endorsement claims.
+ * These are backends BarkCLI can run, not customers: the label says so, and
+ * there are no fake logos or endorsement claims. Cursor is an MCP client, not
+ * a runnable backend here, so it is documented on the integrations page rather
+ * than advertised in this band.
  */
 export function AgentStrip() {
   return (
-    <section aria-label="Supported coding agents" className="border-y border-line bg-bg-deep/60">
+    <section aria-label="Agent backends" className="border-y border-line bg-bg-deep/60">
       <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-4 px-5 py-6 md:flex-row md:items-center md:justify-between md:px-8">
         <p className="text-[12px] leading-relaxed text-muted">
           <span className="font-medium text-fg/85">Bring the agents you already pay for.</span>{" "}

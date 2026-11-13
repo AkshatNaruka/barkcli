@@ -1,4 +1,4 @@
-import { Check, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Reveal } from "./Reveal";
 
 const FACTS = [
@@ -15,31 +15,24 @@ const FACTS = [
 export function TrustSection() {
   return (
     <section className="relative border-t border-line bg-bg-deep/50 py-20 md:py-28">
-      <div className="mx-auto grid w-full max-w-[1120px] gap-12 px-5 md:px-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-center lg:gap-16">
+      <div className="mx-auto grid w-full max-w-[1120px] grid-cols-1 gap-12 px-5 md:px-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-center lg:gap-16">
         <div>
-          <p className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-copper">
-            Honest by construction
-          </p>
-          <h2 className="mt-4 font-display text-[clamp(1.9rem,4vw,3rem)] font-medium leading-[1.05] tracking-[-0.025em] text-fg">
+          <h2 className="font-display text-[clamp(1.9rem,4vw,3rem)] font-medium leading-[1.05] tracking-[-0.025em] text-fg">
             Trust the verdict, not the vibe.
           </h2>
           <p className="mt-4 max-w-lg text-[15px] leading-[1.65] text-muted">
             An agent saying &ldquo;done&rdquo; is a claim. BarkCLI runs your project&rsquo;s own
-            test command inside the worktree and records the exit status. Failure is not hidden —
-            it is fed back and retried, or reported to you.
+            test command inside the worktree and records the exit status. Failure is not hidden. It
+            is fed back and retried, or reported to you.
           </p>
-          <ul className="mt-6 space-y-3">
+          <dl className="mt-6 space-y-3">
             {FACTS.map((fact) => (
-              <li key={fact.title} className="flex gap-3">
-                <span className="mt-1 flex size-4 shrink-0 items-center justify-center rounded-full border border-success/30 bg-success/10">
-                  <Check className="size-2.5 text-success" aria-hidden />
-                </span>
-                <p className="text-[13.5px] leading-relaxed text-muted">
-                  <span className="font-medium text-fg/85">{fact.title}.</span> {fact.body}
-                </p>
-              </li>
+              <div key={fact.title}>
+                <dt className="text-[13.5px] font-medium text-fg/85">{fact.title}</dt>
+                <dd className="mt-0.5 text-[13.5px] leading-relaxed text-muted">{fact.body}</dd>
+              </div>
             ))}
-          </ul>
+          </dl>
         </div>
 
         <Reveal>
@@ -83,7 +76,7 @@ export function TrustSection() {
             <div className="flex items-center gap-2 border-t border-line bg-white/[0.015] px-3.5 py-2.5">
               <X className="size-3 text-danger" aria-hidden />
               <p className="text-[10.5px] leading-snug text-muted-dim">
-                The failure is part of the record — you can inspect both attempts.
+                The failure is part of the record. You can inspect both attempts.
               </p>
             </div>
           </div>

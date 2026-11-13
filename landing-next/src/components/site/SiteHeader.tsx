@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import {
+  AnimatePresence,
+  motion,
+  useMotionValueEvent,
+  useReducedMotion,
+  useScroll,
+} from "motion/react";
 import { ArrowUpRight, Menu, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { BrandLockup } from "./Brand";
@@ -21,23 +27,14 @@ export function SiteHeader() {
   const toggleRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const reduce = useReducedMotion();
+  const { scrollY } = useScroll();
 
-  useEffect(() => {
-    let frame = 0;
-    const onScroll = () => {
-      if (frame) return;
-      frame = requestAnimationFrame(() => {
-        setScrolled(window.scrollY > 8);
-        frame = 0;
-      });
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      if (frame) cancelAnimationFrame(frame);
-    };
-  }, []);
+  // Motion owns the scroll subscription; no manual window listener.
+  useMotionValueEvent(scrollY, "change", (value) => {
+    const next = value > 8;
+    setScrolled((current) => (current === next ? current : next));
+  });
+
 
   // A real menu: Escape closes, focus moves into the panel and comes back,
   // and the page behind cannot scroll away under it.
@@ -169,7 +166,7 @@ export function SiteHeader() {
                   onClick={() => setOpen(false)}
                   className="flex h-10 flex-1 items-center justify-center rounded-md bg-copper text-[14px] font-medium text-ink"
                 >
-                  Install barkcli
+                  Install
                 </a>
                 <a
                   href={GITHUB}

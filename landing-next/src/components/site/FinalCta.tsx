@@ -14,10 +14,7 @@ export function FinalCta() {
         aria-hidden
       />
       <div className="relative mx-auto w-full max-w-[860px] px-5 py-20 text-center md:px-8 md:py-28">
-        <p className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-copper">
-          Ready when you are
-        </p>
-        <h2 className="mt-4 font-display text-[clamp(2rem,5vw,3.4rem)] font-medium leading-[1.02] tracking-[-0.03em] text-fg">
+        <h2 className="font-display text-[clamp(2rem,5vw,3.4rem)] font-medium leading-[1.02] tracking-[-0.03em] text-fg">
           Stop coordinating agents by hand.
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-[15px] leading-[1.65] text-muted">
@@ -40,7 +37,7 @@ export function FinalCta() {
             href="#install"
             className="inline-flex h-11 items-center gap-2 rounded-md bg-copper px-5 text-[14px] font-medium text-ink transition-colors hover:bg-copper-soft"
           >
-            Install BarkCLI
+            Install
             <ArrowRight className="size-4" aria-hidden />
           </Link>
           <a
@@ -54,8 +51,8 @@ export function FinalCta() {
           </a>
         </div>
 
-        <p className="mt-8 font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted-dim">
-          MIT licensed · no account · one binary to uninstall
+        <p className="mt-8 text-[12px] text-muted-dim">
+          MIT licensed. No account. Uninstall is one binary.
         </p>
       </div>
     </section>

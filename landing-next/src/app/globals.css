@@ -103,14 +103,6 @@
   mask-image: radial-gradient(ellipse 90% 65% at 50% 0%, #000 20%, transparent 78%);
 }
 
-/* Kept as an alias for older pages that still reference it. */
-.bark-grid-pattern {
-  background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-  background-size: 36px 36px;
-}
-
 /* Sparse warm light from above, like a lamp over the page. */
 .bark-aura {
   background:
@@ -122,64 +114,9 @@
   background: radial-gradient(circle 600px at 50% 0%, rgba(217, 149, 92, 0.12), transparent 80%);
 }
 
-/* Hairline rules that dissolve at both ends. */
-.rule-fade {
-  background: linear-gradient(to right, transparent, var(--color-line-strong), transparent);
-  height: 1px;
-}
-
 /* ---------------------------------------------------------------------------
  * Animation
  * ------------------------------------------------------------------------- */
-
-@keyframes pulseGlow {
-  0%,
-  100% {
-    opacity: 0.25;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.5;
-    transform: scale(1.04);
-  }
-}
-
-.animate-pulse-glow {
-  animation: pulseGlow 7s ease-in-out infinite;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-fade-in {
-  animation: fadeIn 240ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-/* A single pulse travelling down a connector line. */
-@keyframes flowPulse {
-  0% {
-    offset-distance: 0%;
-    opacity: 0;
-  }
-  12% {
-    opacity: 1;
-  }
-  88% {
-    opacity: 1;
-  }
-  100% {
-    offset-distance: 100%;
-    opacity: 0;
-  }
-}
 
 /* A pulse travelling down the run rail in the hero visual. */
 @keyframes railFlow {
@@ -212,13 +149,6 @@
 .flow-dash {
   stroke-dasharray: 4 6;
   animation: dashFlow 1.6s linear infinite;
-}
-
-/* The copper sheen used on primary buttons and active labels. */
-.copper-wash {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0)) ,
-    var(--color-copper);
 }
 
 /* ---------------------------------------------------------------------------

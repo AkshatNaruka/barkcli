@@ -80,14 +80,14 @@ export function Footer() {
                         href={link.href}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-[12.5px] text-muted transition-colors hover:text-fg"
+                        className="inline-flex min-h-6 items-center text-[12.5px] text-muted transition-colors hover:text-fg"
                       >
                         {link.label}
                       </a>
                     ) : (
                       <Link
                         href={link.href}
-                        className="text-[12.5px] text-muted transition-colors hover:text-fg"
+                        className="inline-flex min-h-6 items-center text-[12.5px] text-muted transition-colors hover:text-fg"
                       >
                         {link.label}
                       </Link>
@@ -101,7 +101,7 @@ export function Footer() {
 
         <div className="mt-12 flex flex-col gap-3 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-muted-dim">
-            MIT licensed · no tracking cookies · local first
+            MIT licensed. No tracking cookies. Local first.
           </p>
           <p className="text-[11.5px] text-muted-dim">
             BarkCLI is built by{" "}

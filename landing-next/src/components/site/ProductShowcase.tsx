@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import { motion, useReducedMotion } from "motion/react";
-import { Play } from "lucide-react";
+import { Check, Play } from "lucide-react";
 import { BASE_PATH as BASE, DEMO_REPLAY_URL, ON_PAGES } from "@/lib/pages";
 
 type Tab = {
@@ -40,7 +40,7 @@ const TABS: Tab[] = [
     label: "Mind",
     title: "What is happening, in one view",
     caption:
-      "Mind compiles project health, blockers, stale work, and next actions into a single snapshot — the same snapshot an agent reads before it starts.",
+      "Mind compiles project health, blockers, stale work, and next actions into a single snapshot, the same snapshot an agent reads before it starts.",
     callouts: ["Health and blockers", "Stale work surfaced", "Compiled locally, no LLM required"],
     kind: "image",
     src: "/screenshots/mind-dark.webp",
@@ -117,10 +117,7 @@ export function ProductShowcase() {
       <div className="mx-auto w-full max-w-[1120px] px-5 md:px-8">
         <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div className="max-w-2xl">
-            <p className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-copper">
-              The workspace
-            </p>
-            <h2 className="mt-4 font-display text-[clamp(1.9rem,4vw,3rem)] font-medium leading-[1.05] tracking-[-0.025em] text-fg">
+            <h2 className="font-display text-[clamp(1.9rem,4vw,3rem)] font-medium leading-[1.05] tracking-[-0.025em] text-fg">
               See the real thing.
             </h2>
             <p className="mt-4 max-w-xl text-[15px] leading-[1.65] text-muted">
@@ -169,7 +166,7 @@ export function ProductShowcase() {
                 aria-controls={`panel-${tab.id}`}
                 tabIndex={selected ? 0 : -1}
                 onClick={() => setActive(tab.id)}
-                className={`inline-flex min-h-9 items-center rounded-md border px-3 text-[12.5px] transition-colors ${
+                className={`inline-flex min-h-10 items-center rounded-md border px-3 text-[12.5px] transition-colors ${
                   selected
                     ? "border-copper/40 bg-copper/10 text-copper-soft"
                     : "border-line text-muted hover:border-line-strong hover:text-fg"
@@ -195,12 +192,7 @@ export function ProductShowcase() {
             transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
             className="overflow-hidden rounded-lg border border-line-strong/60 bg-bg-deep"
           >
-            <div className="flex items-center justify-between gap-3 border-b border-line bg-white/[0.02] px-3 py-2">
-              <div className="flex items-center gap-1.5" aria-hidden>
-                <span className="size-2 rounded-full bg-[#e5675e]/70" />
-                <span className="size-2 rounded-full bg-[#d9a35c]/70" />
-                <span className="size-2 rounded-full bg-[#42c995]/70" />
-              </div>
+            <div className="flex items-center gap-3 border-b border-line bg-white/[0.02] px-3 py-2">
               <span className="truncate font-mono text-[10px] text-muted-dim">
                 {current.chrome}
               </span>
@@ -244,7 +236,7 @@ export function ProductShowcase() {
                   key={callout}
                   className="flex items-start gap-2 text-[12.5px] leading-snug text-fg/75"
                 >
-                  <span className="mt-[7px] size-1 shrink-0 rounded-full bg-copper" aria-hidden />
+                  <Check className="mt-0.5 size-3 shrink-0 text-copper" aria-hidden />
                   {callout}
                 </li>
               ))}

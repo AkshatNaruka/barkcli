@@ -12,7 +12,7 @@ import { ClaudeCodeLogo, CodexLogo, OpenCodeLogo } from "@/components/AgentLogos
 
 const STEPS = [
   {
-    label: "01 · Intent",
+    label: "Intent",
     title: "You describe the outcome",
     body:
       "One sentence is enough. BarkCLI turns it into a spec with acceptance criteria before any agent touches code, so success is defined up front.",
@@ -20,7 +20,7 @@ const STEPS = [
     chips: ["spec", "acceptance criteria", "no agent yet"],
   },
   {
-    label: "02 · Plan & dispatch",
+    label: "Plan and dispatch",
     title: "Work splits into isolated attempts",
     body:
       "The spec becomes child tasks, and each task gets its own git worktree and branch. Three agents can edit the same repository at once without touching your checkout or each other.",
@@ -28,7 +28,7 @@ const STEPS = [
     chips: ["3 worktrees", "own branch", "no lock collisions"],
   },
   {
-    label: "03 · Build & verify",
+    label: "Build and verify",
     title: "Your tests decide what is done",
     body:
       "Each agent builds in its worktree, then the project's own test command runs there. A failure is fed back to that agent with the logs. An agent's claim of success is never the answer.",
@@ -36,7 +36,7 @@ const STEPS = [
     chips: ["gate > self-report", "retry with logs", "failure recorded"],
   },
   {
-    label: "04 · Review & merge",
+    label: "Review and merge",
     title: "Only passing work reaches you",
     body:
       "Gate-passing branches converge on a review queue and merge in finish order through a merge train. You see the diff and the verdict, and merge in one step.",
@@ -77,19 +77,16 @@ export function ScrollStory() {
     <section id="how" className="relative border-t border-line py-20 md:py-28">
       <div className="mx-auto w-full max-w-[1120px] px-5 md:px-8">
         <div className="max-w-2xl">
-          <p className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-copper">
-            How a run works
-          </p>
-          <h2 className="mt-4 font-display text-[clamp(1.9rem,4vw,3rem)] font-medium leading-[1.05] tracking-[-0.025em] text-fg">
+          <h2 className="font-display text-[clamp(1.9rem,4vw,3rem)] font-medium leading-[1.05] tracking-[-0.025em] text-fg">
             One intent in. Verified code out.
           </h2>
           <p className="mt-4 max-w-xl text-[15px] leading-[1.65] text-muted">
-            The same four stages every time — whether you drive them from the CLI, the desktop
+            The same four stages every time, whether you drive them from the CLI, the desktop
             app, or your agent over MCP.
           </p>
         </div>
 
-        <div ref={track} className="mt-14 grid gap-12 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:gap-16">
+        <div ref={track} className="mt-14 grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:gap-16">
           <ol className="space-y-10 lg:space-y-0">
             {STEPS.map((step, index) => {
               const isActive = index === active;
@@ -254,7 +251,7 @@ function StoryDiagram({ active, reduce }: { active: number; reduce: boolean }) {
           {active === 1 && <Sparkles className="size-3" aria-hidden />}
           {active === 2 && <ShieldCheck className="size-3" aria-hidden />}
           {active === 3 && <Check className="size-3" aria-hidden />}
-          stage {active + 1} / 4
+          {STEPS[active].label}
         </span>
         <div className="flex gap-1" aria-hidden>
           {STEPS.map((step, index) => (

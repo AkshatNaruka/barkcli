@@ -37,15 +37,16 @@ const SURFACES = [
   },
 ];
 
+/**
+ * Four surfaces, one data model. A hairline matrix rather than four cards:
+ * the page already has a bento, and a second grid of boxes would flatten both.
+ */
 export function InterfacesSection() {
   return (
     <section className="relative border-t border-line py-20 md:py-28">
       <div className="mx-auto w-full max-w-[1120px] px-5 md:px-8">
         <div className="max-w-2xl">
-          <p className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-copper">
-            Choose your interface
-          </p>
-          <h2 className="mt-4 font-display text-[clamp(1.9rem,4vw,3rem)] font-medium leading-[1.05] tracking-[-0.025em] text-fg">
+          <h2 className="font-display text-[clamp(1.9rem,4vw,3rem)] font-medium leading-[1.05] tracking-[-0.025em] text-fg">
             One workflow, four ways in.
           </h2>
           <p className="mt-4 max-w-xl text-[15px] leading-[1.65] text-muted">
@@ -54,23 +55,23 @@ export function InterfacesSection() {
           </p>
         </div>
 
-        <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-10 grid gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-2">
           {SURFACES.map((surface, index) => (
-            <Reveal key={surface.title} delay={index * 0.05}>
-              <div className="flex h-full flex-col rounded-xl border border-line bg-surface/60 p-5">
-                <div className="flex items-center gap-2">
-                  <span className="flex size-8 items-center justify-center rounded-md border border-line bg-bg/60">
+            <Reveal key={surface.title} delay={index * 0.05} className="bg-bg">
+              <div className="flex h-full flex-col p-6 sm:p-7">
+                <div className="flex items-center gap-3">
+                  <span className="flex size-9 items-center justify-center rounded-md border border-line bg-raised/60">
                     <surface.icon className="size-4 text-copper" aria-hidden />
                   </span>
                   <div>
-                    <h3 className="text-[13.5px] font-medium leading-none text-fg">
+                    <h3 className="text-[14px] font-medium leading-none text-fg">
                       {surface.title}
                     </h3>
-                    <p className="mt-1 font-mono text-[10px] text-muted-dim">{surface.subtitle}</p>
+                    <p className="mt-1.5 font-mono text-[10px] text-muted-dim">{surface.subtitle}</p>
                   </div>
                 </div>
-                <p className="mt-4 flex-1 text-[12.5px] leading-[1.65] text-muted">{surface.body}</p>
-                <div className="mt-4 border-t border-line pt-3">
+                <p className="mt-4 flex-1 text-[13px] leading-[1.65] text-muted">{surface.body}</p>
+                <div className="mt-5 border-t border-line pt-3.5">
                   <p className="font-mono text-[10px] text-muted-dim">{surface.meta}</p>
                   {ON_PAGES && surface.title === "Web app" && (
                     <a

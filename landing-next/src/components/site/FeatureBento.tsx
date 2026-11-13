@@ -1,22 +1,26 @@
 import Link from "next/link";
-import { ArrowUpRight, ShieldCheck } from "lucide-react";
+import {
+  ArrowUpRight,
+  Blocks,
+  Boxes,
+  FileText,
+  GitBranch,
+  HardDrive,
+  ShieldCheck,
+} from "lucide-react";
 import { Reveal } from "./Reveal";
 import { ClaudeCodeLogo, CodexLogo, OpenCodeLogo } from "@/components/AgentLogos";
 
 const CELL =
   "group relative flex h-full flex-col justify-between overflow-hidden rounded-xl border border-line bg-surface/60 p-6 transition-colors duration-300 hover:border-line-strong";
 
-function Eyebrow({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-copper">{children}</p>
-  );
-}
+const CELL_ICON = "size-4 shrink-0 text-copper";
 
 function LearnMore({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="mt-5 inline-flex items-center gap-1 text-[12px] text-muted transition-colors group-hover:text-copper-soft"
+      className="relative -my-2 mt-3 inline-flex items-center gap-1 py-2 text-[12px] text-muted transition-colors group-hover:text-copper-soft"
     >
       {label}
       <ArrowUpRight className="size-3.5" aria-hidden />
@@ -25,18 +29,15 @@ function LearnMore({ href, label }: { href: string; label: string }) {
 }
 
 /**
- * Six capabilities, weighted by what a person actually gets — not one grid of
- * identical marketing cards.
+ * Six capabilities, weighted by what a person actually gets, not one grid of
+ * identical marketing cards. The heading is the label: no eyebrow above it.
  */
 export function FeatureBento() {
   return (
     <section id="features" className="relative border-t border-line py-20 md:py-28">
       <div className="mx-auto w-full max-w-[1120px] px-5 md:px-8">
         <div className="max-w-2xl">
-          <p className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-copper">
-            Built for agentic work
-          </p>
-          <h2 className="mt-4 font-display text-[clamp(1.9rem,4vw,3rem)] font-medium leading-[1.05] tracking-[-0.025em] text-fg">
+          <h2 className="font-display text-[clamp(1.9rem,4vw,3rem)] font-medium leading-[1.05] tracking-[-0.025em] text-fg">
             The parts that make delegation safe.
           </h2>
           <p className="mt-4 max-w-xl text-[15px] leading-[1.65] text-muted">
@@ -45,13 +46,17 @@ export function FeatureBento() {
           </p>
         </div>
 
-        <div className="mt-10 grid gap-3 md:grid-cols-2 lg:grid-cols-6">
-          {/* Orchestration — the largest cell */}
+        <div className="mt-10 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-6">
+          {/* Orchestration, the largest cell */}
           <Reveal className="lg:col-span-4">
             <div className={CELL}>
-              <div>
-                <Eyebrow>Multi-agent orchestration</Eyebrow>
-                <h3 className="mt-3 font-display text-[21px] font-medium leading-tight text-fg">
+              <div
+                className="pointer-events-none absolute inset-0 bark-grid opacity-40"
+                aria-hidden
+              />
+              <div className="relative">
+                <h3 className="flex items-center gap-2 font-display text-[21px] font-medium leading-tight text-fg">
+                  <Boxes className={CELL_ICON} aria-hidden />
                   Dispatch to the agents you already run
                 </h3>
                 <p className="mt-2 max-w-md text-[13.5px] leading-[1.65] text-muted">
@@ -59,7 +64,7 @@ export function FeatureBento() {
                   transcript per attempt. Swap agents per task instead of standardising on one.
                 </p>
               </div>
-              <div className="mt-6 flex flex-wrap gap-2">
+              <div className="relative mt-6 flex flex-wrap gap-2">
                 {[
                   { name: "claude-code", Logo: ClaudeCodeLogo },
                   { name: "codex", Logo: CodexLogo },
@@ -89,8 +94,8 @@ export function FeatureBento() {
           <Reveal className="lg:col-span-2" delay={0.05}>
             <div className={CELL}>
               <div>
-                <Eyebrow>Isolated worktrees</Eyebrow>
-                <h3 className="mt-3 font-display text-[18px] font-medium leading-tight text-fg">
+                <h3 className="flex items-center gap-2 font-display text-[18px] font-medium leading-tight text-fg">
+                  <GitBranch className={CELL_ICON} aria-hidden />
                   Parallel work, zero collisions
                 </h3>
                 <p className="mt-2 text-[13px] leading-[1.65] text-muted">
@@ -109,14 +114,13 @@ export function FeatureBento() {
           <Reveal className="lg:col-span-3" delay={0.05}>
             <div className={CELL}>
               <div>
-                <Eyebrow>Verification before review</Eyebrow>
-                <h3 className="mt-3 flex items-center gap-2 font-display text-[18px] font-medium leading-tight text-fg">
-                  <ShieldCheck className="size-4 text-success" aria-hidden />
+                <h3 className="flex items-center gap-2 font-display text-[18px] font-medium leading-tight text-fg">
+                  <ShieldCheck className="size-4 shrink-0 text-success" aria-hidden />
                   Your tests are the contract
                 </h3>
                 <p className="mt-2 text-[13px] leading-[1.65] text-muted">
                   &ldquo;Done&rdquo; is a passing gate in the worktree. A crash, an empty diff, or
-                  a no-op test run is a failure — never a success story.
+                  a no-op test run is a failure, never a success story.
                 </p>
               </div>
               <div className="mt-5 grid grid-cols-2 gap-2">
@@ -142,8 +146,8 @@ export function FeatureBento() {
           <Reveal className="lg:col-span-3" delay={0.1}>
             <div className={CELL}>
               <div>
-                <Eyebrow>Durable context</Eyebrow>
-                <h3 className="mt-3 font-display text-[18px] font-medium leading-tight text-fg">
+                <h3 className="flex items-center gap-2 font-display text-[18px] font-medium leading-tight text-fg">
+                  <FileText className={CELL_ICON} aria-hidden />
                   A project brief that survives sessions
                 </h3>
                 <p className="mt-2 text-[13px] leading-[1.65] text-muted">
@@ -170,8 +174,8 @@ export function FeatureBento() {
           <Reveal className="lg:col-span-3" delay={0.05}>
             <div className={CELL}>
               <div>
-                <Eyebrow>Local first, Git native</Eyebrow>
-                <h3 className="mt-3 font-display text-[18px] font-medium leading-tight text-fg">
+                <h3 className="flex items-center gap-2 font-display text-[18px] font-medium leading-tight text-fg">
+                  <HardDrive className={CELL_ICON} aria-hidden />
                   Your repository is the database
                 </h3>
                 <p className="mt-2 text-[13px] leading-[1.65] text-muted">
@@ -197,8 +201,8 @@ export function FeatureBento() {
           <Reveal className="lg:col-span-3" delay={0.1}>
             <div className={CELL}>
               <div>
-                <Eyebrow>MCP &amp; skills</Eyebrow>
-                <h3 className="mt-3 font-display text-[18px] font-medium leading-tight text-fg">
+                <h3 className="flex items-center gap-2 font-display text-[18px] font-medium leading-tight text-fg">
+                  <Blocks className={CELL_ICON} aria-hidden />
                   The same tools, from inside your agent
                 </h3>
                 <p className="mt-2 text-[13px] leading-[1.65] text-muted">

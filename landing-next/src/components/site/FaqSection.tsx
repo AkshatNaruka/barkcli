@@ -10,12 +10,12 @@ export const FAQ_ITEMS = [
   {
     question: "Do I have to switch coding agents?",
     answer:
-      "No. It runs the agents you already have installed — Claude Code, Codex, or OpenCode, plus any command via BARKCLI_AGENT_CMD — and exposes its own MCP tools so an agent can read tasks, claim work, and report verdicts from inside its normal session. You keep your subscriptions.",
+      "No. It runs the agents you already have installed (Claude Code, Codex, or OpenCode, plus any command via BARKCLI_AGENT_CMD) and exposes its own MCP tools so an agent can read tasks, claim work, and report verdicts from inside its normal session. You keep your subscriptions.",
   },
   {
     question: "What happens when an agent's work fails the tests?",
     answer:
-      "The attempt fails. barkcli captures the compiler and test output, feeds it into the agent's next attempt in the same worktree, and retries. A crashed agent with no changes and a no-op gate counts as a failure too — nothing reaches review until the gate passes.",
+      "The attempt fails. barkcli captures the compiler and test output, feeds it into the agent's next attempt in the same worktree, and retries. A crashed agent with no changes and a no-op gate counts as a failure too; nothing reaches review until the gate passes.",
   },
   {
     question: "Where does my data live?",
@@ -47,8 +47,7 @@ export function FaqSection() {
     <section id="faq" className="relative border-t border-line py-20 md:py-28">
       <div className="mx-auto grid w-full max-w-[1120px] gap-10 px-5 md:px-8 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-16">
         <div>
-          <p className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-copper">FAQ</p>
-          <h2 className="mt-4 font-display text-[clamp(1.9rem,4vw,2.75rem)] font-medium leading-[1.05] tracking-[-0.025em] text-fg">
+          <h2 className="font-display text-[clamp(1.9rem,4vw,2.75rem)] font-medium leading-[1.05] tracking-[-0.025em] text-fg">
             Questions worth asking.
           </h2>
           <p className="mt-4 max-w-sm text-[14px] leading-[1.65] text-muted">
