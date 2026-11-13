@@ -103,6 +103,11 @@ export async function saveProject(path: string): Promise<DesktopProject | null> 
   return invoke<DesktopProject>("save_project", { path });
 }
 
+/** Rename a saved project (display name only; the folder is untouched). */
+export async function renameProject(path: string, name: string): Promise<DesktopProject | null> {
+  return invoke<DesktopProject | null>("rename_project", { path, name });
+}
+
 export async function removeSavedProject(path: string): Promise<boolean> {
   const result = await invoke<void>("remove_saved_project", { path });
   return result !== null || true;

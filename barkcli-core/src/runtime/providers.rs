@@ -405,6 +405,11 @@ impl ProviderAdapter for ClaudeProvider {
             _ => "acceptEdits",
         };
         cmd.arg("--permission-mode").arg(mode);
+        // Enabled MCP servers from Settings are written beside the settings
+        // file and passed here, so the toggle changes what the agent can call.
+        if let Some(path) = crate::settings::load().write_mcp_config() {
+            cmd.arg("--mcp-config").arg(path);
+        }
         cmd.arg(&req.prompt);
         spawn_cli(cmd, req, sink)
     }

@@ -260,6 +260,87 @@ impl StoredSettings {
             .iter()
             .any(|(existing, value)| existing == &key && !value.is_empty())
     }
+
+    /// Enabled MCP servers in the shape `claude --mcp-config` accepts.
+    ///
+    /// Returns `None` when nothing is enabled, so an empty Settings pane never
+    /// adds a flag to the agent command line.
+    pub fn mcp_config_json(&self) -> Option<String> {
+        let mut servers = serde_json::Map::new();
+        for entry in &self.mcp_servers {
+            if entry.get("enabled").and_then(Value::as_bool) == Some(false) {
+                continue;
+            }
+            let id = entry
+                .get("id")
+                .or_else(|| entry.get("name"))
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty());
+            let Some(id) = id else { continue };
+            let id = id.to_string();
+            let transport = entry
+                .get("transport")
+                .and_then(Value::as_str)
+                .unwrap_or("stdio");
+            if transport.eq_ignore_ascii_case("stdio") {
+                let command = entry
+                    .get("command")
+                    .and_then(Value::as_str)
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty());
+                let Some(command) = command else { continue };
+                let args: Vec<String> = entry
+                    .get("args")
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        items
+                            .iter()
+                            .filter_map(|item| item.as_str().map(str::to_string))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                let mut server = serde_json::Map::new();
+                server.insert("command".into(), serde_json::json!(command));
+                server.insert("args".into(), serde_json::json!(args));
+                if let Some(env) = entry.get("env").and_then(Value::as_object) {
+                    server.insert("env".into(), Value::Object(env.clone()));
+                }
+                servers.insert(id, Value::Object(server));
+            } else {
+                let url = entry
+                    .get("url")
+                    .and_then(Value::as_str)
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty());
+                let Some(url) = url else { continue };
+                servers.insert(id, serde_json::json!({ "type": "sse", "url": url }));
+            }
+        }
+        if servers.is_empty() {
+            return None;
+        }
+        serde_json::to_string(&serde_json::json!({ "mcpServers": servers })).ok()
+    }
+
+    /// Write the enabled MCP servers next to the settings file and return the
+    /// path to hand to an agent CLI. Kept beside settings so it is deleted with
+    /// them and never lands inside a project or worktree.
+    pub fn write_mcp_config(&self) -> Option<PathBuf> {
+        let json = self.mcp_config_json()?;
+        let base = settings_path()?;
+        let path = base.with_file_name("mcp.json");
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).ok()?;
+        }
+        std::fs::write(&path, json).ok()?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
+        }
+        Some(path)
+    }
 }
 
 pub fn normalize_env_key(value: &str) -> String {
@@ -508,6 +589,46 @@ mod tests {
         assert_eq!(settings.terminal.shell, "/bin/zsh");
         assert_eq!(settings.api_keys.ollama_endpoint, "http://127.0.0.1:11434");
         assert_eq!(settings.api_keys.default_backend, "");
+    }
+
+    #[test]
+    fn mcp_config_covers_only_enabled_servers() {
+        let mut settings = StoredSettings::default();
+        settings.mcp_servers = vec![
+            serde_json::json!({
+                "id": "postgres", "name": "Postgres", "transport": "stdio",
+                "command": "npx", "args": ["-y", "server-postgres"], "enabled": true
+            }),
+            serde_json::json!({
+                "id": "off", "name": "Off", "transport": "stdio",
+                "command": "npx", "args": [], "enabled": false
+            }),
+            serde_json::json!({
+                "id": "remote", "name": "Remote", "transport": "sse",
+                "url": "http://localhost:3000/sse", "enabled": true
+            }),
+        ];
+
+        let parsed: serde_json::Value =
+            serde_json::from_str(&settings.mcp_config_json().expect("a config")).unwrap();
+        let servers = parsed["mcpServers"].as_object().unwrap();
+        assert!(servers.contains_key("postgres"));
+        assert!(servers.contains_key("remote"));
+        assert!(!servers.contains_key("off"));
+        assert_eq!(servers["postgres"]["command"], "npx");
+        assert_eq!(servers["postgres"]["args"][1], "server-postgres");
+        assert_eq!(servers["remote"]["type"], "sse");
+    }
+
+    #[test]
+    fn mcp_config_is_none_when_nothing_is_enabled() {
+        let mut settings = StoredSettings::default();
+        assert!(settings.mcp_config_json().is_none());
+
+        settings.mcp_servers = vec![serde_json::json!({
+            "id": "off", "transport": "stdio", "command": "npx", "enabled": false
+        })];
+        assert!(settings.mcp_config_json().is_none());
     }
 
     #[test]

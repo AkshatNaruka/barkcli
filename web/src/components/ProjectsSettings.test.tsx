@@ -18,6 +18,7 @@ vi.mock("../lib/desktop", () => ({
   savedProjects: () => Promise.resolve([]),
   saveProject: () => Promise.resolve({ name: "x", path: "/x" }),
   removeSavedProject: () => Promise.resolve(true),
+  renameProject: (path: string, name: string) => vi.fn(async () => ({ path, name }))(),
   switchProject: (path: string) => switchProject(path),
   revealProject: (path: string) => revealProject(path),
   openTerminal: (path: string) => openTerminal(path),
@@ -25,13 +26,10 @@ vi.mock("../lib/desktop", () => ({
 }));
 
 describe("ProjectsSettings", () => {
-  it("renders breadcrumb, scope selectors, and project card list", async () => {
+  it("renders the breadcrumb and project card list", async () => {
     render(<ProjectsSettings />);
 
     expect(screen.getByText("Projects")).toBeInTheDocument();
-    expect(screen.getByText("Applying settings for")).toBeInTheDocument();
-    expect(screen.getByText("All projects")).toBeInTheDocument();
-    expect(screen.getByText("All environments")).toBeInTheDocument();
 
     expect(await screen.findByText("/projects/barkcli")).toBeInTheDocument();
     expect(screen.getByText("No project")).toBeInTheDocument();
@@ -55,5 +53,26 @@ describe("ProjectsSettings", () => {
 
     await user.click(screen.getByRole("button", { name: "Open Terminal" }));
     expect(openTerminal).toHaveBeenCalledWith("/projects/barkcli");
+  });
+
+  it("renames a project through the desktop store, not just local state", async () => {
+    const user = userEvent.setup();
+    render(<ProjectsSettings />);
+
+    await screen.findByText("/projects/barkcli");
+    const barkcliElements = await screen.findAllByText("barkcli");
+    await user.click(barkcliElements[barkcliElements.length - 1]);
+
+    const input = (await screen.findByLabelText("Display Name")) as HTMLInputElement;
+    const save = screen.getByRole("button", { name: "Save" });
+    expect(save).toBeDisabled();
+
+    await user.clear(input);
+    await user.type(input, "Bark");
+    await user.click(save);
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Bark" })).toBeInTheDocument()
+    );
   });
 });

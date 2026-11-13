@@ -9,6 +9,7 @@ import {
   fetchProviderModels,
   fetchSettings,
   ping,
+  probeOllama,
   saveSettings,
   validateBoards,
   type BoardConfig,
@@ -29,7 +30,6 @@ import {
   type McpServerConfig,
 } from "../lib/mcp";
 import {
-  CURRENT_BUILD_HASH,
   CURRENT_VERSION,
   compareSemver,
   fetchReleases,
@@ -171,6 +171,7 @@ export function SettingsView({
   const [settingsReady, setSettingsReady] = useState(false);
   const persistedSignature = useRef<string | null>(null);
   const [serverVersion, setServerVersion] = useState(CURRENT_VERSION);
+  const [serverBuild, setServerBuild] = useState<string | null>(null);
 
   // General Settings State
   const [general, setGeneral] = useState<GeneralSettings>(loadGeneralSettings);
@@ -221,6 +222,7 @@ export function SettingsView({
     void ping()
       .then((payload) => {
         if (payload?.version) setServerVersion(payload.version);
+        setServerBuild(payload?.build || null);
       })
       .catch(() => {});
     void fetchSettings()
@@ -364,19 +366,26 @@ export function SettingsView({
   const runDiagnostics = async () => {
     setDiagnosticsBusy(true);
     try {
-      const [proj, val, prov, hks, access] = await Promise.all([
+      const [proj, val, prov, hks, health, access] = await Promise.all([
         fetchProject().catch((e) => ({ error: String(e) })),
         validateBoards().catch((e) => ({ error: String(e) })),
         fetchProviders().catch(() => []),
         fetchHooks().catch(() => ({ installed: false })),
-        apiAccess(),
+        ping().catch(() => null),
+        Promise.resolve(apiAccess()),
       ]);
       setDiagnostics({
         project: proj,
         validation: val,
         providers: prov,
         hooks: hks,
-        ping: { version: access.base },
+        // `health` is the server's real liveness payload; `access.base` is the
+        // URL, which used to be shown under a "version" label.
+        ping: {
+          version: health?.version || "",
+          uptime: health?.uptime_seconds ?? null,
+          base: access.base,
+        },
       });
     } finally {
       setDiagnosticsBusy(false);
@@ -500,12 +509,9 @@ export function SettingsView({
         setUpdateStatus("error");
         return;
       }
-      const cmp = compareSemver(serverVersion, release.version);
-      if (cmp > 0 || channel === "beta" || channel === "nightly") {
-        setUpdateStatus("available");
-      } else {
-        setUpdateStatus("up-to-date");
-      }
+      // Compare real versions in every channel. A beta preference must not
+      // claim an update exists when the newest tag is the one you already run.
+      setUpdateStatus(compareSemver(serverVersion, release.version) > 0 ? "available" : "up-to-date");
       const updatedPrefs = { ...updatePrefs, channel, lastChecked: Date.now() };
       setUpdatePrefs(updatedPrefs);
       saveUpdatePreferences(updatedPrefs);
@@ -559,17 +565,26 @@ export function SettingsView({
     setOllamaTesting(true);
     setOllamaStatus(null);
     try {
-      const endpoint = apiKeys.ollamaEndpoint.replace(/\/$/, "");
-      const res = await fetch(`${endpoint}/api/tags`, { method: "GET" }).catch(() => null);
-      if (res && res.ok) {
-        const data = await res.json().catch(() => ({}));
-        const count = data.models?.length || 0;
-        setOllamaStatus(`Connected — found ${count} local models`);
-      } else {
-        setOllamaStatus("Ollama endpoint not responding. Start with: ollama serve");
+      // Probed through the server: a browser page cannot reach
+      // 127.0.0.1:11434 directly under CORS, and this way the check uses the
+      // same endpoint the agent will actually call.
+      const result = await probeOllama(apiKeys.ollamaEndpoint);
+      if (!result) {
+        setOllamaStatus("Could not reach the local server to run the check.");
+        return;
       }
-    } catch {
-      setOllamaStatus("Failed to connect to Ollama");
+      if (result.ok) {
+        const names = result.models.slice(0, 4).join(", ");
+        setOllamaStatus(
+          result.count > 0
+            ? `Connected — ${result.count} model${result.count === 1 ? "" : "s"} (${names}${result.count > 4 ? ", …" : ""})`
+            : "Connected, but no models are installed yet. Run: ollama pull llama3.2"
+        );
+      } else {
+        setOllamaStatus(
+          `${result.error || "Ollama did not respond"} — start it with: ollama serve`
+        );
+      }
     } finally {
       setOllamaTesting(false);
     }
@@ -730,7 +745,7 @@ export function SettingsView({
             v{serverVersion}
           </span>
           <span className="font-mono text-[10px] text-muted/60">
-            {CURRENT_BUILD_HASH ? CURRENT_BUILD_HASH.slice(0, 7) : "master"}
+            {serverBuild ? serverBuild.slice(0, 7) : "local build"}
           </span>
         </div>
       </aside>
@@ -1086,12 +1101,11 @@ export function SettingsView({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <span className="relative flex h-2.5 w-2.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
                     </span>
                     <strong className="text-xs font-semibold text-text">barkcli-mcp</strong>
                     <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      Active · Stdio
+                      stdio · on demand
                     </span>
                   </div>
                   <span className="text-[11px] font-mono text-muted">Protocol: 2024-11-05</span>
@@ -1171,7 +1185,7 @@ export function SettingsView({
 
             <Section
               title="Configured MCP Servers"
-              description="Enable or configure external Model Context Protocol tool bundles."
+              description="Enabled servers are handed to Claude Code runs automatically. For other agents, copy the generated snippet above."
             >
               <div className="space-y-2">
                 {mcpServers.map((server) => (
@@ -1307,7 +1321,7 @@ export function SettingsView({
           <>
             <Section
               title="Cloud Model Providers"
-              description="API keys are kept strictly in local secure browser storage and only used to contact authorized providers."
+              description="Stored only on this machine (~/.bark/settings.json, mode 0600) and passed to agents as their standard environment variables."
             >
               <div className="space-y-3">
                 {[
@@ -1495,6 +1509,19 @@ export function SettingsView({
                     <option value="underline">Underline ( _ )</option>
                   </select>
                 </label>
+
+                <label className="space-y-1">
+                  <span className="text-muted">Line Height</span>
+                  <select
+                    value={String(terminal.lineHeight)}
+                    onChange={(e) => updateTerminalSetting({ lineHeight: parseFloat(e.target.value) })}
+                    className="bark-select w-full"
+                  >
+                    {[1.2, 1.35, 1.5, 1.65, 1.8].map((l) => (
+                      <option key={l} value={l}>{l.toFixed(2)}</option>
+                    ))}
+                  </select>
+                </label>
               </div>
 
               <div className="mt-3 p-3 rounded-lg bg-[#0c0c0e] border border-border/80">
@@ -1503,6 +1530,7 @@ export function SettingsView({
                   style={{
                     fontFamily: `${terminal.fontFamily}, monospace`,
                     fontSize: `${terminal.fontSize}px`,
+                    lineHeight: terminal.lineHeight,
                   }}
                   className="text-text space-y-1"
                 >
@@ -1510,7 +1538,15 @@ export function SettingsView({
                   <p className="flex items-center gap-1.5">
                     <span className="text-muted select-none">$</span>
                     <span>cargo test --quiet</span>
-                    <span className="animate-pulse bg-accent inline-block w-2 h-4 align-middle"></span>
+                    <span
+                      className={`animate-pulse bg-accent inline-block align-middle ${
+                        terminal.cursorStyle === "bar"
+                          ? "w-px h-4"
+                          : terminal.cursorStyle === "underline"
+                            ? "w-2 h-px mb-0.5"
+                            : "w-2 h-4"
+                      }`}
+                    />
                   </p>
                 </div>
               </div>
@@ -1574,7 +1610,7 @@ export function SettingsView({
                     <div className="flex items-center gap-2">
                       <strong className="text-sm font-semibold text-text">Bark v{serverVersion}</strong>
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/[0.06] text-muted">
-                        git: {CURRENT_BUILD_HASH}
+                        {serverBuild ? `git: ${serverBuild.slice(0, 7)}` : "local build"}
                       </span>
                     </div>
                     <p className="text-[11px] text-muted mt-1">
@@ -1600,7 +1636,7 @@ export function SettingsView({
                   <button
                     type="button"
                     onClick={() => void checkUpdates()}
-                    disabled={updateStatus === "checking" || updateStatus === "downloading"}
+                    disabled={updateStatus === "checking"}
                     className="bark-button flex items-center gap-1.5 text-xs"
                   >
                     <Icon name="refresh" size={12} className={updateStatus === "checking" ? "animate-spin" : ""} />
@@ -1615,6 +1651,22 @@ export function SettingsView({
                 </div>
               </div>
             </Section>
+
+            {updateStatus === "error" && (
+              <Section
+                title="Could not check for updates"
+                description="GitHub's release feed did not respond. That is normal when offline, rate-limited, or behind a proxy."
+              >
+                <button
+                  type="button"
+                  className="bark-button"
+                  onClick={() => void openExternalUrl("https://github.com/AkshatNaruka/barkcli/releases")}
+                >
+                  <Icon name="globe" size={12} />
+                  Open the releases page
+                </button>
+              </Section>
+            )}
 
             {/* Active Update / Download Card */}
             {updateStatus === "available" && latestRelease && (
@@ -1884,7 +1936,13 @@ export function SettingsView({
                   </div>
                   <div>
                     <dt>Server</dt>
-                    <dd>{diagnostics.ping?.version || "responding"}</dd>
+                    <dd>
+                      {diagnostics.ping?.version ? `v${diagnostics.ping.version}` : "not responding"}
+                      {typeof diagnostics.ping?.uptime === "number" && (
+                        <code>{Math.round(diagnostics.ping.uptime)}s uptime</code>
+                      )}
+                      {diagnostics.ping?.base && <code>{diagnostics.ping.base}</code>}
+                    </dd>
                   </div>
                 </dl>
               )}

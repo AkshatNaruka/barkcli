@@ -171,6 +171,7 @@ fn main() {
             project_favicon,
             saved_projects,
             save_project,
+            rename_project,
             remove_saved_project,
             project_summaries,
             reveal_project,
@@ -327,8 +328,26 @@ fn main() {
 
 #[tauri::command]
 fn current_project(state: State<'_, ServerState>) -> DesktopProject {
-    let runtime = state.runtime.lock().unwrap();
-    DesktopProject::from(runtime.project.as_path())
+    let path = {
+        let runtime = state.runtime.lock().unwrap();
+        runtime.project.clone()
+    };
+    let mut project = DesktopProject::from(path.as_path());
+    if let Some(name) = stored_project_name(&project.path) {
+        project.name = name;
+    }
+    project
+}
+
+/// A display name the user set in Settings → Projects, if any.
+fn stored_project_name(path: &str) -> Option<String> {
+    load_state()
+        .and_then(|state| state.get("saved_projects").cloned())
+        .and_then(|value| serde_json::from_value::<Vec<DesktopProject>>(value).ok())
+        .unwrap_or_default()
+        .into_iter()
+        .find(|project| project.path == path)
+        .map(|project| project.name)
 }
 
 fn sidebar_layout_path() -> Result<PathBuf, String> {
@@ -586,15 +605,17 @@ fn project_favicon(path: String) -> Option<String> {
 
 #[tauri::command]
 fn recent_projects(state: State<'_, ServerState>) -> Vec<DesktopProject> {
-    let current = {
-        let runtime = state.runtime.lock().unwrap();
-        DesktopProject::from(runtime.project.as_path())
-    };
+    let current = current_project(state);
     let mut projects = load_state()
         .and_then(|state| state.get("recent").cloned())
         .and_then(|value| serde_json::from_value::<Vec<DesktopProject>>(value).ok())
         .unwrap_or_default();
     projects.retain(|project| project.path != current.path);
+    for project in projects.iter_mut() {
+        if let Some(name) = stored_project_name(&project.path) {
+            project.name = name;
+        }
+    }
     projects.insert(0, current);
     projects.truncate(8);
     projects
@@ -610,9 +631,13 @@ fn saved_projects() -> Vec<DesktopProject> {
 
 #[tauri::command]
 fn save_project(path: String) -> Result<DesktopProject, String> {
-    let project = DesktopProject::from_path(PathBuf::from(&path));
+    let mut project = DesktopProject::from_path(PathBuf::from(&path));
     if !Path::new(&path).is_dir() {
         return Err(format!("Not a directory: {path}"));
+    }
+    // Re-adding a project must keep the name the user chose for it.
+    if let Some(name) = stored_project_name(&project.path) {
+        project.name = name;
     }
     update_state(|state| {
         let mut saved = state
@@ -625,6 +650,37 @@ fn save_project(path: String) -> Result<DesktopProject, String> {
         state.insert("saved_projects".into(), serde_json::to_value(&saved).unwrap_or_default());
     });
     Ok(project)
+}
+
+/// Rename a saved project. Bark keeps the display name in its own store, so
+/// renaming never touches the folder on disk.
+#[tauri::command]
+fn rename_project(path: String, name: String) -> Result<DesktopProject, String> {
+    let name = name.trim().to_string();
+    if name.is_empty() {
+        return Err("a project name cannot be empty".to_string());
+    }
+    let mut renamed: Option<DesktopProject> = None;
+    update_state(|state| {
+        let mut saved = state
+            .get("saved_projects")
+            .and_then(|value| serde_json::from_value::<Vec<DesktopProject>>(value.clone()).ok())
+            .unwrap_or_default();
+        for project in saved.iter_mut() {
+            if project.path == path {
+                project.name = name.clone();
+                renamed = Some(project.clone());
+            }
+        }
+        if renamed.is_none() {
+            let mut project = DesktopProject::from_path(PathBuf::from(&path));
+            project.name = name.clone();
+            saved.insert(0, project.clone());
+            renamed = Some(project);
+        }
+        state.insert("saved_projects".into(), serde_json::to_value(&saved).unwrap_or_default());
+    });
+    renamed.ok_or_else(|| "could not save that name".to_string())
 }
 
 #[tauri::command]

@@ -148,6 +148,7 @@ where
     let app = Router::new()
         .route("/api/project", get(project_handler))
         .route("/api/settings", get(get_settings_handler).put(save_settings_handler))
+        .route("/api/ollama/probe", post(ollama_probe_handler))
         .route("/api/project/onboard", post(onboard_project_handler))
         .route("/api/project/init-git", post(init_git_handler))
         .route("/api/hooks", get(hooks_status_handler))
@@ -2439,6 +2440,10 @@ struct PingResponse {
     timestamp: String,
     version: &'static str,
     uptime_seconds: u64,
+    /// Commit the binary was built from, when the build provided one. `None`
+    /// means "local build" — never a hardcoded placeholder hash.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    build: Option<&'static str>,
 }
 
 /// Pure payload builder — the clock is injected so tests need no sleeping.
@@ -2448,6 +2453,7 @@ fn ping_payload(started_at: Instant, now: DateTime<Utc>) -> PingResponse {
         timestamp: now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
         version: env!("CARGO_PKG_VERSION"),
         uptime_seconds: started_at.elapsed().as_secs(),
+        build: option_env!("BARK_BUILD_HASH"),
     }
 }
 
@@ -2456,6 +2462,42 @@ fn ping_payload(started_at: Instant, now: DateTime<Utc>) -> PingResponse {
 async fn get_settings_handler(
 ) -> Result<Json<barkcli_core::settings::StoredSettings>, ServerError> {
     Ok(Json(barkcli_core::settings::load()))
+}
+
+#[derive(Deserialize)]
+struct OllamaProbeRequest {
+    #[serde(default)]
+    endpoint: Option<String>,
+}
+
+/// Probe the configured Ollama server. Server-side so the Settings pane works
+/// in the browser too (a page cannot call `127.0.0.1:11434` under CORS).
+async fn ollama_probe_handler(
+    Json(req): Json<OllamaProbeRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let endpoint = req
+        .endpoint
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| barkcli_core::settings::load().api_keys.ollama_endpoint);
+    let probe = tokio::task::spawn_blocking({
+        let endpoint = endpoint.clone();
+        move || barkcli_core::ai::provider::probe_ollama(&endpoint)
+    })
+    .await
+    .map_err(|error| ServerError::internal(error.to_string()))?;
+    match probe {
+        Ok(models) => Ok(Json(serde_json::json!({
+            "ok": true,
+            "endpoint": endpoint,
+            "models": models,
+            "count": models.len(),
+        }))),
+        Err(message) => Ok(Json(serde_json::json!({
+            "ok": false,
+            "endpoint": endpoint,
+            "error": message.to_string(),
+        }))),
+    }
 }
 
 /// Persist settings. Everything here is applied at execution time: API keys and

@@ -387,6 +387,8 @@ export interface PingResponse {
   timestamp: string;
   version: string;
   uptime_seconds: number;
+  /** Commit the running binary was built from, when known. */
+  build?: string;
 }
 
 export async function ping(): Promise<PingResponse> {
@@ -2239,6 +2241,32 @@ export async function fetchSettings(): Promise<StoredSettings | null> {
   } catch {
     return null;
   }
+}
+
+export interface OllamaProbe {
+  ok: boolean;
+  endpoint: string;
+  models: string[];
+  count: number;
+  error?: string;
+}
+
+/**
+ * Ask the local server to probe Ollama.
+ *
+ * The browser cannot call `127.0.0.1:11434` itself under CORS, and the server
+ * uses the same endpoint the agents will, so the result is the truth.
+ */
+export async function probeOllama(endpoint?: string): Promise<OllamaProbe | null> {
+  const result = await postJson("/api/ollama/probe", { endpoint: endpoint || undefined });
+  if (!result) return null;
+  return {
+    ok: Boolean(result.ok),
+    endpoint: result.endpoint || "",
+    models: Array.isArray(result.models) ? result.models : [],
+    count: Number(result.count) || 0,
+    error: result.error,
+  };
 }
 
 async function putJson(url: string, body: any): Promise<any | null> {

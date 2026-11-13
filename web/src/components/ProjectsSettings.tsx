@@ -9,6 +9,7 @@ import {
   savedProjects,
   saveProject,
   removeSavedProject,
+  renameProject,
   revealProject,
   switchProject,
   type DesktopProject,
@@ -72,12 +73,25 @@ export function ProjectsSettings({ onClose, onOpenSources }: ProjectsSettingsPro
     setEditingName(proj.name);
   };
 
-  const handleSaveProjectName = () => {
+  const [renameStatus, setRenameStatus] = useState<string | null>(null);
+
+  const handleSaveProjectName = async () => {
     if (!selectedProject || !editingName.trim()) return;
-    setProjects((prev) =>
-      prev.map((p) => (p.path === selectedProject.path ? { ...p, name: editingName.trim() } : p))
-    );
-    setSelectedProject((prev) => (prev ? { ...prev, name: editingName.trim() } : null));
+    const name = editingName.trim();
+    try {
+      const renamed = await renameProject(selectedProject.path, name);
+      if (!renamed) {
+        setRenameStatus("Could not save that name. Renaming is handled by the Bark app.");
+        return;
+      }
+      setProjects((prev) =>
+        prev.map((p) => (p.path === renamed.path ? { ...p, name: renamed.name } : p))
+      );
+      setSelectedProject((prev) => (prev ? { ...prev, name: renamed.name } : null));
+      setRenameStatus(null);
+    } catch {
+      setRenameStatus("Could not save that name. Renaming is handled by the Bark app.");
+    }
   };
 
   return (
@@ -134,9 +148,15 @@ export function ProjectsSettings({ onClose, onOpenSources }: ProjectsSettingsPro
             <div className="flex flex-col gap-4 bg-card border border-border rounded-xl p-5">
               <h4 className="text-[13px] font-semibold text-text">Project Settings</h4>
               <div className="flex flex-col gap-1.5">
-                <label className="text-[12px] font-medium text-muted-strong">Display Name</label>
+                <label
+                  htmlFor="project-display-name"
+                  className="text-[12px] font-medium text-muted-strong"
+                >
+                  Display Name
+                </label>
                 <div className="flex items-center gap-2">
                   <input
+                    id="project-display-name"
                     type="text"
                     value={editingName}
                     onChange={(e) => setEditingName(e.target.value)}
@@ -144,8 +164,9 @@ export function ProjectsSettings({ onClose, onOpenSources }: ProjectsSettingsPro
                   />
                   <button
                     type="button"
-                    onClick={handleSaveProjectName}
-                    className="px-3 py-1.5 bg-accent text-accent-text text-[12px] font-medium rounded-lg hover:opacity-90 transition-opacity"
+                    onClick={() => void handleSaveProjectName()}
+                    disabled={!editingName.trim() || editingName.trim() === selectedProject.name}
+                    className="px-3 py-1.5 bg-accent text-accent-text text-[12px] font-medium rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Save
                   </button>

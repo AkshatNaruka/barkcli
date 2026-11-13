@@ -85,6 +85,12 @@ pub fn resolve_config() -> Result<AiConfig> {
         }
     }
 
+    // 2.5 Settings → API Keys → Local Models. When the resolved URL is the
+    // Ollama default, use the endpoint the user configured so "Test
+    // connection" and real agent requests point at the same server.
+    let settings = crate::settings::load();
+    cfg.base_url = apply_ollama_endpoint(&cfg.base_url, &settings.api_keys.ollama_endpoint);
+
     // 3. env (highest priority)
     if let Ok(v) = std::env::var("BARKCLI_API_BASE") {
         if !v.is_empty() {
@@ -110,6 +116,63 @@ pub fn resolve_config() -> Result<AiConfig> {
     }
 
     Ok(cfg)
+}
+
+/// Point an Ollama base URL at the endpoint configured in Settings.
+///
+/// Only the known Ollama default (`…:11434`) or an empty URL is rewritten: an
+/// explicit OpenAI-compatible gateway must never be redirected to a local
+/// server because of a settings field the user did not touch.
+pub fn apply_ollama_endpoint(base_url: &str, endpoint: &str) -> String {
+    let endpoint = endpoint.trim().trim_end_matches('/');
+    if endpoint.is_empty() {
+        return base_url.to_string();
+    }
+    // Keep the `/v1` path the OpenAI-compatible client needs.
+    let endpoint_path = if endpoint.ends_with("/v1") { "" } else { "/v1" };
+    let target = format!("{endpoint}{endpoint_path}");
+
+    let trimmed = base_url.trim();
+    if trimmed.is_empty() {
+        return target;
+    }
+    let is_ollama_default = trimmed.contains("11434")
+        && (trimmed.contains("localhost") || trimmed.contains("127.0.0.1"));
+    if is_ollama_default {
+        target
+    } else {
+        base_url.to_string()
+    }
+}
+
+/// Probe an Ollama server for its installed models.
+///
+/// Runs server-side so the Settings pane is not blocked by browser CORS rules,
+/// and so the same code path is used in the desktop shell and the web app.
+pub fn probe_ollama(endpoint: &str) -> Result<Vec<String>> {
+    let endpoint = endpoint.trim().trim_end_matches('/');
+    let base = endpoint.strip_suffix("/v1").unwrap_or(endpoint);
+    if base.is_empty() {
+        anyhow::bail!("no endpoint configured");
+    }
+    let url = format!("{base}/api/tags");
+    let resp = ureq::get(&url)
+        .timeout(std::time::Duration::from_secs(4))
+        .call()
+        .map_err(|e| anyhow::anyhow!("could not reach {base}: {e}"))?;
+    let body: serde_json::Value = resp
+        .into_json()
+        .map_err(|e| anyhow::anyhow!("unexpected response from {base}: {e}"))?;
+    Ok(body
+        .get("models")
+        .and_then(|value| value.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.get("name").and_then(|n| n.as_str()).map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default())
 }
 
 /// `provider` name → base URL + default model (for `ai config set provider`).
@@ -196,5 +259,38 @@ mod tests {
         assert_eq!(provider_defaults("openai").unwrap(), ("https://api.openai.com/v1".into(), "gpt-4o-mini".into()));
         assert_eq!(provider_defaults("ollama").unwrap(), ("http://localhost:11434/v1".into(), "llama3.2".into()));
         assert!(provider_defaults("bogus").is_err());
+    }
+
+    #[test]
+    fn ollama_endpoint_replaces_the_default() {
+        assert_eq!(
+            apply_ollama_endpoint("http://localhost:11434/v1", "http://192.168.1.9:11500"),
+            "http://192.168.1.9:11500/v1"
+        );
+        assert_eq!(
+            apply_ollama_endpoint("http://127.0.0.1:11434/v1", "http://localhost:11434/"),
+            "http://localhost:11434/v1"
+        );
+    }
+
+    #[test]
+    fn ollama_endpoint_leaves_remote_gateways_alone() {
+        assert_eq!(
+            apply_ollama_endpoint("https://api.openai.com/v1", "http://127.0.0.1:11434"),
+            "https://api.openai.com/v1"
+        );
+        // An empty setting is not an instruction to switch providers.
+        assert_eq!(
+            apply_ollama_endpoint("http://localhost:11434/v1", "  "),
+            "http://localhost:11434/v1"
+        );
+    }
+
+    #[test]
+    fn ollama_endpoint_fills_an_empty_base_url() {
+        assert_eq!(
+            apply_ollama_endpoint("", "http://127.0.0.1:11434"),
+            "http://127.0.0.1:11434/v1"
+        );
     }
 }

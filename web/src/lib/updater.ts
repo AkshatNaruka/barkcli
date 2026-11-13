@@ -26,7 +26,6 @@ export interface UpdatePreferences {
 }
 
 export const CURRENT_VERSION = "0.4.22";
-export const CURRENT_BUILD_HASH = "efa8112";
 const UPDATER_STORAGE_KEY = "barkcli-updater-prefs-v1";
 
 export const DEFAULT_UPDATE_PREFS: UpdatePreferences = {
@@ -77,13 +76,14 @@ export async function fetchReleases(channel: UpdateChannel = "stable"): Promise<
     });
 
     if (!res.ok) {
-      // Fallback fallback simulated release if rate limited or offline
-      return getFallbackRelease(channel);
+      // No fabricated fallback: an offline or rate-limited check must look
+      // like one instead of inventing a release with dead download links.
+      return null;
     }
 
     const data = await res.json();
     if (!Array.isArray(data) || data.length === 0) {
-      return getFallbackRelease(channel);
+      return null;
     }
 
     const matching = data.find((r: any) => {
@@ -121,42 +121,6 @@ export async function fetchReleases(channel: UpdateChannel = "stable"): Promise<
       prerelease: Boolean(matching.prerelease),
     };
   } catch {
-    return getFallbackRelease(channel);
+    return null;
   }
-}
-
-function getFallbackRelease(channel: UpdateChannel): ReleaseInfo {
-  const isBeta = channel === "beta";
-  const isNightly = channel === "nightly";
-  const version = isNightly ? "0.4.24-nightly" : isBeta ? "0.4.23-beta.1" : "0.4.23";
-
-  return {
-    version,
-    tag: `v${version}`,
-    name: `Bark ${version} — Auto-Update & Unified MCP Engine`,
-    publishedAt: new Date(Date.now() - 3600000 * 4).toISOString(),
-    body: `### What's New in ${version}\n\n- **In-App Auto-Update**: Seamlessly fetch releases, verify checksums, and update with one click.\n- **First-Class MCP Integration**: Manage local and remote Model Context Protocol servers with client snippet generation for Claude Code, Cursor, and OpenCode.\n- **Solid Performance**: Instantaneous opaque dropdowns, zero backdrop bleed-through, and consolidated Settings.`,
-    htmlUrl: "https://github.com/AkshatNaruka/barkcli/releases",
-    prerelease: isBeta || isNightly,
-    assets: [
-      {
-        name: `Bark-${version}-aarch64-apple-darwin.dmg`,
-        size: 34385920,
-        downloadUrl: `https://github.com/AkshatNaruka/barkcli/releases/download/v${version}/Bark-${version}-aarch64-apple-darwin.dmg`,
-        platform: "macos",
-      },
-      {
-        name: `Bark-${version}-x86_64-apple-darwin.dmg`,
-        size: 36125440,
-        downloadUrl: `https://github.com/AkshatNaruka/barkcli/releases/download/v${version}/Bark-${version}-x86_64-apple-darwin.dmg`,
-        platform: "macos",
-      },
-      {
-        name: `barkcli-${version}-x86_64-unknown-linux-gnu.tar.gz`,
-        size: 18452100,
-        downloadUrl: `https://github.com/AkshatNaruka/barkcli/releases/download/v${version}/barkcli-${version}-x86_64-unknown-linux-gnu.tar.gz`,
-        platform: "linux",
-      },
-    ],
-  };
 }
