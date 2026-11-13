@@ -392,7 +392,11 @@ should not be rewritten to satisfy a copy rule about prose.
 ### 8.4 Labels
 
 - Maximum one uppercase mono eyebrow per three sections. On the homepage that
-  means the hero eyebrow and nothing else; section headings carry the structure.
+  means the hero eyebrow and nothing else above a heading; section headings
+  carry the structure.
+- Inline labels inside a component are not eyebrows: the scroll story's stage
+  names and the bento's "Agent says" / "Gate says" rows label a local value, sit
+  inside a panel, and never introduce a section.
 - No numbered labels (`01 · Intent`, `Stage 1`), no version stamps, no scroll
   cues, no locale or weather strips.
 - At most one middle dot per metadata line. Prefer commas.
@@ -443,7 +447,7 @@ Run against the rules in `design-taste-frontend`, on this page only.
 
 | Rule | Status | Evidence |
 |---|---|---|
-| Eyebrows ≤ 1 per 3 sections | Pass | One eyebrow on the page (hero) |
+| Eyebrows ≤ 1 per 3 sections | Pass | One eyebrow above a heading (hero). Stage names and gate rows are inline labels |
 | No split-header default | Pass | Hero is a real split with a visual; showcase's right side is actions; verification's right side is a terminal |
 | No three equal feature cards | Pass | Weighted bento, hairline interface matrix |
 | Bento cell count == content count | Pass | 6 capabilities, 6 cells, no gaps |
