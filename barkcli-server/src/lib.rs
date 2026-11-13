@@ -205,6 +205,8 @@ where
         .route("/api/merge-trains/{id}/run", post(run_train_handler))
         .route("/api/gate/check", post(gate_check_handler))
         .route("/api/worktrees", get(worktrees_handler))
+        .route("/api/worktrees/inventory", get(worktree_inventory_handler))
+        .route("/api/worktrees/cleanup", post(worktree_cleanup_handler))
         .route("/api/worktrees/{slug}/checkpoint", post(worktree_checkpoint_handler))
         .route("/api/health", get(health_handler))
         .route("/api/proxy", get(browser_proxy_handler))
@@ -1506,6 +1508,49 @@ async fn gate_check_handler(
 async fn worktrees_handler() -> Result<Json<serde_json::Value>, ServerError> {
     let rows = barkcli_core::agent::worktree_lifecycle::list_with_health().map_err(|e| ServerError::internal(e.to_string()))?;
     Ok(Json(serde_json::json!({ "worktrees": rows })))
+}
+
+/// Inventory every agent worktree with size on disk, merge state, age, and
+/// whether a run still owns it. Walking checkouts is slow, so it runs off the
+/// async runtime.
+async fn worktree_inventory_handler() -> Result<Json<serde_json::Value>, ServerError> {
+    let inventory = tokio::task::spawn_blocking(barkcli_core::agent::worktree_cleanup::inventory)
+        .await
+        .map_err(|error| ServerError::internal(error.to_string()))?
+        .map_err(|error| ServerError::internal(error.to_string()))?;
+    Ok(Json(
+        serde_json::to_value(inventory).unwrap_or_else(|_| serde_json::json!({})),
+    ))
+}
+
+#[derive(Deserialize)]
+struct WorktreeCleanupRequest {
+    /// Explicit slugs. Nothing is removed implicitly: the client has to name
+    /// what the person confirmed.
+    #[serde(default)]
+    slugs: Vec<String>,
+    /// Report what would happen without deleting anything.
+    #[serde(default)]
+    dry_run: bool,
+}
+
+/// Remove selected worktrees after re-checking each one is still safe.
+/// Active runs, uncommitted changes, and unmerged work are refused per slug.
+async fn worktree_cleanup_handler(
+    Json(req): Json<WorktreeCleanupRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    if req.slugs.is_empty() {
+        return Err(ServerError::bad("select at least one worktree to clean up"));
+    }
+    let result = tokio::task::spawn_blocking(move || {
+        barkcli_core::agent::worktree_cleanup::cleanup(&req.slugs, req.dry_run)
+    })
+    .await
+    .map_err(|error| ServerError::internal(error.to_string()))?
+    .map_err(|error| ServerError::internal(error.to_string()))?;
+    Ok(Json(
+        serde_json::to_value(result).unwrap_or_else(|_| serde_json::json!({})),
+    ))
 }
 
 #[derive(Deserialize)]

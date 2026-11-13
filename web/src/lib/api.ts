@@ -2645,3 +2645,92 @@ export async function fetchPullRequestDetail(number: number): Promise<PullReques
     return null;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Agent worktrees
+// ---------------------------------------------------------------------------
+
+export type WorktreeCategory = "merged" | "stale" | "active" | "unmerged";
+
+export interface ManagedWorktree {
+  slug: string;
+  path: string;
+  branch?: string;
+  head_sha?: string;
+  /** Lifecycle status (`in_use`, `merged`, `stale`, `untracked`, …). */
+  status: string;
+  category: WorktreeCategory;
+  size_bytes: number;
+  age_secs: number;
+  registered: boolean;
+  exists: boolean;
+  merged: boolean;
+  dirty: boolean;
+  active: boolean;
+  removable: boolean;
+  /** Why it can be removed, or what blocks it. */
+  reason: string;
+}
+
+export interface WorktreeInventory {
+  base_branch: string;
+  entries: ManagedWorktree[];
+  total_bytes: number;
+  /** Bytes removing every safe candidate would free. */
+  reclaimable_bytes: number;
+  removable_count: number;
+}
+
+export interface WorktreeRemovalOutcome {
+  slug: string;
+  removed: boolean;
+  reclaimed_bytes: number;
+  branch_deleted: boolean;
+  error?: string;
+}
+
+export interface WorktreeCleanupResult {
+  dry_run: boolean;
+  planned: ManagedWorktree[];
+  skipped: ManagedWorktree[];
+  outcomes: WorktreeRemovalOutcome[];
+  removed_count: number;
+  reclaimed_bytes: number;
+  inventory: WorktreeInventory;
+}
+
+/** Inventory agent worktrees; `null` means the request itself failed. */
+export async function fetchWorktreeInventory(): Promise<WorktreeInventory | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(withToken("/api/worktrees/inventory"));
+    if (!res.ok) return null;
+    return (await res.json()) as WorktreeInventory;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Remove the named worktrees (or preview with `dryRun`).
+ *
+ * The server re-checks every slug, so a stale checkbox in the UI cannot delete
+ * a worktree that picked up an active run or new edits in the meantime.
+ */
+export async function cleanupWorktrees(
+  slugs: string[],
+  dryRun = false
+): Promise<WorktreeCleanupResult | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch(withToken("/api/worktrees/cleanup"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slugs, dry_run: dryRun }),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as WorktreeCleanupResult;
+  } catch {
+    return null;
+  }
+}

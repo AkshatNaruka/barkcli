@@ -23,6 +23,7 @@ import {
   Rocket,
   Globe,
   BarChart3,
+  GitBranch,
 } from "lucide-react";
 
 interface PageProps {
@@ -62,6 +63,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Rocket,
   Globe,
   BarChart3,
+  GitBranch,
 };
 
 export default async function FeatureDetailPage({ params }: PageProps) {

@@ -671,7 +671,9 @@ resolved). Unknown items sort last.
 | `GET` | `/api/settings` | Stored user settings (`~/.bark/settings.json`): keys, env vars, shell, defaults |
 | `PUT` | `/api/settings` | Persist settings; applied to agent processes and shells |
 | `POST` | `/api/threads/{id}/answer` | Answer a pending thread question or supply requested credentials |
-| `GET` | `/api/ping` | Liveness probe: `status`, `timestamp`, `version`, `uptime_seconds` (public) |
+| `GET` | `/api/worktrees/inventory` | Agent worktrees with size on disk, merge state, age, and live-run/clean status |
+| `POST` | `/api/worktrees/cleanup` | Remove the named worktrees; `{"slugs": [...], "dry_run": true}` previews, merged branches are deleted, unmerged stale branches are kept |
+| `GET` | `/api/ping` | Liveness probe: `status`, `timestamp`, `version`, `uptime_seconds`, optional `build` (public) |
 | `WS` | `/ws` | WebSocket for live reload |
 
 ## WebSocket Events

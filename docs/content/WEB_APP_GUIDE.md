@@ -222,6 +222,19 @@ Manage board configuration:
 - **Columns** — Add, rename, or remove columns
 - **Theme** — Switch between dark/light/system
 
+### Worktrees
+
+Settings → **Worktrees** shows every agent checkout under `.board/worktrees` with
+its size on disk, branch, merge state, and age.
+
+- **Merged** worktrees are removable once their branch is in the base branch.
+- **Stale** worktrees (orphaned folders, finished runs, old untouched attempts)
+  are removable too.
+- Checkouts with a live run, uncommitted changes, or unmerged commits are kept,
+  and the list says why.
+- Selecting worktrees only opens a confirmation; nothing is deleted until you
+  accept the exact number of worktrees and bytes that will be freed.
+
 ## Keyboard Shortcuts
 
 | Shortcut | Action |

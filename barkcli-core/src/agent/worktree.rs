@@ -186,7 +186,14 @@ pub fn release_worktree(slug: &str, delete_branch: bool) -> Result<()> {
 
 /// Parse `git worktree list --porcelain` into (path, branch, commit) rows.
 pub fn list_worktrees() -> Result<Vec<(String, String, String)>> {
-    let root = project_root()?;
+    list_worktrees_in(&project_root()?)
+}
+
+/// Same as [`list_worktrees`] for an explicit repository root, so callers that
+/// already resolved the project (the server, cleanup tests) do not depend on
+/// the process working directory.
+pub fn list_worktrees_in(root: &Path) -> Result<Vec<(String, String, String)>> {
+    let root = root.to_path_buf();
     let out = git_in(&root, &["worktree", "list", "--porcelain"])?;
     let mut rows = Vec::new();
     let (mut path, mut branch, mut commit) = (String::new(), String::new(), String::new());

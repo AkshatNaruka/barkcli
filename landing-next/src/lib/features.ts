@@ -635,6 +635,52 @@ export const FEATURES_DATA: FeatureDetail[] = [
     ],
     docsHref: "/docs/web-app-guide",
   },
+  {
+    slug: "worktree-cleanup",
+    title: "Worktree Cleanup",
+    category: "Workspace Hygiene",
+    description:
+      "Every agent checkout with its size on disk, merge state, and age in Settings → Worktrees. Merged and stale checkouts are removed only after a confirmation that names the exact bytes reclaimed.",
+    code: "$ barkcli serve --open # Settings → Worktrees",
+    gradient: "from-sky-500/20 to-emerald-500/20",
+    iconName: "GitBranch",
+    overview:
+      "Isolated worktrees are what keep agents from contaminating your checkout, but abandoned attempts add up. Bark inventories each managed checkout, measures what it actually occupies (skipping shared build caches), and lets you reclaim space without guessing.",
+    capabilities: [
+      "Size on disk per checkout, with symlinked build caches excluded so numbers are honest",
+      "Merge detection against the base branch plus age and live-run status",
+      "A confirmation step that names the worktrees and the exact bytes before anything is deleted",
+      "Hard protection for active runs, uncommitted changes, and unmerged commits",
+      "Unmerged stale branches are kept after their checkout is removed, so commits survive",
+    ],
+    cliExamples: [
+      {
+        cmd: "GET /api/worktrees/inventory",
+        output: '{"base_branch":"master","removable_count":2,"reclaimable_bytes":412000000,...}',
+        desc: "Inspect every agent checkout and what it costs.",
+      },
+      {
+        cmd: 'POST /api/worktrees/cleanup {"slugs":["run-123"],"dry_run":true}',
+        output: '{"dry_run":true,"planned":[{"slug":"run-123","size_bytes":206000000}],"removed_count":0}',
+        desc: "Preview exactly what a cleanup would free before it runs.",
+      },
+    ],
+    architecture: [
+      {
+        title: "Ground Truth from Git",
+        description: "The inventory walks `git worktree list` and the worktree directory, so deleted checkouts and orphaned folders are both reported instead of silently assumed.",
+      },
+      {
+        title: "Conservative Removal Rules",
+        description: "A checkout is removable only when its branch is merged and the tree is clean, or when it is stale with no live run; the server re-checks every slug before deleting.",
+      },
+      {
+        title: "Branch-Safe Cleanup",
+        description: "Merged `bark/*` branches are deleted with their checkout; stale unmerged branches are left in place so their commits stay recoverable.",
+      },
+    ],
+    docsHref: "/docs/web-app-guide",
+  },
 ];
 
 export function getFeatureBySlug(slug: string): FeatureDetail | undefined {

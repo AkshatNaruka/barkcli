@@ -21,6 +21,7 @@ import { navigate } from "../lib/hashnav";
 import { Icon, type IconName } from "./Icon";
 import { ProviderIcon } from "./ProviderIcon";
 import { ProjectsSettings } from "./ProjectsSettings";
+import { WorktreesSettings } from "./WorktreesSettings";
 import {
   BARK_MCP_TOOLS,
   generateClientMcpSnippet,
@@ -62,6 +63,7 @@ export type SettingsSection =
   | "terminal"
   | "updates"
   | "project"
+  | "worktrees"
   | "diagnostics";
 
 const SECTIONS: Array<{
@@ -79,6 +81,7 @@ const SECTIONS: Array<{
   { id: "terminal", label: "Terminal", icon: "terminal", hint: "Shell, font, and environment" },
   { id: "updates", label: "Updates", icon: "download", hint: "Releases and auto-download" },
   { id: "project", label: "Board", icon: "board", hint: "Columns and task workflow" },
+  { id: "worktrees", label: "Worktrees", icon: "branch", hint: "Agent checkouts and disk space" },
   { id: "diagnostics", label: "Diagnostics", icon: "pulse", hint: "Health, logs, and access" },
 ];
 
@@ -96,7 +99,7 @@ const SECTION_GROUPS: Array<{
   },
   {
     name: "Workspace",
-    ids: ["project", "terminal"],
+    ids: ["project", "worktrees", "terminal"],
   },
   {
     name: "System",
@@ -791,6 +794,9 @@ export function SettingsView({
 
         {/* 1. Projects Section */}
         {section === "projects" && <ProjectsSettings />}
+
+        {/* Agent worktrees: inventory, merged/stale cleanup */}
+        {section === "worktrees" && <WorktreesSettings />}
 
         {/* 2. General Section */}
         {section === "general" && (

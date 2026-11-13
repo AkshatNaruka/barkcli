@@ -20,6 +20,7 @@ pub mod toolchain;
 pub mod verify;
 pub mod worktree;
 pub mod worktree_lifecycle;
+pub mod worktree_cleanup;
 
 pub use agent_loop::{AgentLoop, InboxMessage, Step, ToolRegistry, Turn};
 pub use autopilot::{evaluate as autopilot_evaluate, AutopilotPhase, AutopilotState, AutopilotStatus, PlanProposal};
