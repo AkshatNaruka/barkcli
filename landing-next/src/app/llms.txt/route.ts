@@ -37,7 +37,7 @@ barkcli is a local-first management layer. Humans write intent, agents propose p
 
 \`\`\`bash
 # 1. Install (macOS / Linux)
-curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/AkshatNaruka/barkcli/main/install.sh | sh
 
 # 2. Initialize and prime living context
 barkcli init
