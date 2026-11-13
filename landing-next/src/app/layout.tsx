@@ -1,23 +1,25 @@
 import type { Metadata, Viewport } from "next";
-import { Manrope, Italiana, Marck_Script } from "next/font/google";
+import { Geist_Mono, Manrope, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { MCP_TOOL_COUNT } from "@/lib/mcp";
 
+// Body copy, display headlines, and commands. Three families, one job each.
 const manrope = Manrope({
   variable: "--font-manrope",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const italiana = Italiana({
-  weight: "400",
-  variable: "--font-italiana",
+const grotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const marck = Marck_Script({
-  weight: "400",
-  variable: "--font-marck",
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: "swap",
 });
 
 const SITE_URL = "https://akshatnaruka.github.io/barkcli";
@@ -109,7 +111,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#8B5E3C",
+  themeColor: "#080B10",
 };
 
 const structuredData = {
@@ -247,12 +249,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${manrope.variable} ${italiana.variable} ${marck.variable}`}
+      className={`${manrope.variable} ${grotesk.variable} ${geistMono.variable}`}
     >
       <head>
         <link rel="canonical" href={SITE_URL} />
-        <meta name="theme-color" content="#8B5E3C" />
-        <meta name="msapplication-TileColor" content="#8B5E3C" />
+        <meta name="theme-color" content="#080B10" />
+        <meta name="msapplication-TileColor" content="#080B10" />
       </head>
       <body>
         <script
