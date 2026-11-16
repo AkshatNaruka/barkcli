@@ -801,7 +801,7 @@ summary.sidebar-group { cursor: pointer; }
 .bark-dialog .new-thread-content { width: 100%; padding: 0; }
 .bark-dialog.thread-dialog-shell { width: min(440px, 100%); }
 .bark-dialog.agent-editor { width: min(560px, 100%); padding: 0; overflow: hidden; }
-.command-palette { padding: 0; align-self: flex-start; margin-top: min(100px, 10dvh); max-width: 560px; }
+.command-palette { padding: 0; align-self: flex-start; margin-top: min(100px, 10dvh); max-width: 560px; display: flex; flex-direction: column; overflow: hidden; max-height: min(560px, calc(100dvh - 180px)); }
 .workspace-sidebar-scrim { display: none; }
 .execution-summary { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; font-size: 12px; padding-block: 14px; color: var(--muted); }
 .execution-summary dd { color: var(--muted-strong); overflow-wrap: anywhere; }

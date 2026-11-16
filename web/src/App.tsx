@@ -1011,6 +1011,7 @@ export function App() {
       {paletteOpen && (
         <CommandPalette
           board={board}
+          boardName={boardName}
           onClose={() => setPaletteOpen(false)}
           onNavigate={(colId, cardId) => { setRoute("board"); }}
           onAddCard={(colId) => { setForm({ columnId: colId }); setPaletteOpen(false); }}
