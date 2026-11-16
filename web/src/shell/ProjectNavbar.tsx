@@ -4,13 +4,12 @@ import { ProjectAvatar } from "../components/ProjectAvatar";
 import { navigate, type Route } from "../lib/hashnav";
 import {
   isDesktop,
-  recentProjects,
   switchProject,
   openTerminal,
   revealProject,
-  openProjectDialog,
-  type DesktopProject,
+  projectDisplayName,
 } from "../lib/desktop";
+import { ProjectPickerModal } from "../components/ProjectPickerModal";
 import { openInEditor, fetchReviewQueue, fetchGitStatus, runProjectCommand } from "../lib/api";
 import { readLocal, writeLocal } from "../lib/drafts";
 import type { ProjectSnapshot, GitStatus } from "../lib/types";
@@ -146,7 +145,6 @@ export function ProjectNavbar({
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
   const [editorMenuOpen, setEditorMenuOpen] = useState(false);
   const [selectedEditor, setSelectedEditor] = useState<string>(() => readLocal("bark:preferred-editor") || "vscode");
-  const [recent, setRecent] = useState<DesktopProject[]>([]);
   const [reviewCount, setReviewCount] = useState<number>(0);
 
   // Git state & dropdown
@@ -181,17 +179,10 @@ export function ProjectNavbar({
     };
   }, [projectRoot, project]);
 
-  // Load recent projects on desktop
-  useEffect(() => {
-    if (isDesktop()) {
-      void recentProjects().then(setRecent);
-    }
-  }, [projectRoot]);
-
   // Load review queue count
   useEffect(() => {
     let cancelled = false;
-    void fetchReviewQueue(boardName || undefined).then(({ items }) => {
+    void fetchReviewQueue(undefined, false, false, true).then(({ items }) => {
       if (!cancelled) setReviewCount(items.length);
     }).catch(() => {});
     return () => {
@@ -202,9 +193,6 @@ export function ProjectNavbar({
   // Click outside listener for dropdowns
   useEffect(() => {
     const onPointer = (e: MouseEvent) => {
-      if (projectDropdownRef.current && !projectDropdownRef.current.contains(e.target as Node)) {
-        setProjectPickerOpen(false);
-      }
       if (editorDropdownRef.current && !editorDropdownRef.current.contains(e.target as Node)) {
         setEditorMenuOpen(false);
       }
@@ -322,13 +310,6 @@ export function ProjectNavbar({
     }
   };
 
-  const handleSwitchProject = async (p: DesktopProject) => {
-    setProjectPickerOpen(false);
-    if (p.path === projectRoot) return;
-    const target = currentRoute === "review" || currentRoute === "chat" ? currentRoute : "hub";
-    await switchProject(p.path, target);
-  };
-
   const handleOpenEditor = async (editor: string = selectedEditor) => {
     setSelectedEditor(editor);
     writeLocal("bark:preferred-editor", editor);
@@ -377,7 +358,10 @@ export function ProjectNavbar({
   const gitChanges = gitStatus?.changes || [];
   const changesCount = gitChanges.length || git?.changes || 0;
 
-  const displayName = projectName || project?.name || (projectRoot ? projectRoot.split("/").filter(Boolean).pop() : "barkcli") || "barkcli";
+  const displayName = projectDisplayName(
+    projectName || project?.name,
+    projectRoot || project?.root
+  );
   const activeTitle = ROUTE_TITLES[currentRoute] || "Project";
 
   return (
@@ -389,9 +373,10 @@ export function ProjectNavbar({
           <div ref={projectDropdownRef} className="relative">
             <button
               type="button"
-              onClick={() => setProjectPickerOpen((o) => !o)}
+              onClick={() => setProjectPickerOpen(true)}
               className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-white/[0.06] transition-colors cursor-pointer group"
-              title="Switch project"
+              title="Switch project (⌘1…)"
+              aria-haspopup="dialog"
             >
               <ProjectAvatar name={displayName} size="xs" />
               <span className="font-semibold text-text text-[13px] tracking-tight truncate max-w-[160px]">
@@ -399,64 +384,6 @@ export function ProjectNavbar({
               </span>
               <Icon name="chevDown" size={12} className="text-muted group-hover:text-text transition-colors" />
             </button>
-
-            {/* Project Picker Dropdown */}
-            {projectPickerOpen && (
-              <div className="absolute left-0 top-9 w-64 bg-[#141416] border border-border rounded-xl shadow-2xl p-1 z-50 text-xs">
-                <div className="px-2 py-1 text-[11px] font-semibold text-muted-dim uppercase tracking-wider">
-                  Local Projects
-                </div>
-                <div className="max-h-56 overflow-y-auto space-y-0.5">
-                  {recent.map((p) => {
-                    const isCur = p.path === projectRoot;
-                    return (
-                      <button
-                        key={p.path}
-                        type="button"
-                        onClick={() => void handleSwitchProject(p)}
-                        className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-left transition-colors cursor-pointer ${
-                          isCur
-                            ? "bg-accent/15 text-accent font-medium"
-                            : "hover:bg-white/[0.06] text-text"
-                        }`}
-                      >
-                        <ProjectAvatar name={p.name} size="xs" />
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate font-medium text-[12px]">{p.name}</div>
-                          <div className="truncate text-[10px] text-muted font-mono">{p.path}</div>
-                        </div>
-                        {isCur && <span className="w-1.5 h-1.5 rounded-full bg-accent" />}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="border-t border-border/40 pt-1 mt-1 flex flex-col gap-0.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setProjectPickerOpen(false);
-                      navigate("projects");
-                    }}
-                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-white/[0.04] text-muted hover:text-text transition-colors cursor-pointer text-left"
-                  >
-                    <Icon name="grid" size={13} />
-                    <span>View All Projects</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setProjectPickerOpen(false);
-                      if (onOpenProject) onOpenProject();
-                      else if (isDesktop()) void openProjectDialog();
-                    }}
-                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-white/[0.04] text-muted hover:text-text transition-colors cursor-pointer text-left"
-                  >
-                    <Icon name="folder" size={13} />
-                    <span>Open local folder…</span>
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
 
           <span className="text-muted/40 font-light text-sm">/</span>
@@ -921,6 +848,24 @@ export function ProjectNavbar({
           <span>All Tools</span>
         </a>
       </nav>
+
+      {/* One project picker for every tool: the scope always lives in the header. */}
+      <ProjectPickerModal
+        isOpen={projectPickerOpen}
+        onClose={() => setProjectPickerOpen(false)}
+        currentPath={projectRoot || project?.root || null}
+        onSelectProject={(selection) => {
+          setProjectPickerOpen(false);
+          const root = projectRoot || project?.root || "";
+          if (selection.path === root) return;
+          void switchProject(selection.path, currentRoute);
+        }}
+        onOpenSources={() => {
+          setProjectPickerOpen(false);
+          if (onOpenProject) onOpenProject();
+          else navigate("projects");
+        }}
+      />
     </div>
   );
 }

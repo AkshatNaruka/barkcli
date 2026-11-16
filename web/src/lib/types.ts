@@ -568,9 +568,18 @@ export interface ProjectSummaryGit {
   last_commit_at?: number | null;
 }
 
-/** A local project Bark can manage. Read from disk by the desktop shell. */
-export interface ProjectSummary {
+/** Lightweight project entry from `GET /api/projects` (works in browser + desktop). */
+export interface ProjectListEntry {
   path: string;
+  name: string;
+  current: boolean;
+  available: boolean;
+  threads: number;
+  boards: number;
+}
+
+/** A local project Bark can manage. Read from disk by the desktop shell. */
+export interface ProjectSummary {  path: string;
   name: string;
   current: boolean;
   available: boolean;
@@ -1142,6 +1151,10 @@ export interface QueueItem {
     receipt_verified: boolean;
     confidence: "low" | "medium" | "high";
   } | null;
+  /** Set when the queue was aggregated across projects. */
+  project_root?: string;
+  project_name?: string;
+  board?: string;
 }
 
 export interface RepoEntry {

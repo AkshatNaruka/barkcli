@@ -6,10 +6,35 @@
  */
 
 import type { ProjectSummary } from "./types";
+import type { Route } from "./hashnav";
 
 export interface DesktopProject {
   path: string;
   name: string;
+}
+
+/**
+ * The "No project" scratch workspace. It is a real, empty folder so the server
+ * (and therefore thread storage) has somewhere to live without the user
+ * having to choose a repository. `switch_project` creates it on demand.
+ */
+export const SCRATCH_PROJECT_PATH = "~/.barkcli/scratch";
+
+export function isScratchPath(path?: string | null): boolean {
+  if (!path) return false;
+  return /(?:^|\/)\.barkcli\/scratch\/?$/.test(path) || path === "__scratch__";
+}
+
+/** Human display name for a project root (scratch renders as "No project"). */
+export function projectDisplayName(name?: string | null, path?: string | null): string {
+  if (isScratchPath(path) || isScratchPath(name)) return "No project";
+  const trimmed = (name || "").trim();
+  // Threads created in-place in the scratch workspace carry the server's
+  // internal name; users only ever see “No project”.
+  if (trimmed.toLowerCase() === "scratch") return "No project";
+  if (trimmed) return trimmed;
+  const parts = (path || "").split("/").filter(Boolean);
+  return parts[parts.length - 1] || "No project";
 }
 
 interface TauriInvoke {
@@ -78,7 +103,7 @@ export async function openProjectDialog(): Promise<DesktopProject | null> {
 
 export async function switchProject(
   path: string,
-  target?: "chat" | "review" | "projects" | "hub"
+  target?: Route
 ): Promise<DesktopProject | null> {
   return invoke<DesktopProject | null>("switch_project", target ? { path, target } : { path });
 }
@@ -111,6 +136,15 @@ export async function renameProject(path: string, name: string): Promise<Desktop
 export async function removeSavedProject(path: string): Promise<boolean> {
   const result = await invoke<void>("remove_saved_project", { path });
   return result !== null || true;
+}
+
+/**
+ * Forget a project for good: it leaves Bark's recent/saved lists and the
+ * sidecar registry, so the picker and cross-project surfaces stop offering it.
+ * Nothing on disk is deleted.
+ */
+export async function forgetProject(path: string): Promise<boolean> {
+  return (await invoke<boolean>("forget_project", { path })) ?? false;
 }
 
 /** App preferences survive the sidecar's per-launch port and project changes. */

@@ -820,21 +820,28 @@ function demoThreadSummary(record: DemoThread): ThreadSummary {
     column,
     backend: taskEvent?.author || "opencode",
     last_seen: last?.created_at,
+    // The static demo opens one project; stamp it so the global navigator still
+    // renders real project badges.
+    project_root: "/demo/barkcli",
+    project_name: "barkcli",
+    workspace_strategy: "root",
   };
 }
 
 function listDemoThreads(name?: string | null): ThreadSummary[] {
-  const { key } = boardFor(name);
-  return getStore()
-    .threads.filter((record) => record.board === key)
+  // No board scope means the global thread navigator: every project's threads.
+  const records = name
+    ? getStore().threads.filter((record) => record.board === boardFor(name).key)
+    : getStore().threads;
+  return records
     .map(demoThreadSummary)
     .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
 }
 
 function getDemoThread(id: string, name?: string | null): ThreadDetail | null {
-  const { key } = boardFor(name);
+  const key = name ? boardFor(name).key : null;
   const record = getStore().threads.find(
-    (thread) => thread.detail.id === id && thread.board === key
+    (thread) => thread.detail.id === id && (!key || thread.board === key)
   );
   if (!record) return null;
   return {
@@ -1033,7 +1040,30 @@ const ROUTES: Route[] = [
     }),
   },
   { method: "POST", re: /^\/api\/sessions\/([^/]+)\/(stop|steer|fork)$/, handle: () => ({ ok: true }) },
-  { method: "GET", re: /^\/api\/review\/queue$/, handle: () => ({ items: demoReviewQueue() }) },
+  // Local project registry (browser + desktop). The static demo knows one.
+  {
+    method: "GET",
+    re: /^\/api\/projects$/,
+    handle: () => ({
+      projects: [
+        { path: "/demo/barkcli", name: "barkcli", current: true, available: true, threads: 12, boards: 2 },
+        { path: "~/.barkcli/scratch", name: "No project", current: false, available: true, threads: 0, boards: 1 },
+      ],
+    }),
+  },
+  {
+    method: "GET",
+    re: /^\/api\/review\/queue$/,
+    handle: () =>
+      ({
+        items: demoReviewQueue().map((item) => ({
+          ...item,
+          project_root: "/demo/barkcli",
+          project_name: "barkcli",
+          board: "dev",
+        })),
+      }),
+  },
   {
     method: "GET",
     re: /^\/api\/git\/pull-requests(\?.*)?$/,

@@ -50,7 +50,8 @@ export interface AppCommand {
 }
 
 export const APP_COMMANDS: AppCommand[] = [
-  { id: "new-intent", label: "New thread", hint: "Start a build thread in the active project", icon: "plus", shortcut: "n", modifiers: "mod" },
+  { id: "new-intent", label: "New thread", hint: "Pick a project, then start a thread", icon: "plus", shortcut: "n", modifiers: "mod" },
+  { id: "new-scratch", label: "New thread without a project", hint: "Start a scratch thread with no checkout", icon: "folderPlus", shortcut: "n", modifiers: "mod+alt" },
   { id: "new-chat", label: "New read-only question", hint: "Ask a question without changing files", icon: "comment", shortcut: "n", modifiers: "mod+shift" },
   { id: "open-project", label: "Open project", hint: "Switch to another project on this machine", icon: "layers", shortcut: "o", modifiers: "mod" },
   { id: "quick-open", label: "Quick open file", hint: "Jump to a file by name", icon: "search", shortcut: "p", modifiers: "mod" },

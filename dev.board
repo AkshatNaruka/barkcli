@@ -65,25 +65,6 @@ cards:
   version: 1
   created_at: 2026-07-30T07:18:05.312Z
   updated_at: 2026-07-30T07:18:05.312Z
-- id: history-logging
-  title: History logging
-  description: JSONL history log for all card operations
-  column: review
-  priority: high
-  labels:
-  - cli
-  checklist: []
-  comments: []
-  attachments: []
-  links:
-  - ty: child
-    target: history-logging-t1
-  - ty: child
-    target: history-logging-t2
-  pinned: false
-  version: 1
-  created_at: 2026-07-30T07:18:05.326Z
-  updated_at: 2026-08-06T19:58:32.428Z
 - id: vs-code-extension
   title: VS Code extension
   description: Custom Editor for .board files with React webview
@@ -98,20 +79,6 @@ cards:
   version: 1
   created_at: 2026-07-30T07:18:05.336Z
   updated_at: 2026-07-30T07:18:05.336Z
-- id: integration-tests
-  title: Integration tests
-  description: 20 CLI integration tests covering full workflow
-  column: review
-  priority: high
-  labels:
-  - testing
-  checklist: []
-  comments: []
-  attachments: []
-  pinned: false
-  version: 1
-  created_at: 2026-07-30T07:18:05.381Z
-  updated_at: 2026-08-07T11:36:28.293Z
 - id: readme
   title: README
   description: Create README.md with usage docs
@@ -140,8 +107,8 @@ cards:
   spec_id: add-ping-healthcheck-route-returning-timestamp
   pinned: false
   version: 2
-  created_at: 2026-10-26T12:27:24.910663Z
-  updated_at: 2026-10-26T12:27:24.916467Z
+  created_at: 2026-10-26T12:27:24.910Z
+  updated_at: 2026-10-26T12:27:24.916Z
 - id: create-ping-uptime-endpoint
   title: Create ping uptime endpoint
   description: |-
@@ -160,8 +127,8 @@ cards:
   spec_id: create-ping-uptime-endpoint
   pinned: false
   version: 3
-  created_at: 2026-10-26T12:27:33.557032Z
-  updated_at: 2026-11-04T19:18:12.983535Z
+  created_at: 2026-10-26T12:27:33.557Z
+  updated_at: 2026-11-04T19:18:12.983Z
 - id: add-ping-endpoint-returning-timestamp
   title: Add ping endpoint returning timestamp
   description: Add ping endpoint returning timestamp
@@ -176,21 +143,5 @@ cards:
   spec_id: add-ping-endpoint-returning-timestamp
   pinned: false
   version: 3
-  created_at: 2026-10-26T12:28:29.514849Z
-  updated_at: 2026-10-26T12:31:39.511090Z
-- id: hi
-  title: hi
-  description: hi
-  column: todo
-  priority: medium
-  labels:
-  - agent:opencode
-  - type:feature
-  assignee: opencode
-  checklist: []
-  comments: []
-  attachments: []
-  pinned: false
-  version: 1
-  created_at: 2026-11-04T13:33:58.515163Z
-  updated_at: 2026-11-04T13:33:58.515163Z
+  created_at: 2026-10-26T12:28:29.514Z
+  updated_at: 2026-10-26T12:31:39.511Z

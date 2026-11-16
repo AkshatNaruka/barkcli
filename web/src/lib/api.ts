@@ -52,6 +52,7 @@ import type {
   PullRequestItem,
   PullRequestDetail,
   ProjectSnapshot,
+  ProjectListEntry,
   Rule,
   OnboardResult,
   ProjectHooksState,
@@ -1688,6 +1689,22 @@ export async function fetchProject(): Promise<ProjectSnapshot | null> {
   }
 }
 
+/**
+ * Local projects Bark has opened. Unlike the desktop-only Tauri commands this
+ * works in the browser too, so the project picker has one data source.
+ */
+export async function fetchProjects(): Promise<ProjectListEntry[]> {
+  if (isVscode) return [];
+  try {
+    const res = await fetch(withToken("/api/projects"));
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.projects) ? data.projects : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function onboardProject(): Promise<OnboardResult | null> {
   return postJson("/api/project/onboard", {});
 }
@@ -2371,13 +2388,15 @@ export async function verifyReceipt(
 export async function fetchReviewQueue(
   boardName?: string | null,
   all = false,
-  strict = false
+  strict = false,
+  allProjects = false
 ): Promise<{ items: QueueItem[] }> {
   if (isVscode) return { items: [] };
   try {
     const params = new URLSearchParams();
     if (boardName) params.set("board", boardName);
     if (all) params.set("all", "true");
+    if (allProjects) params.set("all_projects", "true");
     const query = params.toString();
     const res = await fetch(
       withToken(`/api/review/queue${query ? `?${query}` : ""}`)

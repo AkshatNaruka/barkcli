@@ -52,7 +52,7 @@ describe("CommandPalette", () => {
     expect(await screen.findByText("Create ping uptime endpoint")).toBeInTheDocument();
     expect(screen.getByText("History logging")).toBeInTheDocument();
     expect(screen.getByText("New thread")).toBeInTheDocument();
-    expect(screen.getByText("Start a build thread in the active project")).toBeInTheDocument();
+    expect(screen.getByText("Pick a project, then start a thread")).toBeInTheDocument();
     // No group headings: the list is flat, like the reference.
     expect(screen.queryByText("Threads")).not.toBeInTheDocument();
     expect(screen.queryByText("Commands")).not.toBeInTheDocument();

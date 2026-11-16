@@ -15,7 +15,10 @@ import { PANEL_TO_TAB, TAB_TO_PANEL, type WorkbenchTab } from "../lib/workbench"
 interface ThreadsShellProps {
   boardName: string | null;
   projectRoot?: string;
+  projectName?: string | null;
   project?: ProjectSnapshot | null;
+  projectReady?: boolean;
+  onOpenProject?: () => void;
   boards?: string[];
   onSwitchBoard?: (name: string) => void;
   onOpenCardForm?: (card: Card) => void;
@@ -27,10 +30,15 @@ interface ThreadsShellProps {
   listOpen?: boolean;
   onCloseList?: () => void;
   listCollapsed?: boolean;
-  seed?: { text: string; nonce: number; mode?: "chat" | "plan_first" | "plan_and_run" } | null;
+  seed?: {
+    text: string;
+    nonce: number;
+    mode?: "chat" | "plan_first" | "plan_and_run";
+    scratch?: boolean;
+  } | null;
 }
 
-export function ThreadsShell({ boardName, projectRoot = "current-project", project, seed, onConsumeSeed, surfacesOpen, onToggleSurfaces, listOpen = false, onCloseList, listCollapsed = false }: ThreadsShellProps) {
+export function ThreadsShell({ boardName, projectRoot = "current-project", projectName, project, projectReady = true, onOpenProject, seed, onConsumeSeed, surfacesOpen, onToggleSurfaces, listOpen = false, onCloseList, listCollapsed = false }: ThreadsShellProps) {
   const location = useRouteState();
   const selectedId = location.thread || null;
   const scope = storageScope(projectRoot, boardName);
@@ -106,12 +114,81 @@ export function ThreadsShell({ boardName, projectRoot = "current-project", proje
     } catch { /* storage is optional */ }
     return () => window.removeEventListener("bark-open-thread", openThread);
   }, [boardName]);
+
+  // A new thread started in another project is deferred across the sidecar
+  // switch. Once the target project is open, create it there and jump in.
+  useEffect(() => {
+    if (!projectReady) return;
+    let raw: string | null = null;
+    try {
+      raw = window.sessionStorage.getItem("bark:pending-thread");
+      if (raw) window.sessionStorage.removeItem("bark:pending-thread");
+    } catch { /* storage is optional */ }
+    if (!raw) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const payload = JSON.parse(raw) as {
+          text?: string;
+          backend?: string;
+          model?: string;
+          mode?: string;
+          workspaceStrategy?: "root" | "worktree" | "scratch";
+        };
+        if (!payload?.text?.trim()) return;
+        const { createThread, startThreadBuild, startThreadChat } = await import("../lib/api");
+        const result = await createThread({
+          text: payload.text,
+          kind: "feature",
+          backend: payload.backend,
+          model: payload.model,
+          mode: payload.mode || "plan_first",
+          workspace_strategy:
+            payload.workspaceStrategy && payload.workspaceStrategy !== "root"
+              ? payload.workspaceStrategy
+              : undefined,
+        });
+        if (cancelled || !result?.thread_id) return;
+        if (payload.mode === "build") {
+          await startThreadBuild(result.thread_id, {
+            provider: payload.backend === "claude" ? "claude-code" : payload.backend,
+            model: payload.model,
+            role: "builder",
+            prompt: payload.text,
+            board: boardName || undefined,
+          });
+        }
+        if (payload.mode === "chat") {
+          await startThreadChat(result.thread_id, {
+            text: payload.text,
+            provider:
+              payload.backend === "claude" ? "claude-code" : payload.backend || "opencode",
+            model: payload.model || "",
+            board: boardName || undefined,
+            skip_user_event: true,
+          });
+        }
+        window.dispatchEvent(new Event("bark-threads-changed"));
+        navigate("chat", { thread: result.thread_id, board: boardName || undefined });
+      } catch {
+        /* The draft is still saved; the user can resend it. */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [projectReady, boardName]);
   const created = (id: string) => {
     onConsumeSeed?.(); navigate("chat", { thread: id, board: boardName || undefined });
   };
   return <div ref={container} className={`threads-shell ${focused ? "artifact-focused" : ""}`}>
     {listOpen && <button className="thread-list-scrim" aria-label="Close threads" onClick={onCloseList} />}
-    <ThreadList boardName={boardName} open={listOpen} onClose={onCloseList} collapsed={listCollapsed} />
+    <ThreadList
+      boardName={boardName}
+      projectRoot={projectRoot}
+      projectName={projectName}
+      open={listOpen}
+      onClose={onCloseList}
+      collapsed={listCollapsed}
+    />
     <div className="thread-document" hidden={focused}>
       {selectedId ? <ThreadPane key={`${scope}:${selectedId}:${threadRevision}`} threadId={selectedId} boardName={boardName || undefined} scope={scope} project={project}
         inspectorOpen={surfacesOpen} onThreadChange={setActiveThread}
@@ -120,6 +197,10 @@ export function ThreadsShell({ boardName, projectRoot = "current-project", proje
         onRefreshInbox={() => window.dispatchEvent(new Event("bark-threads-changed"))}
         onThreadMenu={(target, x, y) => setThreadMenu({ target, x, y })} /> : <UniversalComposer
           key={`${scope}:${seed?.nonce || "new"}`} isOpen inline scope={scope} boardName={boardName || undefined}
+          projectName={projectName || project?.name || null} projectRoot={project?.root || projectRoot}
+          projectBranch={project?.git?.branch || null}
+          projectReady={projectReady} onOpenProject={onOpenProject}
+          initialScratch={seed?.scratch}
           initialText={seed?.text} initialMode={seed?.mode} onClose={() => {}} onCreated={created} />}
     </div>
     {surfacesOpen && (selectedId || workingTreeOpen) && <div className={`surfaces-frame ${focused ? "is-focused" : ""}`} style={focused ? undefined : { width }}>

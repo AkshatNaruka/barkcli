@@ -35,7 +35,6 @@ import { APP_COMMANDS, commandForKey } from "./lib/commands";
 import { ProjectsDashboard } from "./shell/ProjectsDashboard";
 import { ProjectHub } from "./shell/ProjectHub";
 import { ProjectNavbar } from "./shell/ProjectNavbar";
-import { ProjectRequired } from "./shell/ProjectRequired";
 import { BoardFilters } from "./components/BoardFilters";
 import { Icon } from "./components/Icon";
 import { BoardView } from "./components/BoardView";
@@ -293,6 +292,7 @@ export function App() {
     text: string;
     nonce: number;
     mode?: "chat" | "plan_first" | "plan_and_run";
+    scratch?: boolean;
   } | null>(null);
   const { railOrder, hidden } = useTheme();
   const visibleSurfaces = useMemo(
@@ -390,7 +390,8 @@ export function App() {
 
   useEffect(() => {
     loadBoard(boardName, true);
-    fetchReviewQueue(boardName || undefined)
+    // The rail badge counts review work across every project.
+    fetchReviewQueue(undefined, false, false, true)
       .then(({ items }) => setReviewCount(items.length))
       .catch(() => {});
     const cleanWs = connectWs((version) => {
@@ -398,7 +399,7 @@ export function App() {
       seenReloadVersionsRef.current.add(version);
       if (skipReloadRef.current) return; // our own debounced save
       loadBoard(boardName, false);
-      fetchReviewQueue(boardName || undefined)
+      fetchReviewQueue(undefined, false, false, true)
         .then(({ items }) => setReviewCount(items.length))
         .catch(() => {});
     });
@@ -534,6 +535,7 @@ export function App() {
       case "open-project": void handleOpenProject(); break;
       case "new-chat": setComposeSeed({ text: "", nonce: Date.now(), mode: "chat" }); navigate("chat", { draft: "1" }); break;
       case "new-intent": setComposeSeed({ text: "", nonce: Date.now() }); navigate("chat", { draft: "1" }); break;
+      case "new-scratch": setComposeSeed({ text: "", nonce: Date.now(), scratch: true }); navigate("chat", { draft: "1" }); break;
       case "quick-open": setQuickOpenOpen(true); break;
       case "command-runner": setCommandRunnerOpen(true); break;
       case "command-palette": setPaletteOpen((open) => !open); break;
@@ -829,7 +831,7 @@ export function App() {
       />
       <div id="workspace-main" className="flex-1 flex flex-col min-w-0">
         <DemoBanner />
-        {route !== "projects" && (projectReady || projectInfo?.root || projectRoot) && (
+        {route !== "projects" && (
           <ProjectNavbar
             projectName={projectName || projectInfo?.name || null}
             projectRoot={projectInfo?.root || projectRoot || ""}
@@ -860,11 +862,14 @@ export function App() {
               onNotify={notify}
             />
           )}
-          {route === "chat" && projectReady && (
+          {route === "chat" && (
             <ThreadsShell
               boardName={boardName}
-              projectRoot={projectInfo?.root || ""}
+              projectRoot={projectInfo?.root || projectRoot || ""}
+              projectName={projectName || projectInfo?.name || null}
               project={projectInfo}
+              projectReady={projectReady}
+              onOpenProject={() => void handleOpenProject()}
               onConsumeSeed={() => setComposeSeed(null)}
               boards={boardList}
               onSwitchBoard={switchBoard}
@@ -879,9 +884,6 @@ export function App() {
               listCollapsed={listCollapsed}
             />
           )}
-
-          {route === "chat" && projectLoading && <div className="surface-loading" role="status">Opening project…</div>}
-          {route === "chat" && !projectLoading && !projectReady && <ProjectRequired onOpen={() => void handleOpenProject()} />}
           {route === "hub" && (
             <ProjectHub
               projectName={projectName || projectInfo?.name || null}
@@ -921,7 +923,10 @@ export function App() {
 
           {route === "review" && (
             <Suspense fallback={<div className="flex h-full items-center justify-center text-[12px] text-muted">Loading review…</div>}>
-              <ReviewSurface boardName={boardName || boardList[0] || null} />
+              <ReviewSurface
+                boardName={boardName || boardList[0] || null}
+                projectRoot={projectInfo?.root || projectRoot || null}
+              />
             </Suspense>
           )}
 

@@ -8,7 +8,7 @@ import {
   recentProjects,
   savedProjects,
   saveProject,
-  removeSavedProject,
+  forgetProject,
   renameProject,
   revealProject,
   switchProject,
@@ -185,14 +185,14 @@ export function ProjectsSettings({ onClose, onOpenSources }: ProjectsSettingsPro
                 <button
                   type="button"
                   onClick={async () => {
-                    await removeSavedProject(selectedProject.path);
+                    await forgetProject(selectedProject.path);
                     setProjects((prev) => prev.filter((p) => p.path !== selectedProject.path));
                     setSelectedProject(null);
                   }}
                   className="px-3 py-1.5 text-[12px] font-medium bg-surface hover:bg-card-hover border border-border rounded-lg flex items-center gap-1.5 transition-colors text-danger"
                 >
                   <Icon name="trash" size={13} />
-                  <span>Remove from saved</span>
+                  <span>Remove project</span>
                 </button>
                 <button
                   type="button"

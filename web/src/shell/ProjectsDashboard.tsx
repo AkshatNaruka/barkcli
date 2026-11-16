@@ -1,6 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import type { Board, ProjectSummary } from "../lib/types";
-import { isDesktop, projectSummaries, revealProject, switchProject } from "../lib/desktop";
+import {
+  forgetProject,
+  isDesktop,
+  openProjectDialog,
+  openTerminal,
+  projectSummaries,
+  renameProject,
+  revealProject,
+  saveProject,
+  switchProject,
+} from "../lib/desktop";
 import { navigate } from "../lib/hashnav";
 import { Icon, type IconName } from "../components/Icon";
 import { AccessibleDialog } from "../components/AccessibleDialog";
@@ -164,6 +174,11 @@ export function ProjectsDashboard({
   const [filter, setFilter] = useState<ProjectFilter>("all");
   const [switching, setSwitching] = useState<string | null>(null);
   const [view, setView] = useState<"grid" | "list">("grid");
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [renameTarget, setRenameTarget] = useState<ProjectSummary | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [removeTarget, setRemoveTarget] = useState<ProjectSummary | null>(null);
+  const [managing, setManaging] = useState(false);
 
   const load = useCallback(async () => {
     if (!isDesktop()) {
@@ -216,8 +231,86 @@ export function ProjectsDashboard({
     setSwitching(null);
   };
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+  const startRename = (project: ProjectSummary) => {
+    setMenuFor(null);
+    setRenameTarget(project);
+    setRenameValue(project.name);
+  };
+
+  const submitRename = async () => {
+    if (!renameTarget || managing) return;
+    const name = renameValue.trim();
+    if (!name || name === renameTarget.name) {
+      setRenameTarget(null);
+      return;
+    }
+    setManaging(true);
+    try {
+      const renamed = await renameProject(renameTarget.path, name);
+      if (!renamed) {
+        onNotify("Could not rename this project. Renaming needs the Bark Mac app.");
+        return;
+      }
+      setProjects((prev) =>
+        prev.map((project) => (project.path === renamed.path ? { ...project, name: renamed.name } : project))
+      );
+      setRenameTarget(null);
+      onNotify(`Renamed to ${renamed.name}.`);
+    } finally {
+      setManaging(false);
+    }
+  };
+
+  const submitRemove = async () => {
+    if (!removeTarget || managing) return;
+    const target = removeTarget;
+    setManaging(true);
+    try {
+      const removed = await forgetProject(target.path);
+      if (!removed) {
+        onNotify("Could not remove this project. Removing needs the Bark Mac app.");
+        return;
+      }
+      setProjects((prev) => prev.filter((project) => project.path !== target.path));
+      setRemoveTarget(null);
+      onNotify(`${target.name} removed from Bark. Files on disk are untouched.`);
+    } finally {
+      setManaging(false);
+    }
+  };
+
+  const locateProject = async (project: ProjectSummary) => {
+    setMenuFor(null);
+    const picked = await openProjectDialog();
+    if (!picked?.path) return;
+    setManaging(true);
+    try {
+      const added = await saveProject(picked.path);
+      if (!added) {
+        onNotify("Could not add that folder.");
+        return;
+      }
+      if (picked.path !== project.path) await forgetProject(project.path);
+      onNotify(`${project.name} now points at ${added.path}.`);
+      await load();
+    } finally {
+      setManaging(false);
+    }
+  };
+
+  const revealInFinder = async (project: ProjectSummary) => {
+    setMenuFor(null);
+    const ok = await revealProject(project.path);
+    if (!ok) onNotify(`Could not reveal ${project.name}. Its folder may be missing.`);
+  };
+
+  const openProjectTerminal = async (project: ProjectSummary) => {
+    setMenuFor(null);
+    const ok = await openTerminal(project.path);
+    if (!ok) onNotify(`Could not open a terminal for ${project.name}.`);
+  };
+
+  const filtered = useMemo(() => {    const q = query.trim().toLowerCase();
     return projects
       .filter((project) => {
         if (filter === "review" && reviewCount(project) === 0) return false;
@@ -328,9 +421,9 @@ export function ProjectsDashboard({
             <Icon name="refresh" size={13} />
             Refresh
           </button>
-          <button type="button" className="bark-primary" onClick={onOpenFolder}>
+          <button type="button" className="bark-primary" onClick={onOpenFolder} title="Add a folder Bark should track">
             <Icon name="plus" size={13} />
-            Open folder
+            Add project
           </button>
           <button
             type="button"
@@ -454,7 +547,18 @@ export function ProjectsDashboard({
                   <button
                     key={`${item.project.path}:${item.label}`}
                     type="button"
-                    onClick={() => openProject(item.project, item.icon === "eye" ? "review" : "chat")}
+                    onClick={() => {
+                      // A missing folder cannot be opened, so send the user to
+                      // the card's actions where it can be relocated or removed.
+                      if (!item.project.available) {
+                        setMenuFor(item.project.path);
+                        document
+                          .querySelector(`[data-project-card="${CSS.escape(item.project.path)}"]`)
+                          ?.scrollIntoView({ block: "center", behavior: "smooth" });
+                        return;
+                      }
+                      void openProject(item.project, item.icon === "eye" ? "review" : "chat");
+                    }}
                     disabled={Boolean(switching)}
                   >
                     <span className={`pulse-attention-icon is-${item.tone}`}>
@@ -523,7 +627,7 @@ export function ProjectsDashboard({
               {projects.length === 0 ? (
                 <button type="button" className="bark-primary" onClick={onOpenFolder}>
                   <Icon name="plus" size={13} />
-                  Open folder
+                  Add project
                 </button>
               ) : (
                 <button type="button" className="bark-button" onClick={() => { setQuery(""); setFilter("all"); }}>
@@ -539,60 +643,126 @@ export function ProjectsDashboard({
                 const open = openCount(project);
                 const activeBoard = project.boards.find((board) => board.name === project.active_board) || project.boards[0];
                 return (
-                  <button
-                    key={project.path}
-                    type="button"
-                    data-testid={`project-card-${project.name}`}
-                    className={`project-card ${project.current ? "is-current" : ""} ${!project.available ? "is-missing" : ""}`}
-                    onClick={() => openProject(project)}
-                    disabled={switching === project.path}
-                  >
-                    <div className="project-card-head">
-                      <span className={`project-avatar ${toneFor(project.path)}`}>{initials(project.name)}</span>
-                      <span className="project-card-title">
-                        <strong>{project.name}</strong>
-                        <small title={project.path}>{compactPath(project.path)}</small>
-                      </span>
-                      <span className={`project-status is-${status.tone}`}>{status.label}</span>
-                    </div>
+                  <div key={project.path} className="project-card-wrap" data-project-card={project.path}>
+                    <button
+                      type="button"
+                      data-testid={`project-card-${project.name}`}
+                      className={`project-card ${project.current ? "is-current" : ""} ${!project.available ? "is-missing" : ""}`}
+                      onClick={() => openProject(project)}
+                      disabled={switching === project.path}
+                    >
+                      <div className="project-card-head">
+                        <span className={`project-avatar ${toneFor(project.path)}`}>{initials(project.name)}</span>
+                        <span className="project-card-title">
+                          <strong>{project.name}</strong>
+                          <small title={project.path}>{compactPath(project.path)}</small>
+                        </span>
+                        <span className={`project-status is-${status.tone}`}>{status.label}</span>
+                      </div>
 
-                    <div className="project-card-git">
-                      <Icon name="branch" size={11} />
-                      <span>{project.git?.branch || "No git repository"}</span>
-                      {project.git && (
-                        <>
-                          <span className="project-dot">·</span>
-                          <span className={project.git.clean ? "is-clean" : "is-dirty"}>
-                            {project.git.clean ? "Clean" : `${project.git.changes} changed`}
-                          </span>
-                        </>
-                      )}
-                    </div>
+                      <div className="project-card-git">
+                        <Icon name="branch" size={11} />
+                        <span>{project.git?.branch || "No git repository"}</span>
+                        {project.git && (
+                          <>
+                            <span className="project-dot">·</span>
+                            <span className={project.git.clean ? "is-clean" : "is-dirty"}>
+                              {project.git.clean ? "Clean" : `${project.git.changes} changed`}
+                            </span>
+                          </>
+                        )}
+                      </div>
 
-                    <p className="project-card-commit">
-                      {project.git?.last_commit || "No commits yet"}
-                    </p>
+                      <p className="project-card-commit">
+                        {project.git?.last_commit || "No commits yet"}
+                      </p>
 
-                    <div className="project-card-metrics">
-                      <span><strong>{open}</strong> open</span>
-                      <span className={review > 0 ? "is-review" : ""}><strong>{review}</strong> review</span>
-                      <span><strong>{project.agents}</strong> agents</span>
-                    </div>
+                      <div className="project-card-metrics">
+                        <span><strong>{open}</strong> open</span>
+                        <span className={review > 0 ? "is-review" : ""}><strong>{review}</strong> review</span>
+                        <span><strong>{project.agents}</strong> agents</span>
+                      </div>
 
-                    <div className="project-card-foot">
-                      <span>
-                        {activeBoard
-                          ? `${activeBoard.name} · ${activeBoard.cards} cards`
-                          : project.board_files > 0
-                            ? `${project.board_files} board file${project.board_files === 1 ? "" : "s"} · unreadable`
-                            : "No board"}
-                        {project.boards.length > 1 ? ` · ${project.boards.length} boards` : ""}
-                      </span>
-                      <span>{relativeEpoch(project.last_active)}</span>
-                    </div>
+                      <div className="project-card-foot">
+                        <span>
+                          {activeBoard
+                            ? `${activeBoard.name} · ${activeBoard.cards} cards`
+                            : project.board_files > 0
+                              ? `${project.board_files} board file${project.board_files === 1 ? "" : "s"} · unreadable`
+                              : "No board"}
+                          {project.boards.length > 1 ? ` · ${project.boards.length} boards` : ""}
+                        </span>
+                        <span>{relativeEpoch(project.last_active)}</span>
+                      </div>
 
-                    {project.current && <span className="project-current-mark">Current</span>}
-                  </button>
+                      {project.current && <span className="project-current-mark">Current</span>}
+                    </button>
+
+                    <button
+                      type="button"
+                      className={`project-card-manage ${menuFor === project.path ? "is-open" : ""}`}
+                      aria-label={`Manage ${project.name}`}
+                      aria-haspopup="menu"
+                      aria-expanded={menuFor === project.path}
+                      onClick={() => setMenuFor(menuFor === project.path ? null : project.path)}
+                    >
+                      <Icon name="dots" size={14} />
+                    </button>
+
+                    {menuFor === project.path && (
+                      <>
+                        <div className="project-card-scrim" onClick={() => setMenuFor(null)} />
+                        <div
+                          className="project-card-menu"
+                          role="menu"
+                          aria-label={`Manage ${project.name}`}
+                          onKeyDown={(event) => {
+                            if (event.key === "Escape") setMenuFor(null);
+                          }}
+                        >
+                          <button
+                            type="button"
+                            role="menuitem"
+                            disabled={!project.available}
+                            onClick={() => { setMenuFor(null); void openProject(project); }}
+                          >
+                            <Icon name="play" size={13} />
+                            Open project
+                          </button>
+                          <button type="button" role="menuitem" onClick={() => startRename(project)}>
+                            <Icon name="pencil" size={13} />
+                            Rename…
+                          </button>
+                          {!project.available && (
+                            <button type="button" role="menuitem" onClick={() => void locateProject(project)}>
+                              <Icon name="folderPlus" size={13} />
+                              Locate folder…
+                            </button>
+                          )}
+                          <button type="button" role="menuitem" onClick={() => void revealInFinder(project)}>
+                            <Icon name="folder" size={13} />
+                            Show in Finder
+                          </button>
+                          <button type="button" role="menuitem" onClick={() => void openProjectTerminal(project)}>
+                            <Icon name="terminal" size={13} />
+                            Open terminal
+                          </button>
+                          <div className="project-menu-sep" role="separator" />
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className="is-danger"
+                            disabled={project.current || managing}
+                            title={project.current ? "Switch to another project before removing this one" : undefined}
+                            onClick={() => { setMenuFor(null); setRemoveTarget(project); }}
+                          >
+                            <Icon name="trash" size={13} />
+                            Remove project…
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 );
               })}
             </div>
@@ -606,6 +776,72 @@ export function ProjectsDashboard({
           )}
         </section>
       </div>
+
+      {renameTarget && (
+        <AccessibleDialog label={`Rename ${renameTarget.name}`} onClose={() => setRenameTarget(null)}>
+          <div className="project-dialog">
+            <h2>Rename project</h2>
+            <p>
+              Bark only changes the label it shows for this folder. The folder and its
+              repository keep their real names.
+            </p>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void submitRename();
+              }}
+            >
+              <label htmlFor="project-rename-input">Display name</label>
+              <input
+                id="project-rename-input"
+                autoFocus
+                value={renameValue}
+                onChange={(event) => setRenameValue(event.target.value)}
+                placeholder={renameTarget.name}
+              />
+              <div className="project-dialog-actions">
+                <button type="button" className="bark-button" onClick={() => setRenameTarget(null)}>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bark-primary"
+                  disabled={managing || !renameValue.trim() || renameValue.trim() === renameTarget.name}
+                >
+                  {managing ? "Saving…" : "Rename"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </AccessibleDialog>
+      )}
+
+      {removeTarget && (
+        <AccessibleDialog label={`Remove ${removeTarget.name}`} onClose={() => setRemoveTarget(null)}>
+          <div className="project-dialog">
+            <h2>Remove {removeTarget.name}?</h2>
+            <p>
+              {removeTarget.available
+                ? "Bark forgets this project: it leaves the project list, the project picker, and cross-project review. The folder and everything in it stay exactly where they are on disk."
+                : "This folder is no longer on disk, so removing it only cleans up Bark's project list, picker, and cross-project review. Nothing else is touched."}
+            </p>
+            <p className="project-dialog-path">{removeTarget.path}</p>
+            <div className="project-dialog-actions">
+              <button type="button" className="bark-button" onClick={() => setRemoveTarget(null)}>
+                Keep project
+              </button>
+              <button
+                type="button"
+                className="bark-danger"
+                disabled={managing}
+                onClick={() => void submitRemove()}
+              >
+                {managing ? "Removing…" : "Remove project"}
+              </button>
+            </div>
+          </div>
+        </AccessibleDialog>
+      )}
     </div>
   );
 }

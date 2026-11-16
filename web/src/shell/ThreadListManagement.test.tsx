@@ -46,6 +46,7 @@ vi.mock("../lib/api", () => ({
   fetchThreads: vi.fn(async () => mockThreads),
   deleteThread: vi.fn(async () => ({ ok: true })),
   updateThread: vi.fn(async () => ({ ok: true })),
+  fetchProjects: vi.fn(async () => []),
   connectWs: () => () => {},
 }));
 
@@ -60,30 +61,25 @@ describe("ThreadList Management & Project Grouping", () => {
     vi.clearAllMocks();
   });
 
-  it("groups threads by project name in collapsible sections", async () => {
+  it("streams threads from every project and keeps settled work collapsed", async () => {
     const user = userEvent.setup();
-    render(<ThreadList boardName="dev" />);
+    render(<ThreadList boardName="dev" projectRoot="/Users/dev/barkcli" />);
     await screen.findByText("Auth bugfix");
 
-    // Both project groups should be rendered with headers
-    expect(screen.getByRole("button", { name: /barkcli project, 2 threads/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /ses project, 1 threads/i })).toBeInTheDocument();
-
-    // Collapse the 'ses' project group
-    const sesHeader = screen.getByRole("button", { name: /ses project, 1 threads/i });
-    await user.click(sesHeader);
-
-    // Threads in ses should now be hidden
-    expect(screen.queryByText("Database schema migration")).not.toBeInTheDocument();
-
-    // Click again to re-expand
-    await user.click(sesHeader);
+    // Flat stream: each row carries its own project badge, no group headers.
     expect(screen.getByText("Database schema migration")).toBeInTheDocument();
+    expect(screen.getAllByText("barkcli").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("ses").length).toBeGreaterThan(0);
+
+    // Done threads live under Settled, collapsed until asked for.
+    expect(screen.queryByText("Frontend refactoring")).not.toBeInTheDocument();
+    await user.click(screen.getAllByRole("button", { name: /^Settled/ })[0]);
+    expect(screen.getByText("Frontend refactoring")).toBeInTheDocument();
   });
 
   it("opens project sources modal when clicking Add project button in header", async () => {
     const user = userEvent.setup();
-    render(<ThreadList boardName="dev" />);
+    render(<ThreadList boardName="dev" projectRoot="/Users/dev/barkcli" />);
     await screen.findByText("Auth bugfix");
 
     // Click Add project icon in header
@@ -97,7 +93,7 @@ describe("ThreadList Management & Project Grouping", () => {
 
   it("allows selecting multiple threads and shows bulk delete confirmation", async () => {
     const user = userEvent.setup();
-    render(<ThreadList boardName="dev" />);
+    render(<ThreadList boardName="dev" projectRoot="/Users/dev/barkcli" />);
     await screen.findByText("Auth bugfix");
 
     // Toggle multi-select mode from toolbar near search
@@ -110,27 +106,26 @@ describe("ThreadList Management & Project Grouping", () => {
     const selectAllBtn = screen.getByRole("button", { name: /select all/i });
     await user.click(selectAllBtn);
 
-    expect(screen.getByText(/3 of 3 selected/i)).toBeInTheDocument();
+    // Threads from another project are not selectable: writes must run in
+    // the project that owns them.
+    expect(screen.getByText(/2 of 3 selected/i)).toBeInTheDocument();
 
-    // Click Delete (3)
-    const deleteBtn = screen.getByRole("button", { name: /delete \(3\)/i });
+    const deleteBtn = screen.getByRole("button", { name: /delete \(2\)/i });
     await user.click(deleteBtn);
 
-    // Confirmation dialog appears
-    expect(screen.getByText(/Delete 3 Threads\?/i)).toBeInTheDocument();
+    expect(screen.getByText(/Delete 2 Threads\?/i)).toBeInTheDocument();
 
-    // Confirm deletion
-    const confirmBtn = screen.getByRole("button", { name: /delete 3 threads/i });
+    const confirmBtn = screen.getByRole("button", { name: /delete 2 threads/i });
     await user.click(confirmBtn);
 
     await waitFor(() => {
-      expect(api.deleteThread).toHaveBeenCalledTimes(3);
+      expect(api.deleteThread).toHaveBeenCalledTimes(2);
     });
   });
 
   it("toggles pin status when clicking the pin button", async () => {
     const user = userEvent.setup();
-    render(<ThreadList boardName="dev" />);
+    render(<ThreadList boardName="dev" projectRoot="/Users/dev/barkcli" />);
     await screen.findByText("Auth bugfix");
 
     const row = screen.getByText("Auth bugfix").closest(".thread-list-row-wrap")!;

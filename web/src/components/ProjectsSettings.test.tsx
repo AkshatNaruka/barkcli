@@ -18,6 +18,7 @@ vi.mock("../lib/desktop", () => ({
   savedProjects: () => Promise.resolve([]),
   saveProject: () => Promise.resolve({ name: "x", path: "/x" }),
   removeSavedProject: () => Promise.resolve(true),
+  forgetProject: () => Promise.resolve(true),
   renameProject: (path: string, name: string) => vi.fn(async () => ({ path, name }))(),
   switchProject: (path: string) => switchProject(path),
   revealProject: (path: string) => revealProject(path),

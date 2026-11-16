@@ -2,10 +2,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import { connectWs, fetchPullRequests, fetchReviewQueue, fetchThreadRuns } from "../lib/api";
 import { sortQueue } from "../components/ReviewQueuePanel";
 import { CheckChip } from "../components/CheckStatus";
-import { navigate, updateRouteState, useRouteState } from "../lib/hashnav";
+import { navigate, updateRouteState, useRouteState, type RouteState } from "../lib/hashnav";
 import type { PullRequestItem, QueueItem } from "../lib/types";
 import { Icon } from "../components/Icon";
 import { PullRequestDetailView } from "./PullRequestDetailView";
+import { isDesktop, projectDisplayName, switchProject } from "../lib/desktop";
 
 function hasBuild(item: QueueItem): boolean {
   return Boolean(item.branch) && (item.files > 0 || item.additions > 0 || item.deletions > 0);
@@ -40,10 +41,16 @@ function ReviewRow({
   const reason = built
     ? item.risk.reasons[0]?.detail || "Inspect the changes and their verification evidence."
     : "Nothing has been built for this thread yet. Open the plan to decide the next step.";
+  const project = item.project_name || item.project_root
+    ? projectDisplayName(item.project_name, item.project_root)
+    : "";
   return (
     <section className="review-row" style={{ contentVisibility: "auto", containIntrinsicSize: "auto 90px" }}>
       <button className="review-open" onClick={() => onOpen(item)} disabled={Boolean(opening)}>
-        <span className="review-title">{item.title}</span>
+        <span className="review-title">
+          {project && <span className="review-project-badge">{project}</span>}
+          <span>{item.title}</span>
+        </span>
         <span className="review-meta">{meta}</span>
         <span className="review-checks"><CheckChip item={item} /></span>
         <span className="review-reason">{reason}</span>
@@ -184,7 +191,13 @@ function PullRequestRow({
   );
 }
 
-export function ReviewSurface({ boardName }: { boardName: string | null }) {
+export function ReviewSurface({
+  boardName,
+  projectRoot,
+}: {
+  boardName: string | null;
+  projectRoot?: string | null;
+}) {
   const routeState = useRouteState();
   const selectedPrNumber = routeState.pr ? parseInt(routeState.pr, 10) : null;
   const [selectedPrItem, setSelectedPrItem] = useState<PullRequestItem | null>(null);
@@ -221,7 +234,9 @@ export function ReviewSurface({ boardName }: { boardName: string | null }) {
     const load = async () => {
       try {
         const [queueRes, prsRes] = await Promise.allSettled([
-          fetchReviewQueue(boardName, false, true),
+          // Review is cross-project: builds waiting in any project Bark has
+          // opened show up here, each stamped with its own project.
+          fetchReviewQueue(boardName, false, true, true),
           fetchPullRequests("all", 50),
         ]);
 
@@ -251,17 +266,76 @@ export function ReviewSurface({ boardName }: { boardName: string | null }) {
     };
   }, [boardName, revision]);
 
+  // A review item opened from another project resumes after the sidecar switch
+  // with the exact same target (thread, run, panel).
+  useEffect(() => {
+    let raw: string | null = null;
+    try {
+      raw = window.sessionStorage.getItem("bark:review-open");
+      if (raw) window.sessionStorage.removeItem("bark:review-open");
+    } catch {
+      /* storage is optional */
+    }
+    if (!raw) return;
+    try {
+      const payload = JSON.parse(raw) as {
+        thread?: string;
+        run?: string;
+        panel?: RouteState["panel"];
+        board?: string;
+      };
+      if (!payload?.thread) return;
+      navigate("chat", {
+        board: payload.board || undefined,
+        thread: payload.thread,
+        run: payload.run,
+        panel: payload.panel,
+      });
+    } catch {
+      /* ignore a stale target */
+    }
+  }, []);
+
   const open = async (item: QueueItem) => {
     if (opening) return;
     setOpening(item.card_id);
     try {
       const runs = await fetchThreadRuns(item.card_id);
       const run = [...runs].reverse().find((run) => run.status !== "merged");
+      const targetBoard = item.board || boardName || undefined;
+      const panel = hasBuild(item) ? "changes" : "plan";
+      const elsewhere = Boolean(
+        item.project_root && projectRoot && item.project_root !== projectRoot
+      );
+      if (elsewhere && isDesktop() && item.project_root) {
+        try {
+          window.sessionStorage.setItem(
+            "bark:review-open",
+            JSON.stringify({
+              thread: item.card_id,
+              run: run?.id,
+              panel,
+              board: targetBoard,
+            })
+          );
+        } catch {
+          /* storage is optional */
+        }
+        const opened = await switchProject(item.project_root, "review");
+        if (!opened) {
+          try {
+            window.sessionStorage.removeItem("bark:review-open");
+          } catch {
+            /* storage is optional */
+          }
+        }
+        return;
+      }
       navigate("chat", {
-        board: boardName || undefined,
+        board: targetBoard,
         thread: item.card_id,
         run: run?.id,
-        panel: hasBuild(item) ? "changes" : "plan",
+        panel,
       });
     } finally {
       setOpening(null);

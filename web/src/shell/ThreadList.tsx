@@ -8,15 +8,53 @@ import { ThreadActionsMenu, type ThreadActionTarget } from "./ThreadActionsMenu"
 import { AccessibleDialog } from "../components/AccessibleDialog";
 import { ProjectAvatar } from "../components/ProjectAvatar";
 import { ProjectSourcesModal } from "../components/ProjectSourcesModal";
-import { switchProject, projectFavicon } from "../lib/desktop";
+import { ProjectPickerModal } from "../components/ProjectPickerModal";
+import { isDesktop, projectDisplayName, switchProject } from "../lib/desktop";
 
-export function ThreadList({ boardName, open = false, onClose, collapsed = false }: { boardName: string | null; open?: boolean; onClose?: () => void; collapsed?: boolean }) {
+interface ThreadListProps {
+  boardName: string | null;
+  projectRoot?: string;
+  projectName?: string | null;
+  open?: boolean;
+  onClose?: () => void;
+  collapsed?: boolean;
+}
+
+function isSettled(thread: ThreadSummary): boolean {
+  return (thread.column || "").toLowerCase() === "done";
+}
+
+function threadProject(thread: ThreadSummary, fallbackName?: string | null): string {
+  return projectDisplayName(
+    thread.project_name || fallbackName,
+    thread.project_root || null
+  );
+}
+
+/**
+ * Global thread navigator. Threads are not scoped to the open project: the
+ * list shows activity from every project Bark has opened, T3-style — one flat
+ * stream with the project badge on each row. Selecting a thread from another
+ * project switches to that checkout, which is the only context a run can have.
+ */
+export function ThreadList({
+  boardName,
+  projectRoot,
+  projectName,
+  open = false,
+  onClose,
+  collapsed = false,
+}: ThreadListProps) {
   const location = useRouteState();
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [sourcesModalOpen, setSourcesModalOpen] = useState(false);
+  const [projectPickerOpen, setProjectPickerOpen] = useState(false);
+  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
+  const [switching, setSwitching] = useState(false);
   const [menu, setMenu] = useState<{ target: ThreadActionTarget; x: number; y: number } | null>(null);
+  const [settledOpen, setSettledOpen] = useState(false);
 
   // Multi-Select state
   const [selectionMode, setSelectionMode] = useState(false);
@@ -24,14 +62,14 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [projectFilter, setProjectFilter] = useState<string>("all");
-  const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
   const [favicons, setFavicons] = useState<Record<string, string | null>>({});
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
-        const next = await fetchThreads(boardName || undefined);
+        // No board scope: the navigator is global by design.
+        const next = await fetchThreads();
         if (!cancelled) setThreads(next);
       } finally {
         if (!cancelled) setLoading(false);
@@ -46,70 +84,52 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
       cleanup();
       window.removeEventListener("bark-threads-changed", changed);
     };
-  }, [boardName]);
+  }, []);
 
   const distinctProjects = useMemo(() => {
     const names = new Set<string>();
-    for (const t of threads) {
-      if (t.project_name && t.project_name.trim()) {
-        names.add(t.project_name.trim());
-      }
+    for (const thread of threads) {
+      const name = threadProject(thread).trim();
+      if (name) names.add(name);
     }
-    return Array.from(names);
-  }, [threads]);
-
-  // Load favicons for distinct projects
-  useEffect(() => {
-    let cancelled = false;
-    const roots = new Map<string, string>();
-    for (const t of threads) {
-      const name = (t.project_name || "").trim();
-      if (name && t.project_root && !roots.has(name)) {
-        roots.set(name, t.project_root);
-      }
-    }
-    for (const [name, root] of roots) {
-      if (favicons[name] !== undefined) continue;
-      void projectFavicon(root).then((fav) => {
-        if (!cancelled) setFavicons((prev) => ({ ...prev, [name]: fav }));
-      });
-    }
-    return () => { cancelled = true; };
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
   }, [threads]);
 
   const filtered = useMemo(() => {
-    const bySearch = filterThreads(threads, search);
-    if (projectFilter === "all") return bySearch;
-    return bySearch.filter((t) => (t.project_name || "").trim() === projectFilter);
+    const bySearch = filterThreads(threads, search).filter((thread) =>
+      projectFilter === "all"
+        ? true
+        : threadProject(thread).trim() === projectFilter
+    );
+    return [...bySearch].sort((a, b) => {
+      if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
+      return Date.parse(b.updated_at) - Date.parse(a.updated_at);
+    });
   }, [threads, search, projectFilter]);
 
-  // Group threads by project
-  const projectGroups = useMemo(() => {
-    const map = new Map<string, ThreadSummary[]>();
-    for (const t of filtered) {
-      const pName = (t.project_name || "").trim() || "barkcli";
-      if (!map.has(pName)) map.set(pName, []);
-      map.get(pName)!.push(t);
-    }
-    return Array.from(map.entries()).map(([projectName, items]) => {
-      const sorted = [...items].sort((a, b) => {
-        if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
-        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-      });
-      return { projectName, items: sorted };
-    });
-  }, [filtered]);
-
+  const active = filtered.filter((thread) => !isSettled(thread));
+  const settled = filtered.filter(isSettled);
   const total = filtered.length;
 
-  const toggleProjectCollapsed = (projectName: string) => {
-    setCollapsedProjects((prev) => {
-      const next = new Set(prev);
-      if (next.has(projectName)) next.delete(projectName);
-      else next.add(projectName);
-      return next;
-    });
-  };
+  // Best-effort application favicon for each distinct project. Desktop-only.
+  useEffect(() => {
+    if (!isDesktop()) return;
+    let cancelled = false;
+    const roots = new Map<string, string>();
+    for (const thread of threads) {
+      const name = threadProject(thread);
+      if (name && thread.project_root && !roots.has(name)) roots.set(name, thread.project_root);
+    }
+    void (async () => {
+      const { projectFavicon } = await import("../lib/desktop");
+      for (const [name, root] of roots) {
+        if (favicons[name] !== undefined) continue;
+        const favicon = await projectFavicon(root);
+        if (!cancelled) setFavicons((previous) => ({ ...previous, [name]: favicon }));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [threads]);
 
   const openMenu = (thread: ThreadSummary, x: number, y: number) => {
     setMenu({
@@ -117,35 +137,62 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
         id: thread.id,
         title: thread.title,
         pinned: Boolean(thread.pinned),
-        settled: (thread.column || "").toLowerCase() === "done",
+        settled: isSettled(thread),
       },
       x,
       y,
     });
   };
 
-  const handleTogglePin = async (e: React.MouseEvent, thread: ThreadSummary) => {
-    e.stopPropagation();
+  const openThread = async (thread: ThreadSummary) => {
+    const targetRoot = thread.project_root;
+    const elsewhere = Boolean(
+      targetRoot && projectRoot && targetRoot !== projectRoot
+    );
+    if (elsewhere && isDesktop()) {
+      setSwitching(true);
+      try {
+        window.sessionStorage.setItem("bark:thread", thread.id);
+      } catch { /* storage is optional */ }
+      const opened = await switchProject(targetRoot!, "chat");
+      if (!opened) {
+        setSwitching(false);
+        try { window.sessionStorage.removeItem("bark:thread"); } catch {}
+      }
+      return;
+    }
+    navigate("chat", { board: boardName || undefined, thread: thread.id });
+    onClose?.();
+  };
+
+  // Writes must run in the project that owns the thread. For a thread from
+  // another checkout we open that project first instead of mutating a
+  // same-named card in the current board.
+  const belongsHere = (thread: ThreadSummary) =>
+    !thread.project_root || (Boolean(projectRoot) && thread.project_root === projectRoot);
+
+  const handleTogglePin = async (event: React.MouseEvent, thread: ThreadSummary) => {
+    event.stopPropagation();
+    if (!belongsHere(thread)) {
+      await openThread(thread);
+      return;
+    }
     await updateThread(thread.id, { board: boardName || undefined, pinned: !thread.pinned });
     window.dispatchEvent(new Event("bark-threads-changed"));
   };
 
   const toggleSelect = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
+    setSelectedIds((previous) => {
+      const next = new Set(previous);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
   };
 
-  const selectAll = () => {
-    setSelectedIds(new Set(filtered.map((t) => t.id)));
-  };
-
-  const deselectAll = () => {
-    setSelectedIds(new Set());
-  };
+  const selectable = filtered.filter((thread) => belongsHere(thread));
+  const selectAll = () => setSelectedIds(new Set(selectable.map((thread) => thread.id)));
+  const deselectAll = () => setSelectedIds(new Set());
 
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0 || bulkDeleting) return;
@@ -171,23 +218,30 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
     const status = threadStatus(thread);
     const current = thread.id === location.thread;
     const isSelected = selectedIds.has(thread.id);
+    const name = threadProject(thread);
+    const elsewhere = Boolean(
+      thread.project_root && projectRoot && thread.project_root !== projectRoot
+    );
 
     return (
-      <div key={thread.id} className="thread-list-row-wrap group/row">
+      <div key={`${thread.project_root || ""}:${thread.id}`} className="thread-list-row-wrap group/row">
         {selectionMode ? (
           <div
-            onClick={() => toggleSelect(thread.id)}
-            className={`flex items-center gap-2.5 w-full p-2 rounded-lg cursor-pointer transition-colors ${
-              isSelected ? "bg-accent-soft text-text" : "hover:bg-card text-muted-strong"
-            }`}
+            onClick={() => { if (belongsHere(thread)) toggleSelect(thread.id); }}
+            title={belongsHere(thread) ? undefined : "Open this project to select this thread"}
+            className={`flex items-center gap-2.5 w-full p-2 rounded-lg transition-colors ${
+              belongsHere(thread) ? "cursor-pointer" : "cursor-default opacity-60"
+            } ${isSelected ? "bg-accent-soft text-text" : "hover:bg-card text-muted-strong"}`}
           >
             <input
               type="checkbox"
               checked={isSelected}
+              disabled={!belongsHere(thread)}
               onChange={() => toggleSelect(thread.id)}
               className="accent-accent cursor-pointer shrink-0 rounded"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
             />
+            <ProjectAvatar name={name} size="xs" favicon={favicons[name]} />
             <span className="truncate flex-1 text-[11.5px] font-medium">{thread.title}</span>
             {thread.pinned && <Icon name="pin" size={10} className="text-accent shrink-0" />}
           </div>
@@ -197,44 +251,26 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
               type="button"
               className={current ? "thread-list-row is-current" : "thread-list-row"}
               aria-current={current ? "page" : undefined}
-              title={thread.title}
-              onClick={() => {
-                navigate("chat", { board: boardName || undefined, thread: thread.id });
-                onClose?.();
-              }}
+              title={`${thread.title} — ${name}${elsewhere ? " (switch project to open)" : ""}`}
+              onClick={() => void openThread(thread)}
               onContextMenu={(event) => {
                 event.preventDefault();
-                openMenu(thread, event.clientX, event.clientY);
+                if (belongsHere(thread)) openMenu(thread, event.clientX, event.clientY);
               }}
             >
-              {/* Row 1: Project Avatar (only when not grouped), Project Name, Status / Time */}
               <div className="thread-row-top">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  {current && (
-                    <Icon name="pencil" size={11} className="text-amber-400 shrink-0" />
-                  )}
-                  {/* Avoid repeating the project icon that is already shown in the group header */}
-                  <span
-                    className="thread-row-project text-[12px] font-medium text-muted-strong hover:text-text truncate"
-                    title={thread.project_root || thread.project_name || "barkcli"}
-                  >
-                    {thread.project_name || "barkcli"}
-                  </span>
+                <div className="thread-row-projectline">
+                  {current && <Icon name="pencil" size={11} className="text-amber-400 shrink-0" />}
+                  <ProjectAvatar name={name} size="xs" favicon={favicons[name]} />
+                  <span className="thread-row-project">{name}</span>
                 </div>
-
                 <div className="flex items-center gap-1.5 shrink-0 text-[11px]">
                   {thread.status_group === "failed" || thread.status_group === "blocked" || status.tone === "warning" ? (
                     <span className="text-rose-400 font-medium inline-flex items-center gap-1">
                       <Icon name="warn" size={11} />
                       <span>Failed</span>
                     </span>
-                  ) : status.label === "settled" || (thread.column || "").toLowerCase() === "done" ? (
-                    <span className="text-muted-dim inline-flex items-center gap-1">
-                      <Icon name="clock" size={10} />
-                      <Icon name="check" size={10} />
-                      <span>Settle</span>
-                    </span>
-                  ) : status.tone === "success" || status.tone === "accent" ? (
+                  ) : status.label === "running" ? (
                     <span className="text-amber-400 inline-flex items-center gap-1 font-medium">
                       <span className="thread-list-dot is-warning" />
                       <span>Working</span>
@@ -244,16 +280,23 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
                       {relativeTime(thread.updated_at)}
                     </time>
                   )}
+                  {thread.pinned && <Icon name="pin" size={10} className="thread-list-pin" />}
                 </div>
               </div>
 
-              {/* Row 2: Thread title and workspace / split icon */}
-              <div className="thread-row-bottom flex items-center justify-between gap-2 w-full min-w-0">
-                <strong className="thread-row-title text-[13px] font-medium text-text truncate flex items-center gap-1.5">
-                  {thread.pinned && <Icon name="pin" size={10} className="thread-list-pin" />}
-                  <span className="truncate">{thread.title}</span>
+              <div className="thread-row-bottom">
+                <strong className="thread-row-title text-[13px] font-medium text-text">
+                  <span>{thread.title}</span>
                 </strong>
                 <div className="flex items-center gap-1 shrink-0 text-muted-dim">
+                  {elsewhere && isDesktop() && (
+                    <span
+                      className="thread-row-worktree text-[10px]"
+                      title="Opens in its own project"
+                    >
+                      other project
+                    </span>
+                  )}
                   {thread.workspace_strategy === "worktree" && (
                     <span className="thread-row-worktree text-[10px] text-muted-dim" title="worktree">
                       worktree
@@ -265,7 +308,7 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
             <div className="thread-row-actions">
               <button
                 type="button"
-                onClick={(e) => handleTogglePin(e, thread)}
+                onClick={(event) => handleTogglePin(event, thread)}
                 className="thread-row-action"
                 title={thread.pinned ? "Unpin thread" : "Pin thread"}
               >
@@ -275,8 +318,12 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
                 type="button"
                 className="thread-row-action"
                 aria-label={`Actions for ${thread.title}`}
-                title="Thread actions"
+                title={belongsHere(thread) ? "Thread actions" : "Open this project to manage"}
                 onClick={(event) => {
+                  if (!belongsHere(thread)) {
+                    void openThread(thread);
+                    return;
+                  }
                   const rect = event.currentTarget.getBoundingClientRect();
                   openMenu(thread, rect.right + 4, rect.top);
                 }}
@@ -292,41 +339,7 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
 
   return (
     <aside className={`thread-list ${open ? "is-open" : ""} ${collapsed ? "is-collapsed" : ""}`} aria-label="Threads">
-      {/* Header with Title and Action Buttons (New Thread & Add Project) */}
       <header className="thread-list-head">
-        <div className="thread-list-title">
-          <span>Threads</span>
-          <span className="thread-list-total">{total}</span>
-        </div>
-        <div className="thread-list-head-actions">
-          {onClose && (
-            <button type="button" className="thread-list-icon is-mobile" onClick={onClose} aria-label="Close threads" title="Close">
-              <Icon name="x" size={14} />
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => navigate("chat", { draft: "1", board: boardName || undefined })}
-            className="thread-list-new"
-            title="New thread (⌘N)"
-          >
-            <Icon name="plus" size={12} />
-            <span>New</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setSourcesModalOpen(true)}
-            className="thread-list-icon"
-            title="Add project / Sources"
-            aria-label="Add project / Sources"
-          >
-            <Icon name="folderPlus" size={14} />
-          </button>
-        </div>
-      </header>
-
-      {/* Search Input and Select Icon (Clean search toolbar with no redundant buttons) */}
-      <div className="flex items-center gap-1.5 mx-2.5 my-2">
         <label className="thread-list-search flex-1 flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-border/60 bg-bg text-muted focus-within:border-accent/80 transition-colors min-w-0">
           <Icon name="search" size={13} className="shrink-0 text-muted-dim" />
           <input
@@ -342,72 +355,98 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
             </button>
           )}
         </label>
-        <button
-          type="button"
-          onClick={() => {
-            setSelectionMode(!selectionMode);
-            setSelectedIds(new Set());
-          }}
-          className={`p-1.5 rounded-md transition-colors ${
-            selectionMode ? "text-accent bg-accent-soft" : "text-muted hover:text-text hover:bg-card"
-          }`}
-          title={selectionMode ? "Exit multi-select" : "Select multiple threads"}
-          aria-label={selectionMode ? "Exit multi-select" : "Select multiple threads"}
-          aria-pressed={selectionMode}
-        >
-          <Icon name="checkSquare" size={14} />
-        </button>
-      </div>
-
-      {/* Cross-Project Filter Chips (shown when multiple projects exist) */}
-      {distinctProjects.length > 1 && (
-        <div
-          className="mx-2.5 mb-2 flex items-center gap-1 overflow-x-auto pb-0.5"
-          role="group"
-          aria-label="Filter threads by project"
-        >
+        <div className="thread-list-head-actions">
+          {onClose && (
+            <button type="button" className="thread-list-icon is-mobile" onClick={onClose} aria-label="Close threads" title="Close">
+              <Icon name="x" size={14} />
+            </button>
+          )}
+          <div className="relative">
+            <button
+              type="button"
+              className={`thread-list-icon ${projectFilter !== "all" ? "is-active" : ""}`}
+              onClick={() => setProjectMenuOpen((value) => !value)}
+              title="Filter by project"
+              aria-label="Filter by project"
+              aria-haspopup="menu"
+              aria-expanded={projectMenuOpen}
+            >
+              <Icon name="filter" size={14} />
+            </button>
+            {projectMenuOpen && (
+              <div className="thread-project-menu" role="menu" aria-label="Filter threads by project">
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={projectFilter === "all"}
+                  className={projectFilter === "all" ? "is-current" : ""}
+                  onClick={() => { setProjectFilter("all"); setProjectMenuOpen(false); }}
+                >
+                  All projects
+                </button>
+                {distinctProjects.map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={projectFilter === name}
+                    className={projectFilter === name ? "is-current" : ""}
+                    onClick={() => { setProjectFilter(name); setProjectMenuOpen(false); }}
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button
             type="button"
-            onClick={() => setProjectFilter("all")}
-            className={`shrink-0 rounded-md px-2 py-0.5 text-[10.5px] font-medium transition-colors ${
-              projectFilter === "all"
-                ? "bg-accent/15 text-accent border border-accent/30"
-                : "bg-surface/60 text-muted hover:text-text border border-border/50"
-            }`}
+            onClick={() => setSourcesModalOpen(true)}
+            className="thread-list-icon"
+            title="Add project / Sources"
+            aria-label="Add project / Sources"
           >
-            All projects
+            <Icon name="folderPlus" size={14} />
           </button>
-          {distinctProjects.map((projName) => (
-            <button
-              key={projName}
-              type="button"
-              onClick={() => setProjectFilter(projName)}
-              className={`shrink-0 rounded-md px-2 py-0.5 text-[10.5px] font-medium transition-colors ${
-                projectFilter === projName
-                  ? "bg-accent/15 text-accent border border-accent/30"
-                  : "bg-surface/60 text-muted hover:text-text border border-border/50"
-              }`}
-            >
-              {projName}
-            </button>
-          ))}
+          <button
+            type="button"
+            onClick={() => setProjectPickerOpen(true)}
+            className="thread-list-icon"
+            title="Choose project (⌘1…)"
+            aria-label="Choose project"
+          >
+            <Icon name="folder" size={14} />
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("chat", { draft: "1", board: boardName || undefined })}
+            className="thread-list-new"
+            title="New thread (⌘N)"
+            aria-label="New thread"
+          >
+            <Icon name="plus" size={12} />
+            <span>New</span>
+          </button>
         </div>
+      </header>
+
+      {switching && (
+        <p className="thread-list-note text-[11px] text-muted px-3 pb-2" role="status">
+          Switching project…
+        </p>
       )}
 
-      {/* Multi-Select Action Toolbar */}
       {selectionMode && (
         <div className="mx-2 mb-2 p-2 rounded-lg bg-surface border border-border/80 flex flex-col gap-1.5 shadow-sm">
           <div className="flex items-center justify-between text-[11px] font-mono text-muted-strong">
             <span>{selectedIds.size} of {filtered.length} selected</span>
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={selectedIds.size === filtered.length ? deselectAll : selectAll}
-                className="text-accent hover:underline text-[10.5px] cursor-pointer"
-              >
-                {selectedIds.size === filtered.length ? "Deselect" : "Select all"}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={selectedIds.size === filtered.length ? deselectAll : selectAll}
+              className="text-accent hover:underline text-[10.5px] cursor-pointer"
+            >
+              {selectedIds.size === filtered.length ? "Deselect" : "Select all"}
+            </button>
           </div>
           <div className="flex items-center gap-1.5 pt-1 border-t border-border/40">
             <button
@@ -423,55 +462,75 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
         </div>
       )}
 
-      {/* Thread List Body: Same project threads grouped together */}
-      <div className="thread-list-body flex-1 overflow-y-auto px-2 pb-4 space-y-3">
+      <div className="thread-list-body flex-1 overflow-y-auto px-2 pb-2">
         {loading ? (
           <p className="thread-list-note text-[11px] text-muted p-3" role="status">Loading threads…</p>
         ) : total === 0 ? (
-          <p className="thread-list-note text-[11px] text-muted p-3">
-            {search ? "No matching threads." : "Your threads will appear here."}
-          </p>
+          <div className="thread-list-empty">
+            <p className="thread-list-note text-[11px] text-muted">
+              {search || projectFilter !== "all"
+                ? "No matching threads."
+                : "Your threads will appear here."}
+            </p>
+            {!search && projectFilter === "all" && (
+              <button
+                type="button"
+                className="thread-list-empty-action"
+                onClick={() => navigate("chat", { draft: "1", board: boardName || undefined })}
+              >
+                <Icon name="plus" size={13} />
+                <span>Start a thread</span>
+              </button>
+            )}
+          </div>
         ) : (
-          projectGroups.map(({ projectName, items }) => {
-            const isCollapsed = collapsedProjects.has(projectName);
-            return (
-              <section key={projectName} className="thread-list-group rounded-lg bg-surface/20 border border-border/40 overflow-hidden">
-                <header
-                  className="flex items-center justify-between px-2.5 py-1.5 text-[11px] font-medium text-muted-strong hover:bg-white/[0.04] cursor-pointer select-none"
-                  onClick={() => toggleProjectCollapsed(projectName)}
-                  role="button"
-                  tabIndex={0}
-                  aria-expanded={!isCollapsed}
-                  aria-label={`${projectName} project, ${items.length} threads`}
+          <>
+            <div className="thread-list-stream space-y-0.5">
+              {active.map((thread) => renderThreadRow(thread))}
+            </div>
+            {settled.length > 0 && (
+              <section className="thread-list-settled">
+                <button
+                  type="button"
+                  className="thread-list-settled-head"
+                  aria-expanded={settledOpen}
+                  onClick={() => setSettledOpen((value) => !value)}
                 >
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <Icon
-                      name="chevR"
-                      size={10}
-                      className={`text-muted/60 transition-transform duration-150 ${isCollapsed ? "" : "rotate-90"}`}
-                    />
-                    <ProjectAvatar name={projectName} size="xs" favicon={favicons[projectName]} />
-                    <span className="truncate font-semibold text-text text-[12px]">{projectName}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0 ml-1">
-                    <span className="font-mono text-[9.5px] text-muted/70 px-1.5 py-0.5 rounded bg-surface/60 border border-border/30">
-                      {items.length}
-                    </span>
-                  </div>
-                </header>
-
-                {!isCollapsed && (
-                  <div className="p-1 space-y-0.5 border-t border-border/30">
-                    {items.map((thread) => renderThreadRow(thread))}
+                  <Icon
+                    name="chevR"
+                    size={10}
+                    className={`transition-transform duration-150 ${settledOpen ? "rotate-90" : ""}`}
+                  />
+                  <span>Settled</span>
+                  <span className="thread-list-total">{settled.length}</span>
+                </button>
+                {settledOpen && (
+                  <div className="thread-list-stream space-y-0.5">
+                    {settled.map((thread) => renderThreadRow(thread))}
                   </div>
                 )}
               </section>
-            );
-          })
+            )}
+          </>
         )}
       </div>
 
-      {/* Bulk Delete Confirmation Modal */}
+      <footer className="thread-list-foot">
+        <button
+          type="button"
+          onClick={() => {
+            setSelectionMode(!selectionMode);
+            setSelectedIds(new Set());
+          }}
+          className={`thread-list-icon ${selectionMode ? "is-active" : ""}`}
+          title={selectionMode ? "Exit multi-select" : "Select multiple threads"}
+          aria-label={selectionMode ? "Exit multi-select" : "Select multiple threads"}
+          aria-pressed={selectionMode}
+        >
+          <Icon name="checkSquare" size={13} />
+        </button>
+      </footer>
+
       {confirmBulkDelete && (
         <AccessibleDialog label="Confirm bulk deletion" onClose={() => setConfirmBulkDelete(false)} className="thread-dialog-shell">
           <div className="thread-dialog">
@@ -502,7 +561,6 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
         </AccessibleDialog>
       )}
 
-      {/* Single Thread Context Actions Menu */}
       {menu && (
         <ThreadActionsMenu
           target={menu.target}
@@ -527,13 +585,22 @@ export function ThreadList({ boardName, open = false, onClose, collapsed = false
         />
       )}
 
-      {/* Project Sources Modal */}
       <ProjectSourcesModal
         isOpen={sourcesModalOpen}
         onClose={() => setSourcesModalOpen(false)}
-        onSelectProject={(proj) => {
+        onSelectProject={(project) => {
           setSourcesModalOpen(false);
-          switchProject(proj.path);
+          void switchProject(project.path, "chat");
+        }}
+      />
+
+      <ProjectPickerModal
+        isOpen={projectPickerOpen}
+        onClose={() => setProjectPickerOpen(false)}
+        currentPath={projectRoot}
+        onSelectProject={(project) => {
+          setProjectPickerOpen(false);
+          void switchProject(project.path, "chat");
         }}
       />
     </aside>

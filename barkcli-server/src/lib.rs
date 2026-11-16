@@ -129,6 +129,7 @@ where
 {
     // Auto-init: create .board/ if it doesn't exist
     auto_init().await;
+    register_recent_project_root(&project_root_or_cwd());
     reconcile_runtime_runs();
 
     let (tx, _) = broadcast::channel::<String>(16);
@@ -147,6 +148,7 @@ where
 
     let app = Router::new()
         .route("/api/project", get(project_handler))
+        .route("/api/projects", get(projects_handler))
         .route("/api/settings", get(get_settings_handler).put(save_settings_handler))
         .route("/api/ollama/probe", post(ollama_probe_handler))
         .route("/api/project/onboard", post(onboard_project_handler))
@@ -5838,10 +5840,51 @@ struct CreateThreadRequest {
     workspace_strategy: Option<String>,
 }
 
-/// Read recent project paths saved by the desktop shell (`~/Library/Application Support/barkcli/app.json`).
+fn home_dir() -> Option<std::path::PathBuf> {
+    std::env::var_os("HOME").map(std::path::PathBuf::from)
+}
+
+/// Cross-project registry. The desktop shell keeps its own recents in
+/// `app.json`; the CLI/server keeps `~/.barkcli/recent-projects.json` so a
+/// browser session can still see threads from other folders it has opened.
+fn recent_projects_registry_path() -> Option<std::path::PathBuf> {
+    home_dir().map(|home| home.join(".barkcli").join("recent-projects.json"))
+}
+
+/// Remember a project root the server has served. Best-effort: a read-only
+/// home directory must never keep the server from starting.
+fn register_recent_project_root(root: &std::path::Path) {
+    let Some(path) = recent_projects_registry_path() else {
+        return;
+    };
+    if !root.is_dir() {
+        return;
+    }
+    let mut roots: Vec<String> = std::fs::read_to_string(&path)
+        .ok()
+        .and_then(|content| serde_json::from_str::<Vec<String>>(&content).ok())
+        .unwrap_or_default();
+    let canonical = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    let display = canonical.display().to_string();
+    roots.retain(|entry| entry != &display);
+    roots.insert(0, display);
+    roots.truncate(24);
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    if let Ok(content) = serde_json::to_string_pretty(&roots) {
+        let temp = path.with_extension("json.tmp");
+        if std::fs::write(&temp, content).is_ok() {
+            let _ = std::fs::rename(&temp, &path);
+        }
+    }
+}
+
+/// Read recent project paths saved by the desktop shell (`~/Library/Application Support/barkcli/app.json`)
+/// plus the server-side registry. Root lists are de-duplicated.
 fn read_desktop_recent_project_roots() -> Vec<std::path::PathBuf> {
     let mut roots = Vec::new();
-    let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) else {
+    let Some(home) = home_dir() else {
         return roots;
     };
     let candidates = [
@@ -5867,7 +5910,82 @@ fn read_desktop_recent_project_roots() -> Vec<std::path::PathBuf> {
             }
         }
     }
+    if let Some(path) = recent_projects_registry_path() {
+        if let Ok(content) = std::fs::read_to_string(path) {
+            if let Ok(entries) = serde_json::from_str::<Vec<String>>(&content) {
+                for entry in entries {
+                    let pb = std::path::PathBuf::from(entry);
+                    if pb.is_dir() && !roots.contains(&pb) {
+                        roots.push(pb);
+                    }
+                }
+            }
+        }
+    }
     roots
+}
+
+fn project_display_name(root: &std::path::Path) -> String {
+    if root
+        .file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name == "scratch")
+        && root
+            .parent()
+            .and_then(|parent| parent.file_name())
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name == ".barkcli")
+    {
+        return "No project".to_string();
+    }
+    root.file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("project")
+        .to_string()
+}
+
+/// Local projects Bark can open: the current folder first, then recent ones.
+/// Used by the T3-style project picker and the per-surface project scope chip.
+async fn projects_handler(
+    _state: State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let current = project_root_or_cwd()
+        .canonicalize()
+        .unwrap_or_else(|_| project_root_or_cwd());
+    let mut roots = vec![current.clone()];
+    for root in read_desktop_recent_project_roots() {
+        let canonical = root.canonicalize().unwrap_or(root);
+        if !roots.iter().any(|known| known == &canonical) {
+            roots.push(canonical);
+        }
+    }
+    let projects: Vec<serde_json::Value> = roots
+        .iter()
+        .map(|root| {
+            let threads = barkcli_core::threads::list_threads_in_project(root)
+                .map(|items| items.len())
+                .unwrap_or(0);
+            let boards = std::fs::read_dir(root)
+                .map(|entries| {
+                    entries
+                        .flatten()
+                        .filter(|entry| {
+                            entry.path().extension().and_then(|ext| ext.to_str()) == Some("board")
+                        })
+                        .count()
+                })
+                .unwrap_or(0);
+            serde_json::json!({
+                "path": root.display().to_string(),
+                "name": project_display_name(root),
+                "current": root == &current,
+                "available": root.is_dir(),
+                "threads": threads,
+                "boards": boards,
+            })
+        })
+        .collect();
+    Ok(Json(serde_json::json!({ "projects": projects })))
 }
 
 async fn list_threads_handler(
@@ -7073,12 +7191,76 @@ struct ReviewQueueQuery {
     all: Option<bool>,
     #[serde(default)]
     limit: Option<usize>,
+    /// Aggregate the queue across every recent project. Items carry
+    /// `project_root` / `project_name` so the UI can switch project on open.
+    #[serde(default)]
+    all_projects: Option<bool>,
+}
+
+fn project_board_files(root: &std::path::Path) -> Vec<(String, Board)> {
+    let mut boards = Vec::new();
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return boards;
+    };
+    let mut paths: Vec<std::path::PathBuf> = entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("board"))
+        .collect();
+    paths.sort();
+    for path in paths {
+        let Some(name) = path.file_stem().and_then(|stem| stem.to_str()) else {
+            continue;
+        };
+        if let Ok(content) = std::fs::read_to_string(&path) {
+            if let Ok(board) = serde_yaml::from_str::<Board>(&content) {
+                boards.push((name.to_string(), board));
+            }
+        }
+    }
+    boards
 }
 
 async fn review_queue_handler(
     State(state): State<Arc<AppState>>,
     Query(query): Query<ReviewQueueQuery>,
 ) -> Result<Json<serde_json::Value>, ServerError> {
+    if query.all_projects.unwrap_or(false) {
+        let current = project_root_or_cwd()
+            .canonicalize()
+            .unwrap_or_else(|_| project_root_or_cwd());
+        let mut roots = vec![current];
+        for root in read_desktop_recent_project_roots() {
+            let canonical = root.canonicalize().unwrap_or(root);
+            if !roots.iter().any(|known| known == &canonical) {
+                roots.push(canonical);
+            }
+        }
+        let mut items: Vec<serde_json::Value> = Vec::new();
+        for root in roots {
+            let name = project_display_name(&root);
+            for (board_name, board) in project_board_files(&root) {
+                let Ok(queue) =
+                    barkcli_core::commands::review_queue::build_queue(&root, &board, &board_name, true)
+                else {
+                    continue;
+                };
+                for item in queue {
+                    let mut value = serde_json::to_value(&item).unwrap_or_default();
+                    if let Some(obj) = value.as_object_mut() {
+                        obj.insert("project_root".into(), serde_json::json!(root.display().to_string()));
+                        obj.insert("project_name".into(), serde_json::json!(name));
+                        obj.insert("board".into(), serde_json::json!(board_name));
+                    }
+                    items.push(value);
+                }
+            }
+        }
+        if let Some(limit) = query.limit {
+            items.truncate(limit);
+        }
+        return Ok(Json(serde_json::json!({ "items": items })));
+    }
     let board_name = resolve_board_name(&state, query.board)?;
     let board = barkcli_core::storage::board_file::read_board(&board_name)
         .map_err(|e| ServerError::internal(e.to_string()))?;
@@ -9709,6 +9891,7 @@ cards:
     fn project_router(state: Arc<AppState>) -> Router {
         Router::new()
             .route("/api/project", get(project_handler))
+            .route("/api/projects", get(projects_handler))
             .route("/api/project/onboard", post(onboard_project_handler))
             .route("/api/project/init-git", post(init_git_handler))
             .route("/api/hooks", get(hooks_status_handler))

@@ -41,6 +41,7 @@ export function ThreadComposer({
   onAction,
   workspaceStrategy,
   onWorkspaceStrategyChange,
+  footer,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -57,6 +58,8 @@ export function ThreadComposer({
   onAction?: (action: string) => void;
   workspaceStrategy?: "root" | "worktree";
   onWorkspaceStrategyChange?: (value: "root" | "worktree") => void;
+  /** Scope/checkout bar rendered inside the composer card (new threads only). */
+  footer?: React.ReactNode;
 }) {
   const id = useId();
   const textarea = useRef<HTMLTextAreaElement>(null);
@@ -313,6 +316,7 @@ export function ThreadComposer({
             )}
           </div>
         </div>
+        {footer}
       </form>
       {error && (
         <p role="alert" className="composer-error">

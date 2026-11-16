@@ -147,17 +147,35 @@ describe("UniversalComposer", () => {
     await waitFor(() => expect(createThread).toHaveBeenCalledWith(expect.objectContaining({ text: "First line\nSecond line" })));
   });
 
-  it("does not ask which project — the thread belongs to the open project", async () => {
-    render(<UniversalComposer isOpen inline onClose={vi.fn()} onCreated={vi.fn()} boardName="dev" />);
-    await waitFor(() =>
-      expect(screen.getByRole("combobox", { name: "Composer mode" })).toBeInTheDocument()
+  it("starts in the open project and offers a no-project thread", async () => {
+    const user = userEvent.setup();
+    render(
+      <UniversalComposer
+        isOpen
+        inline
+        onClose={vi.fn()}
+        onCreated={vi.fn()}
+        boardName="dev"
+        projectName="barkcli"
+        projectRoot="/projects/barkcli"
+        projectBranch="main"
+      />
     );
-    // Project switching lives in the navbar; the composer never asks.
-    expect(screen.queryByRole("combobox", { name: "Thread project" })).not.toBeInTheDocument();
-    // What stays is the per-thread choice: root vs isolated worktree.
+    expect(
+      screen.getByRole("heading", { name: "What should we build in barkcli?" })
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /barkcli/ })).toBeInTheDocument();
+    expect(screen.getByText("main")).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Workspace strategy" })).toHaveTextContent(
       "Project root"
     );
+
+    await user.click(screen.getByRole("button", { name: "or start without a project" }));
+    expect(
+      screen.getByRole("heading", { name: "What should we build?" })
+    ).toBeInTheDocument();
+    // Scratch threads have no checkout to isolate, so the strategy is gone.
+    expect(screen.queryByRole("combobox", { name: "Workspace strategy" })).not.toBeInTheDocument();
   });
 
 });

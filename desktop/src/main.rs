@@ -173,6 +173,7 @@ fn main() {
             save_project,
             rename_project,
             remove_saved_project,
+            forget_project,
             project_summaries,
             reveal_project,
             open_provider_login,
@@ -340,8 +341,21 @@ fn current_project(state: State<'_, ServerState>) -> DesktopProject {
 }
 
 /// A display name the user set in Settings → Projects, if any.
-fn stored_project_name(path: &str) -> Option<String> {
-    load_state()
+/// Two spellings name the same project when they point at the same folder.
+/// `/tmp` and `/private/tmp` are the same place on macOS, and a folder that is
+/// already gone cannot be canonicalized, so fall back to normalizing the path.
+fn project_identity(path: &str) -> String {
+    if let Ok(canonical) = fs::canonicalize(path) {
+        return canonical.display().to_string();
+    }
+    let trimmed = path.trim().trim_end_matches('/');
+    match trimmed.strip_prefix("/private/") {
+        Some(rest) => format!("/{rest}"),
+        None => trimmed.to_string(),
+    }
+}
+
+fn stored_project_name(path: &str) -> Option<String> {    load_state()
         .and_then(|state| state.get("saved_projects").cloned())
         .and_then(|value| serde_json::from_value::<Vec<DesktopProject>>(value).ok())
         .unwrap_or_default()
@@ -468,13 +482,29 @@ async fn switch_project(
     .map_err(|error| format!("project switch task failed: {error}"))?
 }
 
+fn expand_home(path: &str) -> PathBuf {
+    if let Some(rest) = path.strip_prefix("~/") {
+        if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
+            return home.join(rest);
+        }
+    }
+    PathBuf::from(path)
+}
+
 fn switch_project_blocking(
     app: &AppHandle,
     bin: &Path,
     path: String,
     route_target: Option<String>,
 ) -> Result<DesktopProject, String> {
-    let target = PathBuf::from(path)
+    let expanded = expand_home(&path);
+    // "No project" is a real scratch workspace rather than a mode. Create it on
+    // demand so a thread can be started without picking a repository first.
+    if expanded.ends_with(".barkcli/scratch") && !expanded.exists() {
+        std::fs::create_dir_all(&expanded)
+            .map_err(|error| format!("could not create the scratch workspace: {error}"))?;
+    }
+    let target = expanded
         .canonicalize()
         .map_err(|error| format!("could not open that folder: {error}"))?;
     if !target.is_dir() {
@@ -526,12 +556,27 @@ fn switch_project_blocking(
     }
 
     // Let the command return before the webview leaves the old origin.
-    let route = match route_target.as_deref() {
-        Some("review") => "review",
-        Some("projects") => "projects",
-        Some("hub") => "hub",
-        _ => "chat",
-    };
+    // Any known surface can be the landing route, so switching project from
+    // Board/Review/Agents keeps the user on that tool.
+    let route = route_target
+        .as_deref()
+        .filter(|route| {
+            matches!(
+                *route,
+                "projects"
+                    | "hub"
+                    | "chat"
+                    | "board"
+                    | "review"
+                    | "agents"
+                    | "brain"
+                    | "skills"
+                    | "operations"
+                    | "history"
+            )
+        })
+        .unwrap_or("chat")
+        .to_string();
     let url = format!(
         "http://127.0.0.1:{}/?token={}#/{route}",
         new_port, new_token
@@ -696,14 +741,72 @@ fn remove_saved_project(path: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Forget a project everywhere: recent list, saved list, and the registry the
+/// sidecar reads so cross-project surfaces stop offering it. Files on disk are
+/// never touched.
+#[tauri::command]
+fn forget_project(path: String) -> bool {
+    let target = path.trim().to_string();
+    if target.is_empty() {
+        return false;
+    }
+    let identity = project_identity(&target);
+    update_state(|state| {
+        drop_projects_matching(state, &identity);
+    });
+    forget_registered_project(&target);
+    true
+}
+
+/// Remove every entry that resolves to `identity` from the project lists Bark
+/// keeps in its app state. Spelling differences (`/tmp` vs `/private/tmp`) are
+/// the same folder, so they must leave together.
+fn drop_projects_matching(state: &mut serde_json::Map<String, serde_json::Value>, identity: &str) {
+    for key in ["recent", "saved_projects"] {
+        let mut list = state
+            .get(key)
+            .and_then(|value| serde_json::from_value::<Vec<DesktopProject>>(value.clone()).ok())
+            .unwrap_or_default();
+        list.retain(|project| project_identity(&project.path) != identity);
+        state.insert(key.into(), serde_json::to_value(&list).unwrap_or_default());
+    }
+}
+
+/// Drop a path from `~/.barkcli/recent-projects.json`. The sidecar owns writes
+/// to this file; the shell only ever removes an entry the user asked to forget.
+fn forget_registered_project(path: &str) {
+    let Some(home) = std::env::var_os("HOME") else {
+        return;
+    };
+    let registry = PathBuf::from(home)
+        .join(".barkcli")
+        .join("recent-projects.json");
+    let Ok(text) = fs::read_to_string(&registry) else {
+        return;
+    };
+    let Ok(mut list) = serde_json::from_str::<Vec<String>>(&text) else {
+        return;
+    };
+    let identity = project_identity(path);
+    let before = list.len();
+    list.retain(|entry| project_identity(entry) != identity);
+    if list.len() != before {
+        if let Ok(next) = serde_json::to_string_pretty(&list) {
+            let _ = fs::write(&registry, next);
+        }
+    }
+}
+
 /// Read only what Bark already keeps on disk for a project. This never starts
 /// a second server, so the overview stays cheap when many projects are known.
 fn summarize_project(path: &Path, current: bool) -> ProjectSummary {
-    let name = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("project")
-        .to_string();
+    // A renamed project keeps the user's label everywhere it is listed.
+    let name = stored_project_name(path.to_string_lossy().as_ref()).unwrap_or_else(|| {
+        path.file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("project")
+            .to_string()
+    });
     let board_dir = path.join(".board");
     let mut board_names = Vec::new();
     if let Ok(entries) = fs::read_dir(path) {
@@ -877,18 +980,28 @@ fn project_summaries(state: State<'_, ServerState>) -> Vec<ProjectSummary> {
         runtime.project.clone()
     };
     let mut paths = vec![current.clone()];
-    if let Some(recent) = load_state()
-        .and_then(|state| state.get("recent").cloned())
-        .and_then(|value| serde_json::from_value::<Vec<DesktopProject>>(value).ok())
-    {
-        for project in recent {
-            paths.push(PathBuf::from(project.path));
+    // Recents keep the working set; saved projects are ones the user added on
+    // purpose, so both belong in the overview even before they are opened.
+    let stored = load_state();
+    for key in ["recent", "saved_projects"] {
+        if let Some(projects) = stored
+            .as_ref()
+            .and_then(|state| state.get(key))
+            .cloned()
+            .and_then(|value| serde_json::from_value::<Vec<DesktopProject>>(value).ok())
+        {
+            for project in projects {
+                if !project.path.trim().is_empty() {
+                    paths.push(PathBuf::from(project.path));
+                }
+            }
         }
     }
     let mut seen = HashSet::new();
     let mut summaries = Vec::new();
     for path in paths {
-        if !seen.insert(path.clone()) {
+        // The same folder reached through /tmp and /private/tmp is one project.
+        if !seen.insert(project_identity(&path.to_string_lossy())) {
             continue;
         }
         if summaries.len() >= 12 {
@@ -1497,6 +1610,103 @@ fn remember_window_state(app: &AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn forgetting_a_project_drops_every_spelling_of_it() {
+        let mut state = serde_json::json!({
+            "project": "/work/keep",
+            "recent": [
+                { "name": "keep", "path": "/work/keep" },
+                { "name": "gone", "path": "/tmp/gone" },
+                { "name": "gone", "path": "/private/tmp/gone" },
+                { "name": "other", "path": "/work/other" }
+            ],
+            "saved_projects": [
+                { "name": "gone", "path": "/private/tmp/gone" }
+            ]
+        });
+        let map = state.as_object_mut().unwrap();
+        drop_projects_matching(map, &project_identity("/tmp/gone"));
+
+        let recent = map.get("recent").and_then(|value| value.as_array()).cloned().unwrap();
+        let names: Vec<String> = recent
+            .iter()
+            .map(|entry| entry.get("path").and_then(|path| path.as_str()).unwrap_or("").to_string())
+            .collect();
+        assert_eq!(names, vec!["/work/keep".to_string(), "/work/other".to_string()]);
+        assert!(map
+            .get("saved_projects")
+            .and_then(|value| value.as_array())
+            .map(|saved| saved.is_empty())
+            .unwrap_or(false));
+        // The current project pointer is never rewritten by a removal.
+        assert_eq!(map.get("project").and_then(|value| value.as_str()), Some("/work/keep"));
+    }
+
+    #[test]
+    fn forget_project_cleans_the_state_and_registry_files() {
+        // Runs against a throwaway HOME so the real Bark state is untouched.
+        let home = std::env::temp_dir().join(format!("bark-home-{}", random_token()));
+        let state_dir = home.join("Library/Application Support/barkcli");
+        fs::create_dir_all(&state_dir).unwrap();
+        fs::create_dir_all(home.join(".barkcli")).unwrap();
+        fs::write(
+            state_dir.join("app.json"),
+            serde_json::to_string_pretty(&serde_json::json!({
+                "project": "/work/keep",
+                "recent": [
+                    { "name": "keep", "path": "/work/keep" },
+                    { "name": "gone", "path": "/tmp/gone" },
+                    { "name": "gone", "path": "/private/tmp/gone" }
+                ],
+                "saved_projects": [{ "name": "gone", "path": "/tmp/gone" }],
+                "window": { "width": 1440.0, "height": 900.0, "x": 0.0, "y": 0.0 }
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            home.join(".barkcli/recent-projects.json"),
+            serde_json::to_string_pretty(&serde_json::json!(["/work/keep", "/tmp/gone"])).unwrap(),
+        )
+        .unwrap();
+
+        let previous = std::env::var_os("HOME");
+        std::env::set_var("HOME", &home);
+        assert!(forget_project("/tmp/gone".into()));
+        assert!(!forget_project("  ".into()));
+
+        let saved: serde_json::Value =
+            serde_json::from_slice(&fs::read(state_dir.join("app.json")).unwrap()).unwrap();
+        let recent = saved.get("recent").and_then(|value| value.as_array()).cloned().unwrap();
+        assert_eq!(recent.len(), 1);
+        assert_eq!(recent[0].get("path").and_then(|path| path.as_str()), Some("/work/keep"));
+        assert_eq!(
+            saved.get("saved_projects").and_then(|value| value.as_array()).map(|list| list.len()),
+            Some(0)
+        );
+        // Window geometry and the current project survive a removal.
+        assert!(saved.get("window").is_some());
+        assert_eq!(saved.get("project").and_then(|value| value.as_str()), Some("/work/keep"));
+
+        let registry: Vec<String> =
+            serde_json::from_slice(&fs::read(home.join(".barkcli/recent-projects.json")).unwrap())
+                .unwrap();
+        assert_eq!(registry, vec!["/work/keep".to_string()]);
+
+        match previous {
+            Some(value) => std::env::set_var("HOME", value),
+            None => std::env::remove_var("HOME"),
+        }
+        let _ = fs::remove_dir_all(home);
+    }
+
+    #[test]
+    fn tmp_and_private_tmp_name_the_same_project() {
+        assert_eq!(project_identity("/tmp/bark-ui-test"), project_identity("/private/tmp/bark-ui-test"));
+        assert_eq!(project_identity("/tmp/bark-ui-test/"), project_identity("/tmp/bark-ui-test"));
+        assert_ne!(project_identity("/tmp/a"), project_identity("/tmp/b"));
+    }
 
     #[test]
     fn thread_preferences_keep_drafts_and_choices_without_accepting_arbitrary_keys() {

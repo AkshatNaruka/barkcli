@@ -9,9 +9,17 @@ const recentProjects = vi.fn(async () => [
   { name: "skilluply", path: "/projects/skilluply" },
 ]);
 
-vi.mock("../lib/desktop", () => ({
-  currentProject: () => currentProject(),
-  recentProjects: () => recentProjects(),
+vi.mock("../lib/desktop", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/desktop")>();
+  return {
+    ...actual,
+    currentProject: () => currentProject(),
+    recentProjects: () => recentProjects(),
+  };
+});
+
+vi.mock("../lib/api", () => ({
+  fetchProjects: async () => [],
 }));
 
 describe("ProjectPickerModal", () => {
@@ -67,7 +75,7 @@ describe("ProjectPickerModal", () => {
     await user.click(screen.getByText("No project"));
 
     expect(onSelect).toHaveBeenCalledWith({
-      path: "__scratch__",
+      path: "~/.barkcli/scratch",
       name: "No project",
       isScratch: true,
     });

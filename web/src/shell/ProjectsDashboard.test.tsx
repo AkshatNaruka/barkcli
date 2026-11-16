@@ -35,12 +35,19 @@ const summaries: ProjectSummary[] = [
 
 const projectSummaries = vi.fn(async () => summaries);
 const switchProject = vi.fn(async (_path?: string) => ({ path: "/Users/me/work/other", name: "other" }));
+const renameProject = vi.fn(async (path: string, name: string) => ({ path, name }));
+const forgetProject = vi.fn(async (_path: string) => true);
 
 vi.mock("../lib/desktop", () => ({
   isDesktop: () => true,
   projectSummaries: () => projectSummaries(),
   switchProject: (path: string) => switchProject(path),
   revealProject: vi.fn(async () => true),
+  renameProject: (path: string, name: string) => renameProject(path, name),
+  forgetProject: (path: string) => forgetProject(path),
+  openProjectDialog: vi.fn(async () => null),
+  saveProject: vi.fn(async () => null),
+  openTerminal: vi.fn(async () => true),
 }));
 
 vi.mock("../lib/hashnav", () => ({
@@ -95,5 +102,42 @@ describe("ProjectsDashboard", () => {
     await screen.findByTestId("project-card-other");
     await user.click(screen.getByTestId("project-card-other"));
     await waitFor(() => expect(switchProject).toHaveBeenCalledWith("/Users/me/work/other"));
+  });
+
+  it("renames a project without touching its folder", async () => {
+    const user = userEvent.setup();
+    renderDashboard();
+    await screen.findByTestId("project-card-barkcli");
+
+    await user.click(screen.getByRole("button", { name: "Manage barkcli" }));
+    await user.click(screen.getByRole("menuitem", { name: /Rename/ }));
+    const input = await screen.findByLabelText("Display name");
+    await user.clear(input);
+    await user.type(input, "Bark CLI");
+    await user.click(screen.getByRole("button", { name: "Rename" }));
+
+    await waitFor(() => expect(renameProject).toHaveBeenCalledWith("/Users/me/work/barkcli", "Bark CLI"));
+  });
+
+  it("removes a project from Bark after confirming", async () => {
+    const user = userEvent.setup();
+    renderDashboard();
+    await screen.findByTestId("project-card-other");
+
+    await user.click(screen.getByRole("button", { name: "Manage other" }));
+    await user.click(screen.getByRole("menuitem", { name: /Remove project/ }));
+    expect(await screen.findByText(/Remove other\?/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Remove project" }));
+
+    await waitFor(() => expect(forgetProject).toHaveBeenCalledWith("/Users/me/work/other"));
+    await waitFor(() => expect(screen.queryByTestId("project-card-other")).not.toBeInTheDocument());
+  });
+
+  it("never offers removal for the project that is open", async () => {
+    const user = userEvent.setup();
+    renderDashboard();
+    await screen.findByTestId("project-card-barkcli");
+    await user.click(screen.getByRole("button", { name: "Manage barkcli" }));
+    expect(screen.getByRole("menuitem", { name: /Remove project/ })).toBeDisabled();
   });
 });
