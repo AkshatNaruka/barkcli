@@ -28,7 +28,7 @@ describe("slashCommands library", () => {
 });
 
 describe("SlashCommandMenu component", () => {
-  it("renders command menu with categories and commands", () => {
+  it("renders a flat single-line row per command", () => {
     const onSelect = vi.fn();
     const onClose = vi.fn();
 
@@ -43,6 +43,13 @@ describe("SlashCommandMenu component", () => {
 
     expect(screen.getByRole("listbox", { name: /slash commands/i })).toBeInTheDocument();
     expect(screen.getByText("/plan")).toBeInTheDocument();
+    // The command's description sits inline on the same row…
+    expect(
+      screen.getByText(/propose architecture & atomic tasks without editing files/i)
+    ).toBeInTheDocument();
+    // …with no category headers and no icon/label chrome above the list.
+    expect(screen.queryByText("Modes")).not.toBeInTheDocument();
+    expect(screen.queryByText("COMMAND PALETTE")).not.toBeInTheDocument();
   });
 
   it("calls onSelect when a command is clicked", async () => {

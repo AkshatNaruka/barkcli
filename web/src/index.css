@@ -533,6 +533,12 @@ summary.sidebar-group { cursor: pointer; }
 .question-dock-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 13px; border-top: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 55%, transparent); }
 .question-dock-progress { font-size: 10.5px; color: var(--muted); }
 .thread-composer-wrap { max-width: 760px; margin: 0 auto; }
+/* "/" palette — a thin, self-effacing scrollbar so the flat row list reads clean. */
+.slash-palette { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+.slash-palette::-webkit-scrollbar { width: 10px; }
+.slash-palette::-webkit-scrollbar-track { background: transparent; }
+.slash-palette::-webkit-scrollbar-thumb { background: var(--border-strong); border: 2px solid transparent; border-radius: 9999px; background-clip: content-box; }
+.slash-palette::-webkit-scrollbar-thumb:hover { background: var(--muted); background-clip: content-box; }
 .thread-composer { position: relative; border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); border-radius: 10px; background: color-mix(in srgb, var(--surface) 60%, transparent); padding: 10px 12px; box-shadow: none; transition: border-color 150ms ease; }
 .thread-composer:focus-within { border-color: color-mix(in srgb, var(--border-strong) 90%, transparent); }
 .thread-composer textarea { display: block; background: transparent; border: 0; width: 100%; min-height: 48px; max-height: 240px; resize: none; overflow-y: auto; color: var(--text); font-size: 14px; line-height: 1.6; padding: 2px; }
