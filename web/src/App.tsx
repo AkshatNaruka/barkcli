@@ -67,8 +67,9 @@ import type { SettingsSection } from "./components/SettingsView";
 import { GlobalUsageModal } from "./components/GlobalUsageModal";
 import { GlobalDocsModal } from "./components/GlobalDocsModal";
 import { useTheme } from "./lib/theme";
-import { SURFACES } from "./lib/surfaces";
+import { SURFACES, isGlobalSurface } from "./lib/surfaces";
 import { AppRail } from "./shell/AppRail";
+import { ProjectToolsSidebar } from "./shell/ProjectToolsSidebar";
 
 function isBlockedCard(c: Card): boolean {
   return Boolean(c.blocked_by) || c.links.some((l) => l.ty === "blocked-by");
@@ -814,8 +815,7 @@ export function App() {
   const boardOpen = board ? board.cards.filter((c) => c.column !== "done").length : 0;
 
   return (
-    <div className={`${isDesktop() && isMac() ? "bark-desktop-shell" : "h-screen"} flex bg-bg`}>
-      <a href="#main-content" className="skip-link">Skip to content</a>
+    <div className={`${isDesktop() && isMac() ? "bark-desktop-shell" : "h-screen"} flex bg-bg`}>      <a href="#main-content" className="skip-link">Skip to content</a>
       <AppRail
         surface={route}
         onNavigate={(next) => { setSidebarOpen(false); navigate(next, { board: boardName || undefined }); }}
@@ -838,9 +838,11 @@ export function App() {
             boardName={boardName || boardList[0] || null}
             project={projectInfo}
             currentRoute={route}
+            scope={isGlobalSurface(route) ? "global" : "project"}
             cardsCount={board?.cards?.length || 0}
             agentsCount={projectInfo?.counts.agents || 0}
             onOpenProject={() => void handleOpenProject()}
+            onOpenProjects={() => navigate("projects")}
             onNewThread={() => {
               setComposeSeed({ text: "", nonce: Date.now() });
               navigate("chat", { board: boardName || undefined });
@@ -848,6 +850,13 @@ export function App() {
           />
         )}
       <div className="flex-1 flex min-h-0">
+        {!isGlobalSurface(route) && route !== "projects" && (
+          <ProjectToolsSidebar
+            currentRoute={route}
+            cardsCount={board?.cards?.length || 0}
+            agentsCount={projectInfo?.counts.agents || 0}
+          />
+        )}
         <main id="main-content" tabIndex={-1} className="flex-1 overflow-hidden min-w-0">
           <ErrorBoundary>
           {route === "projects" && (

@@ -123,6 +123,9 @@ export function ProjectPickerModal({
       let num = 2;
       for (const project of others) {
         if (!project.path || seen.has(project.path)) continue;
+        // Project tools are always scoped to a real folder, so a scratch
+        // destination would contradict the surface it is opened from.
+        if (!includeScratch && isScratchPath(project.path)) continue;
         seen.add(project.path);
         list.push({
           id: project.path,

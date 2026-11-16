@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AppRail } from "./AppRail";
 
@@ -12,8 +12,7 @@ vi.mock("../lib/desktop", () => ({
   switchProject: vi.fn(),
 }));
 
-describe("AppRail footer buttons", () => {
-  it("renders the 4 global footer buttons and dispatches global commands", async () => {
+describe("AppRail footer buttons", () => {  it("renders the 4 global footer buttons and dispatches global commands", async () => {
     const onCommand = vi.fn();
     const onNavigate = vi.fn();
     const user = userEvent.setup();
@@ -52,5 +51,30 @@ describe("AppRail footer buttons", () => {
 
     await user.click(settingsBtn);
     expect(onCommand).toHaveBeenCalledWith("settings");
+  });
+
+  it("splits global surfaces from the project tools it scopes", () => {
+    render(
+      <AppRail
+        surface="chat"
+        onNavigate={vi.fn()}
+        onCommand={vi.fn()}
+        onAllProjects={vi.fn()}
+        onOpenProject={vi.fn()}
+        onNew={vi.fn()}
+        projectName="barkcli"
+        projectRoot="/work/barkcli"
+        projectReady
+      />
+    );
+
+    const globalNav = screen.getByRole("navigation", { name: "Global surfaces" });
+    expect(within(globalNav).getByRole("button", { name: "Build" })).toBeInTheDocument();
+    expect(within(globalNav).getByRole("button", { name: "Review" })).toBeInTheDocument();
+    expect(within(globalNav).getByRole("button", { name: "All projects" })).toBeInTheDocument();
+    // Project tools live in their own group, next to the project switcher.
+    expect(within(globalNav).queryByRole("button", { name: "Board" })).not.toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Project surfaces" })).toBeInTheDocument();
+    expect(screen.getByTitle("barkcli — switch project")).toBeInTheDocument();
   });
 });

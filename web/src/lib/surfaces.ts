@@ -41,6 +41,17 @@ export function isSurface(value: string): value is Surface {
 }
 
 /**
+ * Surfaces that belong to the whole app rather than one project. Threads and
+ * Review span every project Bark knows about, so they never carry a project
+ * scope; the rest are project tools.
+ */
+export const GLOBAL_SURFACES: Surface[] = ["chat", "review"];
+
+export function isGlobalSurface(value: Surface): boolean {
+  return GLOBAL_SURFACES.includes(value);
+}
+
+/**
  * Old hashes keep working. Each maps to the surface that now owns it, so a
  * bookmark or an agent-written link never lands on a blank page.
  */

@@ -1399,6 +1399,58 @@ summary.sidebar-group { cursor: pointer; }
 .app-rail-nav,
 .app-rail-foot { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 100%; }
 .app-rail-nav { flex: 1; min-height: 0; padding-top: 8px; overflow-y: auto; }
+/* Threads and Review are global, so this group never stretches. */
+.app-rail-nav.is-global { flex: 0 0 auto; padding-top: 0; overflow: visible; }
+.app-rail-divider { width: 22px; height: 1px; margin: 6px 0 2px; flex-shrink: 0; background: var(--border); }
+.app-rail.is-labelled .app-rail-divider { width: 100%; }
+
+/* Project tools: a labelled sidebar for the project's own surfaces. */
+.project-tools-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 186px;
+  flex-shrink: 0;
+  padding: 10px 8px;
+  border-right: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 42%, var(--bg));
+  overflow-y: auto;
+}
+.project-tools-nav-label {
+  padding: 2px 8px 8px;
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.project-tools-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 8px;
+  border-radius: 7px;
+  color: var(--muted-strong);
+  font-size: 12px;
+  text-align: left;
+  transition: background-color 120ms, color 120ms;
+}
+.project-tools-item:hover { background: var(--card); color: var(--text); }
+.project-tools-item.is-active { background: var(--card-hover); color: var(--text); font-weight: 500; }
+.project-tools-item > svg { flex-shrink: 0; color: var(--muted); }
+.project-tools-item.is-active > svg { color: var(--accent-text); }
+.project-tools-item > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-tools-item > em {
+  flex-shrink: 0;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-family: ui-monospace, monospace;
+  font-size: 9.5px;
+  font-style: normal;
+  color: var(--muted);
+}
 .app-rail.is-labelled .app-rail-nav,
 .app-rail.is-labelled .app-rail-foot { align-items: stretch; }
 .app-rail-foot { flex-shrink: 0; padding-top: 8px; border-top: 1px solid var(--border); }

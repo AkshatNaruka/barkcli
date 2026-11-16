@@ -395,48 +395,6 @@ export function ProjectsDashboard({
 
   return (
     <div className="projects-screen">
-      <header className="projects-header">
-        <div className="projects-heading">
-          <button
-            type="button"
-            className="bark-icon-button projects-sidebar-toggle"
-            aria-label="Toggle sidebar"
-            onClick={() => window.dispatchEvent(new CustomEvent("bark-command", { detail: "toggle-sidebar" }))}
-          >
-            <Icon name="panel" size={16} />
-          </button>
-          <div>
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <span className="text-muted">Settings</span>
-              <span className="text-muted-dim">/</span>
-              <span className="text-text font-semibold">Projects</span>
-            </div>
-            <p className="text-xs text-muted mt-0.5">
-              Choose a project to manage its checkouts, threads, and workspace actions.
-            </p>
-          </div>
-        </div>
-        <div className="projects-actions">
-          <button type="button" className="projects-quiet-button" onClick={() => void load()} title="Refresh projects">
-            <Icon name="refresh" size={13} />
-            Refresh
-          </button>
-          <button type="button" className="bark-primary" onClick={onOpenFolder} title="Add a folder Bark should track">
-            <Icon name="plus" size={13} />
-            Add project
-          </button>
-          <button
-            type="button"
-            className="bark-icon-button ml-1 text-muted hover:text-text"
-            onClick={() => navigate("chat")}
-            aria-label="Close"
-            title="Close (Esc)"
-          >
-            <Icon name="x" size={15} />
-          </button>
-        </div>
-      </header>
-
       <div className="projects-toolbar">
         <label className="projects-search">
           <Icon name="search" size={14} />
@@ -488,6 +446,16 @@ export function ProjectsDashboard({
         <span className="projects-count">
           {filtered.length} of {projects.length}
         </span>
+        <div className="projects-actions">
+          <button type="button" className="projects-quiet-button" onClick={() => void load()} title="Refresh projects">
+            <Icon name="refresh" size={13} />
+            Refresh
+          </button>
+          <button type="button" className="bark-primary" onClick={onOpenFolder} title="Add a folder Bark should track">
+            <Icon name="plus" size={13} />
+            Add project
+          </button>
+        </div>
       </div>
 
       {error && (

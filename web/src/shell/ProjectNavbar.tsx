@@ -23,7 +23,10 @@ export interface ProjectNavbarProps {
   currentRoute: Route;
   cardsCount?: number;
   agentsCount?: number;
+  /** Project tools are project-scoped; threads and review are not. */
+  scope?: "global" | "project";
   onOpenProject?: () => void;
+  onOpenProjects?: () => void;
   onNewThread?: () => void;
 }
 
@@ -119,18 +122,6 @@ export function GitHubIcon({ size = 14, className = "" }: { size?: number; class
   );
 }
 
-const ROUTE_TITLES: Record<string, string> = {
-  hub: "Project Overview",
-  chat: "Build & Threads",
-  board: "Board & Planning",
-  review: "Review & Trust Gate",
-  brain: "Brain (3D Knowledge Orbit)",
-  agents: "Agents & Orchestra",
-  skills: "Skills Registry",
-  history: "History & Commits",
-  operations: "Operations & System",
-};
-
 export function ProjectNavbar({
   projectName,
   projectRoot,
@@ -139,7 +130,9 @@ export function ProjectNavbar({
   currentRoute,
   cardsCount = 0,
   agentsCount = 0,
+  scope,
   onOpenProject,
+  onOpenProjects,
   onNewThread,
 }: ProjectNavbarProps) {
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
@@ -362,37 +355,49 @@ export function ProjectNavbar({
     projectName || project?.name,
     projectRoot || project?.root
   );
-  const activeTitle = ROUTE_TITLES[currentRoute] || "Project";
+  const globalScope =
+    scope === "global" || (scope === undefined && (currentRoute === "chat" || currentRoute === "review"));
+  const globalTitle = currentRoute === "review" ? "Review" : "Threads";
+  const globalHint =
+    currentRoute === "review" ? "Every project's work" : "Every project's threads";
 
   return (
     <div className="flex flex-col shrink-0 select-none z-20 border-b border-border/60 bg-surface/80 backdrop-blur-md">
-      {/* ── Top Bar: Project Switcher / Breadcrumb / Actions (Screenshot 3) ── */}
+      {/* ── Top Bar: a breadcrumb for the current scope, never a project picker ── */}
       <header className="h-12 px-5 flex items-center justify-between">
-        {/* Left: Project Selector & Breadcrumb */}
+        {/* Left: the scope this surface speaks for */}
         <div className="flex items-center gap-2 min-w-0">
-          <div ref={projectDropdownRef} className="relative">
+          {globalScope ? (
+            <>
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border bg-surface text-muted">
+                <Icon name={currentRoute === "review" ? "eye" : "comment"} size={13} />
+              </span>
+              <span className="font-semibold text-text text-[13px] tracking-tight truncate">
+                {globalTitle}
+              </span>
+              <span className="text-muted/40 font-light text-sm">/</span>
+              <span className="text-muted-strong text-xs font-medium truncate">{globalHint}</span>
+            </>
+          ) : (
             <button
               type="button"
               onClick={() => setProjectPickerOpen(true)}
-              className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-white/[0.06] transition-colors cursor-pointer group"
-              title="Switch project (⌘1…)"
               aria-haspopup="dialog"
+              title="Switch project (⌘1…)"
+              className="flex items-center gap-2 px-2 py-1 -ml-2 rounded-md hover:bg-white/[0.06] transition-colors cursor-pointer group"
             >
               <ProjectAvatar name={displayName} size="xs" />
-              <span className="font-semibold text-text text-[13px] tracking-tight truncate max-w-[160px]">
+              <span className="font-semibold text-text text-[13px] tracking-tight truncate max-w-[180px]">
                 {displayName}
               </span>
               <Icon name="chevDown" size={12} className="text-muted group-hover:text-text transition-colors" />
             </button>
-          </div>
-
-          <span className="text-muted/40 font-light text-sm">/</span>
-          <span className="text-muted-strong text-xs font-medium">{activeTitle}</span>
+          )}
         </div>
 
         {/* Right Action Buttons */}
         <div className="flex items-center gap-2.5">
-          {currentRoute === "chat" && (
+          {globalScope && currentRoute === "chat" && (
             <button
               type="button"
               onClick={() => window.dispatchEvent(new Event("bark-show-working-changes"))}
@@ -408,6 +413,21 @@ export function ProjectNavbar({
               <span>Changes</span>
             </button>
           )}
+          {globalScope && (
+            <button
+              type="button"
+              onClick={() => {
+                if (onOpenProjects) onOpenProjects();
+                else navigate("projects");
+              }}
+              className="hidden sm:flex items-center gap-1.5 rounded-md border border-border/60 bg-surface px-2.5 py-1 text-[11px] font-medium text-muted-strong transition-colors hover:border-border hover:bg-white/[0.04] hover:text-text cursor-pointer"
+            >
+              <Icon name="grid" size={12} />
+              <span>Projects</span>
+            </button>
+          )}
+          {!globalScope && (
+            <>
           {/* Git status split button & actions popover (Screenshots 1 & 2) */}
           <div ref={gitDropdownRef} className="relative hidden sm:flex items-center">
             <button
@@ -699,6 +719,9 @@ export function ProjectNavbar({
             )}
           </div>
 
+            </>
+          )}
+
           {/* New Thread CTA */}
           <button
             type="button"
@@ -714,146 +737,59 @@ export function ProjectNavbar({
         </div>
       </header>
 
-      {/* ── Subnavigation Tabs (Screenshots 1 & 2) ── */}
-      <nav aria-label="Project tabs" className="px-5 flex items-center gap-1 shrink-0 overflow-x-auto text-xs font-medium select-none bg-surface/30">
-        <a
-          href="#/hub"
-          className={`py-2 px-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 no-underline ${
-            currentRoute === "hub"
-              ? "border-accent text-text font-semibold"
-              : "border-transparent text-muted hover:text-text"
-          }`}
+      {/* Global destinations only: project tools live in the project sidebar. */}
+      {globalScope && (
+        <nav
+          aria-label="Global navigation"
+          className="px-5 flex items-center gap-1 shrink-0 overflow-x-auto text-xs font-medium select-none bg-surface/30"
         >
-          <Icon name="grid" size={13} />
-          <span>Overview</span>
-        </a>
-
-        <a
-          href="#/chat"
-          className={`py-2 px-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 no-underline ${
-            currentRoute === "chat"
-              ? "border-accent text-text font-semibold"
-              : "border-transparent text-muted hover:text-text"
-          }`}
-        >
-          <Icon name="comment" size={13} />
-          <span>Build</span>
-        </a>
-
-        <a
-          href="#/board"
-          className={`py-2 px-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 no-underline ${
-            currentRoute === "board"
-              ? "border-accent text-text font-semibold"
-              : "border-transparent text-muted hover:text-text"
-          }`}
-        >
-          <Icon name="board" size={13} />
-          <span>Board</span>
-          {cardsCount > 0 && (
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-surface border border-border text-muted">
-              {cardsCount}
-            </span>
-          )}
-        </a>
-
-        <a
-          href="#/review"
-          className={`py-2 px-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 no-underline ${
-            currentRoute === "review"
-              ? "border-accent text-text font-semibold"
-              : "border-transparent text-muted hover:text-text"
-          }`}
-        >
-          <Icon name="eye" size={13} />
-          <span>Review</span>
-          {reviewCount > 0 && (
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-accent/20 text-accent font-mono font-medium">
-              {reviewCount}
-            </span>
-          )}
-        </a>
-
-        <a
-          href="#/brain"
-          className={`py-2 px-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 no-underline ${
-            currentRoute === "brain"
-              ? "border-accent text-text font-semibold"
-              : "border-transparent text-muted hover:text-text"
-          }`}
-        >
-          <Icon name="spark" size={13} />
-          <span>Brain (3D)</span>
-        </a>
-
-        <a
-          href="#/agents"
-          className={`py-2 px-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 no-underline ${
-            currentRoute === "agents"
-              ? "border-accent text-text font-semibold"
-              : "border-transparent text-muted hover:text-text"
-          }`}
-        >
-          <Icon name="users" size={13} />
-          <span>Agents</span>
-          {agentsCount > 0 && (
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-surface border border-border text-muted font-mono">
-              {agentsCount}
-            </span>
-          )}
-        </a>
-
-        <a
-          href="#/skills"
-          className={`py-2 px-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 no-underline ${
-            currentRoute === "skills"
-              ? "border-accent text-text font-semibold"
-              : "border-transparent text-muted hover:text-text"
-          }`}
-        >
-          <Icon name="star" size={13} />
-          <span>Skills</span>
-        </a>
-
-        <a
-          href="#/history"
-          className={`py-2 px-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 no-underline ${
-            currentRoute === "history"
-              ? "border-accent text-text font-semibold"
-              : "border-transparent text-muted hover:text-text"
-          }`}
-        >
-          <Icon name="history" size={13} />
-          <span>History</span>
-        </a>
-
-        <a
-          href="#/operations"
-          className={`py-2 px-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 no-underline ${
-            currentRoute === "operations"
-              ? "border-accent text-text font-semibold"
-              : "border-transparent text-muted hover:text-text"
-          }`}
-        >
-          <Icon name="code" size={13} />
-          <span>Operations</span>
-        </a>
-
-        <a
-          href="#/hub"
-          className="py-2 px-3 border-b-2 border-transparent text-muted hover:text-text transition-colors cursor-pointer flex items-center gap-1.5 no-underline"
-          title="Browse all project tools"
-        >
-          <Icon name="sliders" size={13} />
-          <span>All Tools</span>
-        </a>
-      </nav>
+          <a
+            href="#/chat"
+            className={`py-2 px-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 no-underline ${
+              currentRoute === "chat"
+                ? "border-accent text-text font-semibold"
+                : "border-transparent text-muted hover:text-text"
+            }`}
+          >
+            <Icon name="comment" size={13} />
+            <span>Threads</span>
+          </a>
+          <a
+            href="#/review"
+            className={`py-2 px-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 no-underline ${
+              currentRoute === "review"
+                ? "border-accent text-text font-semibold"
+                : "border-transparent text-muted hover:text-text"
+            }`}
+          >
+            <Icon name="eye" size={13} />
+            <span>Review</span>
+            {reviewCount > 0 && (
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-accent/20 text-accent font-mono font-medium">
+                {reviewCount}
+              </span>
+            )}
+          </a>
+          <a
+            href="#/projects"
+            className={`py-2 px-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 no-underline ${
+              currentRoute === "projects"
+                ? "border-accent text-text font-semibold"
+                : "border-transparent text-muted hover:text-text"
+            }`}
+          >
+            <Icon name="grid" size={13} />
+            <span>Projects</span>
+          </a>
+        </nav>
+      )}
 
       {/* One project picker for every tool: the scope always lives in the header. */}
       <ProjectPickerModal
         isOpen={projectPickerOpen}
         onClose={() => setProjectPickerOpen(false)}
         currentPath={projectRoot || project?.root || null}
+        includeScratch={false}
         onSelectProject={(selection) => {
           setProjectPickerOpen(false);
           const root = projectRoot || project?.root || "";

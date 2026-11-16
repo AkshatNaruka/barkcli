@@ -71,6 +71,11 @@ export function AppRail({
     .map((id) => SURFACES.find((s) => s.id === id))
     .filter((s): s is (typeof SURFACES)[number] => Boolean(s) && !hidden.includes(s!.id));
 
+  // Navigation is split by scope: threads and review belong to the whole app,
+  // everything else is a project tool and shares the project switcher.
+  const globalItems = items.filter((s) => s.id === "chat" || s.id === "review");
+  const projectItems = items.filter((s) => s.id !== "chat" && s.id !== "review");
+
   const badge = (id: Surface) => {
     if (id === "chat") return counts?.chat ?? 0;
     if (id === "board") return counts?.board ?? 0;
@@ -90,6 +95,30 @@ export function AppRail({
 
   const initial = (projectName || "b").replace(/[^a-z0-9]/gi, "").slice(0, 1).toLowerCase() || "b";
 
+  const renderItem = (s: (typeof SURFACES)[number], index: number) => {
+    const active = surface === s.id;
+    const n = badge(s.id);
+    return (
+      <button
+        key={s.id}
+        type="button"
+        onClick={() => onNavigate(s.id)}
+        title={`${s.label} — ${s.hint} (${index + 1})`}
+        aria-current={active ? "page" : undefined}
+        aria-label={s.label}
+        className={`app-rail-item ${active ? "is-active" : ""}`}
+      >
+        <Icon name={s.icon} size={18} />
+        {labels && <span className="app-rail-item-label">{s.label}</span>}
+        {n > 0 && (
+          <span className={`app-rail-badge ${badgeTone(s.id)}`}>
+            {n > 99 ? "99" : n}
+          </span>
+        )}
+      </button>
+    );
+  };
+
   const pickProject = async (project: DesktopProject) => {
     setProjectOpen(false);
     if (project.path === projectRoot) {
@@ -105,6 +134,23 @@ export function AppRail({
       className={`app-rail ${labels ? "is-labelled" : ""}`}
       aria-label="App navigation"
     >
+      <nav className="app-rail-nav is-global" aria-label="Global surfaces">
+        {globalItems.map((s) => renderItem(s, 0))}
+        <button
+          type="button"
+          onClick={onAllProjects}
+          title="All projects"
+          aria-current={surface === "projects" ? "page" : undefined}
+          aria-label="All projects"
+          className={`app-rail-item ${surface === "projects" ? "is-active" : ""}`}
+        >
+          <Icon name="folder" size={17} />
+          {labels && <span className="app-rail-item-label">Projects</span>}
+        </button>
+      </nav>
+
+      <span className="app-rail-divider" aria-hidden="true" />
+
       <div className="app-rail-project">
         <button
           type="button"
@@ -175,30 +221,8 @@ export function AppRail({
         )}
       </div>
 
-      <nav className="app-rail-nav" aria-label="Surfaces">
-        {items.map((s, index) => {
-          const active = surface === s.id;
-          const n = badge(s.id);
-          return (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => onNavigate(s.id)}
-              title={`${s.label} — ${s.hint} (${index + 1})`}
-              aria-current={active ? "page" : undefined}
-              aria-label={s.label}
-              className={`app-rail-item ${active ? "is-active" : ""}`}
-            >
-              <Icon name={s.icon} size={18} />
-              {labels && <span className="app-rail-item-label">{s.label}</span>}
-              {n > 0 && (
-                <span className={`app-rail-badge ${badgeTone(s.id)}`}>
-                  {n > 99 ? "99" : n}
-                </span>
-              )}
-            </button>
-          );
-        })}
+      <nav className="app-rail-nav" aria-label="Project surfaces">
+        {projectItems.map((s, index) => renderItem(s, index + 2))}
       </nav>
 
       <div className="app-rail-foot">
