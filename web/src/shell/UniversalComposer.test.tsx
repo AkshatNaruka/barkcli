@@ -147,4 +147,17 @@ describe("UniversalComposer", () => {
     await waitFor(() => expect(createThread).toHaveBeenCalledWith(expect.objectContaining({ text: "First line\nSecond line" })));
   });
 
+  it("does not ask which project — the thread belongs to the open project", async () => {
+    render(<UniversalComposer isOpen inline onClose={vi.fn()} onCreated={vi.fn()} boardName="dev" />);
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Composer mode" })).toBeInTheDocument()
+    );
+    // Project switching lives in the navbar; the composer never asks.
+    expect(screen.queryByRole("combobox", { name: "Thread project" })).not.toBeInTheDocument();
+    // What stays is the per-thread choice: root vs isolated worktree.
+    expect(screen.getByRole("combobox", { name: "Workspace strategy" })).toHaveTextContent(
+      "Project root"
+    );
+  });
+
 });

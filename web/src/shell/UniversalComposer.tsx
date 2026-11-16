@@ -1,12 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createThread, startThreadChat, startThreadBuild } from "../lib/api";
 import { useAgentSelection } from "../lib/useAgentSelection";
 import { useDraft } from "../lib/drafts";
-import { ThreadComposer, type ComposerProjectOption } from "../threads/ThreadComposer";
+import { ThreadComposer } from "../threads/ThreadComposer";
 import { Icon } from "../components/Icon";
 import { AccessibleDialog } from "../components/AccessibleDialog";
 import { useComposerMode } from "../lib/composer";
-import { currentProject, openProjectDialog, recentProjects, savedProjects, saveProject, switchProject, isDesktop, type DesktopProject } from "../lib/desktop";
 
 interface UniversalComposerProps {
   isOpen: boolean;
@@ -29,146 +28,23 @@ function DraftComposer({ onClose, onCreated, boardName, initialText = "", initia
   const agent = useAgentSelection(scope);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [projects, setProjects] = useState<DesktopProject[]>([]);
-  const [defaultProject, setDefaultProject] = useState<DesktopProject | null>(null);
-  const [selectedProject, setSelectedProject] = useState<string>("");
-  const [workspaceStrategy, setWorkspaceStrategy] = useState<"root" | "worktree" | "scratch">("root");
+  // A thread belongs to the project that is open: the navbar is the one place
+  // that switches projects, so the composer never asks.
+  const [workspaceStrategy, setWorkspaceStrategy] = useState<"root" | "worktree">("root");
   const created = useRef<string | null>(null);
   const sending = useRef(false);
 
   useEffect(() => { if (initialText) setText(initialText); }, [initialText, setText]);
-
-  useEffect(() => {
-    let cancelled = false;
-    void Promise.all([currentProject(), recentProjects(), savedProjects()]).then(([cur, recents, saved]) => {
-      if (cancelled) return;
-      const seen = new Set<string>();
-      const list: DesktopProject[] = [];
-      if (cur?.path) {
-        seen.add(cur.path);
-        list.push(cur);
-        setDefaultProject(cur);
-        setSelectedProject((prev) => prev || cur.path);
-      }
-      for (const item of saved) {
-        if (item.path && !seen.has(item.path)) {
-          seen.add(item.path);
-          list.push(item);
-        }
-      }
-      for (const item of recents) {
-        if (item.path && !seen.has(item.path)) {
-          seen.add(item.path);
-          list.push(item);
-        }
-      }
-      setProjects(list);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const projectOptions = useMemo<ComposerProjectOption[]>(() => {
-    const opts: ComposerProjectOption[] = projects.map((p) => ({
-      value: p.path,
-      label: p.name,
-      hint: p.path,
-    }));
-    if (opts.length === 0) {
-      const fallbackName = scope && scope !== "current-project" ? scope.split("/").filter(Boolean).pop() || "Current project" : "Current project";
-      opts.push({
-        value: "",
-        label: fallbackName,
-        hint: "Bind thread to the active project workspace",
-      });
-    }
-    opts.push({
-      value: "__scratch__",
-      label: "Scratch (no project)",
-      hint: "Start an unbound thread not tied to a specific repository",
-    });
-    opts.push({
-      value: "__open_folder__",
-      label: "Open folder…",
-      hint: "Choose another project folder on disk",
-    });
-    return opts;
-  }, [projects, scope]);
-
-  const handleProjectChange = async (value: string) => {
-    if (value === "__open_folder__") {
-      const picked = await openProjectDialog();
-      if (picked?.path) {
-        setProjects((prev) =>
-          prev.some((p) => p.path === picked.path) ? prev : [picked, ...prev]
-        );
-        setSelectedProject(picked.path);
-        if (workspaceStrategy === "scratch") setWorkspaceStrategy("root");
-        // Persist to saved projects registry so it appears in Settings and future pickers.
-        void saveProject(picked.path).catch(() => {});
-      }
-      return;
-    }
-    setSelectedProject(value);
-    if (value === "__scratch__") {
-      setWorkspaceStrategy("scratch");
-    } else if (workspaceStrategy === "scratch") {
-      setWorkspaceStrategy("root");
-    }
-  };
 
   const submit = async () => {
     if (!text.trim() || sending.current) return;
     sending.current = true; setSubmitting(true); setError(null);
     try {
       if (mode !== "plan" && !agent.ready) throw new Error("Choose an installed, signed-in agent. Your draft is saved.");
-      const chosenProject = projects.find((p) => p.path === selectedProject);
-      const isCustomProject = Boolean(
-        chosenProject && (!defaultProject || chosenProject.path !== defaultProject.path)
-      );
-      const isScratch = selectedProject === "__scratch__" || workspaceStrategy === "scratch";
-      // If the chosen project differs from the active one, switch the desktop
-      // app to that project first so execution runs in the correct context.
-      if (isCustomProject && chosenProject && isDesktop()) {
-        const opened = await switchProject(chosenProject.path, "chat");
-        if (!opened) {
-          throw new Error("Could not open that project. Your draft is saved.");
-        }
-        // Persist the thread creation intent so the new project context can
-        // resume it after the sidecar restarts.
-        try {
-          window.sessionStorage.setItem("bark:pending-thread", JSON.stringify({
-            text: text.trim(),
-            mode: mode === "ask" ? "chat" : mode === "plan" ? "plan_first" : "build",
-            board: boardName,
-            backend: agent.backend || undefined,
-            model: agent.model.trim() || undefined,
-            workspaceStrategy,
-            projectRoot: chosenProject.path,
-            projectName: chosenProject.name,
-          }));
-        } catch { /* storage optional */ }
-        // The switchProject call restarts the sidecar; thread creation will
-        // happen in the new context via the pending-thread handoff.
-        setText("");
-        onClose();
-        return;
-      }
       const result = created.current ? { thread_id: created.current } : await createThread({
         text: text.trim(), kind: "feature", backend: agent.backend || undefined,
         model: agent.model.trim() || undefined, mode: mode === "ask" ? "chat" : mode === "plan" ? "plan_first" : "build", board: boardName,
-        ...(isScratch
-          ? { project_name: "Scratch", workspace_strategy: "scratch" }
-          : isCustomProject && chosenProject
-          ? {
-              project_root: chosenProject.path,
-              project_name: chosenProject.name,
-              ...(workspaceStrategy !== "root" ? { workspace_strategy: workspaceStrategy } : {}),
-            }
-          : workspaceStrategy !== "root"
-          ? { workspace_strategy: workspaceStrategy }
-          : {}),
+        ...(workspaceStrategy !== "root" ? { workspace_strategy: workspaceStrategy } : {}),
       });
       if (!result?.thread_id) throw new Error("Could not create the thread. Check the server and try again.");
       created.current = result.thread_id;
@@ -203,9 +79,6 @@ function DraftComposer({ onClose, onCreated, boardName, initialText = "", initia
       busy={submitting}
       error={error}
       autoFocus
-      projectOptions={projectOptions}
-      selectedProject={selectedProject}
-      onProjectChange={(val) => void handleProjectChange(val)}
       workspaceStrategy={workspaceStrategy}
       onWorkspaceStrategyChange={setWorkspaceStrategy}
     />
