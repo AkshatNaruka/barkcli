@@ -46,13 +46,16 @@ describe("CommandPalette", () => {
     fetchThreads.mockResolvedValue(threads);
   });
 
-  it("lists recent threads alongside commands", async () => {
+  it("lists recent threads alongside commands, each with one inline description", async () => {
     renderPalette();
 
     expect(await screen.findByText("Create ping uptime endpoint")).toBeInTheDocument();
     expect(screen.getByText("History logging")).toBeInTheDocument();
-    expect(screen.getByText("Threads")).toBeInTheDocument();
-    expect(screen.getByText("Commands")).toBeInTheDocument();
+    expect(screen.getByText("New thread")).toBeInTheDocument();
+    expect(screen.getByText("Start a build thread in the active project")).toBeInTheDocument();
+    // No group headings: the list is flat, like the reference.
+    expect(screen.queryByText("Threads")).not.toBeInTheDocument();
+    expect(screen.queryByText("Commands")).not.toBeInTheDocument();
   });
 
   it("filters threads and opens the highlighted one with Enter", async () => {

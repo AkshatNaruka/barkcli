@@ -42,27 +42,29 @@ export function openProjectTool(tool: ProjectTool) {
 export interface AppCommand {
   id: string;
   label: string;
+  /** One line, shown beside the label in the command palette. */
+  hint: string;
   icon: IconName;
   shortcut?: string;
   modifiers?: string;
 }
 
 export const APP_COMMANDS: AppCommand[] = [
-  { id: "new-intent", label: "New thread", icon: "plus", shortcut: "n", modifiers: "mod" },
-  { id: "new-chat", label: "New read-only question", icon: "comment", shortcut: "n", modifiers: "mod+shift" },
-  { id: "open-project", label: "Open project", icon: "layers", shortcut: "o", modifiers: "mod" },
-  { id: "quick-open", label: "Quick open file", icon: "search", shortcut: "p", modifiers: "mod" },
-  { id: "command-runner", label: "Run project command", icon: "terminal", shortcut: "r", modifiers: "mod+shift" },
-  { id: "command-palette", label: "Search or command", icon: "search", shortcut: "k", modifiers: "mod" },
-  { id: "docs", label: "Documentation & Guides", icon: "doc" },
-  { id: "usage", label: "Usage & Limits", icon: "chart", shortcut: "u", modifiers: "mod" },
-  { id: "appearance", label: "Appearance & Theme", icon: "palette" },
-  { id: "settings", label: "Settings", icon: "gear", shortcut: ",", modifiers: "mod" },
-  { id: "customize-sidebar", label: "Customize sidebar", icon: "sliders" },
-  { id: "open-terminal", label: "Open terminal", icon: "terminal", shortcut: "t", modifiers: "mod+shift" },
-  { id: "toggle-terminal-drawer", label: "Toggle terminal drawer", icon: "terminal", shortcut: "j", modifiers: "mod" },
-  { id: "toggle-workbench", label: "Toggle right panel", icon: "panel", shortcut: "b", modifiers: "mod+alt" },
-  { id: "toggle-sidebar", label: "Toggle sidebar", icon: "panel", shortcut: "b", modifiers: "mod+shift" },
+  { id: "new-intent", label: "New thread", hint: "Start a build thread in the active project", icon: "plus", shortcut: "n", modifiers: "mod" },
+  { id: "new-chat", label: "New read-only question", hint: "Ask a question without changing files", icon: "comment", shortcut: "n", modifiers: "mod+shift" },
+  { id: "open-project", label: "Open project", hint: "Switch to another project on this machine", icon: "layers", shortcut: "o", modifiers: "mod" },
+  { id: "quick-open", label: "Quick open file", hint: "Jump to a file by name", icon: "search", shortcut: "p", modifiers: "mod" },
+  { id: "command-runner", label: "Run project command", hint: "Build, test, or lint with a detected command", icon: "terminal", shortcut: "r", modifiers: "mod+shift" },
+  { id: "command-palette", label: "Search or command", hint: "Find anything in this project", icon: "search", shortcut: "k", modifiers: "mod" },
+  { id: "docs", label: "Documentation & Guides", hint: "Docs, CLI reference, and agent guides", icon: "doc" },
+  { id: "usage", label: "Usage & Limits", hint: "Provider usage and remaining limits", icon: "chart", shortcut: "u", modifiers: "mod" },
+  { id: "appearance", label: "Appearance & Theme", hint: "Theme, accent, and layout", icon: "palette" },
+  { id: "settings", label: "Settings", hint: "Project and global preferences", icon: "gear", shortcut: ",", modifiers: "mod" },
+  { id: "customize-sidebar", label: "Customize sidebar", hint: "Pin the surfaces you use most", icon: "sliders" },
+  { id: "open-terminal", label: "Open terminal", hint: "Start a terminal in the worktree", icon: "terminal", shortcut: "t", modifiers: "mod+shift" },
+  { id: "toggle-terminal-drawer", label: "Toggle terminal drawer", hint: "Show or hide the terminal panel", icon: "terminal", shortcut: "j", modifiers: "mod" },
+  { id: "toggle-workbench", label: "Toggle right panel", hint: "Show or hide the inspector", icon: "panel", shortcut: "b", modifiers: "mod+alt" },
+  { id: "toggle-sidebar", label: "Toggle sidebar", hint: "Show or hide the navigation rail", icon: "panel", shortcut: "b", modifiers: "mod+shift" },
 ];
 export function commandForKey(event: KeyboardEvent): string | undefined {
   if (!(event.metaKey || event.ctrlKey) || event.isComposing) return;

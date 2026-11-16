@@ -3,12 +3,10 @@ import type { Board as BoardType, Card, ThreadSummary } from "../lib/types";
 import { THEMES, useTheme } from "../lib/theme.tsx";
 import { navigate } from "../lib/hashnav";
 import { SURFACES } from "../lib/surfaces";
-import { Icon, type IconName } from "./Icon";
-import { APP_COMMANDS, PROJECT_TOOLS, openProjectTool, type AppCommand } from "../lib/commands";
+import { APP_COMMANDS, PROJECT_TOOLS, openProjectTool } from "../lib/commands";
 import { AccessibleDialog } from "./AccessibleDialog";
 import { fetchThreads } from "../lib/api";
-import { relativeTime } from "../lib/threads";
-import { isMac } from "../lib/desktop";
+import { relativeTime, threadStatus } from "../lib/threads";
 
 interface Props {
   board?: BoardType | null;
@@ -26,34 +24,22 @@ interface Props {
 
 interface Row {
   key: string;
-  group: string;
+  /** Used for ordering only; rows are rendered as one flat list. */
+  section: string;
   label: string;
-  hint?: string;
-  shortcut?: string;
-  icon: IconName;
+  description?: string;
   /** Extra searchable text that is not shown in the row. */
   keywords?: string;
   run: () => void;
 }
 
-const GROUP_ORDER = ["Threads", "Commands", "Tools", "Go to", "Cards", "Appearance"];
-
-function shortcutLabel(command: AppCommand): string | undefined {
-  if (!command.shortcut) return undefined;
-  const modifiers = command.modifiers || "";
-  const parts: string[] = [];
-  if (modifiers.includes("mod")) parts.push(isMac() ? "⌘" : "Ctrl");
-  if (modifiers.includes("alt")) parts.push(isMac() ? "⌥" : "Alt");
-  if (modifiers.includes("shift")) parts.push(isMac() ? "⇧" : "Shift");
-  parts.push(command.shortcut.toUpperCase());
-  return parts.join(isMac() ? "" : "+");
-}
+const SECTION_ORDER = ["Threads", "Commands", "Tools", "Go to", "Cards", "Appearance"];
 
 function rank(row: Row, query: string): number {
   const label = row.label.toLowerCase();
   if (label.startsWith(query)) return 0;
   if (label.includes(query)) return 1;
-  if (`${row.hint || ""} ${row.keywords || ""}`.toLowerCase().includes(query)) return 2;
+  if (`${row.description || ""} ${row.keywords || ""}`.toLowerCase().includes(query)) return 2;
   return -1;
 }
 
@@ -65,23 +51,6 @@ function pick(rows: Row[], query: string, limit: number): Row[] {
     .sort((left, right) => left.score - right.score)
     .slice(0, limit)
     .map((item) => item.row);
-}
-
-/** Bold the matched run of text, the way the reference palette does. */
-function Highlight({ text, query }: { text: string; query: string }) {
-  const needle = query.trim();
-  if (!needle) return <>{text}</>;
-  const index = text.toLowerCase().indexOf(needle.toLowerCase());
-  if (index < 0) return <>{text}</>;
-  return (
-    <>
-      {text.slice(0, index)}
-      <mark className="bg-transparent font-semibold text-text">
-        {text.slice(index, index + needle.length)}
-      </mark>
-      {text.slice(index + needle.length)}
-    </>
-  );
 }
 
 export function CommandPalette({
@@ -123,27 +92,31 @@ export function CommandPalette({
     const q = query.trim().toLowerCase();
     const close = (action: () => void) => () => { onClose(); action(); };
 
-    const threadRows: Row[] = threads.map((thread) => ({
-      key: `thread:${thread.id}`,
-      group: "Threads",
-      label: thread.title || thread.id,
-      hint: [thread.project_name, relativeTime(thread.last_seen || thread.updated_at)]
-        .filter(Boolean)
-        .join(" · "),
-      icon: "comment",
-      keywords: `${thread.id} ${thread.backend || ""} ${thread.column} ${thread.status_group}`,
-      run: close(() => navigate("chat", { thread: thread.id })),
-    }));
+    const threadRows: Row[] = threads.map((thread) => {
+      const description = [
+        thread.project_name,
+        threadStatus(thread).label,
+        relativeTime(thread.last_seen || thread.updated_at),
+      ].filter(Boolean).join(" · ");
+      return {
+        key: `thread:${thread.id}`,
+        section: "Threads",
+        label: thread.title || thread.id,
+        description,
+        keywords: `${thread.id} ${thread.backend || ""} ${thread.column} ${thread.status_group}`,
+        run: close(() => navigate("chat", { thread: thread.id })),
+      };
+    });
 
     const commandRows: Row[] = APP_COMMANDS
       // Opening the palette from inside the palette is a no-op.
       .filter((command) => command.id !== "command-palette" && onCommand)
       .map((command) => ({
         key: `command:${command.id}`,
-        group: "Commands",
+        section: "Commands",
         label: command.label,
-        icon: command.icon,
-        shortcut: shortcutLabel(command),
+        description: command.hint,
+        keywords: command.id,
         run: close(() => {
           if (command.id === "quick-open" && onQuickOpen) return onQuickOpen();
           if (command.id === "command-runner" && onCommandRunner) return onCommandRunner();
@@ -154,9 +127,9 @@ export function CommandPalette({
 
     const projectRow: Row = {
       key: "projects",
-      group: "Commands",
+      section: "Commands",
       label: "All projects",
-      icon: "grid",
+      description: "Switch to another project on this machine",
       keywords: "workspace switch",
       run: close(() => navigate("projects")),
     };
@@ -167,20 +140,18 @@ export function CommandPalette({
       .filter((tool) => !surfaceLabels.has(tool.label.toLowerCase()))
       .map((tool) => ({
         key: `tool:${tool.id}`,
-        group: "Tools",
+        section: "Tools",
         label: tool.label,
-        hint: tool.hint,
-        icon: tool.icon,
+        description: tool.hint,
         keywords: `${tool.id} ${tool.keywords || ""} ${tool.group}`,
         run: close(() => openProjectTool(tool)),
       }));
 
     const goRows: Row[] = SURFACES.map((surface) => ({
       key: `go:${surface.id}`,
-      group: "Go to",
+      section: "Go to",
       label: surface.label,
-      hint: surface.hint,
-      icon: surface.icon,
+      description: surface.hint,
       keywords: `${surface.id} go to`,
       run: close(() => navigate(surface.id)),
     }));
@@ -189,10 +160,9 @@ export function CommandPalette({
       board?.columns.find((column) => column.id === id)?.name || id;
     const cardRows: Row[] = (board?.cards || []).map((card) => ({
       key: `card:${card.id}`,
-      group: "Cards",
+      section: "Cards",
       label: card.title,
-      hint: columnName(card.column),
-      icon: "board",
+      description: `Card · ${columnName(card.column)}`,
       keywords: `${card.id} ${card.column} ${card.priority} ${(card.labels || []).join(" ")}`,
       run: close(() => onEditCard(card)),
     }));
@@ -200,18 +170,17 @@ export function CommandPalette({
     const appearanceRows: Row[] = [
       ...THEMES.map((theme) => ({
         key: `theme:${theme.id}`,
-        group: "Appearance",
+        section: "Appearance",
         label: `${theme.label} theme`,
-        hint: theme.hint,
-        icon: (theme.id === "light" ? "sun" : theme.id === "system" ? "monitor" : "moon") as IconName,
+        description: theme.hint,
         keywords: `theme ${theme.id} color`,
         run: close(() => setTheme(theme.id)),
       })),
       {
         key: "appearance",
-        group: "Appearance",
+        section: "Appearance",
         label: "Customize appearance",
-        icon: "palette" as IconName,
+        description: "Accent, layout, and sidebar density",
         keywords: "theme accent layout sidebar",
         run: close(onCustomize),
       },
@@ -221,17 +190,17 @@ export function CommandPalette({
       ? [
           {
             key: "new-card",
-            group: "Commands",
+            section: "Commands",
             label: "New card",
-            icon: "plus" as IconName,
+            description: `Add a card to ${board.columns[0]?.name || "the board"}`,
             keywords: "add task",
             run: close(() => onAddCard(board.columns[0]?.id || "todo")),
           },
           ...board.columns.map((column) => ({
             key: `add:${column.id}`,
-            group: "Commands",
+            section: "Commands",
             label: `Add to ${column.name}`,
-            icon: "board" as IconName,
+            description: "New card in this column",
             keywords: `new card ${column.id}`,
             run: close(() => onAddCard(column.id)),
           })),
@@ -240,10 +209,10 @@ export function CommandPalette({
 
     if (!q) {
       // Nothing typed yet: recent threads plus the handful of actions people
-      // actually reach for, no empty groups.
+      // actually reach for.
       return [
         ...pick(threadRows, "", 4),
-        ...pick([...commandRows, projectRow, ...newCardRows], "", 9),
+        ...pick([...commandRows, projectRow, ...newCardRows], "", 7),
       ];
     }
 
@@ -254,7 +223,7 @@ export function CommandPalette({
       ...pick(goRows, q, 6),
       ...pick(cardRows, q, 5),
       ...pick(appearanceRows, q, 4),
-    ].sort((left, right) => GROUP_ORDER.indexOf(left.group) - GROUP_ORDER.indexOf(right.group));
+    ].sort((left, right) => SECTION_ORDER.indexOf(left.section) - SECTION_ORDER.indexOf(right.section));
   }, [
     query,
     threads,
@@ -269,19 +238,6 @@ export function CommandPalette({
     onOpenProject,
     setTheme,
   ]);
-
-  const groups = useMemo(() => {
-    const out: Array<{ name: string; items: Array<{ row: Row; index: number }> }> = [];
-    rows.forEach((row, index) => {
-      let group = out.find((candidate) => candidate.name === row.group);
-      if (!group) {
-        group = { name: row.group, items: [] };
-        out.push(group);
-      }
-      group.items.push({ row, index });
-    });
-    return out;
-  }, [rows]);
 
   useEffect(() => {
     setActive(0);
@@ -332,24 +288,20 @@ export function CommandPalette({
   return (
     <AccessibleDialog label="Search or command" onClose={onClose} className="command-palette">
       <div className="flex min-h-0 flex-1 flex-col" onKeyDown={onKeyDown}>
-        <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border/70 px-3">
-          <Icon name="search" size={14} className="text-muted" />
+        <div className="shrink-0 px-4 pb-2 pt-3.5">
           <input
             autoFocus
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search threads, tools, or commands…"
+            placeholder="Search threads, tools, or commands"
             aria-label="Search or command"
             role="combobox"
             aria-expanded="true"
             aria-controls="command-palette-list"
             aria-autocomplete="list"
             aria-activedescendant={rows[active] ? `command-palette-row-${active}` : undefined}
-            className="min-w-0 flex-1 bg-transparent text-[13px] text-text placeholder:text-muted/60 focus:outline-none"
+            className="w-full bg-transparent text-[15px] tracking-[-0.01em] text-text placeholder:text-muted/50 focus:outline-none"
           />
-          <kbd className="rounded border border-border px-1.5 py-0.5 font-mono text-[9px] text-muted">
-            esc
-          </kbd>
         </div>
 
         <div
@@ -357,61 +309,46 @@ export function CommandPalette({
           id="command-palette-list"
           role="listbox"
           aria-label="Results"
-          className="min-h-0 flex-1 overflow-y-auto p-1.5"
+          className="min-h-0 flex-1 overflow-y-auto px-2 pb-2"
         >
           {rows.length === 0 && (
             <div className="px-3 py-10 text-center">
-              <p className="text-[12px] text-muted-strong">
+              <p className="text-[13px] text-muted-strong">
                 No matches{query.trim() ? ` for “${query.trim()}”` : ""}.
               </p>
-              <p className="mt-1 text-[11px] text-muted/60">
+              <p className="mt-1 text-[12px] text-muted/60">
                 Try a thread title, a tool, or a command like “theme”.
               </p>
             </div>
           )}
 
-          {groups.map((group) => (
-            <div key={group.name} role="group" aria-label={group.name}>
-              <div className="px-2 pb-1 pt-2.5 font-mono text-[9px] uppercase tracking-wider text-muted/50">
-                {group.name}
-              </div>
-              {group.items.map(({ row, index }) => (
-                <div
-                  key={row.key}
-                  id={`command-palette-row-${index}`}
-                  role="option"
-                  aria-selected={index === active}
-                  data-active={index === active ? "true" : undefined}
-                  onMouseEnter={() => setActive(index)}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={row.run}
-                  className={`flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[12.5px] transition-colors ${
-                    index === active
-                      ? "bg-accent-soft text-text"
-                      : "text-muted-strong hover:bg-white/[0.04] hover:text-text"
-                  }`}
-                >
-                  <Icon name={row.icon} size={13} className="shrink-0 text-muted/80" />
-                  <span className="min-w-0 flex-1 truncate">
-                    <Highlight text={row.label} query={query} />
-                  </span>
-                  {row.hint && (
-                    <span className="max-w-[40%] shrink-0 truncate font-mono text-[9.5px] text-muted/55">
-                      {row.hint}
-                    </span>
-                  )}
-                  {row.shortcut && (
-                    <kbd className="shrink-0 rounded border border-border px-1 py-0.5 font-mono text-[9px] text-muted/70">
-                      {row.shortcut}
-                    </kbd>
-                  )}
-                </div>
-              ))}
+          {rows.map((row, index) => (
+            <div
+              key={row.key}
+              id={`command-palette-row-${index}`}
+              role="option"
+              aria-selected={index === active}
+              data-active={index === active ? "true" : undefined}
+              onMouseEnter={() => setActive(index)}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={row.run}
+              className={`flex cursor-pointer items-baseline gap-4 rounded-lg px-3 py-2.5 transition-colors ${
+                index === active ? "bg-white/[0.06]" : "hover:bg-white/[0.03]"
+              }`}
+            >
+              <span className="min-w-0 truncate text-[13.5px] font-semibold leading-5 tracking-[-0.01em] text-text">
+                {row.label}
+              </span>
+              {row.description && (
+                <span className="min-w-0 flex-1 truncate text-[13px] leading-5 text-muted">
+                  {row.description}
+                </span>
+              )}
             </div>
           ))}
         </div>
 
-        <div className="flex h-9 shrink-0 items-center justify-between border-t border-border/70 px-3 font-mono text-[9px] text-muted/60">
+        <div className="flex h-8 shrink-0 items-center justify-between border-t border-white/[0.04] px-4 text-[10.5px] text-muted/45">
           <span>↑↓ navigate · ↵ open · esc close</span>
           <span>
             {rows.length} {rows.length === 1 ? "result" : "results"}
