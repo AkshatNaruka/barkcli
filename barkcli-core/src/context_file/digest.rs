@@ -11,8 +11,8 @@ use chrono::Utc;
 
 use super::{
     estimate_tokens, file_path, merge, parse, project_root, read_state, render_file,
-    wire_agent_files, write_state, Block, BlockMeta, DigestOpts, GeneratedSection, MergeReport,
-    ParsedFile, STAMP_FMT,
+    sync_agent_files, write_state, Block, BlockMeta, DigestOpts, GeneratedSection, MergeReport,
+    ParsedFile, WireMode, STAMP_FMT,
 };
 use crate::memory::store::{MemoryStore, MemoryTier};
 use crate::models::board::Board;
@@ -808,7 +808,17 @@ pub fn run_digest_core(board: &str, opts: &DigestOpts) -> Result<MergeReport> {
     report.unchanged = !content_changed;
 
     if opts.wire {
-        let _ = wire_agent_files(&root, &mut state, opts.create_wires);
+        let mode = if opts.wire_all {
+            WireMode::All
+        } else if opts.create_wires {
+            WireMode::Create
+        } else {
+            WireMode::Sync
+        };
+        let files = sync_agent_files(&root, mode);
+        let (claude, agents) = super::agents::core_flags(&files);
+        state.wired_claude = claude;
+        state.wired_agents = agents;
         write_state(board, &state)?;
     }
     Ok(report)

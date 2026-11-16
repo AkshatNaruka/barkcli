@@ -78,7 +78,7 @@ Intent in, plans out. barkcli is **the management layer for AI agents**: humans 
 | 🧠 **Codebase Brain (3D & 2D)** | Structural architecture graph discovering subsystems, modules, services, APIs, and invariants. Rendered in glowing 3D Orbit, 2D Flow, and contribution timeline. |
 | 🛡 **Deterministic Trust Layer** | `barkcli guard` pre-merge security scan (secrets, dangerous patterns, missing tests) + cryptographic SHA-256 receipts (`barkcli receipt show`) proving who built what and what passed. |
 | 🤖 **Autonomous Autopilot Loop** | `barkcli run "<intent>" --agents 3 --yes` — parallel agents in isolated git worktrees, your project's tests as the gate, and an atomic merge train for passing branches. |
-| ⚡ **Living Context Engine** | Self-healing `project_context.md` auto-maintained by `barkcli context digest`. Reduces cold-start agent token consumption by **57×**. |
+| ⚡ **Living Context Engine** | Self-healing `project_context.md` auto-maintained by `barkcli context digest`, wired into every agent's own file — `CLAUDE.md`, `AGENTS.md`, Cursor rules, Copilot, Gemini, Windsurf, Cline, Zed — with one idempotent managed block. Reduces cold-start agent token consumption by **57×**. |
 | 🛠 **MCP Server (76 Tools)** | First-class JSON-RPC 2.0 server for Claude Code, OpenCode, Codex, and Cursor covering boards, cards, tasks, memory, specs, and orchestration. |
 | 🧬 **Collective Memory** | Agora-inspired contribution DAG backed by Git. Evidence scores, independent reproduction, neglected-branch nudging, and UCB recommendations. |
 | 📦 **Skills Registry** | Composable playbooks injected into agent prompts on trigger matches. Install from git repos with sha256-pinned `skills.lock`. |

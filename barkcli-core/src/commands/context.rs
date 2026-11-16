@@ -478,8 +478,11 @@ pub fn run_digest(board: &str, args: &[String]) -> Result<()> {
     let opts = DigestOpts {
         budget: flag_value(args, "--budget").and_then(|v| v.parse::<usize>().ok()),
         manual_add: flag_value(args, "--manual"),
-        wire: args.iter().any(|a| a == "--wire") || args.iter().any(|a| a == "--wire-create"),
-        create_wires: args.iter().any(|a| a == "--wire-create"),
+        wire: args
+            .iter()
+            .any(|a| a == "--wire" || a == "--wire-create" || a == "--wire-all"),
+        create_wires: args.iter().any(|a| a == "--wire-create" || a == "--wire-all"),
+        wire_all: args.iter().any(|a| a == "--wire-all"),
         quiet: args.iter().any(|a| a == "--quiet"),
         if_exists: args.iter().any(|a| a == "--if-exists"),
         polish: args.iter().any(|a| a == "--polish"),
@@ -530,7 +533,8 @@ pub fn run_digest(board: &str, args: &[String]) -> Result<()> {
 }
 
 /// `barkcli context prime` — one-shot bootstrap: map cards to code (when the
-/// sidecar is empty), then write the context file. For new/existing repos.
+/// sidecar is empty), write the context file, and wire every agent file this
+/// project's tooling needs. Safe to re-run; it syncs rather than duplicates.
 pub fn run_prime(board: &str, args: &[String]) -> Result<()> {
     let ctx = read_context(board)?;
     if ctx.index.is_empty() {
@@ -542,34 +546,120 @@ pub fn run_prime(board: &str, args: &[String]) -> Result<()> {
     );
     let mut digest_args = args.to_vec();
     digest_args.push("--wire".into()); // prime wants agents to pick it up
-    run_digest(board, &digest_args)
+    run_digest(board, &digest_args)?;
+    println!();
+    let mut wire_args: Vec<String> = vec!["--create".into()];
+    if args.iter().any(|a| a == "--all") {
+        wire_args.push("--all".into());
+    }
+    run_wire(board, &wire_args)
 }
 
-/// `barkcli context wire` — make every agent auto-read the context file by
-/// appending the import/pointer to CLAUDE.md / AGENTS.md (idempotent).
+/// `barkcli context wire` — keep every agent instruction file pointed at
+/// `project_context.md`.
+///
+/// Default refreshes files that already exist (migrating the pre-0.4.49
+/// one-marker wiring); `--create` also creates CLAUDE.md / AGENTS.md and every
+/// tool detected here; `--all` also creates every known agent surface.
 pub fn run_wire(board: &str, args: &[String]) -> Result<()> {
-    let create = args.iter().any(|a| a == "--create");
+    use crate::context_file::agents::{self, WireMode};
+
+    let mode = if args.iter().any(|a| a == "--all") {
+        WireMode::All
+    } else if args.iter().any(|a| a == "--create") {
+        WireMode::Create
+    } else {
+        WireMode::Sync
+    };
+    let json = args.iter().any(|a| a == "--json");
     let root = project_root()?;
+    let files = agents::sync_agent_files(&root, mode);
+    let (claude, proxied) = agents::core_flags(&files);
+
     let mut state = crate::context_file::read_state(board)?;
-    let (claude, agents) = crate::context_file::wire_agent_files(&root, &mut state, create)?;
+    state.wired_claude = claude;
+    state.wired_agents = proxied;
     crate::context_file::write_state(board, &state)?;
 
-    if claude {
-        println!("{} CLAUDE.md imports {}", style::ok("Wire:"), style::strong(crate::context_file::FILE_NAME));
-    }
-    if agents {
-        println!("{} AGENTS.md points to {}", style::ok("Wire:"), style::strong(crate::context_file::FILE_NAME));
-    }
-    if !claude && !agents {
+    if json {
         println!(
-            "{} no CLAUDE.md / AGENTS.md found. Re-run with {} to create them.",
-            style::warn("Wire:"),
-            style::accent("--create")
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "root": root.display().to_string(),
+                "files": files,
+            }))?
         );
-    } else if !claude {
-        println!("{} no CLAUDE.md — run with {} to create it", style::muted("Note:"), style::accent("--create"));
-    } else if !agents {
-        println!("{} no AGENTS.md — run with {} to create it", style::muted("Note:"), style::accent("--create"));
+        return Ok(());
     }
+
+    report_wired(&files, mode);
     Ok(())
+}
+
+/// One line per agent file: path, pointer style, status.
+fn report_wired(files: &[crate::context_file::agents::WiredFile], mode: crate::context_file::agents::WireMode) {
+    use crate::context_file::agents::WireStatus;
+
+    let written = files.iter().filter(|file| file.wrote()).count();
+    let wired = files
+        .iter()
+        .filter(|file| matches!(file.status, WireStatus::Synced | WireStatus::Outdated))
+        .count();
+    println!(
+        "{} {} file(s) written · {} already wired · {} missing",
+        style::ok("Agent files:"),
+        written,
+        wired,
+        files.len() - written - wired
+    );
+
+    let width = files.iter().map(|file| file.path.len()).max().unwrap_or(0);
+    for file in files {
+        let status = match file.status {
+            WireStatus::Created => style::ok("created"),
+            WireStatus::Updated => style::ok("updated"),
+            WireStatus::Synced => style::muted("wired"),
+            WireStatus::Outdated => style::warn("outdated"),
+            WireStatus::Unwired => style::warn("unwired"),
+            WireStatus::Missing => style::muted("missing"),
+            WireStatus::Failed => style::err("failed"),
+        };
+        let style_name = match file.style {
+            crate::context_file::agents::WireStyle::Import => "import",
+            crate::context_file::agents::WireStyle::Pointer => "pointer",
+        };
+        println!(
+            "  {:<width$}  {:<7}  {}{}",
+            file.path,
+            style_name,
+            status,
+            file.error
+                .as_ref()
+                .map(|error| format!("  ({error})"))
+                .unwrap_or_default(),
+            width = width
+        );
+    }
+
+    let missing = files
+        .iter()
+        .filter(|file| matches!(file.status, WireStatus::Missing | WireStatus::Unwired))
+        .count();
+    if missing > 0 {
+        if mode == crate::context_file::agents::WireMode::Sync {
+            println!(
+                "  {} run {} to create the missing files, or {} for every agent surface",
+                style::muted("Tip:"),
+                style::accent("barkcli context wire --create"),
+                style::accent("--all")
+            );
+        } else if mode == crate::context_file::agents::WireMode::Create {
+            println!(
+                "  {} {} more agent surface(s) available with {}",
+                style::muted("Tip:"),
+                missing,
+                style::accent("--all")
+            );
+        }
+    }
 }

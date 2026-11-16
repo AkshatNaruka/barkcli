@@ -13,3 +13,10 @@ All agents and developers must adhere to the rules and architecture specified in
    - Run `npm --prefix landing-next run build` and `npm --prefix web test -- --run` to verify everything builds and passes.
 
 See [AGENTS.md](AGENTS.md) for full commands, layout, and architecture.
+
+<!-- barkcli:context:start -->
+## barkcli context
+The living project context is auto-maintained by barkcli. Read `project_context.md` before exploring this repository.
+
+@project_context.md
+<!-- barkcli:context:end -->

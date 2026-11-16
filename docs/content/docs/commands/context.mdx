@@ -104,7 +104,10 @@ re-exploring the repository.
 | `digest --budget N` | Token budget for the file (default 4000) |
 | `digest --polish` | One facts-only LLM pass to rewrite the Brief section |
 | `prime` | One-shot bootstrap: scan + generate + wire agent files |
-| `wire` | Add `@import` to CLAUDE.md / pointer to AGENTS.md |
+| `wire` | Refresh the managed block in every agent file that already exists |
+| `wire --create` | Also create CLAUDE.md, AGENTS.md, and any tool detected here |
+| `wire --all` | Also create every known agent surface |
+| `wire --json` | Machine-readable file/status list |
 | `verify` | Git sync + spec stale-scan + digest in one pass |
 | `benchmark` | Cold-start vs context-file token comparison, reproducible per repo |
 
@@ -125,6 +128,43 @@ Behavior:
   made while the server runs are reconciled within seconds.
 - When `barkcli session log` ingests an agent session, the digest refreshes
   automatically.
+
+### Agent files (one line in every tool)
+
+A context file only helps if the tool in front of you was told to read it.
+`barkcli init`, `context prime`, and the desktop onboarding all wire the agent
+files automatically — the very first session starts warm, whichever agent you
+use.
+
+| Tool | File | How it points at the context file |
+|------|------|-----------------------------------|
+| Claude Code | `CLAUDE.md` | `@project_context.md` import |
+| Codex / OpenAI / opencode / Amp | `AGENTS.md` | read-first pointer |
+| Cursor | `.cursor/rules/barkcli.mdc` | pointer + `alwaysApply: true` front matter |
+| GitHub Copilot | `.github/copilot-instructions.md` | read-first pointer |
+| Gemini CLI | `GEMINI.md` | `@project_context.md` import |
+| Windsurf | `.windsurf/rules/barkcli.md` | pointer + `trigger: always_on` front matter |
+| Cline | `.clinerules` | read-first pointer |
+| Zed | `.rules` | read-first pointer |
+
+Each file gets one delimited block:
+
+```markdown
+<!-- barkcli:context:start -->
+## barkcli context
+The living project context is auto-maintained by barkcli. Read `project_context.md` before exploring this repository.
+
+@project_context.md
+<!-- barkcli:context:end -->
+```
+
+The block is **managed in place**: re-running wiring rewrites it (format
+upgrades, a moved pointer, wiring from barkcli ≤0.4.48) instead of appending a
+second copy, and everything you wrote outside the markers is never touched.
+Detection decides what gets created on first run — an existing file, a tool
+config directory (`.cursor/`, `.windsurf/`, `.github/`, `.claude/`, …), the
+environment variables of the agent that launched barkcli, or the project's
+configured backends. `--all` seeds the rest.
 
 ## Token benchmark
 

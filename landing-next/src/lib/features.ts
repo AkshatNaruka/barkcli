@@ -209,6 +209,7 @@ export const FEATURES_DATA: FeatureDetail[] = [
       "Detection of stale worktrees, orphaned sessions, and conflicting branches",
       "Autopilot next-action recommendations for both humans and agents",
       "Living context file synchronization (project_context.md) with 57× token savings",
+      "One idempotent managed block wired into CLAUDE.md, AGENTS.md, Cursor, Copilot, Gemini, Windsurf, Cline, and Zed",
       "O(1) compiled overview without querying external SaaS boards",
     ],
     cliExamples: [

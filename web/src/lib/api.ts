@@ -935,6 +935,15 @@ export interface ContextFileBlock {
   body: string;
 }
 
+export interface AgentFileState {
+  id: string;
+  label: string;
+  path: string;
+  style: "import" | "pointer";
+  status: "created" | "updated" | "synced" | "outdated" | "unwired" | "missing" | "failed";
+  error?: string;
+}
+
 export interface ContextFileResponse {
   exists: boolean;
   generated?: boolean;
@@ -946,6 +955,7 @@ export interface ContextFileResponse {
   budget_tokens?: number;
   last_run?: string | null;
   evicted_last_run?: string[];
+  agent_files?: AgentFileState[];
   hint?: string;
 }
 
@@ -980,6 +990,19 @@ export async function digestContextFile(name?: string, polish = false): Promise<
     const res = await fetch(withToken(`/api/context/file/digest?${params.toString()}`), { method: "POST" });
     if (!res.ok) return null;
     return await res.json();
+  } catch { return null; }
+}
+
+export async function wireAgentFiles(name?: string, all = false): Promise<AgentFileState[] | null> {
+  if (isVscode) return null;
+  try {
+    const params = new URLSearchParams();
+    if (name) params.set("name", name);
+    if (all) params.set("all", "1");
+    const res = await fetch(withToken(`/api/context/wire?${params.toString()}`), { method: "POST" });
+    if (!res.ok) return null;
+    const body = await res.json();
+    return (body.files as AgentFileState[]) || [];
   } catch { return null; }
 }
 

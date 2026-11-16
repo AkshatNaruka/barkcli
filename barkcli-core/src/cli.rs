@@ -844,6 +844,11 @@ fn print_usage() {
     println!("  context sync        Git-aware refresh of mapped files");
     println!("  context autosync on/off  Post-commit context sync");
     println!();
+    println!("Living context (project_context.md):");
+    println!("  context prime       Bootstrap the file + wire every agent file");
+    println!("  context digest      Refresh it from tracked work (--budget, --polish)");
+    println!("  context wire        Point CLAUDE.md / AGENTS.md / Cursor rules at it (--create, --all)");
+    println!();
     println!("Git history bundles (read-only on your git history):");
     println!("  history scan        Group recent commits into named bundles");
     println!("  history watch       Keep scanning every N seconds");

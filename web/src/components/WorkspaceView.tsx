@@ -337,7 +337,7 @@ export function WorkspaceView({
                   <div>
                     <h2 className="text-[13px] font-medium text-text">Project setup</h2>
                     <p className="mt-0.5 text-[10.5px] text-muted">
-                      {setup?.complete ? "Board, context, team, and hooks are ready." : "Basic setup runs on project load and can be re-run safely."}
+                      {setup?.complete ? "Board, context, agent files, team, and hooks are ready." : "Basic setup runs on project load and can be re-run safely."}
                     </p>
                   </div>
                   <span className={`font-mono text-[10px] ${setup?.complete ? "text-emerald-400" : "text-amber-400"}`}>
@@ -360,6 +360,15 @@ export function WorkspaceView({
                     label="Living context"
                     ok={project.context.exists}
                     detail={project.context.exists ? `${project.context.blocks ?? 0} blocks · ${project.context.tokens ?? 0} tokens · ${project.context.stale_blocks ? `${project.context.stale_blocks} stale` : "fresh"}` : "project_context.md has not been generated yet."}
+                  />
+                  <SetupRow
+                    label="Agent files"
+                    ok={Boolean(setup?.agents)}
+                    detail={
+                      setup?.agents
+                        ? `${(project.agent_files || []).filter((file) => file.status === "synced" || file.status === "updated" || file.status === "created").length} file(s) point at project_context.md`
+                        : "No CLAUDE.md / AGENTS.md yet — agents cannot find the context file."
+                    }
                   />
                   <SetupRow
                     label="Agent team"

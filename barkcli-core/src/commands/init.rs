@@ -43,12 +43,17 @@ pub fn run(args: &[String]) -> Result<()> {
 
     install_git_hooks(project_root)?;
 
+    // First-run bootstrap: an agent can only read the living context if the
+    // file exists *and* its own instruction file points at it. Do both now so
+    // the very first session starts warm, whichever tool is in use.
+    bootstrap_agent_context(project_root, default_name);
+
     println!("{} board project in {}", style::ok("Initialized"), board_dir.display());
     println!("{} Try:", style::accent("Ready."));
     println!("  barkcli add \"Fix auth bug\" -p high");
     println!("  barkcli list");
     println!("  barkcli move <id> doing");
-    println!("  barkcli context prime   # seed project_context.md so agent sessions start warm");
+    println!("  barkcli context digest   # refresh project_context.md from tracked work");
 
     // Automation wiring: ask once, never again.
     wire_automations(args, project_root, &board_dir)?;
@@ -61,6 +66,49 @@ pub fn run(args: &[String]) -> Result<()> {
     println!("  barkcli serve --open   # type intent, approve plans, merge");
 
     Ok(())
+}
+
+/// Generate `project_context.md` and point every agent instruction file at it.
+/// Idempotent — re-running init never duplicates or clobbers hand-written text.
+fn bootstrap_agent_context(root: &Path, board: &str) {
+    use crate::context_file::agents::{self, WireMode, WireStatus};
+
+    let digest = crate::context_file::digest::run_digest_core(
+        board,
+        &crate::context_file::DigestOpts {
+            quiet: true,
+            ..Default::default()
+        },
+    );
+    if let Err(error) = digest {
+        eprintln!("  {} living context: {}", style::warn("Skipped"), error);
+    }
+
+    let files = agents::sync_agent_files(root, WireMode::Create);
+    let wired: Vec<&str> = files
+        .iter()
+        .filter(|file| {
+            matches!(
+                file.status,
+                WireStatus::Created | WireStatus::Updated | WireStatus::Synced
+            )
+        })
+        .map(|file| file.path.as_str())
+        .collect();
+    if wired.is_empty() {
+        println!(
+            "  {} could not wire CLAUDE.md / AGENTS.md — run {}",
+            style::warn("Note:"),
+            style::accent("barkcli context wire --create")
+        );
+    } else {
+        println!(
+            "  {} agent files: {} {}",
+            style::ok("Wired"),
+            wired.join(", "),
+            style::muted("(run `barkcli context wire --all` for every tool)")
+        );
+    }
 }
 
 /// Ask (or auto-answer) per automation. Never prompts when stdin is not a TTY.

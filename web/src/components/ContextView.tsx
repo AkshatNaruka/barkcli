@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { fetchContextFile, digestContextFile } from "../lib/api";
+import { fetchContextFile, digestContextFile, wireAgentFiles } from "../lib/api";
 import type { ContextFileResponse, ContextFileBlock } from "../lib/api";
 import { Icon } from "./Icon";
 
@@ -30,6 +30,7 @@ export function ContextView({ boardName }: { boardName: string | null }) {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
   const [digesting, setDigesting] = useState(false);
+  const [wiring, setWiring] = useState(false);
   const [open, setOpen] = useState<Set<string>>(new Set(DEFAULT_OPEN));
   const [copied, setCopied] = useState(false);
 
@@ -77,6 +78,20 @@ export function ContextView({ boardName }: { boardName: string | null }) {
     } else {
       setMsg("Digest failed — is a board initialized here?");
     }
+    load();
+  };
+
+  const handleWire = async () => {
+    setWiring(true);
+    setMsg("");
+    const files = await wireAgentFiles(boardName || undefined);
+    setWiring(false);
+    if (!files) {
+      setMsg("Could not wire agent files — is the server running?");
+      return;
+    }
+    const written = files.filter(f => f.status === "created" || f.status === "updated").length;
+    setMsg(written ? `Wired ${written} agent file(s)` : "Agent files already in sync");
     load();
   };
 
@@ -197,6 +212,47 @@ export function ContextView({ boardName }: { boardName: string | null }) {
             Trimmed by budget: {data.evicted_last_run.join(", ")}
           </div>
         )}
+      </div>
+
+      {/* Agent files — the tools that were told to read this */}
+      <div className="bg-surface rounded-lg p-3 shrink-0">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-xs font-medium text-text">Agent files</h3>
+            <p className="text-[11px] text-muted">
+              Each tool's project file points at <code className="text-text">project_context.md</code>, so a
+              new session starts warm wherever you work.
+            </p>
+          </div>
+          <button
+            onClick={handleWire}
+            disabled={wiring || digesting}
+            className="shrink-0 rounded border border-border px-2.5 py-1 text-[11px] text-text hover:border-border-strong disabled:opacity-50"
+          >
+            {wiring ? "Wiring…" : "Wire agent files"}
+          </button>
+        </div>
+        <div className="mt-2 grid gap-x-4 gap-y-1 sm:grid-cols-2">
+          {(data.agent_files || []).map(file => {
+            const wired = file.status === "synced" || file.status === "updated" || file.status === "created";
+            const stale = file.status === "outdated" || file.status === "unwired";
+            return (
+              <div key={file.id} className="flex items-baseline gap-2 text-[11px]">
+                <span
+                  className={wired ? "text-emerald-400" : stale ? "text-amber-400" : "text-muted/40"}
+                  aria-hidden
+                >
+                  ●
+                </span>
+                <span className={`truncate font-mono ${wired ? "text-text" : "text-muted"}`}>{file.path}</span>
+                <span className="text-muted/70">{file.style}</span>
+                <span className="ml-auto shrink-0 text-muted/70">
+                  {wired ? "wired" : stale ? "out of sync" : "not set up"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Flagged drift strip */}

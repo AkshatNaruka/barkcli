@@ -6,6 +6,7 @@ import { ContextView } from "./ContextView";
 const api = vi.hoisted(() => ({
   fetchContextFile: vi.fn(),
   digestContextFile: vi.fn(),
+  wireAgentFiles: vi.fn(),
 }));
 
 vi.mock("../lib/api", () => api);
@@ -78,6 +79,41 @@ describe("ContextView", () => {
 
     // Verify block expansion
     expect(screen.getByText(/- Cards: 9 total/i)).toBeInTheDocument();
+  });
+
+  it("lists agent files and wires the missing ones", async () => {
+    api.fetchContextFile.mockResolvedValue({
+      exists: true,
+      file: "/Users/test/project/project_context.md",
+      total_tokens: 1000,
+      budget_tokens: 4000,
+      blocks: [],
+      agent_files: [
+        { id: "claude", label: "Claude Code", path: "CLAUDE.md", style: "import", status: "synced" },
+        {
+          id: "cursor",
+          label: "Cursor",
+          path: ".cursor/rules/barkcli.mdc",
+          style: "pointer",
+          status: "missing",
+        },
+      ],
+    });
+    api.wireAgentFiles.mockResolvedValueOnce([
+      { id: "cursor", label: "Cursor", path: ".cursor/rules/barkcli.mdc", style: "pointer", status: "created" },
+    ]);
+
+    render(<ContextView boardName="dev" />);
+    await waitFor(() => {
+      expect(screen.getByText("CLAUDE.md")).toBeInTheDocument();
+      expect(screen.getByText(".cursor/rules/barkcli.mdc")).toBeInTheDocument();
+    });
+    expect(screen.getByText("wired")).toBeInTheDocument();
+    expect(screen.getByText("not set up")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /Wire agent files/i }));
+    await waitFor(() => expect(api.wireAgentFiles).toHaveBeenCalledWith("dev"));
+    expect(await screen.findByText(/Wired 1 agent file/)).toBeInTheDocument();
   });
 
   it("regenerates digest when regenerate button clicked", async () => {

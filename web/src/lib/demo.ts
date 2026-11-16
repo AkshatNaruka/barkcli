@@ -999,7 +999,12 @@ const ROUTES: Route[] = [
         budget_tokens: 12000,
       },
       hooks: { opencode: true, claude_code: true, spec_sync: true },
-      setup: { board: true, context: true, team: true, hooks: true, complete: true },
+      agent_files: [
+        { id: "claude", label: "Claude Code", path: "CLAUDE.md", style: "import", status: "synced" },
+        { id: "agents", label: "Codex / OpenAI / opencode", path: "AGENTS.md", style: "pointer", status: "synced" },
+        { id: "cursor", label: "Cursor", path: ".cursor/rules/barkcli.mdc", style: "pointer", status: "missing" },
+      ],
+      setup: { board: true, context: true, team: true, hooks: true, agents: true, complete: true },
       counts: { cards: 24, done: 12, doing: 4, specs: 3, sessions: 7, agents: 5 },
       commands: [
         { id: "test", label: "Acceptance gate", command: "cargo test" },

@@ -223,6 +223,7 @@ where
         .route("/api/context/clear", post(clear_context_handler))
         .route("/api/context/file", get(context_file_handler))
         .route("/api/context/file/digest", post(context_file_digest_handler))
+        .route("/api/context/wire", post(context_wire_handler))
         .route("/api/code", get(code_handler))
         .route("/api/config", get(config_handler))
         // Review, repository, editor, and ship actions (M4)
@@ -693,6 +694,9 @@ fn project_snapshot(state: &AppState) -> serde_json::Value {
         .unwrap_or_default();
     let hooks = hooks::status_for_root(&root);
 
+    let agent_files = barkcli_core::context_file::agents::inspect_agent_files(&root);
+    let agents_wired = barkcli_core::context_file::agents::core_wired(&agent_files);
+
     let context_path = barkcli_core::context_file::file_path(&root);
     let context = if context_path.exists() {
         let content = std::fs::read_to_string(&context_path).unwrap_or_default();
@@ -746,11 +750,13 @@ fn project_snapshot(state: &AppState) -> serde_json::Value {
         })),
         "context": context,
         "hooks": hooks,
+        "agent_files": agent_files,
         "setup": {
             "board": board_ready,
             "context": context_ready,
             "team": team_ready,
             "hooks": hooks_ready,
+            "agents": agents_wired,
             "complete": setup_complete,
         },
         "counts": {
@@ -833,6 +839,39 @@ async fn onboard_project_handler(
             }
         }
 
+        let wired = barkcli_core::context_file::agents::sync_agent_files(
+            &root,
+            barkcli_core::context_file::agents::WireMode::Create,
+        );
+        let wired_names: Vec<String> = wired
+            .iter()
+            .filter(|file| {
+                matches!(
+                    file.status,
+                    barkcli_core::context_file::agents::WireStatus::Created
+                        | barkcli_core::context_file::agents::WireStatus::Updated
+                        | barkcli_core::context_file::agents::WireStatus::Synced
+                )
+            })
+            .map(|file| file.path.clone())
+            .collect();
+        let agents_ok = barkcli_core::context_file::agents::core_wired(&wired);
+        steps.push(setup_step(
+            "agents",
+            "Agent files",
+            agents_ok,
+            if wired_names.is_empty() {
+                "could not wire CLAUDE.md / AGENTS.md".into()
+            } else {
+                format!(
+                    "{} wired: {}{}",
+                    wired_names.len(),
+                    wired_names.join(", "),
+                    if agents_ok { "" } else { " — core files missing" }
+                )
+            },
+        ));
+
         let profiles_before = barkcli_core::agent::ProfileStore::from_project()
             .and_then(|store| store.list())
             .unwrap_or_default();
@@ -857,7 +896,11 @@ async fn onboard_project_handler(
             )),
         }
     } else {
-        for (id, label) in [("context", "Living context"), ("team", "Agent team")] {
+        for (id, label) in [
+            ("context", "Living context"),
+            ("agents", "Agent files"),
+            ("team", "Agent team"),
+        ] {
             steps.push(setup_step(
                 id,
                 label,
@@ -1218,6 +1261,10 @@ struct BoardQuery { name: Option<String> }
 /// Query params for `POST /api/context/file/digest`.
 #[derive(serde::Deserialize)]
 struct ContextDigestQuery { name: Option<String>, polish: Option<bool> }
+
+/// Query params for `POST /api/context/wire`.
+#[derive(serde::Deserialize)]
+struct ContextWireQuery { name: Option<String>, all: Option<bool> }
 
 /// Resolve the board name: explicit query param > state default > single board.
 fn resolve_board_name(state: &AppState, query: Option<String>) -> Result<String, ServerError> {
@@ -2406,6 +2453,37 @@ async fn context_file_handler(
         "budget_tokens": cf_state.budget_tokens,
         "last_run": cf_state.last_run,
         "evicted_last_run": cf_state.evicted_last_run,
+        "agent_files": barkcli_core::context_file::agents::inspect_agent_files(&root),
+    })))
+}
+
+/// `POST /api/context/wire` — point every agent instruction file at the living
+/// context file. Default creates the core + detected files; `?all=1` seeds
+/// every surface barkcli knows. Idempotent: existing blocks are refreshed.
+async fn context_wire_handler(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<ContextWireQuery>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let board_name = resolve_board_name(&state, query.name)?;
+    let root = barkcli_core::context_file::project_root()
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    let mode = if query.all.unwrap_or(false) {
+        barkcli_core::context_file::agents::WireMode::All
+    } else {
+        barkcli_core::context_file::agents::WireMode::Create
+    };
+    let files = barkcli_core::context_file::agents::sync_agent_files(&root, mode);
+    let (claude, agents) = barkcli_core::context_file::agents::core_flags(&files);
+    if let Ok(mut state_file) = barkcli_core::context_file::read_state(&board_name) {
+        state_file.wired_claude = claude;
+        state_file.wired_agents = agents;
+        let _ = barkcli_core::context_file::write_state(&board_name, &state_file);
+    }
+    let _ = state.tx.send("reload".to_string());
+    Ok(Json(serde_json::json!({
+        "ok": true,
+        "root": root.display().to_string(),
+        "files": files,
     })))
 }
 

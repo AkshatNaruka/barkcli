@@ -14,6 +14,7 @@
 //! regeneration (hand-edit detection compares against the last auto-generated
 //! body hash stored in `.board/context-file.<board>.json`).
 
+pub mod agents;
 pub mod digest;
 
 use std::collections::HashMap;
@@ -44,10 +45,14 @@ pub struct DigestOpts {
     pub budget: Option<usize>,
     /// Record this section id as permanently manual (`--manual <id>`).
     pub manual_add: Option<String>,
-    /// Wire CLAUDE.md/AGENTS.md so every agent auto-reads the file.
+    /// Wire agent files (CLAUDE.md, AGENTS.md, Cursor rules…) so every tool
+    /// auto-reads the file.
     pub wire: bool,
-    /// Create missing agent files when wiring (default: touch existing only).
+    /// Create missing core/detected agent files when wiring (default: sync
+    /// files that already exist).
     pub create_wires: bool,
+    /// Wire every known agent surface, whether or not it is detected.
+    pub wire_all: bool,
     /// Hook/log invocation — suppress CLI reporting.
     pub quiet: bool,
     /// Only run when the file already exists (session-log auto-refresh).
@@ -608,79 +613,12 @@ fn header_lines() -> Vec<&'static str> {    vec![
     ]
 }
 
-// ─── Distribution wiring (CLAUDE.md / AGENTS.md) ────────────────────────────
+// ─── Distribution wiring ────────────────────────────────────────────────────
+// Every agent-surface file (CLAUDE.md, AGENTS.md, Cursor rules, …) is managed
+// by `context_file::agents`. Kept here as a re-export so callers that predate
+// the multi-tool registry keep working.
 
-/// Make every agent read the file automatically. Idempotent: appends the
-/// Claude Code `@project_context.md` import to CLAUDE.md and a pointer line
-/// to AGENTS.md. Only touches files that already exist unless `create_missing`.
-pub fn wire_agent_files(
-    root: &Path,
-    state: &mut FileState,
-    create_missing: bool,
-) -> Result<(bool, bool)> {
-    const WIRE_MARKER: &str = "<!-- barkcli-project-context -->";
-
-    let claude = root.join("CLAUDE.md");
-    if !state.wired_claude || !needle_present(&claude, WIRE_MARKER) {
-        state.wired_claude = append_marker_line(
-            &claude,
-            "@project_context.md",
-            "# barkcli context (auto-maintained — `barkcli context digest`)",
-            WIRE_MARKER,
-            create_missing,
-        )?;
-    }
-    let agents = root.join("AGENTS.md");
-    if !state.wired_agents || !needle_present(&agents, WIRE_MARKER) {
-        state.wired_agents = append_marker_line(
-            &agents,
-            "- `project_context.md` — auto-maintained central project context (barkcli). Read before exploring the codebase.",
-            "# barkcli context (auto-maintained — `barkcli context digest`)",
-            WIRE_MARKER,
-            create_missing,
-        )?;
-    }
-    Ok((state.wired_claude, state.wired_agents))
-}
-
-fn needle_present(path: &Path, needle: &str) -> bool {
-    path.exists() && std::fs::read_to_string(path).map(|c| c.contains(needle)).unwrap_or(false)
-}
-
-fn append_marker_line(
-    path: &Path,
-    line: &str,
-    marker: &str,
-    wire_marker: &str,
-    create_missing: bool,
-) -> Result<bool> {
-    if !path.exists() {
-        if !create_missing {
-            return Ok(false);
-        }
-        std::fs::write(path, format!("{}\n{}\n{}\n{}\n", marker, wire_marker, line, "")).with_context(
-            || format!("failed to write {}", path.display()),
-        )?;
-        return Ok(true);
-    }
-    let existing = std::fs::read_to_string(path).with_context(|| format!("failed to read {}", path.display()))?;
-    if existing.contains(wire_marker) {
-        return Ok(true);
-    }
-    let mut content = existing;
-    if !content.ends_with('\n') {
-        content.push('\n');
-    }
-    content.push('\n');
-    content.push_str(marker);
-    content.push('\n');
-    content.push_str(wire_marker);
-    content.push('\n');
-    content.push_str(line);
-    content.push('\n');
-    std::fs::write(path, content).with_context(|| format!("failed to write {}", path.display()))?;
-    Ok(true)
-}
+pub use agents::{inspect_agent_files, sync_agent_files, WireMode, WireStatus, WiredFile};
 
 #[cfg(test)]
 mod tests {

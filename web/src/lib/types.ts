@@ -502,7 +502,19 @@ export interface ProjectSetupState {
   context: boolean;
   team: boolean;
   hooks: boolean;
+  /** CLAUDE.md + AGENTS.md point at project_context.md. */
+  agents: boolean;
   complete: boolean;
+}
+
+/** One agent tool's project instruction file. */
+export interface ProjectAgentFile {
+  id: string;
+  label: string;
+  path: string;
+  style: "import" | "pointer";
+  status: "created" | "updated" | "synced" | "outdated" | "unwired" | "missing" | "failed";
+  error?: string;
 }
 
 export interface ProjectCounts {
@@ -581,6 +593,7 @@ export interface ProjectSnapshot {
   git?: ProjectGitState | null;
   context: ProjectContextState;
   hooks: ProjectHooksState;
+  agent_files?: ProjectAgentFile[];
   setup: ProjectSetupState;
   counts: ProjectCounts;
   commands?: RunCommand[];

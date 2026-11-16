@@ -50,11 +50,16 @@ const project: ProjectSnapshot = {
     last_run: new Date().toISOString(),
   },
   hooks: { opencode: true, claude_code: true, spec_sync: false },
+  agent_files: [
+    { id: "claude", label: "Claude Code", path: "CLAUDE.md", style: "import", status: "synced" },
+    { id: "agents", label: "Codex / OpenAI / opencode", path: "AGENTS.md", style: "pointer", status: "synced" },
+  ],
   setup: {
     board: true,
     context: true,
     team: true,
     hooks: true,
+    agents: true,
     complete: true,
   },
   counts: {

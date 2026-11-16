@@ -113,8 +113,19 @@ barkcli context prime       # one-shot bootstrap (scan + generate + wire agents)
 barkcli context digest      # regenerate after work; auto-runs after `session log`
 barkcli context digest --polish  # one facts-only LLM pass to rewrite the Brief (opt-in)
 barkcli context benchmark   # cold-start vs context-file token comparison (first-party numbers)
-barkcli context wire        # add @import to CLAUDE.md / pointer to AGENTS.md
+barkcli context wire        # refresh the managed block in every agent file that exists
+barkcli context wire --create  # create CLAUDE.md / AGENTS.md + any detected tool
+barkcli context wire --all  # create every known agent surface
 ```
+
+Agent files: `CLAUDE.md` and `GEMINI.md` get an `@project_context.md` import;
+`AGENTS.md`, `.cursor/rules/barkcli.mdc`, `.github/copilot-instructions.md`,
+`.windsurf/rules/barkcli.md`, `.clinerules`, and `.rules` get a read-first
+pointer (Cursor/Windsurf also get their required front matter). Each file holds
+one delimited `<!-- barkcli:context:start --> … :end -->` block that is
+rewritten in place on every run, so re-wiring upgrades or repairs the block
+without duplicating it and never touches hand-written text. `barkcli init`,
+`context prime`, and the desktop onboarding wire these automatically.
 
 - Hand-edited sections are preserved (pinned `manual="true"` automatically).
 - Every block carries provenance (`src=`, staleness, updated timestamp); the
@@ -415,6 +426,7 @@ barkcli listener     # Start coding agent listener
 - [Web App Guide](docs/content/WEB_APP_GUIDE.md) — Browser interface guide
 - [TUI Guide](docs/content/TUI.md) — Ratatui terminal UI reference
 
-# barkcli context (auto-maintained — `barkcli context digest`)
-<!-- barkcli-project-context -->
-- `project_context.md` — auto-maintained central project context (barkcli). Read before exploring the codebase.
+<!-- barkcli:context:start -->
+## barkcli context
+The living project context is auto-maintained by barkcli. Read `project_context.md` before exploring this repository.
+<!-- barkcli:context:end -->
