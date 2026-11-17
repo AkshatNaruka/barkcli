@@ -935,10 +935,8 @@ export function ThreadPane({
     updateRouteState({ panel: "changes" });
   };
 
-  useEffect(() => {
-    if (chatBusy || activeRun) setActivityOpen(true);
-  }, [chatBusy, activeRun?.id]);
-
+  // Details stay wherever the reader put them: a starting run never expands
+  // them, because the working bubble above already carries the live status.
   const elapsedSeconds = useElapsedSeconds(chatBusy || Boolean(activeRun));
   const lastEvent = displayEvents.length > 0 ? displayEvents[displayEvents.length - 1] : null;
   const isLastEventAssistant = Boolean(
@@ -1815,14 +1813,14 @@ export function ThreadPane({
                 open={activityOpen}
                 onToggle={(event) => setActivityOpen(event.currentTarget.open)}
               >
-                <summary className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border/80 bg-surface/60 hover:bg-surface text-muted hover:text-text text-[11.5px] font-medium transition-colors cursor-pointer select-none">
+                <summary className="inline-flex items-center gap-2 px-1 py-0.5 rounded-md text-muted hover:text-text text-[11.5px] font-medium transition-colors cursor-pointer select-none">
                   <Icon name={isWorking ? "pulse" : "eye"} size={13} className={isWorking ? "text-accent-text" : "text-muted-strong"} />
                   <span>{isWorking ? "Working" : "Details"}</span>
                   {isWorking && elapsedSeconds > 0 ? (
                     <span className="font-mono text-[10px] text-muted">{formatElapsed(elapsedSeconds)}</span>
                   ) : null}
                   {(stepCount > 0 || activityEvents.length > 0) && (
-                    <span className="ml-1 px-1.5 py-0.2 rounded bg-card border border-border text-[10px] font-mono text-muted-strong">
+                    <span className="ml-1 rounded bg-card px-1.5 py-0.2 text-[10px] font-mono text-muted-strong">
                       {stepCount > 0 ? `${stepCount} ${stepCount === 1 ? "step" : "steps"}` : activityEvents.length}
                     </span>
                   )}
@@ -1843,22 +1841,34 @@ export function ThreadPane({
                       />
                     )}
                     {(stepCount > 0 || isWorking) && (
-                      <section aria-label="Steps" className="rounded-lg border border-border/50 bg-surface/20 p-2.5">
-                        <div className="mb-1.5 flex items-center gap-1.5 text-[10.5px] font-medium uppercase tracking-wide text-muted">
-                          <Icon name="spark" size={11} />
-                          Steps
-                        </div>
-                        <StepExplorer
-                          disclosure={false}
-                          running={isWorking}
-                          events={activityEvents}
-                          intent={thread?.card?.title || ""}
-                          onOpenFile={(path, line) => {
-                            if (!inspectorOpen) onOpenInspector?.();
-                            updateRouteState({ panel: "changes", file: path });
-                            if (line != null) void openInEditor(path, line);
-                          }}
-                        />
+                      <section aria-label="Steps">
+                        <details className="thread-subdetails group/steps rounded-lg border border-border/50 bg-surface/20">
+                          <summary className="flex cursor-pointer list-none items-center gap-1.5 px-2.5 py-1.5 text-[10.5px] font-medium uppercase tracking-wide text-muted hover:text-text transition-colors select-none [&::-webkit-details-marker]:hidden">
+                            <Icon
+                              name="chevR"
+                              size={10}
+                              className="transition-transform duration-150 motion-reduce:transition-none group-open/steps:rotate-90"
+                            />
+                            <Icon name="spark" size={11} />
+                            <span>Steps</span>
+                            <span className="ml-auto font-mono text-[10px] normal-case tracking-normal text-muted/70">
+                              {stepCount}
+                            </span>
+                          </summary>
+                          <div className="px-2.5 pb-2.5">
+                            <StepExplorer
+                              disclosure={false}
+                              running={isWorking}
+                              events={activityEvents}
+                              intent={thread?.card?.title || ""}
+                              onOpenFile={(path, line) => {
+                                if (!inspectorOpen) onOpenInspector?.();
+                                updateRouteState({ panel: "changes", file: path });
+                                if (line != null) void openInEditor(path, line);
+                              }}
+                            />
+                          </div>
+                        </details>
                       </section>
                     )}
                     {hasTimeline && (
@@ -1876,64 +1886,76 @@ export function ThreadPane({
                     )}
                     {activityEvents.length > 0 && (
                       <section aria-label="Technical activity" className="thread-activity mt-0">
-                        <div className="mb-1.5 flex items-center gap-1.5 text-[10.5px] font-medium uppercase tracking-wide text-muted">
-                          <Icon name="terminal" size={11} />
-                          Technical activity
-                        </div>
-                        {activityEvents.map((event) => {
-                          const isGate = event.kind === "gate";
-                          const rawLabel = isGate
-                            ? checkState(event.data as any).label
-                            : event.data?.name || event.text.slice(0, 100) || event.kind;
-                          const label = typeof rawLabel === "string" ? rawLabel : JSON.stringify(rawLabel);
-                          const lower = label.toLowerCase();
-                          const isRead =
-                            lower.includes("read") ||
-                            lower.includes("inspect") ||
-                            lower.includes("search") ||
-                            lower.includes("find");
-                          const isExec =
-                            lower.includes("run") ||
-                            lower.includes("bash") ||
-                            lower.includes("terminal") ||
-                            lower.includes("exec") ||
-                            lower.includes("command");
-                          const isFile =
-                            lower.includes("write") ||
-                            lower.includes("edit") ||
-                            lower.includes("patch") ||
-                            lower.includes("file");
+                        <details className="thread-subdetails group/activity">
+                          <summary className="flex cursor-pointer list-none items-center gap-1.5 px-0.5 py-1 text-[10.5px] font-medium uppercase tracking-wide text-muted hover:text-text transition-colors select-none [&::-webkit-details-marker]:hidden">
+                            <Icon
+                              name="chevR"
+                              size={10}
+                              className="transition-transform duration-150 motion-reduce:transition-none group-open/activity:rotate-90"
+                            />
+                            <Icon name="terminal" size={11} />
+                            <span>Technical activity</span>
+                            <span className="ml-auto font-mono text-[10px] normal-case tracking-normal text-muted/70">
+                              {activityEvents.length}
+                            </span>
+                          </summary>
+                          <div className="mt-1 space-y-1">
+                            {activityEvents.map((event) => {
+                              const isGate = event.kind === "gate";
+                              const rawLabel = isGate
+                                ? checkState(event.data as any).label
+                                : event.data?.name || event.text.slice(0, 100) || event.kind;
+                              const label = typeof rawLabel === "string" ? rawLabel : JSON.stringify(rawLabel);
+                              const lower = label.toLowerCase();
+                              const isRead =
+                                lower.includes("read") ||
+                                lower.includes("inspect") ||
+                                lower.includes("search") ||
+                                lower.includes("find");
+                              const isExec =
+                                lower.includes("run") ||
+                                lower.includes("bash") ||
+                                lower.includes("terminal") ||
+                                lower.includes("exec") ||
+                                lower.includes("command");
+                              const isFile =
+                                lower.includes("write") ||
+                                lower.includes("edit") ||
+                                lower.includes("patch") ||
+                                lower.includes("file");
 
-                          return (
-                            <details
-                              key={event.id}
-                              className="group/act rounded-md border border-border/40 bg-transparent"
-                            >
-                              <summary className="flex cursor-pointer list-none items-center gap-2 px-2 py-1 text-[10.5px] font-mono text-muted hover:text-muted-strong [&::-webkit-details-marker]:hidden">
-                                <span className={isGate ? "text-success" : isExec ? "text-warning" : "text-muted"}>
-                                  <Icon
-                                    name={isGate ? "check" : isRead ? "eye" : isExec ? "terminal" : isFile ? "doc" : "spark"}
-                                    size={11}
-                                  />
-                                </span>
-                                <span className="min-w-0 flex-1 truncate">{label}</span>
-                                <span className="shrink-0 text-[10px] text-muted/60">
-                                  <EventTime iso={event.created_at} />
-                                </span>
-                                <span
-                                  className="shrink-0 text-[10px] text-muted/50 transition-transform group-open/act:rotate-90"
-                                  aria-hidden="true"
+                              return (
+                                <details
+                                  key={event.id}
+                                  className="group/act rounded-md border border-border/40 bg-transparent"
                                 >
-                                  ▸
-                                </span>
-                              </summary>
-                              <pre className="mx-2 mb-2 max-h-[220px] overflow-auto rounded border border-border/50 bg-bg/40 p-2 text-[10.5px] font-mono text-muted-strong">
-                                {event.text}
-                                {event.data ? `\n${JSON.stringify(event.data, null, 2)}` : ""}
-                              </pre>
-                            </details>
-                          );
-                        })}
+                                  <summary className="flex cursor-pointer list-none items-center gap-2 px-2 py-1 text-[10.5px] font-mono text-muted hover:text-muted-strong [&::-webkit-details-marker]:hidden">
+                                    <span className={isGate ? "text-success" : isExec ? "text-warning" : "text-muted"}>
+                                      <Icon
+                                        name={isGate ? "check" : isRead ? "eye" : isExec ? "terminal" : isFile ? "doc" : "spark"}
+                                        size={11}
+                                      />
+                                    </span>
+                                    <span className="min-w-0 flex-1 truncate">{label}</span>
+                                    <span className="shrink-0 text-[10px] text-muted/60">
+                                      <EventTime iso={event.created_at} />
+                                    </span>
+                                    <span
+                                      className="shrink-0 text-[10px] text-muted/50 transition-transform group-open/act:rotate-90"
+                                      aria-hidden="true"
+                                    >
+                                      ▸
+                                    </span>
+                                  </summary>
+                                  <pre className="mx-2 mb-2 max-h-[220px] overflow-auto rounded border border-border/50 bg-bg/40 p-2 text-[10.5px] font-mono text-muted-strong">
+                                    {event.text}
+                                    {event.data ? `\n${JSON.stringify(event.data, null, 2)}` : ""}
+                                  </pre>
+                                </details>
+                              );
+                            })}
+                          </div>
+                        </details>
                       </section>
                     )}
                   </div>

@@ -345,5 +345,73 @@ describe("ThreadPane", () => {
     expect(screen.getByTestId("thread-composer")).toHaveValue("Add regression test");
   });
 
-});
+  it("leaves Details closed when a run starts working", async () => {
+    const active = { ...run, status: "running", gate: undefined };
+    api.fetchThread.mockResolvedValue({ ...detail, runs: [active] });
 
+    render(<ThreadPane threadId={detail.id} />);
+    expect(await screen.findByText("Building")).toBeInTheDocument();
+
+    const details = document.querySelector("details.thread-details");
+    expect(details).toBeTruthy();
+    // Working used to force this open on every run; the reader's choice wins.
+    expect((details as HTMLDetailsElement).open).toBe(false);
+  });
+
+  it("keeps Steps and Technical activity collapsed until asked", async () => {
+    api.fetchThread.mockResolvedValue({
+      ...detail,
+      runs: [run],
+      events: [
+        ...detail.events,
+        {
+          id: "tool-1",
+          card_id: detail.id,
+          kind: "tool_call",
+          author: "agent",
+          text: "read dev.board",
+          created_at: run.started_at,
+          data: { name: "read" },
+        },
+        {
+          id: "log-1",
+          card_id: detail.id,
+          kind: "log",
+          author: "agent",
+          text: "diagnostic line",
+          created_at: run.started_at,
+        },
+      ],
+    });
+    const user = userEvent.setup();
+
+    render(<ThreadPane threadId={detail.id} boardName="dev" />);
+    await screen.findByText("Static demo hosting");
+
+    const outer = document.querySelector("details.thread-details") as HTMLDetailsElement;
+    await user.click(outer.querySelector("summary")!);
+
+    const steps = await waitFor(() => {
+      const node = document.querySelector('section[aria-label="Steps"] details') as HTMLDetailsElement;
+      expect(node).toBeTruthy();
+      return node;
+    });
+    const activity = document.querySelector(
+      'section[aria-label="Technical activity"] details'
+    ) as HTMLDetailsElement;
+
+    // Both are openable but stay shut by default, so Details is scannable.
+    expect(steps.open).toBe(false);
+    expect(activity.open).toBe(false);
+
+    await user.click(steps.querySelector("summary")!);
+    expect(steps.open).toBe(true);
+    await user.click(activity.querySelector("summary")!);
+    expect(activity.open).toBe(true);
+
+    // The chrome stays borderless text, not a boxed button.
+    const summary = outer.querySelector(":scope > summary")!;
+    expect(summary.className).not.toContain("border");
+  });
+
+});
