@@ -879,7 +879,6 @@ summary.sidebar-group { cursor: pointer; }
 }
 .quick-open-dialog { width: min(1080px, 100%); padding: 0; overflow: hidden; }
 .command-runner-dialog { width: min(920px, 100%); padding: 0; overflow: hidden; }
-.appearance-dialog { width: min(440px, 100%); padding: 0; height: min(800px, calc(100dvh - 40px)); overflow: hidden; }
 .global-settings-dialog { width: min(1080px, calc(100vw - 32px)); padding: 0; height: min(760px, calc(100dvh - 32px)); max-height: 860px; overflow: hidden; border-radius: 12px; }
 .global-usage-dialog { width: min(1120px, 100%); padding: 0; height: min(820px, calc(100dvh - 40px)); overflow: hidden; }
 .global-docs-dialog { width: min(1120px, 100%); padding: 0; height: min(820px, calc(100dvh - 40px)); overflow: hidden; }

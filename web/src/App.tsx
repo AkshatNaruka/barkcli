@@ -61,13 +61,12 @@ const OperationsView = lazy(() => import("./shell/OperationsView").then((m) => (
 import { BrainSurface } from "./shell/BrainSurface";
 import { AgentsSurface } from "./shell/AgentsSurface";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { CustomizePanel } from "./shell/CustomizePanel";
 import { GlobalSettingsModal } from "./components/GlobalSettingsModal";
 import type { SettingsSection } from "./components/SettingsView";
 import { GlobalUsageModal } from "./components/GlobalUsageModal";
 import { GlobalDocsModal } from "./components/GlobalDocsModal";
 import { useTheme } from "./lib/theme";
-import { SURFACES, isGlobalSurface } from "./lib/surfaces";
+import { SURFACES, isGlobalSurface, railSequence } from "./lib/surfaces";
 import { AppRail } from "./shell/AppRail";
 import { ProjectToolsSidebar } from "./shell/ProjectToolsSidebar";
 
@@ -284,7 +283,6 @@ export function App() {
   const [commandRunnerOpen, setCommandRunnerOpen] = useState(false);
   const [projectName, setProjectName] = useState<string | null>(null);
   const [reviewCount, setReviewCount] = useState<number>(0);
-  const [customizeOpen, setCustomizeOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>("projects");
   const [usageOpen, setUsageOpen] = useState(false);
@@ -296,10 +294,8 @@ export function App() {
     scratch?: boolean;
   } | null>(null);
   const { railOrder, hidden } = useTheme();
-  const visibleSurfaces = useMemo(
-    () => railOrder.filter((id) => !hidden.includes(id)),
-    [railOrder, hidden]
-  );
+  // The rail is the only navigation, so its order is also the digit shortcuts'.
+  const visibleSurfaces = useMemo(() => railSequence(railOrder, hidden), [railOrder, hidden]);
   const [form, setForm] = useState<{ card?: Card; columnId?: string; dueDate?: string } | null>(null);
   const [toast, setToast] = useState<{ message: string; action?: { label: string; onClick: () => void } } | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -845,7 +841,6 @@ export function App() {
             cardsCount={board?.cards?.length || 0}
             agentsCount={projectInfo?.counts.agents || 0}
             onOpenProject={() => void handleOpenProject()}
-            onOpenProjects={() => navigate("projects")}
             onNewThread={() => {
               setComposeSeed({ text: "", nonce: Date.now() });
               navigate("chat", { board: boardName || undefined });
@@ -1049,7 +1044,6 @@ export function App() {
         open={commandRunnerOpen}
         onClose={() => setCommandRunnerOpen(false)}
       />
-      <CustomizePanel open={customizeOpen} onClose={() => setCustomizeOpen(false)} />
       <GlobalSettingsModal
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}

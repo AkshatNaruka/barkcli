@@ -70,10 +70,11 @@ describe("AppRail footer buttons", () => {  it("renders the 4 global footer butt
       />
     );
 
-    const globalNav = screen.getByRole("navigation", { name: "Global surfaces" });
+    const globalNav = screen.getByRole("navigation", { name: "App destinations" });
     expect(within(globalNav).getByRole("button", { name: "Build" })).toBeInTheDocument();
     expect(within(globalNav).getByRole("button", { name: "Review" })).toBeInTheDocument();
-    expect(within(globalNav).getByRole("button", { name: "All projects" })).toBeInTheDocument();
+    // Projects is a destination like any other, so it is customizable too.
+    expect(within(globalNav).getByRole("button", { name: "Projects" })).toBeInTheDocument();
     // Project tools live in their own group, next to the project switcher.
     expect(within(globalNav).queryByRole("button", { name: "Board" })).not.toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Project surfaces" })).toBeInTheDocument();

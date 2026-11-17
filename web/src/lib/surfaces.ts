@@ -27,17 +27,37 @@ export interface SurfaceDef {
 export const SURFACES: SurfaceDef[] = [
   { id: "chat", label: "Build", icon: "comment", hint: "Describe, plan, and build", key: "1" },
   { id: "review", label: "Review", icon: "eye", hint: "Changes and verification", key: "2" },
-  { id: "hub", label: "Project tools", icon: "grid", hint: "All project tools", key: "3" },
-  { id: "board", label: "Board", icon: "board", hint: "Cards and gates", key: "4" },
-  { id: "agents", label: "Agents", icon: "users", hint: "Orchestra and subagents", key: "5" },
-  { id: "brain", label: "Brain", icon: "spark", hint: "Memory, context, graph", key: "6" },
-  { id: "skills", label: "Skills", icon: "star", hint: "Enabled capabilities", key: "7" },
-  { id: "operations", label: "Operations", icon: "code", hint: "Files, code, timeline", key: "8" },
-  { id: "history", label: "History", icon: "history", hint: "Runs, gates, diffs", key: "9" },
+  { id: "projects", label: "Projects", icon: "folder", hint: "Every project on this machine", key: "3" },
+  { id: "hub", label: "Project tools", icon: "grid", hint: "All project tools", key: "4" },
+  { id: "board", label: "Board", icon: "board", hint: "Cards and gates", key: "5" },
+  { id: "agents", label: "Agents", icon: "users", hint: "Orchestra and subagents", key: "6" },
+  { id: "brain", label: "Brain", icon: "spark", hint: "Memory, context, graph", key: "7" },
+  { id: "skills", label: "Skills", icon: "star", hint: "Enabled capabilities", key: "8" },
+  { id: "operations", label: "Operations", icon: "code", hint: "Files, code, timeline", key: "9" },
+  { id: "history", label: "History", icon: "history", hint: "Runs, gates, diffs", key: "" },
 ];
 
+/**
+ * App-wide destinations: they describe the whole machine, not one project, so
+ * they sit above the divider and never show the project tools sidebar.
+ */
+export const HOUSE_SURFACES: Surface[] = ["chat", "review", "projects"];
+
+export function isHouseSurface(value: Surface): boolean {
+  return HOUSE_SURFACES.includes(value);
+}
+
+/**
+ * The rail's destinations in the order the user arranged them, minus the ones
+ * they hid. Every navigational surface lives here — the rail is the only
+ * navigation the app has, so this order is also what ⌘1…9 follows.
+ */
+export function railSequence(order: Surface[], hidden: Surface[]): Surface[] {
+  return order.filter((id) => !hidden.includes(id));
+}
+
 export function isSurface(value: string): value is Surface {
-  return value === "projects" || SURFACES.some((s) => s.id === value);
+  return SURFACES.some((s) => s.id === value);
 }
 
 /**

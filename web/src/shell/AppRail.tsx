@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Icon } from "../components/Icon";
-import { SURFACES, type Surface } from "../lib/surfaces";
+import { SURFACES, isHouseSurface, railSequence, type Surface } from "../lib/surfaces";
 import { useTheme } from "../lib/theme";
 import {
   isDesktop,
@@ -90,14 +90,15 @@ export function AppRail({
     };
   }, [projectOpen]);
 
-  const items = railOrder
+  const items = railSequence(railOrder, hidden)
     .map((id) => SURFACES.find((s) => s.id === id))
-    .filter((s): s is (typeof SURFACES)[number] => Boolean(s) && !hidden.includes(s!.id));
+    .filter((s): s is (typeof SURFACES)[number] => Boolean(s));
 
-  // Navigation is split by scope: threads and review belong to the whole app,
-  // everything else is a project tool and shares the project switcher.
-  const globalItems = items.filter((s) => s.id === "chat" || s.id === "review");
-  const projectItems = items.filter((s) => s.id !== "chat" && s.id !== "review");
+  // The rail is one list the user arranges. While the app-wide destinations
+  // stay on top, a hairline separates them from the project's own tools.
+  const firstTool = items.findIndex((s) => !isHouseSurface(s.id));
+  const houseItems = firstTool === -1 ? items : items.slice(0, firstTool);
+  const toolItems = firstTool === -1 ? [] : items.slice(firstTool);
 
   const badge = (id: Surface) => {
     if (id === "chat") return counts?.chat ?? 0;
@@ -226,26 +227,21 @@ export function AppRail({
         )}
       </div>
 
-      <nav className="app-rail-nav is-global" aria-label="Global surfaces">
-        {globalItems.map((s) => renderItem(s, 0))}
-        <button
-          type="button"
-          onClick={onAllProjects}
-          title="All projects"
-          aria-current={surface === "projects" ? "page" : undefined}
-          aria-label="All projects"
-          className={`app-rail-item ${surface === "projects" ? "is-active" : ""}`}
-        >
-          <Icon name="folder" size={17} />
-          {labels && <span className="app-rail-item-label">Projects</span>}
-        </button>
-      </nav>
+      {houseItems.length > 0 && (
+        <nav className="app-rail-nav is-global" aria-label="App destinations">
+          {houseItems.map((s, index) => renderItem(s, index))}
+        </nav>
+      )}
 
-      <span className="app-rail-divider" aria-hidden="true" />
+      {houseItems.length > 0 && toolItems.length > 0 && (
+        <span className="app-rail-divider" aria-hidden="true" />
+      )}
 
-      <nav className="app-rail-nav" aria-label="Project surfaces">
-        {projectItems.map((s, index) => renderItem(s, index + 2))}
-      </nav>
+      {toolItems.length > 0 && (
+        <nav className="app-rail-nav" aria-label="Project surfaces">
+          {toolItems.map((s, index) => renderItem(s, houseItems.length + index))}
+        </nav>
+      )}
 
       <div className="app-rail-foot">
         <button

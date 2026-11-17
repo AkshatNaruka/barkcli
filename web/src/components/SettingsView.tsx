@@ -15,7 +15,7 @@ import {
   type BoardConfig,
 } from "../lib/api";
 import { isDesktop, openExternalUrl, openLogs, openProviderLogin, openTerminal } from "../lib/desktop";
-import { THEMES, ACCENT_IDS, accentLabel, accentColor, useTheme } from "../lib/theme";
+import { THEMES, ACCENT_IDS, accentLabel, accentColor, parseAppearance, shareUrl, useTheme } from "../lib/theme";
 import { SURFACES } from "../lib/surfaces";
 import { navigate } from "../lib/hashnav";
 import { Icon, type IconName } from "./Icon";
@@ -74,7 +74,7 @@ const SECTIONS: Array<{
 }> = [
   { id: "projects", label: "Projects", icon: "folder", hint: "Workspaces and repositories" },
   { id: "general", label: "General", icon: "sliders", hint: "Editor, notifications, and telemetry" },
-  { id: "appearance", label: "Appearance", icon: "palette", hint: "Theme, accents, and surfaces" },
+  { id: "appearance", label: "Appearance", icon: "palette", hint: "Theme, accent, and the left rail" },
   { id: "agents", label: "Agents", icon: "robot", hint: "CLI readiness and sign-in" },
   { id: "mcp", label: "MCP", icon: "layers", hint: "Protocols, tools, and client configs" },
   { id: "keys", label: "API Keys", icon: "key", hint: "LLM credentials and local models" },
@@ -107,6 +107,25 @@ const SECTION_GROUPS: Array<{
   },
 ];
 
+
+function copyText(text: string): Promise<void> {
+  if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
+  return new Promise((resolve, reject) => {
+    try {
+      const area = document.createElement("textarea");
+      area.value = text;
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand("copy");
+      area.remove();
+      resolve();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
 
 function Section({
   title,
@@ -178,6 +197,24 @@ export function SettingsView({
 
   // General Settings State
   const [general, setGeneral] = useState<GeneralSettings>(loadGeneralSettings);
+
+  // Appearance sharing
+  const [appearanceCopied, setAppearanceCopied] = useState<string | null>(null);
+  const [appearanceImportOpen, setAppearanceImportOpen] = useState(false);
+  const [appearanceImport, setAppearanceImport] = useState("");
+  const [appearanceImportError, setAppearanceImportError] = useState<string | null>(null);
+  const visibleRail = app.railOrder.filter((id) => !app.hidden.includes(id));
+  const appearanceNow = {
+    theme: app.theme,
+    accent: app.accent,
+    railStyle: app.railStyle,
+    railOrder: app.railOrder,
+    hidden: app.hidden,
+  };
+  const flashAppearance = (label: string) => {
+    setAppearanceCopied(label);
+    window.setTimeout(() => setAppearanceCopied(null), 1600);
+  };
 
   // MCP State
   const [mcpServers, setMcpServers] = useState<McpServerConfig[]>(loadMcpServers);
@@ -972,34 +1009,172 @@ export function SettingsView({
             </Section>
 
             <Section
-              title="Navigation Surfaces"
-              description="Toggle which surfaces appear directly on the main activity rail."
+              title="Left navigation"
+              description="Every destination lives on the left rail — there is no top navigation. Reorder them here (⌘1…9 follow this order) and hide the ones you never open."
             >
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
-                {SURFACES.map((s) => {
-                  const isVisible = !app.hidden.includes(s.id);
+              <div className="rounded-lg border border-border/70 divide-y divide-border/60 overflow-hidden">
+                {app.railOrder.map((id) => {
+                  const def = SURFACES.find((s) => s.id === id);
+                  if (!def) return null;
+                  const isHidden = app.hidden.includes(id);
+                  const pos = visibleRail.indexOf(id);
                   return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => app.toggleSurface(s.id)}
-                      className={`flex items-center justify-between p-2 rounded-lg border text-xs transition-all ${
-                        isVisible
-                          ? "border-border/80 bg-white/[0.03] text-text"
-                          : "border-border/40 text-muted/60 hover:text-muted"
+                    <div
+                      key={id}
+                      className={`flex items-center gap-2.5 px-3 py-2 transition-colors ${
+                        isHidden ? "opacity-55" : "hover:bg-white/[0.02]"
                       }`}
                     >
-                      <div className="flex items-center gap-2 truncate">
-                        <Icon name={s.icon} size={13} className={isVisible ? "text-accent" : "text-muted"} />
-                        <span className="truncate">{s.label}</span>
+                      <Icon
+                        name={def.icon}
+                        size={14}
+                        className={isHidden ? "text-muted" : "text-accent"}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className={`text-xs font-medium ${isHidden ? "text-muted" : "text-text"}`}>
+                          {def.label}
+                        </div>
+                        <div className="truncate text-[10.5px] text-muted">{def.hint}</div>
                       </div>
-                      <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${isVisible ? "bg-accent/20 text-text" : "text-muted/60"}`}>
-                        {isVisible ? "Shown" : "Hidden"}
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-[10px] font-mono ${
+                          isHidden ? "text-muted/60" : "bg-white/[0.06] text-muted-strong"
+                        }`}
+                      >
+                        {isHidden ? "Hidden" : pos + 1}
                       </span>
-                    </button>
+                      <div className="flex items-center gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() => app.moveSurface(id, -1)}
+                          disabled={isHidden || pos <= 0}
+                          className="flex h-6 w-6 items-center justify-center rounded text-muted transition-colors hover:bg-white/[0.06] hover:text-text disabled:opacity-20"
+                          title="Move up"
+                          aria-label={`Move ${def.label} up`}
+                        >
+                          <Icon name="arrowUp" size={11} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => app.moveSurface(id, 1)}
+                          disabled={isHidden || pos < 0 || pos >= visibleRail.length - 1}
+                          className="flex h-6 w-6 items-center justify-center rounded text-muted transition-colors hover:bg-white/[0.06] hover:text-text disabled:opacity-20"
+                          title="Move down"
+                          aria-label={`Move ${def.label} down`}
+                        >
+                          <Icon name="arrowDown" size={11} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => app.toggleSurface(id)}
+                          className="flex h-6 w-6 items-center justify-center rounded text-muted transition-colors hover:bg-white/[0.06] hover:text-text"
+                          title={isHidden ? "Show on the rail" : "Hide from the rail"}
+                          aria-label={`${isHidden ? "Show" : "Hide"} ${def.label}`}
+                          aria-pressed={!isHidden}
+                        >
+                          <Icon name={isHidden ? "eyeOff" : "eye"} size={13} />
+                        </button>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
+              <p className="mt-2 text-[10.5px] text-muted/70">
+                At least one destination always stays on the rail. Docs, Search, Usage and Settings
+                live in the rail footer and stay put.
+              </p>
+            </Section>
+
+            <Section
+              title="Share this look"
+              description="Theme, accent, rail style, and this navigation order travel together in one link."
+            >
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() =>
+                    void copyText(shareUrl(appearanceNow))
+                      .then(() => flashAppearance("Link copied"))
+                      .catch(() => flashAppearance("Copy failed"))
+                  }
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-text transition-colors hover:border-border-strong hover:bg-white/[0.03]"
+                >
+                  <Icon name="link" size={12} /> Copy link
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void copyText(JSON.stringify(appearanceNow, null, 2))
+                      .then(() => flashAppearance("JSON copied"))
+                      .catch(() => flashAppearance("Copy failed"))
+                  }
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-text transition-colors hover:border-border-strong hover:bg-white/[0.03]"
+                >
+                  <Icon name="copy" size={12} /> Copy JSON
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAppearanceImportOpen((open) => !open);
+                    setAppearanceImportError(null);
+                  }}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-text transition-colors hover:border-border-strong hover:bg-white/[0.03]"
+                >
+                  <Icon name="download" size={12} /> Import a preset
+                </button>
+                {appearanceCopied && (
+                  <span className="text-[11px] text-success">{appearanceCopied}</span>
+                )}
+              </div>
+
+              {appearanceImportOpen && (
+                <div className="mt-2.5">
+                  <textarea
+                    value={appearanceImport}
+                    onChange={(event) => {
+                      setAppearanceImport(event.target.value);
+                      setAppearanceImportError(null);
+                    }}
+                    rows={3}
+                    spellCheck={false}
+                    placeholder="Paste a Bark preset link or JSON"
+                    aria-label="Appearance preset"
+                    className="w-full resize-y rounded-lg border border-border bg-bg px-3 py-2 font-mono text-[11px] text-text placeholder:text-muted/60 focus:border-accent focus:outline-none"
+                  />
+                  {appearanceImportError && (
+                    <p className="mt-1.5 text-[11px] text-danger">{appearanceImportError}</p>
+                  )}
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const parsed = parseAppearance(appearanceImport);
+                        if (!parsed) {
+                          setAppearanceImportError("That doesn't look like a Bark preset.");
+                          return;
+                        }
+                        app.setAppearance(parsed);
+                        setAppearanceImport("");
+                        setAppearanceImportOpen(false);
+                        flashAppearance("Preset applied");
+                      }}
+                      className="bark-button cursor-pointer"
+                    >
+                      Apply preset
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAppearanceImportOpen(false);
+                        setAppearanceImportError(null);
+                      }}
+                      className="text-[11px] text-muted transition-colors hover:text-text"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </Section>
 
             <Section

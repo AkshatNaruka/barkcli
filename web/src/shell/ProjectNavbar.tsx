@@ -10,7 +10,7 @@ import {
   projectDisplayName,
 } from "../lib/desktop";
 import { ProjectPickerModal } from "../components/ProjectPickerModal";
-import { openInEditor, fetchReviewQueue, fetchGitStatus, runProjectCommand } from "../lib/api";
+import { openInEditor, fetchGitStatus, runProjectCommand } from "../lib/api";
 import { readLocal, writeLocal } from "../lib/drafts";
 import type { ProjectSnapshot, GitStatus } from "../lib/types";
 import { openInbuiltBrowser } from "../lib/inbuiltBrowser";
@@ -26,7 +26,6 @@ export interface ProjectNavbarProps {
   /** Project tools are project-scoped; threads and review are not. */
   scope?: "global" | "project";
   onOpenProject?: () => void;
-  onOpenProjects?: () => void;
   onNewThread?: () => void;
 }
 
@@ -132,13 +131,11 @@ export function ProjectNavbar({
   agentsCount = 0,
   scope,
   onOpenProject,
-  onOpenProjects,
   onNewThread,
 }: ProjectNavbarProps) {
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
   const [editorMenuOpen, setEditorMenuOpen] = useState(false);
   const [selectedEditor, setSelectedEditor] = useState<string>(() => readLocal("bark:preferred-editor") || "vscode");
-  const [reviewCount, setReviewCount] = useState<number>(0);
 
   // Git state & dropdown
   const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
@@ -171,17 +168,6 @@ export function ProjectNavbar({
       cancelled = true;
     };
   }, [projectRoot, project]);
-
-  // Load review queue count
-  useEffect(() => {
-    let cancelled = false;
-    void fetchReviewQueue(undefined, false, false, true).then(({ items }) => {
-      if (!cancelled) setReviewCount(items.length);
-    }).catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [boardName, projectRoot]);
 
   // Click outside listener for dropdowns
   useEffect(() => {
@@ -411,19 +397,6 @@ export function ProjectNavbar({
             >
               <Icon name="code" size={12} />
               <span>Changes</span>
-            </button>
-          )}
-          {globalScope && (
-            <button
-              type="button"
-              onClick={() => {
-                if (onOpenProjects) onOpenProjects();
-                else navigate("projects");
-              }}
-              className="hidden sm:flex items-center gap-1.5 rounded-md border border-border/60 bg-surface px-2.5 py-1 text-[11px] font-medium text-muted-strong transition-colors hover:border-border hover:bg-white/[0.04] hover:text-text cursor-pointer"
-            >
-              <Icon name="grid" size={12} />
-              <span>Projects</span>
             </button>
           )}
           {!globalScope && (
@@ -736,53 +709,6 @@ export function ProjectNavbar({
           </button>
         </div>
       </header>
-
-      {/* Global destinations only: project tools live in the project sidebar. */}
-      {globalScope && (
-        <nav
-          aria-label="Global navigation"
-          className="px-5 flex items-center gap-1 shrink-0 overflow-x-auto text-xs font-medium select-none bg-surface/30"
-        >
-          <a
-            href="#/chat"
-            className={`py-2 px-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 no-underline ${
-              currentRoute === "chat"
-                ? "border-accent text-text font-semibold"
-                : "border-transparent text-muted hover:text-text"
-            }`}
-          >
-            <Icon name="comment" size={13} />
-            <span>Threads</span>
-          </a>
-          <a
-            href="#/review"
-            className={`py-2 px-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 no-underline ${
-              currentRoute === "review"
-                ? "border-accent text-text font-semibold"
-                : "border-transparent text-muted hover:text-text"
-            }`}
-          >
-            <Icon name="eye" size={13} />
-            <span>Review</span>
-            {reviewCount > 0 && (
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-accent/20 text-accent font-mono font-medium">
-                {reviewCount}
-              </span>
-            )}
-          </a>
-          <a
-            href="#/projects"
-            className={`py-2 px-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 no-underline ${
-              currentRoute === "projects"
-                ? "border-accent text-text font-semibold"
-                : "border-transparent text-muted hover:text-text"
-            }`}
-          >
-            <Icon name="grid" size={13} />
-            <span>Projects</span>
-          </a>
-        </nav>
-      )}
 
       {/* One project picker for every tool: the scope always lives in the header. */}
       <ProjectPickerModal

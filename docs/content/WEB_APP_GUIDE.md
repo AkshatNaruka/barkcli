@@ -25,22 +25,32 @@ If no `.board/` directory exists, barkcli automatically:
 
 ## Navigation
 
-The app has 12 navigation tabs:
+Bark has exactly one navigation surface: the rail on the left edge. There is no
+top tab bar — the header above a surface only names it.
 
-| Tab | What It Does |
-|-----|-------------|
-| **Dashboard** | Overview with card stats, sprint progress, recent activity, due-soon cards |
-| **Board** | Board with drag-and-drop (switch between board/table/list views) |
-| **Calendar** | Cards organized by due date |
-| **Reports** | Effort by column/area, priority breakdown, sprint burndown charts |
-| **Code** | Search code symbols, see which cards are linked to which files |
-| **Activity** | Combined timeline of history entries and agent sessions |
-| **Sprints** | Start/end sprints, see sprint progress |
-| **Memory** | Cross-session knowledge base, project facts |
-| **Specs** | Specifications with requirements, status tracking, coverage |
-| **Orchestrate** | Agent registry, task queue, run orchestration cycles |
-| **Timeline** | Checkpoints, undo, diff, blame, validate/doctor, import/export |
-| **Settings** | Board config, columns, theme |
+The rail ships with a few destinations and keeps the rest one click away:
+
+| Destination | What It Does |
+|-------------|-------------|
+| **Build** | Threads — describe, plan, and build with an agent |
+| **Review** | Changes and verification across every project |
+| **Projects** | Every project on this machine |
+| **Project tools** | Landing page for the current project's surfaces |
+| **Board / Agents / Brain / Skills / Operations / History** | Project-scoped tools, hidden by default |
+
+The rail footer holds **Docs**, **Search** (⌘K), **Usage**, and **Settings**.
+
+Everything on the rail is yours to arrange:
+
+1. Open **Settings → Appearance → Left navigation** (or ⌘,).
+2. Use the arrows on a row to move that destination up or down.
+3. Use the eye toggle to hide a destination you never open; hidden ones stay
+   listed so you can bring them back. At least one destination always remains.
+
+The same order drives the number shortcuts: `1`…`9` open the first nine
+destinations on the rail, in the order shown. **Rail Style** switches between
+icons only and icons with labels, and **Share this look** copies a link or JSON
+preset carrying the theme, accent, rail style, and navigation order.
 
 ## Board Management
 

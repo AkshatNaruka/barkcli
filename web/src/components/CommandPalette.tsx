@@ -147,7 +147,9 @@ export function CommandPalette({
         run: close(() => openProjectTool(tool)),
       }));
 
-    const goRows: Row[] = SURFACES.map((surface) => ({
+    // "All projects" above already covers the Projects destination with better
+    // keywords, so it is not listed twice.
+    const goRows: Row[] = SURFACES.filter((surface) => surface.id !== "projects").map((surface) => ({
       key: `go:${surface.id}`,
       section: "Go to",
       label: surface.label,

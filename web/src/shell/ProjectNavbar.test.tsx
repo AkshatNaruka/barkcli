@@ -29,22 +29,26 @@ const base = {
   boardName: "dev",
   currentRoute: "chat" as const,
   onOpenProject: vi.fn(),
-  onOpenProjects: vi.fn(),
   onNewThread: vi.fn(),
 };
 
 describe("ProjectNavbar scope", () => {
-  it("keeps global surfaces project-free: no project switcher, only global destinations", () => {
+  it("keeps global surfaces project-free and leaves navigation to the left rail", () => {
     render(<ProjectNavbar {...base} scope="global" />);
 
     // The project switcher used to live in the top bar; it must be gone here.
     expect(screen.queryByTitle("Switch project (⌘1…)")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /barkcli/ })).not.toBeInTheDocument();
 
-    expect(screen.getByRole("navigation", { name: "Global navigation" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Threads/ })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Review/ })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Projects/ })).toBeInTheDocument();
+    // Navigation is the rail's job: no tab strip, no duplicate Projects button.
+    expect(screen.queryByRole("navigation", { name: "Global navigation" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Threads/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Review/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Projects" })).not.toBeInTheDocument();
+
+    // The header still names the scope it speaks for.
+    expect(screen.getByText("Threads")).toBeInTheDocument();
+    expect(screen.getByText("Every project's threads")).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Project tools" })).not.toBeInTheDocument();
     // Project-scoped git and editor controls are not part of a global surface.
     expect(screen.queryByTitle(/Git branch:/)).not.toBeInTheDocument();

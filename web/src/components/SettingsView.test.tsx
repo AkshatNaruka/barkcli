@@ -25,9 +25,34 @@ vi.mock("../lib/desktop", () => ({
   openTerminal: vi.fn(async () => true),
 }));
 
-vi.mock("../lib/theme", () => ({
-  useTheme: () => ({ theme: "black", setTheme: vi.fn() }),
+const themeMock = vi.hoisted(() => ({
+  railOrder: ["chat", "review", "projects", "hub", "board"],
+  hidden: ["board"],
+  moveSurface: vi.fn(),
+  toggleSurface: vi.fn(),
+  setAppearance: vi.fn(),
+  setRailStyle: vi.fn(),
+  setAccent: vi.fn(),
+  setTheme: vi.fn(),
+  reset: vi.fn(),
 }));
+
+vi.mock("../lib/theme", () => {
+  return {
+    THEMES: [{ id: "black", label: "Black", hint: "Pure black" }],
+    ACCENT_IDS: ["mono"],
+    accentLabel: () => "Mono",
+    accentColor: () => "#ffffff",
+    parseAppearance: () => null,
+    shareUrl: () => "http://localhost:4321/?preset=abc#/chat",
+    useTheme: () => ({
+      ...themeMock,
+      theme: "black",
+      accent: "mono",
+      railStyle: "icons",
+    }),
+  };
+});
 
 vi.mock("../lib/hashnav", () => ({
   navigate: vi.fn(),
@@ -209,5 +234,23 @@ describe("SettingsView", () => {
     const sent = calls[calls.length - 1][0];
     expect(sent.general.defaultEditor).toBe("sublime");
   });
-});
+  it("lets users arrange and hide left-rail destinations from Appearance", async () => {
+    const user = userEvent.setup();
+    render(<SettingsView initialSection="appearance" />);
 
+    expect(screen.getByText("Left navigation")).toBeInTheDocument();
+
+    // Projects is a destination like any other, so it is customizable too.
+    const hideProjects = screen.getByRole("button", { name: "Hide Projects" });
+    expect(hideProjects).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Move Review down" }));
+    expect(themeMock.moveSurface).toHaveBeenCalledWith("review", 1);
+
+    await user.click(hideProjects);
+    expect(themeMock.toggleSurface).toHaveBeenCalledWith("projects");
+
+    // A hidden destination stays listed so it can be brought back.
+    expect(screen.getByRole("button", { name: "Show Board" })).toBeInTheDocument();
+  });
+});
