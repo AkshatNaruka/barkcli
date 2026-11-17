@@ -25,6 +25,7 @@ import {
   retryOrchestraTask,
 } from "../lib/api";
 import { QuietSelect } from "./QuietSelect";
+import { OrchestraWorkflowGraph } from "./OrchestraWorkflowGraph";
 
 const PLAN_STATUS_LABEL: Record<PlanStatus, string> = {
   draft: "Draft",
@@ -417,6 +418,7 @@ function PlanCard({
   onQuestionDraft: (questionId: string, value: string) => void;
 }) {
   const [expanded, setExpanded] = useState(plan.status === "awaiting_approval");
+  const [view, setView] = useState<"graph" | "list">("graph");
   const done = plan.tasks.filter((task) => task.status === "merged").length;
   const gatePassed = plan.tasks.filter((task) => task.gate_passed).length;
   const running = plan.tasks.filter((task) => task.status === "running").length;
@@ -524,20 +526,44 @@ function PlanCard({
 
       {expanded && (
         <div className="border-t border-border/70 px-3.5 py-3">
-          {plan.acceptance_criteria.length > 0 && (
-            <div className="mb-3 rounded border border-border bg-surface/50 px-2.5 py-2">
-              <div className="text-[9.5px] uppercase tracking-[0.12em] text-muted">
-                Plan acceptance
-              </div>
-              <ul className="mt-1 space-y-0.5">
-                {plan.acceptance_criteria.map((criterion) => (
-                  <li key={criterion} className="text-[10.5px] text-muted-strong">
-                    · {criterion}
-                  </li>
-                ))}
-              </ul>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1.5 text-[9.5px] uppercase tracking-[0.12em] text-muted">
+              <Icon name={view === "graph" ? "subtasks" : "list"} size={11} />
+              {view === "graph" ? "Workflow" : "Steps"}
+            </span>
+            <div
+              className="inline-flex items-center gap-0.5 rounded-md border border-border bg-surface p-0.5"
+              role="group"
+              aria-label="Plan view"
+            >
+              <button
+                type="button"
+                onClick={() => setView("graph")}
+                aria-pressed={view === "graph"}
+                className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors ${
+                  view === "graph"
+                    ? "bg-white/[0.07] text-text"
+                    : "text-muted hover:text-text"
+                }`}
+              >
+                <Icon name="subtasks" size={11} />
+                Workflow
+              </button>
+              <button
+                type="button"
+                onClick={() => setView("list")}
+                aria-pressed={view === "list"}
+                className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors ${
+                  view === "list"
+                    ? "bg-white/[0.07] text-text"
+                    : "text-muted hover:text-text"
+                }`}
+              >
+                <Icon name="list" size={11} />
+                List
+              </button>
             </div>
-          )}
+          </div>
 
           {openQuestions.length > 0 && (
             <div className="mb-3 space-y-2">
@@ -573,6 +599,21 @@ function PlanCard({
             </div>
           )}
 
+          {view === "graph" ? (
+            <OrchestraWorkflowGraph
+              plan={plan}
+              profiles={profiles}
+              profileById={profileById}
+              busy={busy}
+              whyTask={whyTask}
+              recommendations={recommendations}
+              onRetry={onRetry}
+              onMerge={onMerge}
+              onReject={onReject}
+              onAssign={onAssign}
+              onWhy={onWhy}
+            />
+          ) : (
           <div className="space-y-1.5">
             {plan.tasks.map((task) => {
               const key = `${plan.id}:${task.id}`;
@@ -714,6 +755,22 @@ function PlanCard({
               );
             })}
           </div>
+          )}
+
+          {plan.acceptance_criteria.length > 0 && (
+            <div className="mt-3 rounded border border-border bg-surface/50 px-2.5 py-2">
+              <div className="text-[9.5px] uppercase tracking-[0.12em] text-muted">
+                Plan acceptance
+              </div>
+              <ul className="mt-1 space-y-0.5">
+                {plan.acceptance_criteria.map((criterion) => (
+                  <li key={criterion} className="text-[10.5px] text-muted-strong">
+                    · {criterion}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {plan.risks.length > 0 && (
             <div className="mt-2.5 text-[9.5px] text-muted">

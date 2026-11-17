@@ -1,6 +1,43 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { Icon } from "./Icon";
-import { apiAccess, ping, type PingResponse } from "../lib/api";
+import { apiAccess, fetchProject, ping, type PingResponse } from "../lib/api";
+import type { ProjectSnapshot } from "../lib/types";
+import {
+  generateClientMcpSnippet,
+  type McpClientType,
+  type McpServerConfig,
+} from "../lib/mcp";
+
+const MCP_CLIENTS: { id: McpClientType; label: string; file: string }[] = [
+  { id: "claude", label: "Claude", file: ".mcp.json" },
+  { id: "cursor", label: "Cursor", file: ".cursor/mcp.json" },
+  { id: "opencode", label: "OpenCode", file: ".opencode/config.json" },
+  { id: "windsurf", label: "Windsurf", file: "mcp_config.json" },
+];
+
+const PROJECT_ENDPOINTS: { label: string; method: string; path: (board: string) => string }[] = [
+  { label: "Project", method: "GET", path: () => "/api/project" },
+  { label: "Boards", method: "GET", path: () => "/api/boards" },
+  { label: "Board", method: "GET", path: (board) => `/api/board?name=${encodeURIComponent(board)}` },
+  { label: "Threads", method: "GET", path: () => "/api/threads" },
+  { label: "Runs", method: "GET", path: () => "/api/threads/{id}/runs" },
+  { label: "Orchestra", method: "GET", path: () => "/api/orchestra?auto_dispatch=false" },
+  { label: "Rules", method: "GET", path: () => "/api/rules" },
+  { label: "Health", method: "GET", path: () => "/api/ping" },
+  { label: "Events", method: "WS", path: () => "/ws" },
+];
+
+/** Only the project's own MCP server belongs in a project-scoped config. */
+const PROJECT_MCP_SERVERS: McpServerConfig[] = [
+  {
+    id: "barkcli",
+    name: "Bark Management Layer",
+    transport: "stdio",
+    command: "barkcli",
+    args: ["mcp"],
+    enabled: true,
+  },
+];
 
 const AGENT_PROMPT = `# AI Agent Prompt for barkcli
 
@@ -411,9 +448,40 @@ export function AgentPromptView({
   const [searchQuery, setSearchQuery] = useState("");
   const [pingState, setPingState] = useState<PingResponse | null>(null);
   const [pingError, setPingError] = useState(false);
+  const [project, setProject] = useState<ProjectSnapshot | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [mcpClient, setMcpClient] = useState<McpClientType>("claude");
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const access = apiAccess();
   const effectiveBase = access.base || (access as any).url || "http://127.0.0.1:55701";
+  // The shell usually knows the board, but a cold load (no ?board= in the
+  // hash) does not — ask the project snapshot rather than inventing "default".
+  const effectiveProjectName = projectName || project?.name || null;
+  const effectiveRoot = projectRoot || project?.root || null;
+  const activeBoard = boardName || project?.active_board || "default";
+
+  const mcpSnippet = useMemo(
+    () =>
+      generateClientMcpSnippet(mcpClient, PROJECT_MCP_SERVERS, {
+        projectRoot: effectiveRoot,
+      }),
+    [mcpClient, effectiveRoot]
+  );
+  const mcpClientMeta = MCP_CLIENTS.find((client) => client.id === mcpClient) || MCP_CLIENTS[0];
+  const endpoints = useMemo(
+    () => PROJECT_ENDPOINTS.map((entry) => ({ ...entry, url: `${effectiveBase}${entry.path(activeBoard)}` })),
+    [effectiveBase, activeBoard]
+  );
+
+  const copyText = useCallback(async (key: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey((current) => (current === key ? null : current)), 2000);
+    } catch {
+      /* clipboard can be blocked; the text stays selectable */
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -435,12 +503,28 @@ export function AgentPromptView({
     };
   }, [projectName, boardName]);
 
-  const livePrompt = `> Project: ${projectName || "Current Project"}${projectRoot ? ` (${projectRoot})` : ""}
-> Active Board: ${boardName || "default"}
+  useEffect(() => {
+    if (projectRoot && boardName) return;
+    let cancelled = false;
+    fetchProject()
+      .then((next) => {
+        if (!cancelled && next) setProject(next);
+      })
+      .catch(() => {
+        /* offline: the props and the fallback board still render */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectRoot, boardName]);
+
+  const livePrompt = `> Project: ${effectiveProjectName || "Current Project"}${effectiveRoot ? ` (${effectiveRoot})` : ""}
+> Active Board: ${activeBoard}
 > Live Base URL: ${effectiveBase}
 > Health: ${effectiveBase}/api/ping
 > Auth: ${access.tokenSet ? "this server requires the token from the Bark window URL" : "no token required"}
-> MCP: barkcli mcp
+> MCP (project-pinned): BARKCLI_PROJECT=${effectiveRoot || "<project root>"} barkcli mcp
+> Endpoints: GET ${effectiveBase}/api/project · GET ${effectiveBase}/api/board?name=${activeBoard} · GET ${effectiveBase}/api/threads · WS ${effectiveBase.replace(/^http/, "ws")}/ws
 
 ${AGENT_PROMPT}`;
 
@@ -481,9 +565,9 @@ ${AGENT_PROMPT}`;
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-semibold text-text">Agent API</h2>
-              {projectName && (
+              {effectiveProjectName && (
                 <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface border border-border text-muted">
-                  {projectName}
+                  {effectiveProjectName}
                 </span>
               )}
             </div>
@@ -539,9 +623,9 @@ ${AGENT_PROMPT}`;
           </div>
           <div className="rounded-md border border-border/70 bg-bg/50 px-2.5 py-2">
             <div className="text-[9px] uppercase tracking-[0.12em] text-muted">Project & Board</div>
-            <div className="mt-0.5 truncate font-mono text-[10.5px] text-text" title={`${projectName || "barkcli"}${boardName ? ` · ${boardName}` : ""}`}>
-              <span className="font-semibold">{projectName || "barkcli"}</span>
-              {boardName ? <span className="text-muted"> · {boardName}</span> : ""}
+            <div className="mt-0.5 truncate font-mono text-[10.5px] text-text" title={`${effectiveProjectName || "barkcli"} · ${activeBoard}`}>
+              <span className="font-semibold">{effectiveProjectName || "barkcli"}</span>
+              <span className="text-muted"> · {activeBoard}</span>
             </div>
           </div>
           <div className="rounded-md border border-border/70 bg-bg/50 px-2.5 py-2">
@@ -569,6 +653,122 @@ ${AGENT_PROMPT}`;
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
         <div className="max-w-4xl mx-auto">
+          {/* Project-scoped MCP config + endpoints, so agents get this project, not a generic one */}
+          <div className="mb-5 grid items-start gap-3 lg:grid-cols-[1.05fr_0.95fr]">
+            <section className="rounded-lg border border-border bg-surface/40">
+              <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
+                <div className="flex items-center gap-1.5 text-[11px] font-medium text-text">
+                  <Icon name="terminal" size={12} className="text-accent-text" />
+                  MCP config
+                </div>
+                <div
+                  className="inline-flex items-center gap-0.5 rounded border border-border bg-bg/60 p-0.5"
+                  role="group"
+                  aria-label="MCP client"
+                >
+                  {MCP_CLIENTS.map((client) => (
+                    <button
+                      key={client.id}
+                      type="button"
+                      onClick={() => setMcpClient(client.id)}
+                      aria-pressed={mcpClient === client.id}
+                      className={`rounded px-1.5 py-0.5 text-[9.5px] transition-colors ${
+                        mcpClient === client.id
+                          ? "bg-white/[0.07] text-text"
+                          : "text-muted hover:text-text"
+                      }`}
+                    >
+                      {client.label}
+                    </button>
+                  ))}
+                </div>
+              </header>
+              <p className="px-3 pt-2 text-[9.5px] leading-relaxed text-muted">
+                Pinned with{" "}
+                <code className="font-mono text-text/80">BARKCLI_PROJECT</code> so the server always
+                reads{" "}
+                <span className="font-mono text-text/80">{effectiveRoot || "this project"}</span>
+                &apos;s <code className="font-mono text-text/80">.board/</code>, even when the agent
+                starts in another directory.
+              </p>
+              <pre className="m-3 max-h-[220px] overflow-auto rounded border border-border bg-bg/60 p-2 font-mono text-[9.5px] leading-relaxed text-muted-strong">
+                {mcpSnippet}
+              </pre>
+              <footer className="flex items-center justify-between gap-2 border-t border-border px-3 py-1.5">
+                <span className="truncate font-mono text-[9px] text-muted" title={mcpClientMeta.file}>
+                  {mcpClientMeta.file}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void copyText("mcp", mcpSnippet)}
+                  className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-[9.5px] text-muted hover:text-text"
+                >
+                  <Icon name={copiedKey === "mcp" ? "check" : "copy"} size={10} />
+                  {copiedKey === "mcp" ? "Copied" : "Copy config"}
+                </button>
+              </footer>
+            </section>
+
+            <section className="rounded-lg border border-border bg-surface/40">
+              <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
+                <div className="flex items-center gap-1.5 text-[11px] font-medium text-text">
+                  <Icon name="globe" size={12} className="text-accent-text" />
+                  This project&apos;s endpoints
+                </div>
+                <span className="truncate font-mono text-[9px] text-muted">
+                  {effectiveProjectName || "project"} · {activeBoard}
+                </span>
+              </header>
+              <ul className="divide-y divide-border/60">
+                {endpoints.map((entry) => (
+                  <li key={entry.label}>
+                    <button
+                      type="button"
+                      onClick={() => void copyText(entry.label, entry.url)}
+                      className="group flex w-full items-center gap-2 px-3 py-1 text-left hover:bg-white/[0.03]"
+                      title={`Copy ${entry.url}`}
+                    >
+                      <span
+                        className={`w-8 shrink-0 font-mono text-[9px] uppercase ${
+                          entry.method === "WS" ? "text-accent-text" : "text-muted"
+                        }`}
+                      >
+                        {entry.method}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[10.5px] text-text">{entry.label}</span>
+                        <span className="block truncate font-mono text-[9px] text-muted">
+                          {entry.url}
+                        </span>
+                      </span>
+                      {copiedKey === entry.label ? (
+                        <Icon name="check" size={10} className="text-success" />
+                      ) : (
+                        <Icon
+                          name="copy"
+                          size={10}
+                          className="text-muted opacity-0 group-hover:opacity-100"
+                        />
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <p className="border-t border-border px-3 py-1.5 text-[9px] text-muted">
+                {access.tokenSet
+                  ? "Send Authorization: Bearer <token> or append ?token=…"
+                  : "Open local server — no auth header needed."}
+              </p>
+            </section>
+          </div>
+
+          <div className="mb-3 flex items-center gap-2">
+            <span className="text-[9.5px] uppercase tracking-[0.12em] text-muted">
+              Agent contract
+            </span>
+            <span className="h-px flex-1 bg-border" />
+          </div>
+
           {/* Sections */}
           <div className="space-y-4">
             {filteredContent.split("\n\n").map((block, i) => {

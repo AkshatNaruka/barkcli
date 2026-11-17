@@ -151,30 +151,99 @@ Requirements can link to:
 
 ## Orchestration
 
-The Orchestrate tab manages AI agents and task queues:
+**Agents → Orchestration** turns a plan into a pipeline. Two modes sit at the top:
 
-### Agent Registry
+- **Team work** — plans, their workflow, and merge approvals.
+- **Live attempts** — the raw task queue currently being claimed and run.
 
-Register agents that can work on tasks:
-1. Click **+ Register**
-2. Enter Agent ID, Name, select Role
-3. Roles: Scrum Master, Product Owner, Tech Lead, Project Manager
+The strip on the right always shows capacity (`active/maximum` slots, agent
+count) and any gate-passed runs waiting on you.
 
-### Task Queue
+### The Workflow Graph
 
-View and manage tasks:
-- **Pending** — Not yet assigned
-- **Assigned** — Agent claimed it
-- **In Progress** — Agent working on it
-- **Completed** — Done
-- **Failed** — Failed
+Every plan renders as a left-to-right graph, not a wall of text:
 
-### Running Cycles
+```
+intent ──▶ root step ──▶ dependent step ──▶ merge train
+```
 
-Click **Run Cycle** to run an orchestration cycle that:
-1. Reviews pending tasks
-2. Assigns tasks to available agents
-3. Dispatches work
+- **Intent** — the plan's title and source (card or thread), plus the step count.
+- **Task nodes** — role, status, assigned agent, and a gate indicator.
+- **Merge train** — how many steps landed, how many are in review or blocked.
+- **Edges** — solid lines are dependencies; dashed lines are the intent and
+  merge legs. Waiting edges fade, running edges animate, and edges from merged
+  steps turn green.
+
+Zoom, pan, and the fit-view control live on the canvas; a minimap appears once a
+plan grows past eight nodes. Selecting a task opens a details panel on the right
+with its acceptance criteria, agent assignment (including ranked recommendations
+or **Auto assign**), **Why**, retry, merge, and reject actions. Screen readers
+get the same information as an ordered text summary.
+
+Use **List** to switch to the dense step list when you want to scan many rows at
+once; **Workflow** returns to the graph.
+
+### Planning a Card
+
+1. Pick a card under **Plan a card** and press **Propose plan**.
+2. The Product Owner proposes tasks, roles, dependencies, acceptance criteria,
+   risks, and a first slice. Nothing runs yet.
+3. Review the graph, answer any open questions, then **Approve plan** to
+   dispatch. Each task becomes a child card in its own worktree.
+
+### Merge Train
+
+Gate-passed runs wait for a human. Approve to merge, or reject to send the task
+back. A plan only completes once every step has merged.
+
+## Rules
+
+**Agents → Rules** shows the rules in `AGENTS.md` as a grid of cards — one card
+per rule, with its title and a clamped preview. This keeps dozens of long rules
+from turning the page into an endless scroll.
+
+- Click a card to read the full text in a dialog; copy or remove the rule there.
+- **Copy** on a card copies the rule body without opening it.
+- **New rule** opens the composer only when you need it. Presets and a
+  preview/edit toggle are inside.
+- The filter box searches titles and bodies.
+
+Rules are injected into every agent context pack, so an edit here changes what
+agents are told on their next run. Larger edits can still be made directly in
+`AGENTS.md`.
+
+## Agent API
+
+**Agents → Agent API** is the contract an external agent needs — scoped to the
+project that is currently open, not a generic example.
+
+**MCP config** — pick your client (Claude, Cursor, OpenCode, Windsurf) and copy
+the generated JSON. Every snippet pins the project:
+
+```json
+{
+  "mcpServers": {
+    "barkcli": {
+      "command": "barkcli",
+      "args": ["mcp"],
+      "env": { "BARKCLI_PROJECT": "/absolute/path/to/your/project" }
+    }
+  }
+}
+```
+
+`BARKCLI_PROJECT` is read before the working directory, so the MCP server always
+serves this project's `.board/` even when the agent is launched elsewhere.
+
+**This project's endpoints** lists absolute URLs you can copy one by one:
+`/api/project`, `/api/boards`, `/api/board?name=<board>`, `/api/threads`,
+`/api/threads/{id}/runs`, `/api/orchestra`, `/api/rules`, `/api/ping`, and the
+`/ws` event stream. The note under the list says whether the server needs an
+auth header.
+
+Below both panels is the full agent contract — project context, the card
+workflow, the completion rule (tests are the gate, not self-report), and the
+copyable prompt.
 
 ## Timeline & Tools
 

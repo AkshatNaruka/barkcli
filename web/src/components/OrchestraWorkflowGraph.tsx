@@ -4,6 +4,7 @@ import {
   BackgroundVariant,
   Controls,
   MiniMap,
+  MarkerType,
   ReactFlow,
   type Node,
   type Edge,
@@ -12,10 +13,28 @@ import { Icon } from "./Icon";
 import { QuietSelect } from "./QuietSelect";
 import type { AgentProfile, AssignmentRecommendation, PlanTask, ProductPlan } from "../lib/types";
 import { OrchestraTaskNode, type OrchestraTaskNodeData } from "./orchestra/OrchestraTaskNode";
-import { buildWorkflowGraph } from "./orchestra/workflowLayout";
+import { OrchestraTerminalNode } from "./orchestra/OrchestraTerminalNode";
+import {
+  WORKFLOW_END_ID,
+  WORKFLOW_START_ID,
+  buildWorkflowGraph,
+  type WorkflowTerminalLabel,
+} from "./orchestra/workflowLayout";
 import { TASK_STATUS_LABEL, taskDot, taskFill, taskTone } from "./orchestra/taskStatus";
 
-const NODE_TYPES = { orchestraTask: OrchestraTaskNode };
+const NODE_TYPES = { orchestraTask: OrchestraTaskNode, orchestraTerminal: OrchestraTerminalNode };
+const SUCCESS_STROKE = "color-mix(in srgb, var(--success) 55%, var(--border-strong))";
+
+const LEGEND_ORDER: PlanTask["status"][] = [
+  "waiting",
+  "ready",
+  "running",
+  "review",
+  "merged",
+  "failed",
+  "blocked",
+  "cancelled",
+];
 
 export function OrchestraWorkflowGraph({
   plan,
@@ -50,9 +69,32 @@ export function OrchestraWorkflowGraph({
     if (!tasks.some((t) => t.id === selectedId)) setSelectedId(null);
   }, [tasks, selectedId]);
 
-  const base = useMemo(() => buildWorkflowGraph(tasks), [tasks]);
+  const merged = tasks.filter((t) => t.status === "merged").length;
+  const review = tasks.filter((t) => t.status === "review").length;
+  const fallen = tasks.filter((t) => t.status === "failed" || t.status === "blocked").length;
+  const allMerged = tasks.length > 0 && merged === tasks.length;
+
+  const base = useMemo(() => {
+    const start: WorkflowTerminalLabel = {
+      title: plan.title || "Intent",
+      subtitle: `${plan.source === "thread" ? "thread intent" : "card intent"} · ${tasks.length} step${tasks.length === 1 ? "" : "s"}`,
+      tone: plan.status === "completed" ? "done" : "active",
+    };
+    const end: WorkflowTerminalLabel = {
+      title: "Merge train",
+      subtitle: allMerged
+        ? "all steps merged"
+        : `${merged}/${tasks.length} merged${review > 0 ? ` · ${review} in review` : ""}${
+            fallen > 0 ? ` · ${fallen} blocked` : ""
+          }`,
+      tone: allMerged ? "done" : review > 0 || fallen > 0 ? "warn" : "idle",
+    };
+    return buildWorkflowGraph(tasks, { start, end });
+  }, [tasks, plan.title, plan.source, plan.status, merged, review, fallen, allMerged]);
+
   const nodes = useMemo(() => {
     return base.nodes.map((n) => {
+      if (n.type === "orchestraTerminal") return n;
       const task = (n.data as { task: PlanTask }).task;
       const agentName = task.agent_id ? profileById.get(task.agent_id)?.name : undefined;
       return {
@@ -65,14 +107,35 @@ export function OrchestraWorkflowGraph({
 
   const edges = useMemo(() => {
     return base.edges.map((e): Edge => {
+      if (e.source === WORKFLOW_START_ID || e.target === WORKFLOW_END_ID) {
+        const active = e.source === selectedId || e.target === selectedId;
+        const landed = tasks.find((t) => t.id === e.source)?.status === "merged";
+        return {
+          ...e,
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            width: 14,
+            height: 14,
+            color: landed ? SUCCESS_STROKE : "var(--border-strong)",
+          },
+          style: { ...e.style, strokeWidth: active ? 1.8 : 1.25, opacity: active ? 0.95 : e.style?.opacity },
+        };
+      }
       const target = tasks.find((t) => t.id === e.target);
       const source = tasks.find((t) => t.id === e.source);
       const active = e.source === selectedId || e.target === selectedId;
       const done = source?.status === "merged" || source?.gate_passed;
       return {
         ...e,
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          width: 14,
+          height: 14,
+          color: done ? SUCCESS_STROKE : "var(--border-strong)",
+        },
         style: {
-          stroke: done ? "color-mix(in srgb, var(--success) 55%, var(--border-strong))" : "var(--border-strong)",
+          ...e.style,
+          stroke: done ? SUCCESS_STROKE : "var(--border-strong)",
           strokeWidth: active ? 1.8 : 1.25,
           opacity: active ? 0.95 : target?.status === "waiting" || target?.status === "cancelled" ? 0.3 : 0.65,
         },
@@ -82,6 +145,21 @@ export function OrchestraWorkflowGraph({
   }, [base.edges, tasks, selectedId]);
 
   const selectedTask = selectedId ? tasks.find((t) => t.id === selectedId) || null : null;
+  const presentStatuses = LEGEND_ORDER.filter((status) =>
+    tasks.some((task) => task.status === status),
+  );
+  // Hug the real layout instead of reserving a fixed 50vh: two tasks should
+  // read as a two-step pipeline, not a postage stamp in a field.
+  const canvasHeight = useMemo(() => {
+    let minY = 0;
+    let maxY = 0;
+    for (const node of base.nodes) {
+      const height = typeof node.height === "number" ? node.height : 108;
+      minY = Math.min(minY, node.position.y);
+      maxY = Math.max(maxY, node.position.y + height);
+    }
+    return Math.min(560, Math.max(220, Math.round(maxY - minY + 88)));
+  }, [base.nodes]);
 
   if (tasks.length === 0) {
     return <div className="rounded border border-border bg-surface/40 px-3 py-6 text-center text-[11px] text-muted">No tasks in this plan.</div>;
@@ -89,19 +167,30 @@ export function OrchestraWorkflowGraph({
 
   return (
     <div className="flex min-h-0 flex-col gap-2">
-      <div className="flex items-center gap-2 text-[10px] text-muted">
-        <span className="inline-flex items-center gap-1"><Icon name="subtasks" size={11} /> Workflow</span>
-        <span>·</span>
-        <span>{tasks.length} tasks · {edges.length} dependencies</span>
-        <span className="ml-auto text-[9.5px]">Select a node for details and actions</span>
-      </div>
+      <p className="sr-only">
+        {tasks
+          .map(
+            (task) =>
+              `${task.title}: ${TASK_STATUS_LABEL[task.status]}${task.depends_on.length ? `, after ${task.depends_on.join(", ")}` : ", no dependencies"}.`,
+          )
+          .join(" ")}
+      </p>
+
       <div className={`grid gap-2 ${selectedTask ? "lg:grid-cols-[minmax(0,1fr)_320px]" : "grid-cols-1"}`}>
-        <div className="min-h-[320px] h-[clamp(320px,42vh,520px)] overflow-hidden rounded-lg border border-border bg-surface/35">
+        <div
+          className="min-h-[220px] overflow-hidden rounded-lg border border-border bg-surface/35"
+          style={{ height: canvasHeight }}
+        >
           <ReactFlow
+            key={selectedTask ? "workflow-with-details" : "workflow"}
             nodes={nodes}
             edges={edges}
             nodeTypes={NODE_TYPES}
-            onNodeClick={(_, node) => setSelectedId((id) => (id === node.id ? null : node.id))}
+            onNodeClick={(_, node) =>
+              setSelectedId((id) =>
+                node.type === "orchestraTerminal" ? null : id === node.id ? null : node.id,
+              )
+            }
             onPaneClick={() => setSelectedId(null)}
             nodesDraggable={false}
             nodesConnectable={false}
@@ -114,16 +203,17 @@ export function OrchestraWorkflowGraph({
             maxZoom={1.8}
             proOptions={{ hideAttribution: true }}
             fitView
-            fitViewOptions={{ padding: 0.2, maxZoom: 1.05 }}
+            fitViewOptions={{ padding: 0.22, maxZoom: 1.2 }}
           >
             <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="var(--border)" />
             <Controls position="bottom-left" showInteractive={false} />
-            {tasks.length <= 24 && (
+            {base.nodes.length > 8 && (
               <MiniMap
                 position="bottom-right"
                 pannable
                 zoomable
                 nodeColor={(n) => {
+                  if (n.type === "orchestraTerminal") return "var(--border-strong)";
                   const task = (n.data as { task?: PlanTask } | undefined)?.task;
                   return task ? taskFill(task.status) : "var(--muted)";
                 }}
@@ -153,11 +243,34 @@ export function OrchestraWorkflowGraph({
           />
         )}
       </div>
-      {!selectedTask && tasks.length > 0 && (
-        <div className="text-[9.5px] text-muted/80">
-          Tip: dependencies flow left → right. Running/ready edges animate; merged/gated dependencies are highlighted.
-        </div>
-      )}
+
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[9.5px] text-muted">
+        <span className="font-mono">
+          {tasks.length} step{tasks.length === 1 ? "" : "s"} · {base.edges.length} link
+          {base.edges.length === 1 ? "" : "s"}
+        </span>
+        <span className="h-3 w-px bg-border" />
+        {presentStatuses.map((status) => (
+          <span key={status} className="inline-flex items-center gap-1">
+            <span className={`h-1.5 w-1.5 rounded-full ${taskDot(status)}`} />
+            {TASK_STATUS_LABEL[status]}
+          </span>
+        ))}
+        <span className="ml-auto inline-flex items-center gap-1">
+          <span className="inline-block h-px w-5" style={{ background: "var(--border-strong)" }} />
+          dependency
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span
+            className="inline-block h-px w-5"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(to right, var(--border-strong) 0 4px, transparent 4px 8px)",
+            }}
+          />
+          intent / merge leg
+        </span>
+      </div>
     </div>
   );
 }

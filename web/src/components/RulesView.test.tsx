@@ -37,4 +37,38 @@ describe("RulesView", () => {
     expect(screen.getByText("Acceptance Gate")).toBeInTheDocument();
     expect(screen.queryByText("Isolated Worktrees")).not.toBeInTheDocument();
   });
+
+  it("renders rules as a compact grid and opens the full text in a dialog", async () => {
+    api.fetchRules.mockResolvedValueOnce([
+      {
+        title: "Long Rule",
+        body: "Every agent must run the project tests before reporting done.\nSecond paragraph with the longer explanation of the gate.",
+      },
+    ]);
+
+    render(<RulesView />);
+
+    const card = await screen.findByRole("button", { name: /Read rule Long Rule/i });
+    // The card keeps the body as a clamped preview, not the whole rule.
+    expect(card).toHaveTextContent(/run the project tests/);
+
+    await userEvent.click(card);
+    const dialog = screen.getByRole("dialog", { name: /Rule Long Rule/i });
+    expect(dialog).toHaveTextContent(/Second paragraph with the longer explanation/);
+
+    await userEvent.click(screen.getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("keeps the new-rule form collapsed until asked for", async () => {
+    api.fetchRules.mockResolvedValueOnce([{ title: "Gate", body: "tests pass" }]);
+
+    render(<RulesView />);
+    await screen.findByRole("button", { name: /Read rule Gate/i });
+    expect(screen.queryByLabelText("Rule title")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /New rule/i }));
+    expect(screen.getByLabelText("Rule title")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add rule" })).toBeInTheDocument();
+  });
 });

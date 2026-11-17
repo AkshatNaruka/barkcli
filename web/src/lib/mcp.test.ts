@@ -72,6 +72,33 @@ describe("mcp utilities", () => {
     expect(parsed.mcp[0].command).toBe("barkcli");
   });
 
+  it("pins a stdio server to one project root", () => {
+    const servers: McpServerConfig[] = [
+      {
+        id: "barkcli",
+        name: "Bark",
+        transport: "stdio",
+        command: "barkcli",
+        args: ["mcp"],
+        env: { BARKCLI_BOARD: "dev" },
+        enabled: true,
+      },
+    ];
+
+    const parsed = JSON.parse(
+      generateClientMcpSnippet("claude", servers, { projectRoot: "/tmp/barkcli" })
+    );
+    expect(parsed.mcpServers.barkcli.env).toEqual({
+      BARKCLI_BOARD: "dev",
+      BARKCLI_PROJECT: "/tmp/barkcli",
+    });
+
+    const opencode = JSON.parse(
+      generateClientMcpSnippet("opencode", servers, { projectRoot: "/tmp/barkcli" })
+    );
+    expect(opencode.mcp[0].env.BARKCLI_PROJECT).toBe("/tmp/barkcli");
+  });
+
   it("loads default servers and persists changes", () => {
     const defaults = loadMcpServers();
     expect(defaults.length).toBeGreaterThanOrEqual(1);

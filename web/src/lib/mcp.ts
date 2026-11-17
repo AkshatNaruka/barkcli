@@ -104,9 +104,27 @@ export function saveMcpServers(servers: McpServerConfig[]): void {
 
 export type McpClientType = "claude" | "cursor" | "opencode" | "windsurf";
 
+export interface ClientSnippetOptions {
+  /**
+   * Project root the MCP server must serve. The CLI reads `BARKCLI_PROJECT`
+   * before walking up from the cwd, so pinning it makes one client config
+   * project-specific even when the agent is launched elsewhere.
+   */
+  projectRoot?: string | null;
+}
+
+function withProjectRoot(
+  env: Record<string, string> | undefined,
+  projectRoot?: string | null
+): Record<string, string> | undefined {
+  if (!projectRoot) return env;
+  return { ...(env || {}), BARKCLI_PROJECT: projectRoot };
+}
+
 export function generateClientMcpSnippet(
   client: McpClientType,
-  servers: McpServerConfig[]
+  servers: McpServerConfig[],
+  options: ClientSnippetOptions = {}
 ): string {
   const activeServers = servers.filter((s) => s.enabled);
 
@@ -114,10 +132,11 @@ export function generateClientMcpSnippet(
     const mcpServers: Record<string, unknown> = {};
     for (const server of activeServers) {
       if (server.transport === "stdio") {
+        const env = withProjectRoot(server.env, options.projectRoot);
         mcpServers[server.id] = {
           command: server.command || "npx",
           args: server.args || [],
-          ...(server.env && Object.keys(server.env).length > 0 ? { env: server.env } : {}),
+          ...(env && Object.keys(env).length > 0 ? { env } : {}),
         };
       } else {
         mcpServers[server.id] = {
@@ -130,12 +149,15 @@ export function generateClientMcpSnippet(
   }
 
   // OpenCode format (.opencode/config.json)
-  const mcp = activeServers.map((s) => ({
-    name: s.id,
-    type: s.transport === "stdio" ? "command" : "sse",
-    command: s.command || "barkcli",
-    args: s.args || ["mcp"],
-    ...(s.env && Object.keys(s.env).length > 0 ? { env: s.env } : {}),
-  }));
+  const mcp = activeServers.map((s) => {
+    const env = withProjectRoot(s.env, options.projectRoot);
+    return {
+      name: s.id,
+      type: s.transport === "stdio" ? "command" : "sse",
+      command: s.command || "barkcli",
+      args: s.args || ["mcp"],
+      ...(env && Object.keys(env).length > 0 ? { env } : {}),
+    };
+  });
   return JSON.stringify({ mcp }, null, 2);
 }
