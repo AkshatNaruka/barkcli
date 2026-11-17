@@ -41,6 +41,7 @@ export function SelectMenu({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const [position, setPosition] = useState({ left: 0, top: 0, width: 220, maxHeight: 300 });
+  const [placement, setPlacement] = useState(0);
 
   const selected = useMemo(
     () => options.find((option) => option.value === value),
@@ -65,7 +66,7 @@ export function SelectMenu({
     setPosition({ left, top, width, maxHeight: Math.max(140, maxHeight) });
     const index = Math.max(0, options.findIndex((option) => option.value === value));
     setActive(index);
-  }, [open, options, value]);
+  }, [open, options, value, placement]);
 
   useEffect(() => {
     if (!open) return;
@@ -83,7 +84,11 @@ export function SelectMenu({
         trigger.current?.focus();
       }
     };
-    const onScroll = () => setOpen(false);
+    const onScroll = () => {
+      // Keep the menu attached to its trigger instead of vanishing the moment
+      // the dialog behind it scrolls.
+      setPlacement((value) => value + 1);
+    };
     document.addEventListener("pointerdown", onPointer, true);
     window.addEventListener("keydown", onKey, true);
     window.addEventListener("resize", onScroll);

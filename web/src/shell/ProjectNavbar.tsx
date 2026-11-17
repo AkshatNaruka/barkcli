@@ -364,9 +364,9 @@ export function ProjectNavbar({
   return (
     <div className="flex flex-col shrink-0 select-none z-20 border-b border-border/60 bg-surface/80 backdrop-blur-md">
       {/* ── Top Bar: a breadcrumb for the current scope, never a project picker ── */}
-      <header className="h-12 px-5 flex items-center justify-between">
+      <header className="h-12 px-5 flex items-center justify-between" data-tauri-drag-region>
         {/* Left: the scope this surface speaks for */}
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0" data-tauri-drag-region>
           {globalScope ? (
             <>
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border bg-surface text-muted">

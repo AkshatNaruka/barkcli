@@ -1127,6 +1127,35 @@ summary.sidebar-group { cursor: pointer; }
 .projects-empty h3 { font-size: 13px; font-weight: 600; }
 .projects-empty p { max-width: 420px; font-size: 11px; line-height: 1.55; color: var(--muted); }
 .projects-empty .bark-primary, .projects-empty .bark-button { margin-top: 6px; }
+
+/* Stale entries get their own strip: they cannot be opened, only fixed or removed. */
+.projects-missing {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--warning) 30%, var(--border));
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--warning) 6%, var(--card));
+}
+.projects-missing > header h2 { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: var(--text); }
+.projects-missing > header h2 svg { color: var(--warning); }
+.projects-missing > header h2 span {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--warning) 18%, transparent);
+  font-family: ui-monospace, monospace;
+  font-size: 9.5px;
+  color: var(--warning);
+}
+.projects-missing > header p { margin-top: 3px; font-size: 10.5px; line-height: 1.5; color: var(--muted); }
+.projects-missing ul { display: flex; flex-direction: column; gap: 2px; margin-top: 10px; }
+.projects-missing li { display: flex; align-items: center; gap: 10px; padding: 5px 2px; min-width: 0; }
+.projects-missing-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 1px; }
+.projects-missing-copy strong { font-size: 12px; font-weight: 500; color: var(--text); }
+.projects-missing-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, monospace; font-size: 9.5px; color: var(--muted); }
+.projects-missing .project-avatar { width: 26px; height: 26px; font-size: 9.5px; opacity: .7; }
+.projects-missing-remove { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 6px; font-size: 11px; color: var(--danger); }
+.projects-missing-remove:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 16%, transparent); }
+.projects-missing-remove:disabled { opacity: .5; }
 .projects-footnote { margin-top: 14px; font-size: 10px; line-height: 1.6; color: var(--muted); }
 .projects-footnote button { color: var(--muted-strong); text-decoration: underline; text-underline-offset: 2px; }
 .projects-footnote button:hover { color: var(--accent-text); }
@@ -1337,6 +1366,7 @@ summary.sidebar-group { cursor: pointer; }
   transition: border-color 140ms, background-color 140ms;
 }
 .app-rail-brand:hover { border-color: var(--accent); background: var(--card-hover); }
+.app-rail-appicon { display: block; width: 22px; height: 22px; border-radius: 5px; object-fit: contain; }
 .app-rail-mark { font-size: 13px; font-weight: 600; letter-spacing: -.02em; text-transform: uppercase; }
 .app-rail-presence {
   position: absolute;

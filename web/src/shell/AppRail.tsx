@@ -2,7 +2,14 @@ import React, { useEffect, useRef, useState } from "react";
 import { Icon } from "../components/Icon";
 import { SURFACES, type Surface } from "../lib/surfaces";
 import { useTheme } from "../lib/theme";
-import { isDesktop, recentProjects, switchProject, type DesktopProject } from "../lib/desktop";
+import {
+  isDesktop,
+  isScratchPath,
+  projectSummaries,
+  recentProjects,
+  switchProject,
+  type DesktopProject,
+} from "../lib/desktop";
 
 export interface RailCounts {
   chat: number;
@@ -52,7 +59,23 @@ export function AppRail({
 
   useEffect(() => {
     if (!projectOpen) return;
-    if (isDesktop()) void recentProjects().then(setRecent);
+    if (isDesktop()) {
+      // Summaries know which folders still exist, so the menu never offers a
+      // project that cannot be opened.
+      void projectSummaries().then((list) => {
+        if (list.length) {
+          setRecent(
+            list
+              .filter((project) => project.available && !isScratchPath(project.path))
+              .map((project) => ({ name: project.name, path: project.path }))
+          );
+          return;
+        }
+        void recentProjects().then((projects) =>
+          setRecent(projects.filter((project) => !isScratchPath(project.path)))
+        );
+      });
+    }
     const onPointer = (event: MouseEvent) => {
       if (!popover.current?.contains(event.target as Node)) setProjectOpen(false);
     };
@@ -93,8 +116,6 @@ export function AppRail({
           ? "bg-accent/20 text-accent font-mono font-medium"
           : "bg-white/[0.07] text-muted-strong";
 
-  const initial = (projectName || "b").replace(/[^a-z0-9]/gi, "").slice(0, 1).toLowerCase() || "b";
-
   const renderItem = (s: (typeof SURFACES)[number], index: number) => {
     const active = surface === s.id;
     const n = badge(s.id);
@@ -133,24 +154,8 @@ export function AppRail({
     <aside
       className={`app-rail ${labels ? "is-labelled" : ""}`}
       aria-label="App navigation"
+      data-tauri-drag-region
     >
-      <nav className="app-rail-nav is-global" aria-label="Global surfaces">
-        {globalItems.map((s) => renderItem(s, 0))}
-        <button
-          type="button"
-          onClick={onAllProjects}
-          title="All projects"
-          aria-current={surface === "projects" ? "page" : undefined}
-          aria-label="All projects"
-          className={`app-rail-item ${surface === "projects" ? "is-active" : ""}`}
-        >
-          <Icon name="folder" size={17} />
-          {labels && <span className="app-rail-item-label">Projects</span>}
-        </button>
-      </nav>
-
-      <span className="app-rail-divider" aria-hidden="true" />
-
       <div className="app-rail-project">
         <button
           type="button"
@@ -160,7 +165,7 @@ export function AppRail({
           title={projectName ? `${projectName} — switch project` : "Choose a project"}
           onClick={() => setProjectOpen((open) => !open)}
         >
-          <span className="app-rail-mark">{initial}</span>
+          <img className="app-rail-appicon" src="./icon-192.png" alt="" draggable={false} />
           <span className="app-rail-presence" aria-hidden="true" />
         </button>
         {labels && (
@@ -173,7 +178,7 @@ export function AppRail({
         {projectOpen && (
           <div ref={popover} className="app-rail-popover" role="menu" aria-label="Projects">
             <header>
-              <span className="app-rail-mark">{initial}</span>
+              <img className="app-rail-appicon" src="./icon-192.png" alt="" draggable={false} />
               <div>
                 <strong>{projectName || "No project open"}</strong>
                 <small>{projectRoot || "Choose a code folder to begin"}</small>
@@ -220,6 +225,23 @@ export function AppRail({
           </div>
         )}
       </div>
+
+      <nav className="app-rail-nav is-global" aria-label="Global surfaces">
+        {globalItems.map((s) => renderItem(s, 0))}
+        <button
+          type="button"
+          onClick={onAllProjects}
+          title="All projects"
+          aria-current={surface === "projects" ? "page" : undefined}
+          aria-label="All projects"
+          className={`app-rail-item ${surface === "projects" ? "is-active" : ""}`}
+        >
+          <Icon name="folder" size={17} />
+          {labels && <span className="app-rail-item-label">Projects</span>}
+        </button>
+      </nav>
+
+      <span className="app-rail-divider" aria-hidden="true" />
 
       <nav className="app-rail-nav" aria-label="Project surfaces">
         {projectItems.map((s, index) => renderItem(s, index + 2))}

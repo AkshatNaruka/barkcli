@@ -3,6 +3,7 @@ import type { Board, ProjectSummary } from "../lib/types";
 import {
   forgetProject,
   isDesktop,
+  isScratchPath,
   openProjectDialog,
   openTerminal,
   projectSummaries,
@@ -189,7 +190,10 @@ export function ProjectsDashboard({
     setLoading(true);
     try {
       const next = await projectSummaries();
-      setProjects(next.length ? next : fallback ? [fallback] : []);
+      // The scratch workspace is where "No project" threads live; it is not a
+      // project the user manages, so it never appears in this list.
+      const managed = next.filter((project) => !isScratchPath(project.path));
+      setProjects(managed.length ? managed : fallback ? [fallback] : []);
       setError(null);
     } catch {
       setProjects(fallback ? [fallback] : []);
@@ -310,8 +314,14 @@ export function ProjectsDashboard({
     if (!ok) onNotify(`Could not open a terminal for ${project.name}.`);
   };
 
-  const filtered = useMemo(() => {    const q = query.trim().toLowerCase();
-    return projects
+  // A project whose folder is gone cannot be opened, so it never belongs in the
+  // project grid. It gets its own list where it can be relocated or removed.
+  const live = useMemo(() => projects.filter((project) => project.available), [projects]);
+  const missing = useMemo(() => projects.filter((project) => !project.available), [projects]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return live
       .filter((project) => {
         if (filter === "review" && reviewCount(project) === 0) return false;
         if (filter === "dirty" && (!project.git || project.git.clean)) return false;
@@ -327,17 +337,17 @@ export function ProjectsDashboard({
         if (review !== 0) return review;
         return (b.last_active || 0) - (a.last_active || 0);
       });
-  }, [projects, query, filter]);
+  }, [live, query, filter]);
 
   const totals = useMemo(
     () => ({
-      projects: projects.length,
-      open: projects.reduce((sum, project) => sum + openCount(project), 0),
-      review: projects.reduce((sum, project) => sum + reviewCount(project), 0),
-      agents: projects.reduce((sum, project) => sum + project.agents, 0),
-      dirty: projects.filter((project) => project.git && !project.git.clean).length,
+      projects: live.length,
+      open: live.reduce((sum, project) => sum + openCount(project), 0),
+      review: live.reduce((sum, project) => sum + reviewCount(project), 0),
+      agents: live.reduce((sum, project) => sum + project.agents, 0),
+      dirty: live.filter((project) => project.git && !project.git.clean).length,
     }),
-    [projects]
+    [live]
   );
 
   const attention = useMemo(() => {
@@ -415,12 +425,12 @@ export function ProjectsDashboard({
             const active = filter === item.id;
             const count =
               item.id === "all"
-                ? projects.length
+                ? live.length
                 : item.id === "review"
-                  ? projects.filter((project) => reviewCount(project) > 0).length
+                  ? live.filter((project) => reviewCount(project) > 0).length
                   : item.id === "dirty"
-                    ? projects.filter((project) => project.git && !project.git.clean).length
-                    : projects.filter(needsSetup).length;
+                    ? live.filter((project) => project.git && !project.git.clean).length
+                    : live.filter(needsSetup).length;
             return (
               <button
                 key={item.id}
@@ -444,7 +454,7 @@ export function ProjectsDashboard({
           </button>
         </div>
         <span className="projects-count">
-          {filtered.length} of {projects.length}
+          {filtered.length} of {live.length}
         </span>
         <div className="projects-actions">
           <button type="button" className="projects-quiet-button" onClick={() => void load()} title="Refresh projects">
@@ -516,12 +526,11 @@ export function ProjectsDashboard({
                     key={`${item.project.path}:${item.label}`}
                     type="button"
                     onClick={() => {
-                      // A missing folder cannot be opened, so send the user to
-                      // the card's actions where it can be relocated or removed.
+                      // A missing folder cannot be opened; send the user to the
+                      // missing list where it can be relocated or removed.
                       if (!item.project.available) {
-                        setMenuFor(item.project.path);
                         document
-                          .querySelector(`[data-project-card="${CSS.escape(item.project.path)}"]`)
+                          .querySelector("[data-missing-projects]")
                           ?.scrollIntoView({ block: "center", behavior: "smooth" });
                         return;
                       }
@@ -558,6 +567,51 @@ export function ProjectsDashboard({
         </aside>
 
         <section className="projects-list" aria-label="All projects">
+          {missing.length > 0 && (
+            <section className="projects-missing" data-missing-projects aria-label="Missing folders">
+              <header>
+                <h2>
+                  <Icon name="warn" size={13} />
+                  Missing folders
+                  <span>{missing.length}</span>
+                </h2>
+                <p>
+                  These folders are no longer on disk. Point them at a new location, or
+                  remove them from Bark.
+                </p>
+              </header>
+              <ul>
+                {missing.map((project) => (
+                  <li key={project.path}>
+                    <span className={`project-avatar ${toneFor(project.path)}`}>{initials(project.name)}</span>
+                    <div className="projects-missing-copy">
+                      <strong>{project.name}</strong>
+                      <small title={project.path}>{project.path}</small>
+                    </div>
+                    <button
+                      type="button"
+                      className="projects-quiet-button"
+                      disabled={managing}
+                      onClick={() => void locateProject(project)}
+                    >
+                      <Icon name="folderPlus" size={12} />
+                      Locate folder…
+                    </button>
+                    <button
+                      type="button"
+                      className="projects-missing-remove"
+                      disabled={managing}
+                      onClick={() => setRemoveTarget(project)}
+                    >
+                      <Icon name="trash" size={12} />
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <header className="projects-list-head">
             <div>
               <h2>{filter === "all" ? "All projects" : FILTERS.find((item) => item.id === filter)?.label}</h2>
@@ -570,8 +624,7 @@ export function ProjectsDashboard({
             <span>{filtered.length}</span>
           </header>
 
-          {loading ? (
-            <div className="projects-grid" aria-busy="true">
+          {loading ? (            <div className="projects-grid" aria-busy="true">
               {[0, 1, 2, 3].map((index) => (
                 <div key={index} className="project-card is-skeleton">
                   <div className="project-avatar" />
@@ -586,13 +639,13 @@ export function ProjectsDashboard({
           ) : filtered.length === 0 ? (
             <div className="projects-empty">
               <span className="projects-empty-icon"><Icon name="grid" size={20} /></span>
-              <h3>{projects.length === 0 ? "No projects yet" : "No matching projects"}</h3>
+              <h3>{live.length === 0 && missing.length === 0 ? "No projects yet" : "No matching projects"}</h3>
               <p>
-                {projects.length === 0
+                {live.length === 0 && missing.length === 0
                   ? "Open a folder with a .board/ or .git/ directory to get started."
                   : "Try a different search or filter."}
               </p>
-              {projects.length === 0 ? (
+              {live.length === 0 && missing.length === 0 ? (
                 <button type="button" className="bark-primary" onClick={onOpenFolder}>
                   <Icon name="plus" size={13} />
                   Add project
@@ -611,7 +664,7 @@ export function ProjectsDashboard({
                 const open = openCount(project);
                 const activeBoard = project.boards.find((board) => board.name === project.active_board) || project.boards[0];
                 return (
-                  <div key={project.path} className="project-card-wrap" data-project-card={project.path}>
+                  <div key={project.path} className="project-card-wrap">
                     <button
                       type="button"
                       data-testid={`project-card-${project.name}`}
@@ -736,9 +789,9 @@ export function ProjectsDashboard({
             </div>
           )}
 
-          {desktop && projects.length > 0 && (
+          {desktop && (live.length > 0 || missing.length > 0) && (
             <p className="projects-footnote">
-              Showing {projects.length} local project{projects.length === 1 ? "" : "s"} Bark has opened.
+              Showing {live.length} local project{live.length === 1 ? "" : "s"} Bark has opened.
               Use <button type="button" onClick={() => void revealProject(currentRoot)}>Reveal current folder</button> in Finder.
             </p>
           )}

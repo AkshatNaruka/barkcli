@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-project-favicon"
+description = "Enables the project_favicon command without any pre-configured scope."
+commands.allow = ["project_favicon"]
+
+[[permission]]
+identifier = "deny-project-favicon"
+description = "Denies the project_favicon command without any pre-configured scope."
+commands.deny = ["project_favicon"]

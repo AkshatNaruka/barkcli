@@ -815,7 +815,10 @@ export function App() {
   const boardOpen = board ? board.cards.filter((c) => c.column !== "done").length : 0;
 
   return (
-    <div className={`${isDesktop() && isMac() ? "bark-desktop-shell" : "h-screen"} flex bg-bg`}>      <a href="#main-content" className="skip-link">Skip to content</a>
+    <div
+      className={`${isDesktop() && isMac() ? "bark-desktop-shell" : "h-screen"} flex bg-bg`}
+      data-tauri-drag-region
+    >      <a href="#main-content" className="skip-link">Skip to content</a>
       <AppRail
         surface={route}
         onNavigate={(next) => { setSidebarOpen(false); navigate(next, { board: boardName || undefined }); }}

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ProjectsDashboard } from "./ProjectsDashboard";
 import type { ProjectSummary } from "../lib/types";
@@ -31,6 +31,19 @@ const summaries: ProjectSummary[] = [
     last_active: Math.floor(Date.now() / 1000) - 7200,
     git: { branch: "feat/x", clean: false, changes: 3, last_commit: "WIP" },
   },
+  {
+    path: "/tmp/gone-project",
+    name: "gone-project",
+    current: false,
+    available: false,
+    board_files: 0,
+    boards: [],
+    active_board: null,
+    agents: 0,
+    threads: 0,
+    last_active: null,
+    git: null,
+  },
 ];
 
 const projectSummaries = vi.fn(async () => summaries);
@@ -40,6 +53,7 @@ const forgetProject = vi.fn(async (_path: string) => true);
 
 vi.mock("../lib/desktop", () => ({
   isDesktop: () => true,
+  isScratchPath: (path?: string | null) => /(?:^|\/)\.barkcli\/scratch\/?$/.test(path || ""),
   projectSummaries: () => projectSummaries(),
   switchProject: (path: string) => switchProject(path),
   revealProject: vi.fn(async () => true),
@@ -133,8 +147,24 @@ describe("ProjectsDashboard", () => {
     await waitFor(() => expect(screen.queryByTestId("project-card-other")).not.toBeInTheDocument());
   });
 
-  it("never offers removal for the project that is open", async () => {
+  it("keeps missing folders out of the project grid and removes them in one step", async () => {
     const user = userEvent.setup();
+    renderDashboard();
+
+    const missing = await screen.findByRole("region", { name: "Missing folders" });
+    expect(missing).toHaveTextContent("gone-project");
+    // A folder that is not on disk cannot be opened, so it never becomes a card.
+    expect(screen.queryByTestId("project-card-gone-project")).not.toBeInTheDocument();
+
+    await user.click(within(missing).getByRole("button", { name: /Remove/ }));
+    expect(await screen.findByText(/Remove gone-project\?/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^Remove project$/ }));
+
+    await waitFor(() => expect(forgetProject).toHaveBeenCalledWith("/tmp/gone-project"));
+    await waitFor(() => expect(screen.queryByText("gone-project")).not.toBeInTheDocument());
+  });
+
+  it("never offers removal for the project that is open", async () => {    const user = userEvent.setup();
     renderDashboard();
     await screen.findByTestId("project-card-barkcli");
     await user.click(screen.getByRole("button", { name: "Manage barkcli" }));

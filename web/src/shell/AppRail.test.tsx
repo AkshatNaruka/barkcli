@@ -10,6 +10,8 @@ vi.mock("../lib/desktop", () => ({
   recentProjects: vi.fn(async () => []),
   openProjectDialog: vi.fn(),
   switchProject: vi.fn(),
+  projectSummaries: vi.fn(async () => []),
+  isScratchPath: (path?: string | null) => /(?:^|\/)\.barkcli\/scratch\/?$/.test(path || ""),
 }));
 
 describe("AppRail footer buttons", () => {  it("renders the 4 global footer buttons and dispatches global commands", async () => {

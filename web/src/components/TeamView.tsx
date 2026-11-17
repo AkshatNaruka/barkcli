@@ -94,6 +94,11 @@ export function TeamView({ boardName }: { boardName: string | null }) {
   const [saving, setSaving] = useState(false);
   const [models, setModels] = useState<string[]>([]);
 
+  // Skills that can still be attached to the agent being edited.
+  const availableSkills = editing
+    ? skills.filter((skill) => skill.enabled !== false && !editing.skills.includes(skill.id))
+    : [];
+
   const load = useCallback(async (initial = false) => {
     if (initial) setLoading(true);
     const [nextProfiles, nextRoles, nextSnapshot, nextProviders, nextSkills] = await Promise.all([
@@ -570,16 +575,25 @@ export function TeamView({ boardName }: { boardName: string | null }) {
                   </QuietSelect>
                 </label>
                 <div className="block sm:col-span-2">
-                  <span className="text-[10px] uppercase tracking-wide text-muted">
-                    Attached skills
-                  </span>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-[10px] uppercase tracking-wide text-muted">
+                      Attached skills
+                    </span>
+                    <span className="text-[9.5px] text-muted">
+                      {editing.skills.length} attached
+                    </span>
+                  </div>
                   <p className="mt-0.5 text-[9.5px] text-muted">
                     Enabled skills are attached explicitly; matching triggers may add more at run time.
                   </p>
+
                   <div className="mt-1.5 flex flex-wrap gap-1">
-                    {editing.skills
-                      .filter((id) => !skills.some((skill) => skill.id === id))
-                      .map((id) => (
+                    {editing.skills.length === 0 && (
+                      <span className="text-[10px] text-muted">No skills attached yet.</span>
+                    )}
+                    {editing.skills.map((id) => {
+                      const known = skills.find((skill) => skill.id === id);
+                      return (
                         <button
                           key={id}
                           type="button"
@@ -589,42 +603,41 @@ export function TeamView({ boardName }: { boardName: string | null }) {
                               skills: editing.skills.filter((skill) => skill !== id),
                             })
                           }
-                          className="rounded border border-accent/40 bg-accent-soft px-1.5 py-0.5 font-mono text-[9.5px] text-accent-text"
-                          title="Remove this skill id"
+                          className="inline-flex items-center gap-1 rounded border border-accent/40 bg-accent-soft px-1.5 py-0.5 text-[9.5px] text-accent-text"
+                          title={known?.description || `Remove ${id}`}
                         >
-                          {id} ×
-                        </button>
-                      ))}
-                    {skills.filter((skill) => skill.enabled !== false).map((skill) => {
-                      const attached = editing.skills.includes(skill.id);
-                      return (
-                        <button
-                          key={skill.id}
-                          type="button"
-                          title={skill.description}
-                          onClick={() =>
-                            setEditing({
-                              ...editing,
-                              skills: attached
-                                ? editing.skills.filter((id) => id !== skill.id)
-                                : [...editing.skills, skill.id],
-                            })
-                          }
-                          className={`rounded border px-1.5 py-0.5 text-[9.5px] ${
-                            attached
-                              ? "border-accent/40 bg-accent-soft text-accent-text"
-                              : "border-border text-muted hover:border-border-strong hover:text-text"
-                          }`}
-                        >
-                          {skill.name || skill.id}
+                          <span>{known?.name || id}</span>
+                          <Icon name="x" size={9} />
                         </button>
                       );
                     })}
-                    {skills.length === 0 && (
-                      <span className="text-[10px] text-muted">
-                        No enabled skills. Add them in Operations → Skills.
-                      </span>
-                    )}
+                  </div>
+
+                  <div className="mt-2 w-full sm:w-72">
+                    <QuietSelect
+                      aria-label="Add skill"
+                      value=""
+                      disabled={availableSkills.length === 0}
+                      onChange={(event) => {
+                        const id = event.target.value;
+                        if (!id || editing.skills.includes(id)) return;
+                        setEditing({ ...editing, skills: [...editing.skills, id] });
+                      }}
+                      className="w-full rounded border border-border bg-surface px-2 py-1.5 text-[12px] text-text outline-none focus:border-accent"
+                    >
+                      <option value="">
+                        {availableSkills.length === 0
+                          ? skills.length === 0
+                            ? "No enabled skills. Add them in Operations → Skills."
+                            : "Every enabled skill is attached"
+                          : "Add a skill…"}
+                      </option>
+                      {availableSkills.map((skill) => (
+                        <option key={skill.id} value={skill.id}>
+                          {skill.name || skill.id}
+                        </option>
+                      ))}
+                    </QuietSelect>
                   </div>
                 </div>
                 <label className="block sm:col-span-2">
