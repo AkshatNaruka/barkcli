@@ -8,7 +8,7 @@ import type { Node as RFNode, Edge as RFEdge } from "@xyflow/react";
 // component bounding boxes into a readable grid.
 
 export const NODE_W = 208;
-export const NODE_H = 84;
+export const NODE_H = 58;
 
 const ROW_W = 2200; // virtual shelf width for packing knowledge clusters
 const COMP_GAP = 56; // gutter between clusters
@@ -180,10 +180,8 @@ export function layoutGraph(
     ox += b.w + COMP_GAP;
     rowH = Math.max(rowH, b.h);
   }
-  return {
-    nodes: nodes.map((n) => ({ ...n, position: pos.get(n.id) || { x: 0, y: 0 } })),
-    edges,
-  };
+  const placedNodes = nodes.map((n) => ({ ...n, position: pos.get(n.id) || { x: 0, y: 0 } }));
+  return { nodes: placedNodes, edges: applyHandles(placedNodes, edges) };
 }
 
 // Tier = memory layer (human-meaningful color dot)
@@ -211,3 +209,253 @@ export const KIND_ICON: Record<string, string> = {
   card: "board",
   agent: "users",
 };
+
+// ── Progressive disclosure ────────────────────────────────────────────────
+// Fitting 64 nodes and 200 edges into one viewport produces a texture, not a
+// map. The default view is a small, representative set of anchors; clicking
+// one opens its neighbourhood. The full map stays one click away.
+
+export const OVERVIEW_LIMIT = 15;
+export const EGO_LIMIT = 8;
+
+const OVERVIEW_COLS = 3;
+const OVERVIEW_GAP_X = 56;
+const OVERVIEW_GAP_Y = 40;
+const OVERVIEW_EDGES = 28;
+
+export const KIND_ORDER = [
+  "subsystem",
+  "module",
+  "service",
+  "api",
+  "model",
+  "invariant",
+  "convention",
+  "decision",
+  "pitfall",
+  "fact",
+  "memory",
+  "session",
+  "card",
+  "agent",
+];
+
+// Anchors are chosen by kind, not by raw degree: session memories dominate a
+// degree ranking (each links to everything it touched) and would otherwise
+// fill the whole overview with near-identical cards.
+const KIND_QUOTA: Record<string, number> = {
+  subsystem: 4,
+  module: 4,
+  service: 2,
+  api: 1,
+  model: 1,
+  invariant: 1,
+  convention: 1,
+  pitfall: 1,
+};
+
+const kindOf = (node: RFNode) => String((node.data as any)?.kind ?? "");
+const labelOf = (node: RFNode) => String((node.data as any)?.label ?? node.id);
+const importanceOf = (node: RFNode) => Number((node.data as any)?.importance ?? 0);
+const weightOf = (edge: RFEdge) => Number((edge.data as any)?.weight ?? 0.6);
+
+export function nodeDegree(edges: RFEdge[]): Map<string, number> {
+  const degree = new Map<string, number>();
+  for (const edge of edges) {
+    degree.set(edge.source, (degree.get(edge.source) ?? 0) + 1);
+    degree.set(edge.target, (degree.get(edge.target) ?? 0) + 1);
+  }
+  return degree;
+}
+
+export function nodeScore(node: RFNode, degree: Map<string, number>): number {
+  return (degree.get(node.id) ?? 0) * 2 + importanceOf(node) * 10;
+}
+
+function matchesSearch(node: RFNode, q: string): boolean {
+  const tags = (node.data as any)?.tags;
+  return (
+    labelOf(node).toLowerCase().includes(q) ||
+    node.id.toLowerCase().includes(q) ||
+    (Array.isArray(tags) && tags.some((tag: string) => tag.toLowerCase().includes(q)))
+  );
+}
+
+export function pickAnchors(
+  nodes: RFNode[],
+  edges: RFEdge[],
+  { search = "", limit = OVERVIEW_LIMIT }: { search?: string; limit?: number } = {}
+): RFNode[] {
+  const degree = nodeDegree(edges);
+  const q = search.trim().toLowerCase();
+  const pool = q ? nodes.filter((node) => matchesSearch(node, q)) : nodes;
+  const byScore = (a: RFNode, b: RFNode) =>
+    nodeScore(b, degree) - nodeScore(a, degree) || labelOf(a).localeCompare(labelOf(b));
+
+  // A search is already a narrow pool: rank it directly, or the kind quotas
+  // would hide the very node the user is looking for.
+  if (q) return [...pool].sort(byScore).slice(0, limit);
+
+  const picked: RFNode[] = [];
+  const used = new Set<string>();
+  for (const kind of KIND_ORDER) {
+    const quota = KIND_QUOTA[kind] ?? 0;
+    if (!quota) continue;
+    for (const node of pool.filter((n) => kindOf(n) === kind).sort(byScore).slice(0, quota)) {
+      picked.push(node);
+      used.add(node.id);
+    }
+  }
+  if (picked.length < limit) {
+    for (const node of pool.filter((n) => !used.has(n.id)).sort(byScore)) {
+      if (picked.length >= limit) break;
+      picked.push(node);
+      used.add(node.id);
+    }
+  }
+  return picked.slice(0, limit);
+}
+
+// Dock each edge on the side of a card that faces the other card, so straight
+// edges stay straight instead of wrapping around the node.
+export function facingHandles(a: { x: number; y: number }, b: { x: number; y: number }) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return dx >= 0
+      ? { source: "s-right", target: "t-left" }
+      : { source: "s-left", target: "t-right" };
+  }
+  return dy >= 0
+    ? { source: "s-bottom", target: "t-top" }
+    : { source: "s-top", target: "t-bottom" };
+}
+
+export function applyHandles(nodes: RFNode[], edges: RFEdge[]): RFEdge[] {
+  const centers = new Map(
+    nodes.map((n) => [n.id, { x: n.position.x + NODE_W / 2, y: n.position.y + NODE_H / 2 }] as const)
+  );
+  return edges.map((edge) => {
+    const a = centers.get(edge.source);
+    const b = centers.get(edge.target);
+    if (!a || !b) return edge;
+    const handles = facingHandles(a, b);
+    return { ...edge, sourceHandle: handles.source, targetHandle: handles.target };
+  });
+}
+
+// Compact, evenly spaced grid: every anchor is readable without zooming out.
+export function layoutOverview(
+  anchors: RFNode[],
+  edges: RFEdge[]
+): { nodes: RFNode[]; edges: RFEdge[] } {
+  const degree = nodeDegree(edges);
+  const order = new Map(KIND_ORDER.map((kind, i) => [kind, i]));
+  const sorted = [...anchors].sort(
+    (a, b) =>
+      (order.get(kindOf(a)) ?? 99) - (order.get(kindOf(b)) ?? 99) ||
+      nodeScore(b, degree) - nodeScore(a, degree) ||
+      labelOf(a).localeCompare(labelOf(b))
+  );
+  const nodes = sorted.map((node, i) => ({
+    ...node,
+    position: {
+      x: (i % OVERVIEW_COLS) * (NODE_W + OVERVIEW_GAP_X),
+      y: Math.floor(i / OVERVIEW_COLS) * (NODE_H + OVERVIEW_GAP_Y),
+    },
+  }));
+  const ids = new Set(nodes.map((n) => n.id));
+  const kept = edges
+    .filter((edge) => ids.has(edge.source) && ids.has(edge.target))
+    .sort((a, b) => weightOf(b) - weightOf(a))
+    .slice(0, OVERVIEW_EDGES);
+  return { nodes, edges: applyHandles(nodes, kept) };
+}
+
+export interface EgoGraph {
+  nodes: RFNode[];
+  edges: RFEdge[];
+  /** Unique neighbours in the whole graph, not just the ones drawn. */
+  connections: number;
+  /** How many neighbours this view draws. */
+  shown: number;
+}
+
+// Focus in the middle, strongest neighbours on one ellipse. The ellipse grows
+// only until no two cards touch, so fitView has the smallest box to scale.
+export function buildEgo(
+  focusId: string,
+  nodes: RFNode[],
+  edges: RFEdge[],
+  limit = EGO_LIMIT
+): EgoGraph | null {
+  const focus = nodes.find((n) => n.id === focusId);
+  if (!focus) return null;
+
+  const incident = edges
+    .filter((edge) => edge.source === focusId || edge.target === focusId)
+    .sort((a, b) => weightOf(b) - weightOf(a));
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const seen = new Set<string>([focusId]);
+  const chosen: { node: RFNode; edge: RFEdge }[] = [];
+  for (const edge of incident) {
+    const otherId = edge.source === focusId ? edge.target : edge.source;
+    if (seen.has(otherId)) continue;
+    const node = byId.get(otherId);
+    if (!node) continue;
+    seen.add(otherId);
+    chosen.push({ node, edge });
+  }
+
+  const count = Math.min(chosen.length, limit);
+  // A ring sized by a fixed radius either overlaps (too small) or wastes the
+  // viewport (too big). Grow an ellipse just until no two cards touch, then
+  // let fitView scale the smallest possible box.
+  const angles =
+    count === 1
+      ? [0]
+      : Array.from({ length: count }, (_, i) => -Math.PI / 2 + (2 * Math.PI * i) / count);
+  const minDx = NODE_W + 28;
+  const minDy = NODE_H + 16;
+  let rx = count === 1 ? NODE_W + 96 : 220;
+  let ry = count === 1 ? 0 : 150;
+  let points = angles.map((angle) => ({ x: Math.cos(angle) * rx, y: Math.sin(angle) * ry }));
+  for (let pass = 0; pass < 40; pass += 1) {
+    const boxes = [{ x: 0, y: 0 }, ...points];
+    let clear = true;
+    for (let i = 0; i < boxes.length && clear; i += 1) {
+      for (let j = i + 1; j < boxes.length && clear; j += 1) {
+        clear =
+          Math.abs(boxes[i].x - boxes[j].x) >= minDx ||
+          Math.abs(boxes[i].y - boxes[j].y) >= minDy;
+      }
+    }
+    if (clear) break;
+    rx += 10;
+    ry += 8;
+    points = angles.map((angle) => ({ x: Math.cos(angle) * rx, y: Math.sin(angle) * ry }));
+  }
+
+  const raw = new Map<string, { x: number; y: number }>([[focusId, { x: 0, y: 0 }]]);
+  chosen.slice(0, count).forEach(({ node }, i) => raw.set(node.id, points[i]));
+
+  // Re-base to (0,0): keeps fitView and the minimap predictable.
+  const corners = [...raw.entries()].map(
+    ([id, p]) => [id, { x: p.x - NODE_W / 2, y: p.y - NODE_H / 2 }] as const
+  );
+  const minX = Math.min(...corners.map(([, p]) => p.x));
+  const minY = Math.min(...corners.map(([, p]) => p.y));
+  const positioned = new Map(corners.map(([id, p]) => [id, { x: p.x - minX, y: p.y - minY }]));
+
+  const drawn = chosen.slice(0, count);
+  const egoNodes = [focus, ...drawn.map((c) => c.node)].map((n) => ({
+    ...n,
+    position: positioned.get(n.id)!,
+  }));
+  return {
+    nodes: egoNodes,
+    edges: applyHandles(egoNodes, drawn.map((c) => c.edge)),
+    connections: seen.size - 1,
+    shown: count,
+  };
+}

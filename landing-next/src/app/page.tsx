@@ -187,7 +187,7 @@ const FEATURES = [
     icon: Brain,
     title: "Codebase Brain (3D)",
     description:
-      "Structural repository architecture graph. Discovers subsystems, modules, services, APIs, domain models, and invariants. Rendered in glowing 2D & 3D with full source evidence.",
+      "Structural repository architecture graph. Discovers subsystems, modules, services, APIs, domain models, and invariants. Readable 2D flow, glowing 3D orbit, and full source evidence.",
     code: "$ barkcli brain stats && barkcli serve --open",
     gradient: "from-cyan-500/20 to-blue-500/20",
     href: "/features/codebase-brain",

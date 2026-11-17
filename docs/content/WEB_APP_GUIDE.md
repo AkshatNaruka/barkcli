@@ -117,6 +117,46 @@ Switch to the **Facts** tab to manage project-level knowledge:
 - **Decisions** — Why certain choices were made
 - **Preferences** — Team preferences
 
+## Knowledge Graph (Brain)
+
+The Brain surface renders everything barkcli knows about a project — subsystems,
+modules, services, invariants, conventions, project facts and session memories —
+as one graph. It has three modes:
+
+| Mode | Best for |
+|------|----------|
+| **3D Orbit** | Spinning the whole corpus around to spot clusters |
+| **2D Flow** | Reading the architecture, one neighbourhood at a time |
+| **Contributions** | Tracing which sessions and runs produced a node |
+
+### 2D Flow: overview → neighbourhood
+
+A project can easily have sixty nodes and two hundred links. Drawn at once,
+that is a texture, not a map, so 2D Flow opens on **Overview**: a small, evenly
+spaced set of anchor nodes (up to 15) chosen by kind, not by raw degree — one
+subsystem hub otherwise outranks every module and the view fills with
+near-identical session memories. Only links between anchors are drawn.
+
+- **Click any node** to open its **neighbourhood**: the node in the middle, its
+  eight strongest connections around it, and the count of the rest
+  (`8 of 38 connections`).
+- **Click a neighbour** (on the canvas or in the details list) to make it the
+  new focus and keep walking the graph.
+- **Overview** in the breadcrumb (or a click on empty canvas) returns to the
+  anchor map.
+- **All (N)** draws every node on one canvas; select a node there to reveal
+  just its links. This is the only mode with a minimap.
+
+Search re-ranks the anchor map instead of dimming it: typed text selects the
+matching nodes, so a search for `storage` shows that node on its own, ready to
+expand. The **Layers** row filters by memory tier and **All Kinds** narrows by
+node kind; filters apply before anchors are chosen.
+
+Node cards stay deliberately small — kind icon, kind label, tier dot and the
+node title. Importance, access count, description, tags, evidence file count
+and the full connection list live in the details panel on the right, which
+opens when you select a node.
+
 ## Specs System
 
 The Specs tab manages specifications and requirements:

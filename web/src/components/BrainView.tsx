@@ -14,7 +14,16 @@ import { Icon } from "./Icon";
 import { LabelChip } from "./LabelChip";
 import { QuietSelect } from "./QuietSelect";
 import { GraphNodeCard, type BrainNodeData } from "./brain/GraphNodeCard";
-import { layoutGraph, TIER, KIND_ICON, NODE_W, NODE_H } from "./brain/layout";
+import {
+  buildEgo,
+  layoutGraph,
+  layoutOverview,
+  pickAnchors,
+  TIER,
+  KIND_ICON,
+  NODE_W,
+  NODE_H,
+} from "./brain/layout";
 import { ContributionsPanel } from "./ContributionsPanel";
 import { Brain3DGraph } from "./brain/Brain3DGraph";
 
@@ -37,9 +46,12 @@ export function BrainView({
   const [tierFilter, setTierFilter] = useState("");
   const [kindFilter, setKindFilter] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [neighbors, setNeighbors] = useState<BrainNode[]>([]);
+  // 2D flow has three depths: a small anchor map, one node's neighbourhood,
+  // and the full graph. Anything wider than the anchor map is opt-in.
+  const [egoId, setEgoId] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
-  const FOCUS_LIMIT = 80;
+  const [neighbors, setNeighbors] = useState<BrainNode[]>([]);
+  const [neighborsExpanded, setNeighborsExpanded] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -85,114 +97,158 @@ export function BrainView({
     return (
       n.label.toLowerCase().includes(q) ||
       n.id.toLowerCase().includes(q) ||
-      n.tags.some((t) => t.toLowerCase().includes(q))
+      (n.tags ?? []).some((t) => t.toLowerCase().includes(q))
     );
   };
 
-  const focusIds = useMemo(() => {
-    if (showAll || kindFilter) return null;
-    const rank: Record<string, number> = { memory: 0, fact: 1, card: 2, agent: 3, session: 4 };
-    const degree = new Map<string, number>();
-    for (const e of edges) {
-      degree.set(e.from, (degree.get(e.from) ?? 0) + 1);
-      degree.set(e.to, (degree.get(e.to) ?? 0) + 1);
-    }
-    const knowledge = nodes.filter((n) => n.kind !== "session");
-    const linked = knowledge.filter((n) => (degree.get(n.id) ?? 0) > 0);
-    const pool = linked.length >= 8 ? linked : knowledge;
-    return new Set(
-      [...pool]
-        .sort(
-          (a, b) =>
-            (rank[a.kind] ?? 9) - (rank[b.kind] ?? 9) ||
-            (b.importance ?? 0) - (a.importance ?? 0)
-        )
-        .slice(0, FOCUS_LIMIT)
-        .map((n) => n.id)
-    );
-  }, [nodes, edges, showAll, kindFilter]);
-
+  // Filters are the only thing that removes nodes outright; the 2D view then
+  // decides how many of the survivors to draw.
   const filteredNodeMap = useMemo(() => {
     const m = new Map<string, BrainNode>();
     for (const n of nodes) {
-      if (focusIds && !focusIds.has(n.id)) continue;
       if (tierFilter && n.tier !== tierFilter) continue;
       if (kindFilter && n.kind !== kindFilter) continue;
       m.set(n.id, n);
     }
     return m;
-  }, [nodes, focusIds, tierFilter, kindFilter]);
+  }, [nodes, tierFilter, kindFilter]);
 
   const filteredNodes = useMemo(() => Array.from(filteredNodeMap.values()), [filteredNodeMap]);
   const filteredEdges = useMemo(() => {
     return edges.filter((e) => filteredNodeMap.has(e.from) && filteredNodeMap.has(e.to));
   }, [edges, filteredNodeMap]);
 
-  // Layout for 2D flow view
-  const layouted = useMemo(() => {
-    const kept = [...filteredNodeMap.values()].map<BrainNode>((n) => n);
-    const nodeMap = new Map(kept.map((n) => [n.id, n]));
-    const keptEdges = edges.filter((e) => nodeMap.has(e.from) && nodeMap.has(e.to));
-    const rfNodes: Node[] = kept.map((n) => ({
-      id: n.id,
-      position: { x: 0, y: 0 },
-      width: NODE_W,
-      height: NODE_H,
-      data: {
-        label: n.label,
-        kind: n.kind,
-        tier: n.tier,
-        importance: n.importance,
-        description: n.description,
-        filesCount: n.evidence?.files?.length,
-      } satisfies BrainNodeData,
-      type: "brainNode",
-    }));
-    const rfEdges: Edge[] = keptEdges.map((e) => ({
-      id: `${e.from}->${e.to}`,
-      source: e.from,
-      target: e.to,
-      animated: false,
-      style: {
-        stroke: "var(--border-strong)",
-        strokeWidth: 0.6 + e.weight * 1.6,
-        opacity: 0.35 + e.weight * 0.45,
-      },
-    }));
-    return layoutGraph(rfNodes, rfEdges);
-  }, [filteredNodeMap, edges]);
+  const rfBase = useMemo<Node[]>(
+    () =>
+      filteredNodes.map((n) => ({
+        id: n.id,
+        type: "brainNode",
+        position: { x: 0, y: 0 },
+        width: NODE_W,
+        height: NODE_H,
+        data: {
+          label: n.label,
+          kind: n.kind,
+          tier: n.tier,
+          importance: n.importance ?? 0,
+          tags: n.tags ?? [],
+        } satisfies BrainNodeData,
+      })),
+    [filteredNodes]
+  );
 
-  const rfNodes = useMemo(() => {
-    const searching = Boolean(search.trim());
-    return layouted.nodes.map((n) => {
-      const d = { ...(n.data as unknown as BrainNodeData) };
-      const hit = !searching || searchHit({ id: n.id, label: d.label, tags: [], tier: d.tier, kind: d.kind } as unknown as BrainNode);
-      d.dimmed = searching && !hit;
-      d.focus = selectedId === n.id;
-      return { ...n, data: d };
-    });
-  }, [layouted.nodes, search, selectedId]);
+  const rfEdgesBase = useMemo<Edge[]>(
+    () =>
+      filteredEdges.map((e) => ({
+        id: `${e.from}->${e.to}`,
+        source: e.from,
+        target: e.to,
+        type: "straight",
+        data: { weight: e.weight, kind: e.kind },
+      })),
+    [filteredEdges]
+  );
+
+  const view = useMemo(() => {
+    if (showAll) {
+      const laid = layoutGraph(rfBase, rfEdgesBase);
+      return { kind: "all" as const, nodes: laid.nodes, edges: laid.edges, connections: 0, shown: 0 };
+    }
+    if (egoId) {
+      const ego = buildEgo(egoId, rfBase, rfEdgesBase);
+      if (ego) return { kind: "ego" as const, ...ego };
+    }
+    const anchors = pickAnchors(rfBase, rfEdgesBase, { search });
+    return { kind: "overview" as const, ...layoutOverview(anchors, rfEdgesBase), connections: 0, shown: 0 };
+  }, [showAll, egoId, rfBase, rfEdgesBase, search]);
+
+  // Drop a drilled-in or selected node if a filter hides it.
+  useEffect(() => {
+    if (egoId && !filteredNodeMap.has(egoId)) setEgoId(null);
+    if (selectedId && !filteredNodeMap.has(selectedId)) setSelectedId(null);
+  }, [egoId, selectedId, filteredNodeMap]);
+
+  useEffect(() => {
+    setNeighborsExpanded(false);
+  }, [selectedId]);
+
+  const rfNodes = useMemo(
+    () =>
+      view.nodes.map((n) => ({
+        ...n,
+        data: { ...(n.data as unknown as BrainNodeData), focus: selectedId === n.id },
+      })),
+    [view.nodes, selectedId]
+  );
 
   const rfEdges = useMemo(() => {
-    return layouted.edges.map((e) => ({ ...e }));
-  }, [layouted.edges]);
+    // The full map is a 64-node texture. Drawing its 200 links by default is
+    // noise; selecting a node reveals just that node's links.
+    const source =
+      view.kind === "all"
+        ? selectedId
+          ? view.edges.filter((e) => e.source === selectedId || e.target === selectedId)
+          : []
+        : view.edges;
+    return source.map((e) => {
+      const weight = Number((e.data as any)?.weight ?? 0.6);
+      const adjacent = !selectedId || e.source === selectedId || e.target === selectedId;
+      return {
+        ...e,
+        type: "straight",
+        style: {
+          stroke: adjacent && selectedId ? "var(--muted)" : "var(--border-strong)",
+          strokeWidth: adjacent && selectedId ? 1.4 : 0.9,
+          opacity: selectedId
+            ? adjacent
+              ? 0.85
+              : 0.1
+            : view.kind === "all"
+              ? 0.16 + weight * 0.2
+              : 0.4 + weight * 0.35,
+        },
+      };
+    });
+  }, [view.edges, view.kind, selectedId]);
 
   const selected = selectedId ? nodes.find((n) => n.id === selectedId) ?? null : null;
+  const egoFocus = egoId ? nodes.find((n) => n.id === egoId) ?? null : null;
   const q = search.trim().toLowerCase();
-  const visibleHits = q
+  const matchCount = q
     ? [...filteredNodeMap.values()].filter((n) =>
         n.label.toLowerCase().includes(q) ||
         n.id.toLowerCase().includes(q) ||
-        n.tags.some((t) => t.toLowerCase().includes(q))
+        (n.tags ?? []).some((t) => t.toLowerCase().includes(q))
       ).length
     : 0;
-  const hiddenHits = q ? nodes.filter((n) => !filteredNodeMap.has(n.id) && searchHit(n)).length : 0;
 
-  const onNodeClick = (_: React.MouseEvent, node: Node) => {
-    const id = node.id;
-    if (selectedId === id) setSelectedId(null);
-    else setSelectedId(id);
+  const handleNodeClick = (_: React.MouseEvent, node: Node) => {
+    setSelectedId(node.id);
+    // From the anchor map, a click expands that node's neighbourhood.
+    if (!showAll) setEgoId(node.id);
   };
+
+  // Search re-ranks the anchor map, so typing leaves a drilled-in view.
+  const handleSearch = (value: string) => {
+    setSearch(value);
+    if (!value.trim()) return;
+    setEgoId(null);
+    setShowAll(false);
+    setSelectedId(null);
+  };
+
+  const backToOverview = () => {
+    setEgoId(null);
+    setShowAll(false);
+    setSelectedId(null);
+  };
+
+  const countLabel =
+    mode === "contributions"
+      ? "Run ancestry and evidence links."
+      : mode === "2d"
+        ? `${view.nodes.length} of ${filteredNodeMap.size} nodes${rfEdges.length ? ` · ${rfEdges.length} links` : ""}`
+        : `${filteredNodeMap.size} of ${nodes.length} nodes · ${edges.length} links`;
 
   return (
     <div className="h-full flex flex-col p-4 gap-3 bg-bg">
@@ -236,20 +292,14 @@ export function BrainView({
         </div>
 
         <div className="flex items-center gap-2 text-xs text-muted min-w-0">
-          <span>
-            {mode === "contributions" ? (
-              "Run ancestry and evidence links."
-            ) : (
-              `${filteredNodeMap.size} of ${nodes.length} nodes · ${edges.length} links`
-            )}
-          </span>
+          <span>{countLabel}</span>
         </div>
 
         {mode !== "contributions" && (
           <div className="flex gap-2 items-center flex-wrap ml-auto">
             <input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => handleSearch(e.target.value)}
               placeholder="Search graph…"
               className="w-44 bg-card border border-border/60 focus:border-accent/60 px-3 py-1.5 rounded-md text-xs text-text placeholder:text-muted/60 focus:outline-none"
             />
@@ -292,15 +342,18 @@ export function BrainView({
               ))}
             </QuietSelect>
             <button
-              onClick={() => setShowAll((v) => !v)}
-              title={showAll ? "Focus on high-importance nodes" : "Show all nodes"}
+              onClick={() => {
+                setShowAll((v) => !v);
+                setEgoId(null);
+              }}
+              title={showAll ? "Back to the anchor map" : "Draw every node and link"}
               className={`px-2.5 py-1.5 rounded-md text-xs border transition-colors cursor-pointer ${
                 showAll
                   ? "border-accent/40 text-accent bg-accent/15"
                   : "border-border/60 text-muted hover:text-text"
               }`}
             >
-              {showAll ? "Focused" : `All (${nodes.length})`}
+              {showAll ? "Overview" : `All (${filteredNodeMap.size})`}
             </button>
           </div>
         )}
@@ -326,16 +379,7 @@ export function BrainView({
           ))}
           {q !== "" && (
             <span className="ml-auto text-[11px]">
-              {visibleHits} match{visibleHits === 1 ? "" : "es"}
-              {visibleHits === 0 && hiddenHits > 0 && (
-                <>
-                  {" · "}
-                  {hiddenHits} hidden —{" "}
-                  <button onClick={() => setShowAll(true)} className="text-accent hover:underline">
-                    show all
-                  </button>
-                </>
-              )}
+              {matchCount} match{matchCount === 1 ? "" : "es"} · showing {view.nodes.length}
             </span>
           )}
         </div>
@@ -367,48 +411,111 @@ export function BrainView({
       ) : (
         /* 2D ReactFlow Diagram */
         <div className="flex-1 flex min-h-0 gap-3">
-          <div className="flex-1 bg-surface rounded-xl overflow-hidden min-h-0 border border-border/50">
-            {loading ? (
-              <div className="h-full flex items-center justify-center text-sm text-muted">Loading graph…</div>
-            ) : filteredNodeMap.size === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center gap-1 text-sm text-muted">
-                <span className="text-text">No nodes match</span>
-                <span className="text-xs">Adjust layer or kind filters</span>
-              </div>
-            ) : (
-              <ReactFlow
-                nodes={rfNodes}
-                edges={rfEdges}
-                nodeTypes={{ brainNode: GraphNodeCard }}
-                onNodeClick={onNodeClick}
-                onPaneClick={() => setSelectedId(null)}
-                nodesDraggable={false}
-                nodesConnectable={false}
-                onlyRenderVisibleElements={true}
-                zoomOnDoubleClick={false}
-                minZoom={0.08}
-                maxZoom={2.2}
-                proOptions={{ hideAttribution: false }}
-                fitView
-                fitViewOptions={{ padding: 0.18, maxZoom: 1.05 }}
-              >
-                <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="var(--border)" />
-                <Controls position="bottom-left" showInteractive={false} />
-                <MiniMap
-                  position="bottom-right"
-                  pannable
-                  zoomable
-                  nodeColor={(n) => {
-                    const d = (n.data ?? {}) as unknown as BrainNodeData;
-                    const hex = d.tier ? TIER[d.tier]?.color : undefined;
-                    return hex || "#64748b";
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            {/* Depth breadcrumb: where you are, and the way back up. */}
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 px-0.5 text-[11px] text-muted">
+              {view.kind === "overview" ? (
+                <>
+                  <span className="font-medium text-text">Overview</span>
+                  <span className="text-muted-dim">—</span>
+                  <span>click a node to open its neighbourhood</span>
+                </>
+              ) : view.kind === "ego" && egoFocus ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={backToOverview}
+                    className="inline-flex items-center gap-1 rounded px-1 py-0.5 -ml-1 transition-colors hover:bg-surface hover:text-text cursor-pointer"
+                    aria-label="Back to overview"
+                  >
+                    <Icon name="arrowLeft" size={11} />
+                    Overview
+                  </button>
+                  <span className="text-muted-dim">/</span>
+                  <span className="max-w-[320px] truncate font-medium text-text" title={egoFocus.label}>
+                    {egoFocus.label}
+                  </span>
+                  <span className="text-muted-dim">·</span>
+                  <span>
+                    {view.shown} of {view.connections} connection{view.connections === 1 ? "" : "s"}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={backToOverview}
+                    className="inline-flex items-center gap-1 rounded px-1 py-0.5 -ml-1 transition-colors hover:bg-surface hover:text-text cursor-pointer"
+                    aria-label="Back to overview"
+                  >
+                    <Icon name="arrowLeft" size={11} />
+                    Overview
+                  </button>
+                  <span className="text-muted-dim">/</span>
+                  <span className="font-medium text-text">Full map</span>
+                  <span className="text-muted-dim">·</span>
+                  <span>
+                    {selectedId
+                      ? `links for ${selected?.label ?? "this node"}`
+                      : "select a node to see its links"}
+                  </span>
+                </>
+              )}
+            </div>
+
+            <div className="flex-1 bg-surface rounded-xl overflow-hidden min-h-0 border border-border/50">
+              {loading ? (
+                <div className="h-full flex items-center justify-center text-sm text-muted">Loading graph…</div>
+              ) : view.nodes.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center gap-1 text-sm text-muted">
+                  <span className="text-text">No nodes match</span>
+                  <span className="text-xs">
+                    {q && filteredNodeMap.size > 0
+                      ? `Nothing found for “${search.trim()}”`
+                      : "Adjust layer or kind filters"}
+                  </span>
+                </div>
+              ) : (
+                <ReactFlow
+                  key={view.nodes.map((n) => n.id).join("|")}
+                  nodes={rfNodes}
+                  edges={rfEdges}
+                  nodeTypes={{ brainNode: GraphNodeCard }}
+                  onNodeClick={handleNodeClick}
+                  onPaneClick={() => {
+                    setSelectedId(null);
+                    if (!showAll) setEgoId(null);
                   }}
-                  nodeStrokeWidth={0}
-                  style={{ width: 150, height: 92, background: "var(--card)", borderRadius: 10 }}
-                  maskColor="rgba(120, 120, 130, 0.30)"
-                />
-              </ReactFlow>
-            )}
+                  nodesDraggable={false}
+                  nodesConnectable={false}
+                  onlyRenderVisibleElements={true}
+                  zoomOnDoubleClick={false}
+                  minZoom={showAll ? 0.15 : 0.45}
+                  maxZoom={2.2}
+                  proOptions={{ hideAttribution: false }}
+                  fitView
+                  fitViewOptions={{ padding: 0.16, maxZoom: 1.15 }}
+                >
+                  <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="var(--border)" />
+                  <Controls position="bottom-left" showInteractive={false} />
+                  {showAll && (
+                    <MiniMap
+                      position="bottom-right"
+                      pannable
+                      zoomable
+                      nodeColor={(n) => {
+                        const d = (n.data ?? {}) as unknown as BrainNodeData;
+                        const hex = d.tier ? TIER[d.tier]?.color : undefined;
+                        return hex || "#64748b";
+                      }}
+                      nodeStrokeWidth={0}
+                      style={{ width: 150, height: 92, background: "var(--card)", borderRadius: 10 }}
+                      maskColor="rgba(120, 120, 130, 0.30)"
+                    />
+                  )}
+                </ReactFlow>
+              )}
+            </div>
           </div>
 
           {/* 2D Inspector Drawer */}
@@ -427,14 +534,18 @@ export function BrainView({
                 )}
                 <span className="text-[10px] uppercase tracking-wider text-muted">{selected.kind}</span>
                 <button
-                  onClick={() => setSelectedId(null)}
-                  className="ml-auto text-muted hover:text-text"
-                  title="Close"
+                  onClick={backToOverview}
+                  className="ml-auto text-muted hover:text-text cursor-pointer"
+                  title="Close and return to overview"
+                  aria-label="Close details"
                 >
                   <Icon name="x" size={12} />
                 </button>
               </div>
               <p className="text-sm text-text font-medium mt-2 leading-snug">{selected.label}</p>
+              {selected.description && (
+                <p className="mt-1.5 text-[11px] leading-relaxed text-muted">{selected.description}</p>
+              )}
               <div className="mt-2.5 text-[11px] text-muted space-y-1">
                 <div className="flex justify-between">
                   <span>Importance</span>
@@ -450,8 +561,16 @@ export function BrainView({
                     <span className="text-text">{TIER[selected.tier]?.label ?? selected.tier}</span>
                   </div>
                 )}
+                {selected.evidence?.files?.length ? (
+                  <div className="flex justify-between">
+                    <span>Evidence</span>
+                    <span className="text-text">
+                      {selected.evidence.files.length} file{selected.evidence.files.length === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                ) : null}
               </div>
-              {selected.tags.length > 0 && (
+              {(selected.tags?.length ?? 0) > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2.5">
                   {selected.tags.map((t) => (
                     <LabelChip key={t} name={t} />
@@ -465,25 +584,40 @@ export function BrainView({
                 {neighbors.length === 0 ? (
                   <p className="text-xs text-muted">No connections</p>
                 ) : (
-                  neighbors.map((n) => (
-                    <button
-                      key={n.id}
-                      onClick={() => setSelectedId(n.id)}
-                      className="w-full text-left flex items-center gap-1.5 py-1.5 group cursor-pointer"
-                      title={`Go to ${n.label}`}
-                    >
-                      <span
-                        className="w-1.5 h-1.5 rounded-full shrink-0"
-                        style={{
-                          background: (n.tier ? TIER[n.tier]?.color : undefined) ?? "var(--muted)",
-                        }}
-                      />
-                      <span className="text-xs text-text group-hover:text-accent transition-colors truncate">
-                        {n.label}
-                      </span>
-                      <span className="text-[10px] text-muted ml-auto shrink-0">{n.kind}</span>
-                    </button>
-                  ))
+                  <>
+                    {neighbors
+                      .slice(0, neighborsExpanded ? neighbors.length : 8)
+                      .map((n) => (
+                        <button
+                          key={n.id}
+                          onClick={() => {
+                            setSelectedId(n.id);
+                            if (!showAll) setEgoId(n.id);
+                          }}
+                          className="w-full text-left flex items-center gap-1.5 py-1.5 group cursor-pointer"
+                          title={`Go to ${n.label}`}
+                        >
+                          <span
+                            className="w-1.5 h-1.5 rounded-full shrink-0"
+                            style={{
+                              background: (n.tier ? TIER[n.tier]?.color : undefined) ?? "var(--muted)",
+                            }}
+                          />
+                          <span className="text-xs text-text group-hover:text-accent transition-colors truncate">
+                            {n.label}
+                          </span>
+                          <span className="text-[10px] text-muted ml-auto shrink-0">{n.kind}</span>
+                        </button>
+                      ))}
+                    {!neighborsExpanded && neighbors.length > 8 && (
+                      <button
+                        onClick={() => setNeighborsExpanded(true)}
+                        className="mt-1 w-full rounded py-1 text-left text-[11px] text-muted transition-colors hover:text-text cursor-pointer"
+                      >
+                        +{neighbors.length - 8} more
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
               {selected.kind === "card" && (

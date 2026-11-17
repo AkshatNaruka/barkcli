@@ -420,6 +420,7 @@ export const FEATURES_DATA: FeatureDetail[] = [
       "Governing architectural invariants (e.g. isolated worktree execution, local-first data ownership, gate-driven merge trains)",
       "Strict separation of persistent architecture knowledge from transient session activity logs",
       "Interactive 2D & 3D knowledge graph with glowing palettes and Lucide entity kind icons",
+      "Progressive 2D flow: a 15-node anchor map that expands one neighbourhood at a time, with a one-click full map",
       "Source evidence inspector tracking files, symbols, commit SHAs, and verification gates",
       "Zero-latency context pack injection directly into Claude Code, OpenCode, Codex, and Antigravity",
     ],
