@@ -942,7 +942,7 @@ export function InspectorPane({
         <div
           role="tablist"
           aria-label="Workbench tabs"
-          className="flex items-center gap-1 min-w-0 flex-1 overflow-x-auto no-scrollbar"
+          className="flex items-center gap-1 min-w-0 flex-1 overflow-x-auto overflow-y-hidden no-scrollbar"
         >
           {openTabs.map((tabId) => {
             const info = getTabDisplay(tabId);
@@ -995,50 +995,50 @@ export function InspectorPane({
               </div>
             );
           })}
+        </div>
 
-          {/* Floating Selection Trigger (+) matching Screenshot 2 */}
-          <div ref={surfaceMenuRef} className="relative flex items-center shrink-0">
-            <button
-              type="button"
-              onClick={() => setSurfaceMenuOpen((prev) => !prev)}
-              title="Open a surface"
-              aria-label="Open a surface"
-              aria-expanded={surfaceMenuOpen}
-              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors cursor-pointer ${
-                surfaceMenuOpen
-                  ? "bg-surface text-text ring-1 ring-border"
-                  : "text-muted hover:bg-surface/60 hover:text-text"
-              }`}
-            >
-              <Icon name="plus" size={13} />
-            </button>
+        {/* Floating Selection Trigger (+) matching Screenshot 2 */}
+        <div ref={surfaceMenuRef} className="relative flex items-center shrink-0">
+          <button
+            type="button"
+            onClick={() => setSurfaceMenuOpen((prev) => !prev)}
+            title="Open a surface"
+            aria-label="Open a surface"
+            aria-expanded={surfaceMenuOpen}
+            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors cursor-pointer ${
+              surfaceMenuOpen
+                ? "bg-surface text-text ring-1 ring-border"
+                : "text-muted hover:bg-surface/60 hover:text-text"
+            }`}
+          >
+            <Icon name="plus" size={13} />
+          </button>
 
-            {surfaceMenuOpen && (
-              <div className="absolute left-0 top-7 w-[235px] rounded-xl border border-border/80 bg-[#161618]/98 p-1.5 text-xs shadow-2xl backdrop-blur-xl z-50 animate-in fade-in zoom-in-95">
-                <div className="flex flex-col gap-0.5">
-                  {SURFACE_ITEMS.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => handleOpenSurface(item.id)}
-                      className="flex w-full items-center gap-3 rounded-lg px-2.5 py-1.5 text-[12px] text-text/90 transition-colors hover:bg-white/[0.06] hover:text-text cursor-pointer group"
-                    >
-                      <span className="text-muted group-hover:text-text transition-colors">
-                        {item.icon(14)}
-                      </span>
-                      <span className="flex-1 text-left font-medium">{item.label}</span>
-                      {item.hasDropdown && (
-                        <Icon name="chevDown" size={12} className="text-muted/60 mr-1" />
-                      )}
-                      <kbd className="flex h-5 w-5 items-center justify-center rounded border border-border/80 bg-surface/50 font-mono text-[9px] font-semibold uppercase text-muted">
-                        {item.letter}
-                      </kbd>
-                    </button>
-                  ))}
-                </div>
+          {surfaceMenuOpen && (
+            <div className="absolute left-0 top-7 w-[235px] rounded-xl border border-border/80 bg-[#161618]/98 p-1.5 text-xs shadow-2xl backdrop-blur-xl z-50 animate-in fade-in zoom-in-95">
+              <div className="flex flex-col gap-0.5">
+                {SURFACE_ITEMS.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => handleOpenSurface(item.id)}
+                    className="flex w-full items-center gap-3 rounded-lg px-2.5 py-1.5 text-[12px] text-text/90 transition-colors hover:bg-white/[0.06] hover:text-text cursor-pointer group"
+                  >
+                    <span className="text-muted group-hover:text-text transition-colors">
+                      {item.icon(14)}
+                    </span>
+                    <span className="flex-1 text-left font-medium">{item.label}</span>
+                    {item.hasDropdown && (
+                      <Icon name="chevDown" size={12} className="text-muted/60 mr-1" />
+                    )}
+                    <kbd className="flex h-5 w-5 items-center justify-center rounded border border-border/80 bg-surface/50 font-mono text-[9px] font-semibold uppercase text-muted">
+                      {item.letter}
+                    </kbd>
+                  </button>
+                ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         <div className="ml-auto flex items-center gap-1 shrink-0">

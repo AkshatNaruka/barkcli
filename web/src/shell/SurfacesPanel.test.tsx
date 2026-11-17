@@ -173,6 +173,18 @@ describe("SurfacesPanel", () => {
     expect(screen.getByRole("button", { name: /^Side chat/i })).toBeInTheDocument();
   });
 
+  it("keeps the plus button out of the tab strip's scroll area", () => {
+    renderPanel({ thread: threadWithData });
+
+    const plus = screen.getByRole("button", { name: "Open a surface" });
+    const strip = plus.parentElement?.previousElementSibling;
+
+    // The strip scrolls when tabs overflow, but it must not paint a thumb
+    // (it reads as a second pill next to the plus) and must not clip it.
+    expect(strip).toHaveClass("no-scrollbar");
+    expect(strip).not.toContainElement(plus);
+  });
+
   it("triggers actions when clicking launcher items", async () => {
     const handlers = renderPanel({ thread: threadWithData });
     const user = userEvent.setup();

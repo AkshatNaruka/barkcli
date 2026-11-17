@@ -718,57 +718,60 @@ export function SurfacesPanel({
     >
       {/* Top Surface Tab & Dock Controls Bar */}
       <div className="flex h-9 shrink-0 items-center justify-between border-b border-border/60 bg-bg px-2">
-        <div className="flex items-center gap-1 overflow-x-auto">
-          {dockView === "browser" && (
-            <div className="group flex h-6 items-center gap-1.5 rounded-md border border-border/80 bg-surface px-2 text-[11px] font-medium text-text shadow-xs">
-              <Icon name="globe" size={12} className="text-muted-strong" />
-              <span>Browser</span>
-              <button
-                type="button"
-                onClick={() => setDockView("launcher")}
-                title="Close Browser tab"
-                aria-label="Close Browser tab"
-                className="ml-0.5 rounded p-0.5 text-muted/60 opacity-60 group-hover:opacity-100 hover:bg-white/[0.1] hover:text-text cursor-pointer transition-colors"
-              >
-                <Icon name="x" size={10} />
-              </button>
-            </div>
-          )}
-          {dockView === "terminal" &&
-            terminalTabs.map((tab) => (
-              <div
-                key={tab.id}
-                onClick={() => setActiveTermTab(tab.id)}
-                className={`group flex h-6 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium transition-colors cursor-pointer select-none ${
-                  activeTermTab === tab.id
-                    ? "border border-border/80 bg-surface text-text shadow-xs"
-                    : "border border-transparent text-muted hover:bg-surface/50 hover:text-text"
-                }`}
-              >
-                <Icon name="terminal" size={12} className="text-muted-strong" />
-                <span>{tab.label}</span>
+        <div className="flex min-w-0 items-center gap-1">
+          <div className="flex min-w-0 items-center gap-1 overflow-x-auto overflow-y-hidden no-scrollbar">
+            {dockView === "browser" && (
+              <div className="group flex h-6 items-center gap-1.5 rounded-md border border-border/80 bg-surface px-2 text-[11px] font-medium text-text shadow-xs">
+                <Icon name="globe" size={12} className="text-muted-strong" />
+                <span>Browser</span>
                 <button
                   type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (terminalTabs.length <= 1) {
-                      setDockView("launcher");
-                    } else {
-                      const next = terminalTabs.filter((t) => t.id !== tab.id);
-                      setTerminalTabs(next);
-                      if (activeTermTab === tab.id && next[0]) {
-                        setActiveTermTab(next[0].id);
-                      }
-                    }
-                  }}
-                  title={`Close ${tab.label}`}
-                  aria-label={`Close ${tab.label}`}
+                  onClick={() => setDockView("launcher")}
+                  title="Close Browser tab"
+                  aria-label="Close Browser tab"
                   className="ml-0.5 rounded p-0.5 text-muted/60 opacity-60 group-hover:opacity-100 hover:bg-white/[0.1] hover:text-text cursor-pointer transition-colors"
                 >
                   <Icon name="x" size={10} />
                 </button>
               </div>
-            ))}
+            )}
+            {dockView === "terminal" &&
+              terminalTabs.map((tab) => (
+                <div
+                  key={tab.id}
+                  onClick={() => setActiveTermTab(tab.id)}
+                  className={`group flex h-6 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium transition-colors cursor-pointer select-none ${
+                    activeTermTab === tab.id
+                      ? "border border-border/80 bg-surface text-text shadow-xs"
+                      : "border border-transparent text-muted hover:bg-surface/50 hover:text-text"
+                  }`}
+                >
+                  <Icon name="terminal" size={12} className="text-muted-strong" />
+                  <span>{tab.label}</span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (terminalTabs.length <= 1) {
+                        setDockView("launcher");
+                      } else {
+                        const next = terminalTabs.filter((t) => t.id !== tab.id);
+                        setTerminalTabs(next);
+                        if (activeTermTab === tab.id && next[0]) {
+                          setActiveTermTab(next[0].id);
+                        }
+                      }
+                    }}
+                    title={`Close ${tab.label}`}
+                    aria-label={`Close ${tab.label}`}
+                    className="ml-0.5 rounded p-0.5 text-muted/60 opacity-60 group-hover:opacity-100 hover:bg-white/[0.1] hover:text-text cursor-pointer transition-colors"
+                  >
+                    <Icon name="x" size={10} />
+                  </button>
+                </div>
+              ))}
+
+          </div>
 
           <div ref={surfaceMenuRef} className="relative flex items-center shrink-0">
             <button

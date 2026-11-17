@@ -284,6 +284,10 @@ describe("InspectorPane", () => {
 
     // Click "+" button to open floating surface selection menu
     const plusBtn = screen.getByRole("button", { name: "Open a surface" });
+    const tablist = screen.getByRole("tablist", { name: "Workbench tabs" });
+    // Tabs scroll; the plus is pinned outside them and leaves no scrollbar behind.
+    expect(tablist).toHaveClass("no-scrollbar");
+    expect(tablist).not.toContainElement(plusBtn);
     await user.click(plusBtn);
 
     // Verify all 8 options in floating menu

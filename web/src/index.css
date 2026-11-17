@@ -145,6 +145,9 @@ textarea:focus-visible {
 *::-webkit-scrollbar { width: 8px; height: 8px; }
 *::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 4px; }
 *::-webkit-scrollbar-track { background: transparent; }
+/* Tab strips scroll, but never show a thumb: it reads as a stray second button. */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; width: 0; height: 0; }
 
 /* ── Docs content styles ── */
 .docs-content pre code.hljs { background: transparent; padding: 0; }
