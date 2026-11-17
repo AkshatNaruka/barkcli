@@ -51,21 +51,35 @@ export function SelectMenu({
   useLayoutEffect(() => {
     if (!open || !trigger.current) return;
     const rect = trigger.current.getBoundingClientRect();
+    // Inside a composer, every menu rises from the same line — the card's top
+    // edge — the way the model panel does, instead of floating in the thread.
+    const anchorTop =
+      trigger.current.closest(".thread-composer")?.getBoundingClientRect().top ?? rect.top;
     const width = Math.min(360, Math.max(rect.width, 200));
-    const spaceBelow = window.innerHeight - rect.bottom - 12;
-    const spaceAbove = rect.top - 12;
-    const below = spaceBelow >= 180 || spaceBelow >= spaceAbove;
-    const maxHeight = Math.min(320, below ? spaceBelow : spaceAbove);
+    const gap = 8;
+    const gutter = 8;
+    const spaceBelow = window.innerHeight - rect.bottom - gutter - gap;
+    const spaceAbove = anchorTop - gutter - gap;
     const left = Math.min(
-      Math.max(8, rect.left),
-      Math.max(8, window.innerWidth - width - 8)
+      Math.max(gutter, rect.left),
+      Math.max(gutter, window.innerWidth - width - gutter)
     );
+    // Measure the menu itself: a three-item list should sit snug on its
+    // anchor, not float a fixed 320px away from it.
+    const measured = menu.current?.scrollHeight ?? 0;
+    const natural = (measured > 0 ? Math.min(measured, 320) : 320) + 2; // + border
+    const below = natural <= spaceBelow || spaceBelow >= spaceAbove;
+    const maxHeight = Math.max(140, Math.min(320, below ? spaceBelow : spaceAbove));
     const top = below
-      ? rect.bottom + 6
-      : Math.max(8, rect.top - Math.min(maxHeight, 320) - 6);
-    setPosition({ left, top, width, maxHeight: Math.max(140, maxHeight) });
+      ? rect.bottom + gap
+      : Math.max(gutter, anchorTop - Math.min(natural, maxHeight) - gap);
+    setPosition((prev) =>
+      prev.left === left && prev.top === top && prev.width === width && prev.maxHeight === maxHeight
+        ? prev
+        : { left, top, width, maxHeight }
+    );
     const index = Math.max(0, options.findIndex((option) => option.value === value));
-    setActive(index);
+    setActive((prev) => (prev === index ? prev : index));
   }, [open, options, value, placement]);
 
   useEffect(() => {

@@ -67,6 +67,36 @@ describe("SelectMenu", () => {
     await user.keyboard("{ArrowDown}{Enter}");
     expect(onChange).toHaveBeenCalledWith("reviewer");
   });
+
+  it("rises from the composer's top edge instead of floating mid-thread", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <div className="thread-composer">
+        <SelectMenu
+          ariaLabel="Composer mode"
+          value="ask"
+          onChange={vi.fn()}
+          options={[{ value: "ask", label: "Ask" }]}
+        />
+      </div>
+    );
+    const composer = container.querySelector(".thread-composer") as HTMLElement;
+    const trigger = screen.getByRole("combobox", { name: "Composer mode" });
+    const rect = (top: number, bottom: number, left: number, width: number) =>
+      ({ top, bottom, left, right: left + width, width, height: bottom - top, x: left, y: top, toJSON: () => ({}) }) as DOMRect;
+    // Composer card sits near the bottom of the window; the trigger is its
+    // bottom row, where a menu anchored to the button alone would cover text.
+    composer.getBoundingClientRect = () => rect(500, 700, 100, 800);
+    trigger.getBoundingClientRect = () => rect(650, 690, 120, 100);
+
+    await user.click(trigger);
+
+    const listbox = screen.getByRole("listbox", { name: "Composer mode" });
+    // 500 (composer top) − 320 (menu cap) − 8 (gap). Hanging off the trigger
+    // would have been 650 − 320 − 8 = 322.
+    expect(parseFloat(listbox.style.top)).toBe(172);
+    expect(parseFloat(listbox.style.maxHeight)).toBe(320);
+  });
 });
 
 describe("QuietSelect", () => {
