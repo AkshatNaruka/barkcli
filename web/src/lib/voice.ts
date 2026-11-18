@@ -1,10 +1,12 @@
 /**
  * Voice capabilities for threads:
  * 1. Voice Dictation (Speech-to-Text): Speak naturally to dictate text straight into the prompt.
- * 2. Voice Read Aloud (Text-to-Speech / TTS): Listen to agent responses with natural audio output.
+ *    Supports both Web Speech API and native macOS on-device transcription via MediaRecorder.
+ * 2. Voice Read Aloud (Text-to-Speech / TTS): Kept silent by default to keep the Mac completely silent.
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { transcribeVoiceAudio } from "./api";
 
 // Web Speech API interface declarations for TypeScript
 interface IWindowSpeech extends Window {
@@ -16,6 +18,19 @@ export function isSpeechRecognitionSupported(): boolean {
   if (typeof window === "undefined") return false;
   const win = window as unknown as IWindowSpeech;
   return Boolean(win.SpeechRecognition || win.webkitSpeechRecognition);
+}
+
+export function isAudioRecordingSupported(): boolean {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+  return Boolean(
+    navigator.mediaDevices &&
+    typeof navigator.mediaDevices.getUserMedia === "function" &&
+    typeof MediaRecorder !== "undefined"
+  );
+}
+
+export function isVoiceDictationSupported(): boolean {
+  return isSpeechRecognitionSupported() || isAudioRecordingSupported();
 }
 
 export function isSpeechSynthesisSupported(): boolean {
@@ -67,127 +82,236 @@ export interface UseVoiceDictationOptions {
 
 export function useVoiceDictation({ onTranscript, onError }: UseVoiceDictationOptions = {}) {
   const [isListening, setIsListening] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   const recognitionRef = useRef<any>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
   const onTranscriptRef = useRef(onTranscript);
   onTranscriptRef.current = onTranscript;
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
 
-  const isSupported = isSpeechRecognitionSupported();
+  const hasWebSpeech = isSpeechRecognitionSupported();
+  const hasMediaRecorder = isAudioRecordingSupported();
+  const isSupported = hasWebSpeech || hasMediaRecorder;
 
   const stopListening = useCallback(() => {
+    // Stop Web Speech if active
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
       } catch {
-        /* already stopped */
+        /* ignore */
       }
       recognitionRef.current = null;
     }
+
+    // Stop MediaRecorder if active
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch {
+        /* ignore */
+      }
+    }
+
+    // Stop media stream tracks
+    if (mediaStreamRef.current) {
+      try {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      } catch {
+        /* ignore */
+      }
+      mediaStreamRef.current = null;
+    }
+
     setIsListening(false);
   }, []);
 
-  const startListening = useCallback(() => {
+  const startListening = useCallback(async () => {
     setError(null);
+
     if (!isSupported) {
-      const msg = "Speech recognition is not supported in this browser.";
+      const msg = "Microphone input is not supported in this environment.";
       setError(msg);
       onErrorRef.current?.(msg);
       return;
     }
 
-    try {
-      if (recognitionRef.current) {
-        recognitionRef.current.abort();
+    // Attempt 1: Web Speech API (if supported and not in an embedded WKWebView)
+    if (hasWebSpeech) {
+      try {
+        if (recognitionRef.current) {
+          recognitionRef.current.abort();
+        }
+
+        const win = window as unknown as IWindowSpeech;
+        const SpeechRecognitionClass = win.SpeechRecognition || win.webkitSpeechRecognition;
+        const recognition = new SpeechRecognitionClass();
+
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = typeof navigator !== "undefined" ? navigator.language || "en-US" : "en-US";
+
+        recognition.onstart = () => {
+          setIsListening(true);
+          setError(null);
+        };
+
+        recognition.onresult = (event: any) => {
+          let interimTranscript = "";
+          let finalTranscript = "";
+
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcriptChunk = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript += transcriptChunk;
+            } else {
+              interimTranscript += transcriptChunk;
+            }
+          }
+
+          const text = finalTranscript || interimTranscript;
+          if (text) {
+            onTranscriptRef.current?.(text, Boolean(finalTranscript));
+          }
+        };
+
+        recognition.onerror = (event: any) => {
+          if (event.error === "no-speech" || event.error === "aborted") {
+            return;
+          }
+          let msg = "Voice recognition error occurred.";
+          if (event.error === "not-allowed") {
+            msg = "Microphone access was denied. Please allow microphone permissions in macOS System Settings.";
+          }
+          setError(msg);
+          onErrorRef.current?.(msg);
+          setIsListening(false);
+        };
+
+        recognition.onend = () => {
+          setIsListening(false);
+        };
+
+        recognitionRef.current = recognition;
+        recognition.start();
+        return;
+      } catch {
+        // Fall back to MediaRecorder
       }
+    }
 
-      const win = window as unknown as IWindowSpeech;
-      const SpeechRecognitionClass = win.SpeechRecognition || win.webkitSpeechRecognition;
-      const recognition = new SpeechRecognitionClass();
+    // Attempt 2: MediaRecorder with on-device native speech transcription
+    if (hasMediaRecorder) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            channelCount: 1,
+          },
+        });
 
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = typeof navigator !== "undefined" ? navigator.language || "en-US" : "en-US";
+        mediaStreamRef.current = stream;
+        audioChunksRef.current = [];
 
-      recognition.onstart = () => {
-        setIsListening(true);
-        setError(null);
-      };
-
-      recognition.onresult = (event: any) => {
-        let interimTranscript = "";
-        let finalTranscript = "";
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcriptChunk = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += transcriptChunk;
-          } else {
-            interimTranscript += transcriptChunk;
+        // Select compatible mime type
+        let mimeType = "audio/webm";
+        if (typeof MediaRecorder.isTypeSupported === "function") {
+          if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+            mimeType = "audio/webm;codecs=opus";
+          } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
+            mimeType = "audio/mp4";
+          } else if (MediaRecorder.isTypeSupported("audio/ogg")) {
+            mimeType = "audio/ogg";
           }
         }
 
-        const text = finalTranscript || interimTranscript;
-        if (text) {
-          onTranscriptRef.current?.(text, Boolean(finalTranscript));
-        }
-      };
+        const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+        mediaRecorderRef.current = recorder;
 
-      recognition.onerror = (event: any) => {
-        // "no-speech" or "aborted" are routine non-fatal events
-        if (event.error === "no-speech" || event.error === "aborted") {
-          return;
-        }
-        let msg = "Voice recognition error occurred.";
-        if (event.error === "not-allowed") {
-          msg = "Microphone access was denied. Please allow microphone permissions.";
-        } else if (event.error === "network") {
-          msg = "Network error during speech recognition.";
+        recorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0) {
+            audioChunksRef.current.push(event.data);
+          }
+        };
+
+        recorder.onstop = async () => {
+          setIsListening(false);
+          // Stop mic tracks promptly
+          if (mediaStreamRef.current) {
+            mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+            mediaStreamRef.current = null;
+          }
+
+          const chunks = audioChunksRef.current;
+          audioChunksRef.current = [];
+
+          if (chunks.length === 0) return;
+
+          const recordedBlob = new Blob(chunks, { type: recorder.mimeType || mimeType });
+          if (recordedBlob.size < 100) return;
+
+          setIsTranscribing(true);
+          try {
+            const result = await transcribeVoiceAudio(recordedBlob);
+            if (result.text && result.text.trim()) {
+              onTranscriptRef.current?.(result.text.trim(), true);
+            }
+          } catch (err: any) {
+            const msg = err?.message || "Could not transcribe audio. Tip: You can also press Fn Fn on macOS to dictate.";
+            setError(msg);
+            onErrorRef.current?.(msg);
+          } finally {
+            setIsTranscribing(false);
+          }
+        };
+
+        recorder.onerror = () => {
+          setIsListening(false);
+          const msg = "Audio recording error occurred.";
+          setError(msg);
+          onErrorRef.current?.(msg);
+        };
+
+        recorder.start(250);
+        setIsListening(true);
+        setError(null);
+      } catch (err: any) {
+        setIsListening(false);
+        let msg = "Could not access microphone.";
+        if (err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError") {
+          msg = "Microphone access was denied. Please allow microphone access in macOS System Settings -> Privacy & Security -> Microphone.";
         }
         setError(msg);
         onErrorRef.current?.(msg);
-        setIsListening(false);
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-
-      recognitionRef.current = recognition;
-      recognition.start();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Could not start voice recognition.";
-      setError(msg);
-      onErrorRef.current?.(msg);
-      setIsListening(false);
+      }
     }
-  }, [isSupported]);
+  }, [hasMediaRecorder, hasWebSpeech, isSupported]);
 
   const toggleListening = useCallback(() => {
     if (isListening) {
       stopListening();
     } else {
-      startListening();
+      void startListening();
     }
   }, [isListening, startListening, stopListening]);
 
   useEffect(() => {
     return () => {
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.abort();
-        } catch {
-          /* ignore */
-        }
-        recognitionRef.current = null;
-      }
+      stopListening();
     };
-  }, []);
+  }, [stopListening]);
 
   return {
     isSupported,
     isListening,
+    isTranscribing,
     error,
     startListening,
     stopListening,
@@ -214,6 +338,7 @@ export function useTextToSpeech() {
 
   const speak = useCallback(
     (id: string, text: string) => {
+      // Kept silent by default per user request to keep Mac silent
       if (!isSupported || typeof window === "undefined") return;
 
       stop();
@@ -223,17 +348,6 @@ export function useTextToSpeech() {
       const utterance = new SpeechSynthesisUtterance(cleaned);
       utterance.rate = 1.0;
       utterance.pitch = 1.0;
-
-      // Choose natural English voice if available
-      try {
-        const voices = window.speechSynthesis.getVoices();
-        const preferredVoice = voices.find(
-          (v) => v.lang.startsWith("en") && (v.name.includes("Natural") || v.name.includes("Samantha") || v.name.includes("Google") || v.name.includes("Daniel"))
-        ) || voices.find((v) => v.lang.startsWith("en"));
-        if (preferredVoice) utterance.voice = preferredVoice;
-      } catch {
-        /* voices optional */
-      }
 
       utterance.onstart = () => {
         setIsSpeaking(true);

@@ -111,6 +111,8 @@ export function ThreadComposer({
   const {
     isSupported: isVoiceSupported,
     isListening,
+    isTranscribing,
+    error: voiceError,
     toggleListening,
     stopListening,
   } = useVoiceDictation({
@@ -478,29 +480,51 @@ export function ThreadComposer({
           <button
             type="button"
             onClick={toggleListening}
+            disabled={isTranscribing}
             className={`composer-btn-secondary inline-flex items-center gap-1 rounded px-1.5 py-1 text-[11px] transition-colors ${
               isListening
                 ? "bg-danger/15 text-danger border border-danger/30 hover:bg-danger/25"
+                : isTranscribing
+                ? "bg-accent/15 text-accent border border-accent/30"
                 : "text-muted/70 hover:text-text hover:bg-surface/50"
             }`}
             title={
               !isVoiceSupported
-                ? "Speech recognition not supported in this browser"
+                ? "Microphone input not supported in this environment"
+                : isTranscribing
+                ? "Transcribing your audio…"
                 : isListening
                 ? "Listening… Click to stop dictation"
                 : "Voice dictation (Speak to write in prompt)"
             }
-            aria-label={isListening ? "Stop voice dictation" : "Voice dictation"}
+            aria-label={
+              isTranscribing
+                ? "Transcribing voice"
+                : isListening
+                ? "Stop voice dictation"
+                : "Voice dictation"
+            }
           >
             <Icon
-              name={isListening ? "mic" : "mic"}
+              name={isTranscribing ? "refresh" : "mic"}
               size={13}
-              className={isListening ? "text-danger animate-pulse" : ""}
+              className={
+                isTranscribing
+                  ? "text-accent animate-spin"
+                  : isListening
+                  ? "text-danger animate-pulse"
+                  : ""
+              }
             />
             {isListening && (
               <span className="hidden xs:inline-flex items-center gap-1 font-mono text-[10px] text-danger font-semibold">
                 <span className="h-1.5 w-1.5 rounded-full bg-danger animate-ping" />
                 <span>Listening…</span>
+              </span>
+            )}
+            {isTranscribing && (
+              <span className="hidden xs:inline-flex items-center gap-1 font-mono text-[10px] text-accent font-medium">
+                <span>Transcribing…</span>
               </span>
             )}
           </button>
@@ -549,9 +573,9 @@ export function ThreadComposer({
         </div>
         {footer}
       </form>
-      {error && (
+      {(error || voiceError) && (
         <p role="alert" className="composer-error">
-          {error}
+          {error || voiceError}
         </p>
       )}
       <p className="sr-only" id={`${id}-hint`}>

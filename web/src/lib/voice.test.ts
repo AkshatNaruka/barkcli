@@ -3,6 +3,8 @@ import {
   cleanMarkdownForTTS,
   isSpeechRecognitionSupported,
   isSpeechSynthesisSupported,
+  isAudioRecordingSupported,
+  isVoiceDictationSupported,
 } from "./voice";
 
 describe("voice library", () => {
@@ -38,9 +40,11 @@ Check this \`inline code\` now!`;
     expect(cleanMarkdownForTTS("   \n\n  ")).toBe("");
   });
 
-  it("detects SpeechSynthesis and SpeechRecognition support", () => {
+  it("detects SpeechSynthesis, SpeechRecognition, and AudioRecording support", () => {
     // In jsdom environment, window exists
     expect(typeof isSpeechRecognitionSupported()).toBe("boolean");
     expect(typeof isSpeechSynthesisSupported()).toBe("boolean");
+    expect(typeof isAudioRecordingSupported()).toBe("boolean");
+    expect(typeof isVoiceDictationSupported()).toBe("boolean");
   });
 });

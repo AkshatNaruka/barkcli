@@ -553,6 +553,33 @@ export async function clearContext(): Promise<boolean> {
   }
 }
 
+export async function transcribeVoiceAudio(audioBlob: Blob): Promise<{ text: string; engine?: string }> {
+  if (isDemoMode()) {
+    return { text: "Voice input demo mode transcript.", engine: "demo" };
+  }
+  const buffer = await audioBlob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  const base64 = btoa(binary);
+  const res = await fetch(withToken("/api/voice/transcribe"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      audio_base64: base64,
+      mime_type: audioBlob.type || "audio/webm",
+    }),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => null);
+    throw new Error(errData?.error || `Transcription failed with status ${res.status}`);
+  }
+  return res.json();
+}
+
 export async function codeSearch(query: string): Promise<
   { path: string; symbols: string[]; cards: string[] }[]
 > {

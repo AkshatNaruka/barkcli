@@ -25,6 +25,11 @@ bash "$ROOT/desktop/scripts/build-web.sh"
 echo "==> sidecar staging"
 bash "$ROOT/desktop/scripts/prepare-sidecar.sh" release
 
+echo "==> voice transcriber binary"
+if [[ ! -f "$ROOT/desktop/binaries/bark-transcribe" || "$ROOT/desktop/scripts/bark-transcribe.swift" -nt "$ROOT/desktop/binaries/bark-transcribe" ]]; then
+  swiftc -O -o "$ROOT/desktop/binaries/bark-transcribe" "$ROOT/desktop/scripts/bark-transcribe.swift"
+fi
+
 echo "==> Tauri bundle"
 cd "$ROOT/desktop"
 if cargo tauri --version >/dev/null 2>&1; then
@@ -32,6 +37,11 @@ if cargo tauri --version >/dev/null 2>&1; then
 else
   echo "cargo-tauri not installed; using npx @tauri-apps/cli@2"
   npx --yes @tauri-apps/cli@2 build
+fi
+
+if [[ -f "$ROOT/desktop/binaries/bark-transcribe" ]]; then
+  cp "$ROOT/desktop/binaries/bark-transcribe" "$APP/Contents/MacOS/bark-transcribe"
+  chmod +x "$APP/Contents/MacOS/bark-transcribe"
 fi
 
 echo "==> ad-hoc signing"

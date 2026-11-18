@@ -224,6 +224,7 @@ dependencies = [
  "anyhow",
  "axum",
  "barkcli-core",
+ "base64",
  "chrono",
  "futures",
  "notify",

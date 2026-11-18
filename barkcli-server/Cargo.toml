@@ -26,3 +26,4 @@ notify = "7"
 open = "5"
 chrono = "0.4"
 ureq = { version = "2", features = ["json"] }
+base64 = "0.22"

@@ -8,5 +8,9 @@
   <string>Bark reads board and git state from projects you open in Documents.</string>
   <key>NSDownloadsFolderUsageDescription</key>
   <string>Bark reads board and git state from projects you open in Downloads.</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Bark uses your microphone for voice dictation in thread prompts.</string>
+  <key>NSSpeechRecognitionUsageDescription</key>
+  <string>Bark uses speech recognition to transcribe your spoken prompts.</string>
 </dict>
 </plist>

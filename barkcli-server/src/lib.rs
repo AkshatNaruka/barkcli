@@ -212,6 +212,7 @@ where
         .route("/api/worktrees/{slug}/checkpoint", post(worktree_checkpoint_handler))
         .route("/api/health", get(health_handler))
         .route("/api/proxy", get(browser_proxy_handler))
+        .route("/api/voice/transcribe", post(voice_transcribe_handler))
         .route("/api/agent-loop/tools", get(agent_loop_tools_handler))
         .route("/api/history", get(history_handler))
         .route("/api/sessions", get(sessions_handler))
@@ -1726,6 +1727,124 @@ async fn browser_proxy_handler(Query(query): Query<BrowserProxyQuery>) -> Respon
 async fn agent_loop_tools_handler() -> Result<Json<serde_json::Value>, ServerError> {
     let registry = barkcli_core::agent::agent_loop::default_registry();
     Ok(Json(serde_json::json!({ "tools": registry.list() })))
+}
+
+#[derive(Deserialize)]
+struct VoiceTranscribePayload {
+    audio_base64: String,
+    #[serde(default)]
+    mime_type: Option<String>,
+}
+
+#[derive(Serialize)]
+struct VoiceTranscribeResponse {
+    text: String,
+    engine: String,
+}
+
+async fn voice_transcribe_handler(
+    Json(payload): Json<VoiceTranscribePayload>,
+) -> Result<Json<VoiceTranscribeResponse>, ServerError> {
+    use base64::Engine;
+    if payload.audio_base64.trim().is_empty() {
+        return Err(ServerError::bad("empty audio payload"));
+    }
+
+    let audio_bytes = base64::prelude::BASE64_STANDARD
+        .decode(payload.audio_base64.trim())
+        .map_err(|e| ServerError::bad(format!("invalid base64: {e}")))?;
+
+    if audio_bytes.is_empty() {
+        return Err(ServerError::bad("empty audio bytes"));
+    }
+
+    let mime = payload.mime_type.unwrap_or_else(|| "audio/webm".to_string());
+    let ext = if mime.contains("mp4") || mime.contains("m4a") {
+        "m4a"
+    } else if mime.contains("wav") {
+        "wav"
+    } else {
+        "webm"
+    };
+
+    let temp_dir = std::env::temp_dir();
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let raw_path = temp_dir.join(format!("bark_voice_in_{}.{}", nanos, ext));
+    let wav_path = temp_dir.join(format!("bark_voice_out_{}.wav", nanos));
+
+    std::fs::write(&raw_path, &audio_bytes)
+        .map_err(|e| ServerError::internal(format!("failed to write audio file: {e}")))?;
+
+    let target_path = if ext == "wav" {
+        raw_path.clone()
+    } else {
+        let ffmpeg_out = std::process::Command::new("ffmpeg")
+            .args(["-y", "-i", raw_path.to_str().unwrap_or(""), "-ar", "16000", "-ac", "1", wav_path.to_str().unwrap_or("")])
+            .output();
+        match ffmpeg_out {
+            Ok(out) if out.status.success() => wav_path.clone(),
+            _ => raw_path.clone(),
+        }
+    };
+
+    let binary_candidates = [
+        std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("bark-transcribe"))),
+        Some(std::path::PathBuf::from("/Applications/Bark.app/Contents/MacOS/bark-transcribe")),
+        Some(std::path::PathBuf::from("desktop/binaries/bark-transcribe")),
+    ];
+
+    let mut transcript = String::new();
+    let mut engine = "macos-on-device".to_string();
+
+    for candidate in binary_candidates.into_iter().flatten() {
+        if candidate.is_file() {
+            if let Ok(out) = std::process::Command::new(&candidate)
+                .arg(&target_path)
+                .output()
+            {
+                if out.status.success() {
+                    let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                    if !text.is_empty() {
+                        transcript = text;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    if transcript.is_empty() {
+        let swift_script = "desktop/scripts/bark-transcribe.swift";
+        if std::path::Path::new(swift_script).is_file() {
+            if let Ok(out) = std::process::Command::new("swift")
+                .args([swift_script, target_path.to_str().unwrap_or("")])
+                .output()
+            {
+                if out.status.success() {
+                    let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                    if !text.is_empty() {
+                        transcript = text;
+                        engine = "macos-swift-on-device".to_string();
+                    }
+                }
+            }
+        }
+    }
+
+    let _ = std::fs::remove_file(&raw_path);
+    let _ = std::fs::remove_file(&wav_path);
+
+    if transcript.is_empty() {
+        return Err(ServerError::bad("No speech detected or transcription timed out. Try speaking clearly into the microphone."));
+    }
+
+    Ok(Json(VoiceTranscribeResponse {
+        text: transcript,
+        engine,
+    }))
 }
 
 async fn sprints_handler(
