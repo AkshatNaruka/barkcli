@@ -6,7 +6,8 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { transcribeVoiceAudio } from "./api";
+import * as api from "./api";
+import { isDesktop } from "./desktop";
 
 // Web Speech API interface declarations for TypeScript
 interface IWindowSpeech extends Window {
@@ -30,7 +31,7 @@ export function isAudioRecordingSupported(): boolean {
 }
 
 export function isVoiceDictationSupported(): boolean {
-  return isSpeechRecognitionSupported() || isAudioRecordingSupported();
+  return isDesktop() || isSpeechRecognitionSupported() || isAudioRecordingSupported();
 }
 
 export function isSpeechSynthesisSupported(): boolean {
@@ -84,7 +85,9 @@ export function useVoiceDictation({ onTranscript, onError }: UseVoiceDictationOp
   const [isListening, setIsListening] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [backendSupported, setBackendSupported] = useState<boolean>(true);
 
+  const activeModeRef = useRef<"backend" | "webspeech" | "mediarecorder" | null>(null);
   const recognitionRef = useRef<any>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -97,52 +100,136 @@ export function useVoiceDictation({ onTranscript, onError }: UseVoiceDictationOp
 
   const hasWebSpeech = isSpeechRecognitionSupported();
   const hasMediaRecorder = isAudioRecordingSupported();
-  const isSupported = hasWebSpeech || hasMediaRecorder;
+  const isSupported = backendSupported || isDesktop() || hasWebSpeech || hasMediaRecorder;
 
-  const stopListening = useCallback(() => {
-    // Stop Web Speech if active
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch {
-        /* ignore */
-      }
-      recognitionRef.current = null;
+  useEffect(() => {
+    let active = true;
+    if (typeof api.getVoiceStatus === "function") {
+      api.getVoiceStatus()
+        .then((status) => {
+          if (active && status) {
+            setBackendSupported(status.supported);
+          }
+        })
+        .catch(() => {
+          if (active && isDesktop()) setBackendSupported(true);
+        });
     }
+    return () => {
+      active = false;
+    };
+  }, []);
 
-    // Stop MediaRecorder if active
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      try {
-        mediaRecorderRef.current.stop();
-      } catch {
-        /* ignore */
-      }
-    }
-
-    // Stop media stream tracks
-    if (mediaStreamRef.current) {
-      try {
-        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
-      } catch {
-        /* ignore */
-      }
-      mediaStreamRef.current = null;
-    }
-
+  const cancelListening = useCallback(async () => {
+    const mode = activeModeRef.current;
+    activeModeRef.current = null;
     setIsListening(false);
+    setIsTranscribing(false);
+
+    if (mode === "backend") {
+      if (typeof api.cancelVoiceRecording === "function") {
+        await api.cancelVoiceRecording();
+      }
+    } else if (mode === "webspeech") {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {
+          /* ignore */
+        }
+        recognitionRef.current = null;
+      }
+    } else if (mode === "mediarecorder") {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch {
+          /* ignore */
+        }
+      }
+      if (mediaStreamRef.current) {
+        try {
+          mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+        } catch {
+          /* ignore */
+        }
+        mediaStreamRef.current = null;
+      }
+    }
+  }, []);
+
+  const stopListening = useCallback(async () => {
+    const mode = activeModeRef.current;
+    activeModeRef.current = null;
+    setIsListening(false);
+
+    if (mode === "backend") {
+      setIsTranscribing(true);
+      try {
+        if (typeof api.stopVoiceRecording === "function") {
+          const result = await api.stopVoiceRecording();
+          if (result && result.text && result.text.trim()) {
+            onTranscriptRef.current?.(result.text.trim(), true);
+          }
+        }
+      } catch (err: any) {
+        const msg = err?.message || "Voice recording failed.";
+        setError(msg);
+        onErrorRef.current?.(msg);
+      } finally {
+        setIsTranscribing(false);
+      }
+      return;
+    }
+
+    if (mode === "webspeech") {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {
+          /* ignore */
+        }
+        recognitionRef.current = null;
+      }
+      return;
+    }
+
+    if (mode === "mediarecorder") {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch {
+          /* ignore */
+        }
+      }
+      if (mediaStreamRef.current) {
+        try {
+          mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+        } catch {
+          /* ignore */
+        }
+        mediaStreamRef.current = null;
+      }
+    }
   }, []);
 
   const startListening = useCallback(async () => {
     setError(null);
 
-    if (!isSupported) {
-      const msg = "Microphone input is not supported in this environment.";
-      setError(msg);
-      onErrorRef.current?.(msg);
-      return;
+    // Attempt 1: Backend native on-device speech dictation (ideal for macOS desktop app & local server)
+    if ((backendSupported || isDesktop()) && typeof api.startVoiceRecording === "function") {
+      try {
+        await api.startVoiceRecording();
+        activeModeRef.current = "backend";
+        setIsListening(true);
+        setError(null);
+        return;
+      } catch (err: any) {
+        console.warn("Backend voice recording start failed, trying browser fallbacks", err);
+      }
     }
 
-    // Attempt 1: Web Speech API (if supported and not in an embedded WKWebView)
+    // Attempt 2: Web Speech API (in Chromium / Edge)
     if (hasWebSpeech) {
       try {
         if (recognitionRef.current) {
@@ -158,6 +245,7 @@ export function useVoiceDictation({ onTranscript, onError }: UseVoiceDictationOp
         recognition.lang = typeof navigator !== "undefined" ? navigator.language || "en-US" : "en-US";
 
         recognition.onstart = () => {
+          activeModeRef.current = "webspeech";
           setIsListening(true);
           setError(null);
         };
@@ -192,10 +280,12 @@ export function useVoiceDictation({ onTranscript, onError }: UseVoiceDictationOp
           setError(msg);
           onErrorRef.current?.(msg);
           setIsListening(false);
+          activeModeRef.current = null;
         };
 
         recognition.onend = () => {
           setIsListening(false);
+          activeModeRef.current = null;
         };
 
         recognitionRef.current = recognition;
@@ -206,7 +296,7 @@ export function useVoiceDictation({ onTranscript, onError }: UseVoiceDictationOp
       }
     }
 
-    // Attempt 2: MediaRecorder with on-device native speech transcription
+    // Attempt 3: MediaRecorder with on-device native speech transcription
     if (hasMediaRecorder) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -220,7 +310,6 @@ export function useVoiceDictation({ onTranscript, onError }: UseVoiceDictationOp
         mediaStreamRef.current = stream;
         audioChunksRef.current = [];
 
-        // Select compatible mime type
         let mimeType = "audio/webm";
         if (typeof MediaRecorder.isTypeSupported === "function") {
           if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
@@ -243,7 +332,7 @@ export function useVoiceDictation({ onTranscript, onError }: UseVoiceDictationOp
 
         recorder.onstop = async () => {
           setIsListening(false);
-          // Stop mic tracks promptly
+          activeModeRef.current = null;
           if (mediaStreamRef.current) {
             mediaStreamRef.current.getTracks().forEach((track) => track.stop());
             mediaStreamRef.current = null;
@@ -259,9 +348,11 @@ export function useVoiceDictation({ onTranscript, onError }: UseVoiceDictationOp
 
           setIsTranscribing(true);
           try {
-            const result = await transcribeVoiceAudio(recordedBlob);
-            if (result.text && result.text.trim()) {
-              onTranscriptRef.current?.(result.text.trim(), true);
+            if (typeof api.transcribeVoiceAudio === "function") {
+              const result = await api.transcribeVoiceAudio(recordedBlob);
+              if (result && result.text && result.text.trim()) {
+                onTranscriptRef.current?.(result.text.trim(), true);
+              }
             }
           } catch (err: any) {
             const msg = err?.message || "Could not transcribe audio. Tip: You can also press Fn Fn on macOS to dictate.";
@@ -274,39 +365,63 @@ export function useVoiceDictation({ onTranscript, onError }: UseVoiceDictationOp
 
         recorder.onerror = () => {
           setIsListening(false);
+          activeModeRef.current = null;
           const msg = "Audio recording error occurred.";
           setError(msg);
           onErrorRef.current?.(msg);
         };
 
         recorder.start(250);
+        activeModeRef.current = "mediarecorder";
         setIsListening(true);
         setError(null);
+        return;
       } catch (err: any) {
         setIsListening(false);
+        activeModeRef.current = null;
         let msg = "Could not access microphone.";
         if (err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError") {
           msg = "Microphone access was denied. Please allow microphone access in macOS System Settings -> Privacy & Security -> Microphone.";
         }
         setError(msg);
         onErrorRef.current?.(msg);
+        return;
       }
     }
-  }, [hasMediaRecorder, hasWebSpeech, isSupported]);
+
+    const msg = "Microphone input is not supported in this environment.";
+    setError(msg);
+    onErrorRef.current?.(msg);
+  }, [backendSupported, hasMediaRecorder, hasWebSpeech]);
 
   const toggleListening = useCallback(() => {
     if (isListening) {
-      stopListening();
+      void stopListening();
     } else {
       void startListening();
     }
   }, [isListening, startListening, stopListening]);
 
   useEffect(() => {
-    return () => {
-      stopListening();
+    if (!isListening) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        void cancelListening();
+      }
     };
-  }, [stopListening]);
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, true);
+    };
+  }, [isListening, cancelListening]);
+
+  useEffect(() => {
+    return () => {
+      void cancelListening();
+    };
+  }, [cancelListening]);
 
   return {
     isSupported,
@@ -315,6 +430,7 @@ export function useVoiceDictation({ onTranscript, onError }: UseVoiceDictationOp
     error,
     startListening,
     stopListening,
+    cancelListening,
     toggleListening,
   };
 }

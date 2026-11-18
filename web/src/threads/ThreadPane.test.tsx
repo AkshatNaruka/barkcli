@@ -30,6 +30,10 @@ const api = vi.hoisted(() => ({
     { id: "builder", name: "Builder" },
     { id: "reviewer", name: "Reviewer" },
   ]),
+  getVoiceStatus: vi.fn(async () => ({ supported: true, recording: false })),
+  startVoiceRecording: vi.fn(async () => true),
+  stopVoiceRecording: vi.fn(async () => ({ text: "" })),
+  cancelVoiceRecording: vi.fn(async () => {}),
 }));
 
 vi.mock("../lib/api", () => api);

@@ -25,7 +25,10 @@ bash "$ROOT/desktop/scripts/build-web.sh"
 echo "==> sidecar staging"
 bash "$ROOT/desktop/scripts/prepare-sidecar.sh" release
 
-echo "==> voice transcriber binary"
+echo "==> voice recording & transcriber binaries"
+if [[ ! -f "$ROOT/desktop/binaries/bark-record" || "$ROOT/desktop/scripts/bark-record.swift" -nt "$ROOT/desktop/binaries/bark-record" ]]; then
+  swiftc -O -o "$ROOT/desktop/binaries/bark-record" "$ROOT/desktop/scripts/bark-record.swift"
+fi
 if [[ ! -f "$ROOT/desktop/binaries/bark-transcribe" || "$ROOT/desktop/scripts/bark-transcribe.swift" -nt "$ROOT/desktop/binaries/bark-transcribe" ]]; then
   swiftc -O -o "$ROOT/desktop/binaries/bark-transcribe" "$ROOT/desktop/scripts/bark-transcribe.swift"
 fi
@@ -39,6 +42,10 @@ else
   npx --yes @tauri-apps/cli@2 build
 fi
 
+if [[ -f "$ROOT/desktop/binaries/bark-record" ]]; then
+  cp "$ROOT/desktop/binaries/bark-record" "$APP/Contents/MacOS/bark-record"
+  chmod +x "$APP/Contents/MacOS/bark-record"
+fi
 if [[ -f "$ROOT/desktop/binaries/bark-transcribe" ]]; then
   cp "$ROOT/desktop/binaries/bark-transcribe" "$APP/Contents/MacOS/bark-transcribe"
   chmod +x "$APP/Contents/MacOS/bark-transcribe"

@@ -3,7 +3,18 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { UniversalComposer } from "./UniversalComposer";
 
-const { createThread, fetchProviders, fetchProviderModels, fetchRoles, startThreadChat, startThreadBuild } = vi.hoisted(() => ({
+const {
+  createThread,
+  fetchProviders,
+  fetchProviderModels,
+  fetchRoles,
+  startThreadChat,
+  startThreadBuild,
+  getVoiceStatus,
+  startVoiceRecording,
+  stopVoiceRecording,
+  cancelVoiceRecording,
+} = vi.hoisted(() => ({
   createThread: vi.fn(),
   fetchProviders: vi.fn(async () => [
     { id: "opencode", name: "OpenCode", available: true, authenticated: true },
@@ -12,6 +23,10 @@ const { createThread, fetchProviders, fetchProviderModels, fetchRoles, startThre
   fetchRoles: vi.fn(async () => []),
   startThreadChat: vi.fn(),
   startThreadBuild: vi.fn(async () => ({ id: "run_1" })),
+  getVoiceStatus: vi.fn(async () => ({ supported: true, recording: false })),
+  startVoiceRecording: vi.fn(async () => true),
+  stopVoiceRecording: vi.fn(async () => ({ text: "" })),
+  cancelVoiceRecording: vi.fn(async () => {}),
 }));
 vi.mock("../lib/api", () => ({
   createThread,
@@ -20,6 +35,10 @@ vi.mock("../lib/api", () => ({
   fetchRoles,
   startThreadChat,
   startThreadBuild,
+  getVoiceStatus,
+  startVoiceRecording,
+  stopVoiceRecording,
+  cancelVoiceRecording,
 }));
 
 describe("UniversalComposer", () => {

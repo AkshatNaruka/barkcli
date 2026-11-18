@@ -553,6 +553,50 @@ export async function clearContext(): Promise<boolean> {
   }
 }
 
+export async function getVoiceStatus(): Promise<{ supported: boolean; recording: boolean; duration_secs?: number }> {
+  if (isDemoMode()) {
+    return { supported: true, recording: false, duration_secs: 0 };
+  }
+  try {
+    const res = await fetch(withToken("/api/voice/status"));
+    if (!res.ok) return { supported: false, recording: false };
+    return res.json();
+  } catch {
+    return { supported: false, recording: false };
+  }
+}
+
+export async function startVoiceRecording(): Promise<boolean> {
+  if (isDemoMode()) return true;
+  const res = await fetch(withToken("/api/voice/start"), { method: "POST" });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => null);
+    throw new Error(errData?.error || `Failed to start recording with status ${res.status}`);
+  }
+  return true;
+}
+
+export async function stopVoiceRecording(): Promise<{ text: string; engine?: string }> {
+  if (isDemoMode()) {
+    return { text: "Voice input demo mode transcript.", engine: "demo" };
+  }
+  const res = await fetch(withToken("/api/voice/stop"), { method: "POST" });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => null);
+    throw new Error(errData?.error || `Failed to stop recording with status ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function cancelVoiceRecording(): Promise<void> {
+  if (isDemoMode()) return;
+  try {
+    await fetch(withToken("/api/voice/cancel"), { method: "POST" });
+  } catch {
+    /* ignore */
+  }
+}
+
 export async function transcribeVoiceAudio(audioBlob: Blob): Promise<{ text: string; engine?: string }> {
   if (isDemoMode()) {
     return { text: "Voice input demo mode transcript.", engine: "demo" };

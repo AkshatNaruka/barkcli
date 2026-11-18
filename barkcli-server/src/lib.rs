@@ -52,6 +52,12 @@ struct ChatRuntime {
     provider: String,
 }
 
+struct ActiveVoiceRecording {
+    child: std::process::Child,
+    wav_path: std::path::PathBuf,
+    started_at: Instant,
+}
+
 #[derive(Clone)]
 struct AppState {
     board_name: Option<String>,
@@ -63,6 +69,8 @@ struct AppState {
     /// One live read-only chat turn per thread. Chat turns run in the project
     /// root, not a worktree, so they must be stopped explicitly.
     chat: Arc<StdMutex<HashMap<String, ChatRuntime>>>,
+    /// Active voice recording process if microphone dictation is active.
+    voice_recording: Arc<StdMutex<Option<ActiveVoiceRecording>>>,
     /// Monotonic process start time; feeds `uptime_seconds` on `/api/ping`.
     started_at: Instant,
 }
@@ -143,6 +151,7 @@ where
         thread_tx: thread_tx.clone(),
         code_cache: Arc::new(Mutex::new(None)),
         chat: Arc::new(StdMutex::new(HashMap::new())),
+        voice_recording: Arc::new(StdMutex::new(None)),
         started_at: Instant::now(),
     });
 
@@ -212,6 +221,10 @@ where
         .route("/api/worktrees/{slug}/checkpoint", post(worktree_checkpoint_handler))
         .route("/api/health", get(health_handler))
         .route("/api/proxy", get(browser_proxy_handler))
+        .route("/api/voice/status", get(voice_status_handler))
+        .route("/api/voice/start", post(voice_start_handler))
+        .route("/api/voice/stop", post(voice_stop_handler))
+        .route("/api/voice/cancel", post(voice_cancel_handler))
         .route("/api/voice/transcribe", post(voice_transcribe_handler))
         .route("/api/agent-loop/tools", get(agent_loop_tools_handler))
         .route("/api/history", get(history_handler))
@@ -1742,6 +1755,209 @@ struct VoiceTranscribeResponse {
     engine: String,
 }
 
+#[derive(Serialize)]
+struct VoiceStatusResponse {
+    supported: bool,
+    recording: bool,
+    duration_secs: u64,
+}
+
+#[derive(Serialize)]
+struct VoiceStartResponse {
+    ok: bool,
+    recording: bool,
+}
+
+fn get_safe_temp_dir() -> std::path::PathBuf {
+    let mut temp = std::env::temp_dir();
+    if !temp.exists() {
+        let _ = std::fs::create_dir_all(&temp);
+    }
+    if !temp.exists() {
+        temp = std::path::PathBuf::from("/tmp");
+    }
+    temp
+}
+
+fn transcribe_audio_file(target_path: &std::path::Path) -> Option<(String, String)> {
+    let binary_candidates = [
+        std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("bark-transcribe"))),
+        Some(std::path::PathBuf::from("/Applications/Bark.app/Contents/MacOS/bark-transcribe")),
+        Some(std::path::PathBuf::from("desktop/binaries/bark-transcribe")),
+    ];
+
+    for candidate in binary_candidates.into_iter().flatten() {
+        if candidate.is_file() {
+            if let Ok(out) = std::process::Command::new(&candidate)
+                .arg(target_path)
+                .output()
+            {
+                if out.status.success() {
+                    let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                    if !text.is_empty() {
+                        return Some((text, "macos-on-device".to_string()));
+                    }
+                }
+            }
+        }
+    }
+
+    let swift_script = "desktop/scripts/bark-transcribe.swift";
+    if std::path::Path::new(swift_script).is_file() {
+        if let Ok(out) = std::process::Command::new("swift")
+            .args([swift_script, target_path.to_str().unwrap_or("")])
+            .output()
+        {
+            if out.status.success() {
+                let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                if !text.is_empty() {
+                    return Some((text, "macos-swift-on-device".to_string()));
+                }
+            }
+        }
+    }
+
+    None
+}
+
+async fn voice_status_handler(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<VoiceStatusResponse>, ServerError> {
+    let is_macos = cfg!(target_os = "macos");
+    let has_recorder = [
+        std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("bark-record"))),
+        Some(std::path::PathBuf::from("/Applications/Bark.app/Contents/MacOS/bark-record")),
+        Some(std::path::PathBuf::from("desktop/binaries/bark-record")),
+    ]
+    .into_iter()
+    .flatten()
+    .any(|p| p.is_file())
+        || std::path::Path::new("desktop/scripts/bark-record.swift").is_file();
+
+    let supported = is_macos && has_recorder;
+
+    let guard = state.voice_recording.lock().unwrap();
+    let (recording, duration_secs) = match &*guard {
+        Some(rec) => (true, rec.started_at.elapsed().as_secs()),
+        None => (false, 0),
+    };
+
+    Ok(Json(VoiceStatusResponse {
+        supported,
+        recording,
+        duration_secs,
+    }))
+}
+
+async fn voice_start_handler(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<VoiceStartResponse>, ServerError> {
+    let record_bin = [
+        std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("bark-record"))),
+        Some(std::path::PathBuf::from("/Applications/Bark.app/Contents/MacOS/bark-record")),
+        Some(std::path::PathBuf::from("desktop/binaries/bark-record")),
+    ]
+    .into_iter()
+    .flatten()
+    .find(|p| p.is_file());
+
+    let temp_dir = get_safe_temp_dir();
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let wav_path = temp_dir.join(format!("bark_voice_dictate_{}.wav", nanos));
+
+    let child = if let Some(bin) = record_bin {
+        std::process::Command::new(bin)
+            .arg(&wav_path)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .map_err(|e| ServerError::internal(format!("failed to start audio recorder: {e}")))?
+    } else {
+        let swift_script = "desktop/scripts/bark-record.swift";
+        if std::path::Path::new(swift_script).is_file() {
+            std::process::Command::new("swift")
+                .args([swift_script, wav_path.to_str().unwrap_or("")])
+                .stdin(std::process::Stdio::piped())
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+                .map_err(|e| ServerError::internal(format!("failed to start audio recorder with swift: {e}")))?
+        } else {
+            return Err(ServerError::bad("Voice recording utility not found"));
+        }
+    };
+
+    let mut guard = state.voice_recording.lock().unwrap();
+    if let Some(mut prev) = guard.take() {
+        let _ = prev.child.kill();
+        let _ = std::fs::remove_file(&prev.wav_path);
+    }
+
+    *guard = Some(ActiveVoiceRecording {
+        child,
+        wav_path,
+        started_at: Instant::now(),
+    });
+
+    Ok(Json(VoiceStartResponse {
+        ok: true,
+        recording: true,
+    }))
+}
+
+async fn voice_stop_handler(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<VoiceTranscribeResponse>, ServerError> {
+    let rec = {
+        let mut guard = state.voice_recording.lock().unwrap();
+        guard.take()
+    };
+
+    let mut rec = match rec {
+        Some(r) => r,
+        None => {
+            return Ok(Json(VoiceTranscribeResponse {
+                text: String::new(),
+                engine: "none".to_string(),
+            }));
+        }
+    };
+
+    if let Some(mut stdin) = rec.child.stdin.take() {
+        use std::io::Write;
+        let _ = stdin.write_all(b"\n");
+        let _ = stdin.flush();
+    }
+
+    let _ = rec.child.wait();
+
+    let (text, engine) = transcribe_audio_file(&rec.wav_path).unwrap_or_else(|| {
+        (String::new(), "macos-on-device".to_string())
+    });
+
+    let _ = std::fs::remove_file(&rec.wav_path);
+
+    Ok(Json(VoiceTranscribeResponse {
+        text,
+        engine,
+    }))
+}
+
+async fn voice_cancel_handler(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let mut guard = state.voice_recording.lock().unwrap();
+    if let Some(mut rec) = guard.take() {
+        let _ = rec.child.kill();
+        let _ = std::fs::remove_file(&rec.wav_path);
+    }
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
 async fn voice_transcribe_handler(
     Json(payload): Json<VoiceTranscribePayload>,
 ) -> Result<Json<VoiceTranscribeResponse>, ServerError> {
@@ -1767,7 +1983,7 @@ async fn voice_transcribe_handler(
         "webm"
     };
 
-    let temp_dir = std::env::temp_dir();
+    let temp_dir = get_safe_temp_dir();
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
@@ -1790,59 +2006,15 @@ async fn voice_transcribe_handler(
         }
     };
 
-    let binary_candidates = [
-        std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("bark-transcribe"))),
-        Some(std::path::PathBuf::from("/Applications/Bark.app/Contents/MacOS/bark-transcribe")),
-        Some(std::path::PathBuf::from("desktop/binaries/bark-transcribe")),
-    ];
-
-    let mut transcript = String::new();
-    let mut engine = "macos-on-device".to_string();
-
-    for candidate in binary_candidates.into_iter().flatten() {
-        if candidate.is_file() {
-            if let Ok(out) = std::process::Command::new(&candidate)
-                .arg(&target_path)
-                .output()
-            {
-                if out.status.success() {
-                    let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                    if !text.is_empty() {
-                        transcript = text;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    if transcript.is_empty() {
-        let swift_script = "desktop/scripts/bark-transcribe.swift";
-        if std::path::Path::new(swift_script).is_file() {
-            if let Ok(out) = std::process::Command::new("swift")
-                .args([swift_script, target_path.to_str().unwrap_or("")])
-                .output()
-            {
-                if out.status.success() {
-                    let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                    if !text.is_empty() {
-                        transcript = text;
-                        engine = "macos-swift-on-device".to_string();
-                    }
-                }
-            }
-        }
-    }
+    let (text, engine) = transcribe_audio_file(&target_path).unwrap_or_else(|| {
+        (String::new(), "macos-on-device".to_string())
+    });
 
     let _ = std::fs::remove_file(&raw_path);
     let _ = std::fs::remove_file(&wav_path);
 
-    if transcript.is_empty() {
-        return Err(ServerError::bad("No speech detected or transcription timed out. Try speaking clearly into the microphone."));
-    }
-
     Ok(Json(VoiceTranscribeResponse {
-        text: transcript,
+        text,
         engine,
     }))
 }
@@ -9446,6 +9618,7 @@ mod tests {
             thread_tx,
             code_cache: Arc::new(Mutex::new(None)),
             chat: Arc::new(StdMutex::new(HashMap::new())),
+            voice_recording: Arc::new(StdMutex::new(None)),
             started_at: Instant::now(),
         })
     }
