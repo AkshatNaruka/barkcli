@@ -425,8 +425,8 @@ summary.sidebar-group { cursor: pointer; }
 .bark-danger { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 32px; padding: 5px 10px; border-radius: 6px; background: var(--danger); color: var(--on-danger); font-size: 13px; font-weight: 600; }
 .bark-danger:hover { filter: brightness(1.06); }
 .bark-danger:disabled { cursor: default; opacity: .55; }
-.pane-resize { position: absolute; right: -3px; top: 0; bottom: 0; width: 6px; z-index: 20; cursor: col-resize; touch-action: none; }
-.pane-resize:hover, .pane-resize:focus-visible { background: var(--accent-soft); }
+.pane-resize { position: absolute; right: -3px; top: 0; bottom: 0; width: 6px; z-index: 20; cursor: col-resize; touch-action: none; user-select: none; transition: background-color 120ms ease; }
+.pane-resize:hover, .pane-resize:active, .pane-resize:focus-visible { background: var(--accent-soft); }
 .thread-header { display: flex; flex-shrink: 0; align-items: center; gap: 10px; min-height: 48px; padding: 6px 16px; border-bottom: 1px solid var(--border); }
 .threads-shell { display: flex; height: 100%; min-width: 0; overflow: hidden; position: relative; }
 .thread-document { flex: 1; min-width: 0; height: 100%; }
@@ -1609,6 +1609,7 @@ summary.sidebar-group { cursor: pointer; }
 .thread-list {
   display: flex;
   flex-direction: column;
+  position: relative;
   width: 340px;
   flex-shrink: 0;
   min-height: 0;
@@ -1839,10 +1840,11 @@ summary.sidebar-group { cursor: pointer; }
     position: fixed;
     inset: 0 auto 0 56px;
     z-index: 66;
-    width: min(340px, calc(100vw - 56px));
+    width: min(340px, calc(100vw - 56px)) !important;
     background: var(--surface);
     box-shadow: var(--shadow);
   }
+  .thread-list > .pane-resize { display: none; }
   .bark-desktop-shell .thread-list { top: 28px; height: calc(100dvh - 28px); }
   .thread-list.is-open { display: flex; }
   .thread-list-icon.is-mobile { display: grid; }

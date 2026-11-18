@@ -1,12 +1,15 @@
 import React, { useRef } from "react";
 
-export function PaneResizeHandle({ label, width, min, max, onChange, reverse = false }: {
-  label: string; width: number; min: number; max: number; onChange: (value: number) => void; reverse?: boolean;
+export function PaneResizeHandle({ label, width, min, max, onChange, reverse = false, onReset }: {
+  label: string; width: number; min: number; max: number; onChange: (value: number) => void; reverse?: boolean; onReset?: () => void;
 }) {
   const drag = useRef<{ x: number; width: number } | null>(null);
   const resize = (value: number) => onChange(Math.min(max, Math.max(min, value)));
   return <div role="separator" tabIndex={0} aria-label={label} aria-orientation="vertical"
-    aria-valuemin={min} aria-valuemax={max} aria-valuenow={width} className="pane-resize"
+    aria-valuemin={min} aria-valuemax={max} aria-valuenow={width}
+    title={onReset ? "Drag to resize · Double-click to reset" : "Drag to resize"}
+    className="pane-resize"
+    onDoubleClick={onReset}
     onKeyDown={(event) => {
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); resize(width + (event.key === "ArrowRight" ? 16 : -16) * (reverse ? -1 : 1)); }
       if (event.key === "Home") { event.preventDefault(); resize(min); }

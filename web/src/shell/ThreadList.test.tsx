@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ThreadList } from "./ThreadList";
 import type { ThreadSummary } from "../lib/types";
@@ -94,5 +94,48 @@ describe("ThreadList", () => {
     await user.click(screen.getByRole("menuitemradio", { name: "acme-web" }));
     await waitFor(() => expect(screen.queryByText("Integration tests")).not.toBeInTheDocument());
     expect(screen.getByText("History logging")).toBeInTheDocument();
+  });
+
+  it("renders drag to resize handle and handles resizing and reset", async () => {
+    const onWidthChange = vi.fn();
+    render(<ThreadList boardName="dev" width={340} onWidthChange={onWidthChange} />);
+    await waitFor(() => expect(screen.getByText("Integration tests")).toBeInTheDocument());
+
+    const resizer = screen.getByRole("separator", { name: "Sidebar width" });
+    expect(resizer).toBeInTheDocument();
+    expect(resizer).toHaveAttribute("aria-valuenow", "340");
+    expect(resizer).toHaveAttribute("aria-valuemin", "240");
+    expect(resizer).toHaveAttribute("aria-valuemax", "580");
+
+    // Test keyboard resizing
+    act(() => {
+      fireEvent.keyDown(resizer, { key: "ArrowRight" });
+    });
+    expect(onWidthChange).toHaveBeenCalledWith(356);
+
+    act(() => {
+      fireEvent.keyDown(resizer, { key: "ArrowLeft" });
+    });
+    expect(onWidthChange).toHaveBeenCalledWith(324);
+
+    // Test pointer drag
+    resizer.setPointerCapture = vi.fn();
+    resizer.releasePointerCapture = vi.fn();
+
+    act(() => {
+      fireEvent.pointerDown(resizer, { clientX: 340, pointerId: 1 });
+      fireEvent.pointerMove(resizer, { clientX: 400, pointerId: 1 });
+    });
+    expect(onWidthChange).toHaveBeenCalledWith(400);
+
+    act(() => {
+      fireEvent.pointerUp(resizer, { pointerId: 1 });
+    });
+
+    // Test double click reset to default 340px
+    act(() => {
+      fireEvent.doubleClick(resizer);
+    });
+    expect(onWidthChange).toHaveBeenCalledWith(340);
   });
 });

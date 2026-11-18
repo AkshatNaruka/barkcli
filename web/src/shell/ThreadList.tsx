@@ -11,6 +11,9 @@ import { ProjectSourcesModal } from "../components/ProjectSourcesModal";
 import { ProjectPickerModal } from "../components/ProjectPickerModal";
 import { isDesktop, projectDisplayName, switchProject } from "../lib/desktop";
 
+import { PaneResizeHandle } from "../components/PaneResizeHandle";
+import { readLocal, writeLocal } from "../lib/drafts";
+
 interface ThreadListProps {
   boardName: string | null;
   projectRoot?: string;
@@ -18,6 +21,8 @@ interface ThreadListProps {
   open?: boolean;
   onClose?: () => void;
   collapsed?: boolean;
+  width?: number;
+  onWidthChange?: (width: number) => void;
 }
 
 function isSettled(thread: ThreadSummary): boolean {
@@ -44,7 +49,26 @@ export function ThreadList({
   open = false,
   onClose,
   collapsed = false,
+  width: propWidth,
+  onWidthChange,
 }: ThreadListProps) {
+  const [internalWidth, setInternalWidth] = useState(() => {
+    const saved = Number(readLocal("bark:sidebar-width")) || Number(readLocal("bark:thread-list-width"));
+    return Math.min(580, Math.max(240, saved || 340));
+  });
+
+  const width = propWidth ?? internalWidth;
+
+  const handleWidthChange = (next: number) => {
+    const clamped = Math.min(580, Math.max(240, next));
+    if (onWidthChange) {
+      onWidthChange(clamped);
+    } else {
+      setInternalWidth(clamped);
+      writeLocal("bark:sidebar-width", String(clamped));
+      writeLocal("bark:thread-list-width", String(clamped));
+    }
+  };
   const location = useRouteState();
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [search, setSearch] = useState("");
@@ -338,7 +362,11 @@ export function ThreadList({
   };
 
   return (
-    <aside className={`thread-list ${open ? "is-open" : ""} ${collapsed ? "is-collapsed" : ""}`} aria-label="Threads">
+    <aside
+      className={`thread-list ${open ? "is-open" : ""} ${collapsed ? "is-collapsed" : ""}`}
+      aria-label="Threads"
+      style={open && typeof window !== "undefined" && window.innerWidth <= 900 ? undefined : { width }}
+    >
       <header className="thread-list-head">
         <label className="thread-list-search flex-1 flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-border/60 bg-bg text-muted focus-within:border-accent/80 transition-colors min-w-0">
           <Icon name="search" size={13} className="shrink-0 text-muted-dim" />
@@ -602,6 +630,14 @@ export function ThreadList({
           setProjectPickerOpen(false);
           void switchProject(project.path, "chat");
         }}
+      />
+      <PaneResizeHandle
+        label="Sidebar width"
+        width={width}
+        min={240}
+        max={580}
+        onChange={handleWidthChange}
+        onReset={() => handleWidthChange(340)}
       />
     </aside>
   );

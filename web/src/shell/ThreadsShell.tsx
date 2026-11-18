@@ -46,7 +46,11 @@ export function ThreadsShell({ boardName, projectRoot = "current-project", proje
   const [threadRevision, setThreadRevision] = useState(0);
   const [threadMenu, setThreadMenu] = useState<{ target: ThreadActionTarget; x: number; y: number } | null>(null);
   const [width, setWidth] = useState(() => Math.min(560, Math.max(360, Number(readLocal("bark:inspector-width")) || 420)));
-  const [available, setAvailable] = useState(() => window.innerWidth - 248);
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = Number(readLocal("bark:sidebar-width")) || Number(readLocal("bark:thread-list-width"));
+    return Math.min(580, Math.max(240, saved || 340));
+  });
+  const [available, setAvailable] = useState(() => window.innerWidth - 340);
   const [terminalDrawerOpen, setTerminalDrawerOpen] = useState(false);
   const toggleTerminalDrawer = () => setTerminalDrawerOpen((prev) => !prev);
 
@@ -188,6 +192,12 @@ export function ThreadsShell({ boardName, projectRoot = "current-project", proje
       open={listOpen}
       onClose={onCloseList}
       collapsed={listCollapsed}
+      width={sidebarWidth}
+      onWidthChange={(next) => {
+        setSidebarWidth(next);
+        writeLocal("bark:sidebar-width", String(next));
+        writeLocal("bark:thread-list-width", String(next));
+      }}
     />
     <div className="thread-document" hidden={focused}>
       {selectedId ? <ThreadPane key={`${scope}:${selectedId}:${threadRevision}`} threadId={selectedId} boardName={boardName || undefined} scope={scope} project={project}

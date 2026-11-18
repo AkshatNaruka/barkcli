@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { Icon, type IconName } from "../components/Icon";
 import { navigate, type Route } from "../lib/hashnav";
+import { PaneResizeHandle } from "../components/PaneResizeHandle";
+import { readLocal, writeLocal } from "../lib/drafts";
 
 interface ProjectTool {
   route: Route;
@@ -23,6 +25,17 @@ export function ProjectToolsSidebar({
   cardsCount?: number;
   agentsCount?: number;
 }) {
+  const [width, setWidth] = useState(() => {
+    const saved = Number(readLocal("bark:project-tools-width"));
+    return Math.min(320, Math.max(160, saved || 186));
+  });
+
+  const handleWidthChange = (next: number) => {
+    const clamped = Math.min(320, Math.max(160, next));
+    setWidth(clamped);
+    writeLocal("bark:project-tools-width", String(clamped));
+  };
+
   const tools: ProjectTool[] = [
     { route: "hub", label: "Overview", icon: "grid" },
     { route: "board", label: "Board", icon: "board", count: cardsCount },
@@ -34,7 +47,7 @@ export function ProjectToolsSidebar({
   ];
 
   return (
-    <nav className="project-tools-nav" aria-label="Project tools">
+    <nav className="project-tools-nav relative" aria-label="Project tools" style={{ width }}>
       <p className="project-tools-nav-label">Project tools</p>
       {tools.map((tool) => {
         const active = currentRoute === tool.route;
@@ -52,6 +65,14 @@ export function ProjectToolsSidebar({
           </button>
         );
       })}
+      <PaneResizeHandle
+        label="Project tools sidebar width"
+        width={width}
+        min={160}
+        max={320}
+        onChange={handleWidthChange}
+        onReset={() => handleWidthChange(186)}
+      />
     </nav>
   );
 }
