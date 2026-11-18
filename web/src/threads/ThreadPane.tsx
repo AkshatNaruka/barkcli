@@ -2191,6 +2191,7 @@ export function ThreadPane({
           attachments={attachments}
           onAttachmentsChange={setAttachments}
           onSubmit={handleSendMessage}
+          showSuggestions={true}
           onQueue={() => {
             const text = input.trim();
             if (!text) return;

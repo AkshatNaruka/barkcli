@@ -26,7 +26,7 @@ const SUGGESTIONS: Record<ComposerMode, string[]> = {
   ask: ["Explain project architecture", "Where are runs stored?", "How do gates work?"],
 };
 
-const WORKSPACE_STRATEGIES = [
+export const WORKSPACE_STRATEGIES = [
   { value: "root", label: "Project root", hint: "Bind thread directly to the project directory" },
   { value: "worktree", label: "Worktree", hint: "Isolate agent changes in a dedicated git worktree" },
 ];
@@ -50,6 +50,7 @@ export function ThreadComposer({
   footer,
   attachments,
   onAttachmentsChange,
+  showSuggestions = false,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -71,6 +72,8 @@ export function ThreadComposer({
   /** Files attached to the prompt */
   attachments?: PromptAttachment[];
   onAttachmentsChange?: React.Dispatch<React.SetStateAction<PromptAttachment[]>> | ((attachments: PromptAttachment[]) => void);
+  /** Whether to show prompt suggestion chips (disabled on new thread screen to match T3 Code) */
+  showSuggestions?: boolean;
 }) {
   const id = useId();
   const textarea = useRef<HTMLTextAreaElement>(null);
@@ -274,7 +277,7 @@ export function ThreadComposer({
           onClose={() => setDismissedSlash(true)}
         />
       )}
-      {!value.trim() && !active && !busy && (
+      {showSuggestions && !value.trim() && !active && !busy && (
         <div className="composer-suggestions-bar" aria-label="Suggested prompts">
           {SUGGESTIONS[mode]?.map((suggestion) => (
             <button
@@ -427,112 +430,95 @@ export function ThreadComposer({
         />
 
         <div className="thread-composer-controls">
-          <SelectMenu
-            className="composer-mode-select"
-            value={mode}
-            options={MODES}
-            ariaLabel="Composer mode"
-            disabled={busy}
-            onChange={(value) => onModeChange(value as ComposerMode)}
-          />
-          <AgentPicker agent={agent} mode={mode} />
+          <div className="composer-actions-left">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="composer-btn-secondary inline-flex items-center justify-center rounded-md p-1.5 text-muted hover:text-text hover:bg-surface transition-colors"
+              title="Attach files (images, code, documents) — or drag & drop"
+              aria-label="Attach files"
+            >
+              <Icon name="paperclip" size={15} />
+              {currentAttachments.length > 0 && (
+                <span className="inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-accent px-1 font-mono text-[9px] font-bold text-white ml-0.5">
+                  {currentAttachments.length}
+                </span>
+              )}
+            </button>
 
-          {workspaceStrategy && onWorkspaceStrategyChange && (
-            <SelectMenu
-              className="composer-workspace-select"
-              value={workspaceStrategy}
-              options={WORKSPACE_STRATEGIES}
-              ariaLabel="Workspace strategy"
-              disabled={busy}
-              onChange={(val) => onWorkspaceStrategyChange(val as "root" | "worktree")}
-            />
-          )}
-
-          <button
-            type="button"
-            onClick={() => {
-              onAction?.("context");
-              updateRouteState({ panel: "context" });
-            }}
-            className="hidden sm:inline-flex items-center gap-1 rounded px-1.5 py-1 text-[10.5px] text-muted/60 hover:text-muted hover:bg-surface/40 transition-colors"
-            title="Inspect project context pack and active rules (AGENTS.md)"
-            aria-label="Context Primed"
-          >
-            <Icon name="layers" size={12} />
-            <span className="sr-only">Context Primed</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="composer-btn-secondary inline-flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-muted/70 hover:text-text hover:bg-surface/50 transition-colors"
-            title="Attach files (images, code, documents) — or drag & drop"
-            aria-label="Attach files"
-          >
-            <Icon name="paperclip" size={13} />
-            {currentAttachments.length > 0 && (
-              <span className="inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-accent px-1 font-mono text-[9px] font-bold text-white">
-                {currentAttachments.length}
-              </span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={toggleListening}
-            disabled={isTranscribing}
-            className={`composer-btn-secondary inline-flex items-center gap-1 rounded px-1.5 py-1 text-[11px] transition-colors ${
-              isListening
-                ? "bg-danger/15 text-danger border border-danger/30 hover:bg-danger/25"
-                : isTranscribing
-                ? "bg-accent/15 text-accent border border-accent/30"
-                : "text-muted/70 hover:text-text hover:bg-surface/50"
-            }`}
-            title={
-              !isVoiceSupported
-                ? "Microphone input not supported in this environment"
-                : isTranscribing
-                ? "Transcribing your audio…"
-                : isListening
-                ? "Listening… Click to stop dictation"
-                : "Voice dictation (Speak to write in prompt)"
-            }
-            aria-label={
-              isTranscribing
-                ? "Transcribing voice"
-                : isListening
-                ? "Stop voice dictation"
-                : "Voice dictation"
-            }
-          >
-            <Icon
-              name={isTranscribing ? "refresh" : "mic"}
-              size={13}
-              className={
-                isTranscribing
-                  ? "text-accent animate-spin"
-                  : isListening
-                  ? "text-danger animate-pulse"
-                  : ""
-              }
-            />
-            {isListening && (
-              <span className="hidden xs:inline-flex items-center gap-1 font-mono text-[10px] text-danger font-semibold">
-                <span className="h-1.5 w-1.5 rounded-full bg-danger animate-ping" />
-                <span>Listening…</span>
-              </span>
-            )}
-            {isTranscribing && (
-              <span className="hidden xs:inline-flex items-center gap-1 font-mono text-[10px] text-accent font-medium">
-                <span>Transcribing…</span>
-              </span>
-            )}
-          </button>
+            <button
+              type="button"
+              onClick={() => {
+                onAction?.("context");
+                updateRouteState({ panel: "context" });
+              }}
+              className="sr-only"
+              title="Inspect project context pack and active rules (AGENTS.md)"
+              aria-label="Context Primed"
+            >
+              Context Primed
+            </button>
+          </div>
 
           <div className="composer-actions-right">
-            <span className="composer-hint-key" aria-hidden="true">
-              {active ? "↵ queue · ⇧↵ newline" : "↵ send · ⇧↵ newline"}
-            </span>
+            <SelectMenu
+              className="composer-mode-select"
+              value={mode}
+              options={MODES}
+              ariaLabel="Composer mode"
+              disabled={busy}
+              onChange={(value) => onModeChange(value as ComposerMode)}
+            />
+
+            <AgentPicker agent={agent} mode={mode} />
+
+            <button
+              type="button"
+              onClick={toggleListening}
+              disabled={isTranscribing}
+              className={`composer-btn-secondary inline-flex items-center justify-center rounded-md p-1.5 transition-colors ${
+                isListening
+                  ? "bg-danger/15 text-danger border border-danger/30 hover:bg-danger/25"
+                  : isTranscribing
+                  ? "bg-accent/15 text-accent border border-accent/30"
+                  : "text-muted hover:text-text hover:bg-surface"
+              }`}
+              title={
+                !isVoiceSupported
+                  ? "Microphone input not supported in this environment"
+                  : isTranscribing
+                  ? "Transcribing your audio…"
+                  : isListening
+                  ? "Listening… Click to stop dictation"
+                  : "Voice dictation (Speak to write in prompt)"
+              }
+              aria-label={
+                isTranscribing
+                  ? "Transcribing voice"
+                  : isListening
+                  ? "Stop voice dictation"
+                  : "Voice dictation"
+              }
+            >
+              <Icon
+                name={isTranscribing ? "refresh" : "mic"}
+                size={14}
+                className={
+                  isTranscribing
+                    ? "text-accent animate-spin"
+                    : isListening
+                    ? "text-danger animate-pulse"
+                    : ""
+                }
+              />
+              {isListening && (
+                <span className="hidden xs:inline-flex items-center gap-1 font-mono text-[10px] text-danger font-semibold ml-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-danger animate-ping" />
+                  <span>Listening…</span>
+                </span>
+              )}
+            </button>
+
             {active && value.trim() && onQueue && (
               <button
                 type="button"
@@ -545,6 +531,7 @@ export function ThreadComposer({
                 <span>Queue</span>
               </button>
             )}
+
             {active ? (
               <button
                 className="bark-button composer-submit composer-stop"
@@ -555,7 +542,7 @@ export function ThreadComposer({
                 onClick={onStop}
                 disabled={!onStop || busy}
               >
-                <Icon name="stop" size={15} />
+                <Icon name="stop" size={14} />
               </button>
             ) : (
               <button
@@ -566,13 +553,29 @@ export function ThreadComposer({
                 title={mode === "plan" ? "Prepare plan (Enter)" : "Send message (Enter)"}
                 disabled={(!value.trim() && currentAttachments.length === 0) || busy || (mode !== "plan" && !agent.ready)}
               >
-                <Icon name="arrowUp" size={16} />
+                <Icon name="arrowUp" size={15} />
               </button>
             )}
           </div>
         </div>
-        {footer}
       </form>
+      {footer ? (
+        footer
+      ) : workspaceStrategy && onWorkspaceStrategyChange ? (
+        <div className="composer-scope-bar">
+          <div className="composer-workspace-trigger-wrap">
+            <Icon name="folder" size={12} className="text-muted" />
+            <SelectMenu
+              className="composer-workspace-select"
+              value={workspaceStrategy}
+              options={WORKSPACE_STRATEGIES}
+              ariaLabel="Workspace strategy"
+              disabled={busy}
+              onChange={(val) => onWorkspaceStrategyChange(val as "root" | "worktree")}
+            />
+          </div>
+        </div>
+      ) : null}
       {(error || voiceError) && (
         <p role="alert" className="composer-error">
           {error || voiceError}

@@ -2,11 +2,12 @@ import React, { useEffect, useRef, useState } from "react";
 import { createThread, startThreadChat, startThreadBuild } from "../lib/api";
 import { useAgentSelection } from "../lib/useAgentSelection";
 import { useDraft } from "../lib/drafts";
-import { ThreadComposer } from "../threads/ThreadComposer";
+import { ThreadComposer, WORKSPACE_STRATEGIES } from "../threads/ThreadComposer";
 import { Icon } from "../components/Icon";
 import { AccessibleDialog } from "../components/AccessibleDialog";
 import { ProjectAvatar } from "../components/ProjectAvatar";
 import { ProjectPickerModal, type ProjectPickerSelection } from "../components/ProjectPickerModal";
+import { SelectMenu } from "../components/SelectMenu";
 import { useComposerMode } from "../lib/composer";
 import {
   SCRATCH_PROJECT_PATH,
@@ -258,33 +259,49 @@ function DraftComposer({
 
   const footer = (
     <div className="composer-scope-bar">
-      <button
-        type="button"
-        className="composer-scope-project"
-        onClick={() => setPickerOpen(true)}
-        title="Choose the project this thread runs in"
-        aria-haspopup="dialog"
-      >
-        <ProjectAvatar name={projectLabel} size="xs" />
-        <span className="composer-scope-name">{projectLabel}</span>
-        <Icon name="chevDown" size={11} className="text-muted-dim" />
-      </button>
-      <span className="composer-scope-divider" aria-hidden="true" />
-      {!noProject && projectBranch ? (
+      <div className="composer-scope-left">
+        {!noProject && workspaceStrategy ? (
+          <div className="composer-workspace-trigger-wrap">
+            <Icon name="folder" size={12} className="text-muted" />
+            <SelectMenu
+              className="composer-workspace-select"
+              value={workspaceStrategy}
+              options={WORKSPACE_STRATEGIES}
+              ariaLabel="Workspace strategy"
+              disabled={submitting || switching}
+              onChange={(val) => setWorkspaceStrategy(val as "root" | "worktree")}
+            />
+          </div>
+        ) : null}
+      </div>
+      <div className="composer-scope-right">
+        <button
+          type="button"
+          className="composer-scope-project"
+          onClick={() => setPickerOpen(true)}
+          title="Choose the project this thread runs in"
+          aria-haspopup="dialog"
+        >
+          <ProjectAvatar name={projectLabel} size="xs" />
+          <span className="composer-scope-name">{projectLabel}</span>
+          <Icon name="chevDown" size={11} className="text-muted-dim" />
+        </button>
+        {!noProject && projectBranch ? (
+          <span className="composer-scope-meta">
+            <Icon name="branch" size={11} />
+            <span>{projectBranch}</span>
+          </span>
+        ) : null}
         <span className="composer-scope-meta">
-          <Icon name="branch" size={11} />
-          <span>{projectBranch}</span>
+          <Icon name="key" size={10} />
+          <span>Local</span>
         </span>
-      ) : null}
-      <span className="composer-scope-meta">
-        <Icon name="key" size={10} />
-        <span>Local</span>
-      </span>
-      {switching && (
-        <span className="composer-scope-meta composer-scope-switching" role="status">
-          Switching project…
-        </span>
-      )}
+        {switching && (
+          <span className="composer-scope-meta composer-scope-switching" role="status">
+            Switching project…
+          </span>
+        )}
+      </div>
     </div>
   );
 
@@ -325,8 +342,6 @@ function DraftComposer({
         busy={submitting || switching}
         error={error}
         autoFocus
-        workspaceStrategy={noProject ? undefined : workspaceStrategy}
-        onWorkspaceStrategyChange={noProject ? undefined : setWorkspaceStrategy}
         footer={footer}
       />
     </div>
