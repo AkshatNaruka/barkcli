@@ -5,6 +5,7 @@
 //! `permissions` here so both front-ends drive one attempt lifecycle.
 
 pub mod checkpoint;
+pub mod leantoken;
 pub mod lifecycle;
 pub mod packet;
 pub mod permissions;

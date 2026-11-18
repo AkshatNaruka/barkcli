@@ -117,10 +117,28 @@ pub struct ContextSettings {
     /// Strip HTML comments from instruction layers.
     #[serde(default = "default_true")]
     pub strip_comments: bool,
+    /// Code-index evidence: `auto` (use `leantoken` when it is installed) or
+    /// `off`. Anything else falls back to `auto`.
+    #[serde(default = "default_code_index")]
+    pub code_index: String,
+    /// Token budget for the code-index request (0 = harness default).
+    #[serde(default = "default_code_index_budget")]
+    pub code_index_budget_tokens: usize,
+    /// Paste the returned source instead of only pointing at ranges.
+    #[serde(default)]
+    pub code_index_snippets: bool,
 }
 
 fn default_packet_budget() -> usize {
     8_000
+}
+
+fn default_code_index() -> String {
+    "auto".into()
+}
+
+fn default_code_index_budget() -> usize {
+    800
 }
 
 impl Default for ContextSettings {
@@ -130,7 +148,17 @@ impl Default for ContextSettings {
             instructions: true,
             skills: true,
             strip_comments: true,
+            code_index: default_code_index(),
+            code_index_budget_tokens: default_code_index_budget(),
+            code_index_snippets: false,
         }
+    }
+}
+
+impl ContextSettings {
+    /// Is the code index enabled (and not explicitly turned off)?
+    pub fn code_index_enabled(&self) -> bool {
+        !self.code_index.trim().eq_ignore_ascii_case("off")
     }
 }
 

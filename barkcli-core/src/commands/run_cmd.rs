@@ -1000,6 +1000,13 @@ fn dispatch_next(
     }
 
     // ── context packet (retry attempts get the failure verdict injected) ──
+    // The code index is asked about this attempt's worktree, so its ranges
+    // match the code the agent is about to see.
+    let code_index_bin = if harness.context.code_index_enabled() {
+        crate::harness::leantoken::detect(None)
+    } else {
+        None
+    };
     let packet = packet::build(
         &task,
         &branch,
@@ -1013,6 +1020,9 @@ fn dispatch_next(
             skill_context: harness.context.skills,
             strip_comments: harness.context.strip_comments,
             policy_path: None,
+            code_index_bin,
+            code_index_budget: harness.context.code_index_budget_tokens,
+            code_index_snippets: harness.context.code_index_snippets,
         },
     );
     println!(
@@ -1021,6 +1031,9 @@ fn dispatch_next(
         packet.summary(),
         style::muted(&packet.id)
     );
+    if let Some(code) = &packet.code_index {
+        println!("  {} code index {}", style::muted("·"), code.summary());
+    }
     if let Err(e) = packet.write_manifest(&sess_dir.join("context.json")) {
         println!("{} context manifest: {}", style::warn("!"), e);
     }

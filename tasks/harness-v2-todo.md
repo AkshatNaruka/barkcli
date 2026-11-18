@@ -93,3 +93,28 @@ gate verification and usage. ✅
 
 Follow-ups (not blocking): route `fleet` / `ready` / `mcp` through the packet
 builder, and let the web RunService emit the same `finish` phase for parity.
+
+## Post-plan — LeanToken adapter
+
+- [x] `harness/leantoken.rs`: optional adapter around
+      [LeanToken](https://github.com/morluto/leantoken)'s `index` +
+      `--json context`. Explicit token budget (default 800), 20s cap, pointers
+      by default (`code_index_snippets` pastes source), tolerant parser for the
+      documented payload, and `index_not_ready` / non-JSON / timeout degrade to
+      "no section".
+- [x] Packet: `## Relevant code` section with its own drop priority (kept
+      longer than the generic file list, dropped before project rules) and a
+      `code_index` entry in `context.json`.
+- [x] Config: `harness.context.code_index` (`auto` | `off`),
+      `code_index_budget_tokens`, `code_index_snippets`.
+- [x] Tests: 8 unit tests (payload shape, snippet bounds, malformed/unready
+      output, bad ranges, detect precedence, timeout kills the child) + 4 packet
+      tests (section, manifest, snippets, drop order) + one eval scenario with
+      a stub binary, so CI never installs LeanToken.
+- [x] Verified end-to-end with the real CLI in a scratch repo: the packet
+      gained `- \`src/cancel.rs:1-3\` — text; symbol` for a cancellation task.
+
+Deliberately not done: MCP registration. LeanToken ships `npx leantoken setup`
+for MCP-capable hosts, and the CLI runner's packet path works for every backend
+(including `agent-cmd`, where MCP is unavailable). Wiring `--mcp-config` into
+`Recipe` for the runner is a separate, orthogonal change.

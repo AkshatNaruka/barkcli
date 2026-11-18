@@ -534,8 +534,45 @@ Every attempt prints a one-liner and writes `context.json` beside `prompt.md`:
 ```
 
 `context.json` records the packet id, byte/token counts, each section (kept or
-dropped), the instruction files that were read and the skill paths — enough to
-reproduce or diff a prompt after the fact.
+dropped), the instruction files that were read, the skill paths and any
+code-index ranges — enough to reproduce or diff a prompt after the fact.
+
+#### Code-index evidence (LeanToken)
+
+The packet carries *instructions*, not source. The agent reads files itself,
+which is where most input tokens go. If
+[LeanToken](https://github.com/morluto/leantoken) is installed, the runner asks
+it one question per attempt — "which ranges does this task touch?" — and adds a
+small `## Relevant code` section:
+
+```text
+## Relevant code
+
+Ranges the code index ranked for this task. Read them before searching:
+
+- `src/shutdown.rs:4-9` — text; symbol
+- `src/executor.rs:137-147` — symbol
+```
+
+It is optional and silent:
+
+- nothing runs unless a `leantoken` binary is on `PATH` (or `LEANTOKEN_BIN`
+  points at one) — `cargo install leantoken` or `npm install --global leantoken`;
+- the request has its own token budget (`code_index_budget_tokens`, default
+  800) and its own drop priority, so it is trimmed like every other optional
+  layer;
+- pointers by default. A stale line range is harmless because the agent opens
+  the file; `code_index_snippets: true` pastes the returned source instead, for
+  backends that never read files;
+- a missing binary, an unready index or a slow call (20s cap) drops the section
+  and the attempt continues. The index is asked about the attempt's worktree, so
+  its ranges match the code the agent is about to see.
+
+`context.json` records the ranges (`code_index.fragments`), what the index left
+out, and its own token accounting, so the value of the section is measurable
+against the `usage.json` spend beside it.
+
+Set `harness.context.code_index: "off"` to disable it.
 
 #### Retry checkpoints
 
@@ -635,7 +672,10 @@ keep loading):
 {
   "version": 1,
   "harness": {
-    "context": { "budget_tokens": 8000, "instructions": true, "skills": true, "strip_comments": true },
+    "context": {
+      "budget_tokens": 8000, "instructions": true, "skills": true, "strip_comments": true,
+      "code_index": "auto", "code_index_budget_tokens": 800, "code_index_snippets": false
+    },
     "retry_reset": true,
     "hooks": [
       { "event": "pre_merge", "command": "scripts/check-changeset.sh", "timeout_secs": 30, "on_failure": "block" }

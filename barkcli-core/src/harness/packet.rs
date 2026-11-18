@@ -52,10 +52,19 @@ const P_SUBTREE: u8 = 50;
 const P_SKILL_INDEX: u8 = 40;
 const P_SKILL_BODY: u8 = 30;
 const P_CONTEXT_FILE: u8 = 20;
+// Code-index evidence is a fetch hint, not an instruction: it outlives the
+// generic file list (a ranked range is worth more than a path guess) but is
+// dropped before the project's own rules.
+const P_CODE_INDEX: u8 = 18;
 const P_BOARD_RULES: u8 = 15;
 const P_AGENT_FILE: u8 = 10;
 const P_PROJECT_CONTEXT: u8 = 5;
 const P_POLICY: u8 = 4;
+
+/// Wall-clock budget for one code-index question. Generous enough for a cold
+/// index of a mid-size repo, small enough that a hung binary cannot stall a
+/// spawn (the attempt proceeds without the section).
+const CODEX_INDEX_TIMEOUT_SECS: u64 = 20;
 
 const IDENTITY: &str = "\
 # Identity and Operational Directives
@@ -104,6 +113,12 @@ pub struct PacketOptions<'a> {
     pub strip_comments: bool,
     /// Override the managed policy path (tests).
     pub policy_path: Option<PathBuf>,
+    /// `leantoken` binary to ask which ranges the task touches (None = off).
+    pub code_index_bin: Option<PathBuf>,
+    /// Token budget for that request.
+    pub code_index_budget: usize,
+    /// Paste the returned source instead of only pointing at ranges.
+    pub code_index_snippets: bool,
 }
 
 impl<'a> PacketOptions<'a> {
@@ -202,6 +217,9 @@ pub struct ContextPacket {
     /// Instruction files that were read, relative to the project root.
     pub instructions: Vec<String>,
     pub skills: Vec<SkillRef>,
+    /// Code-index ranges included in the prompt, when one answered.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub code_index: Option<crate::harness::leantoken::Evidence>,
     /// True when even the hard cap had to cut text.
     #[serde(default)]
     pub truncated: bool,
@@ -270,6 +288,32 @@ pub fn build_with_registry(
     let mut groups: Vec<Group> = Vec::new();
     let mut instructions: Vec<String> = Vec::new();
     let mut skills: Vec<SkillRef> = Vec::new();
+
+    // ── 0. code-index evidence (optional, best-effort) ──
+    // Asked before the task is rendered: the index wants the task text, and a
+    // slow or missing index must not change the shape of anything else.
+    let code_index = opts.code_index_bin.as_deref().and_then(|bin| {
+        let query = task_query(task);
+        let timeout = std::time::Duration::from_secs(CODEX_INDEX_TIMEOUT_SECS);
+        match crate::harness::leantoken::evidence(
+            bin,
+            root,
+            &query,
+            if opts.code_index_budget == 0 {
+                crate::harness::leantoken::DEFAULT_BUDGET_TOKENS
+            } else {
+                opts.code_index_budget
+            },
+            timeout,
+        ) {
+            Ok(evidence) if !evidence.is_empty() => Some(evidence),
+            Ok(_) => None,
+            Err(err) => {
+                println!("  {} code index unavailable: {}", crate::util::style::warn("·"), err);
+                None
+            }
+        }
+    });
 
     // ── 1. instruction layers ──
     if opts.instruction_layers {
@@ -402,6 +446,29 @@ pub fn build_with_registry(
         });
     }
 
+    if let Some(evidence) = &code_index {
+        let mut text = String::from(
+            "Ranges the code index ranked for this task. Read them before searching:\n\n",
+        );
+        text.push_str(&evidence.render(opts.code_index_snippets, 4_000));
+        if evidence.omitted > 0 {
+            text.push_str(&format!(
+                "\n({} further range(s) were left out of the index budget.)\n",
+                evidence.omitted
+            ));
+        }
+        groups.push(Group {
+            heading: "## Relevant code".into(),
+            idx: vec![push_piece(
+                &mut pieces,
+                "code-index".into(),
+                text,
+                P_CODE_INDEX,
+                true,
+            )],
+        });
+    }
+
     groups.push(Group {
         heading: "## Branch".into(),
         idx: vec![push_piece(
@@ -490,6 +557,7 @@ pub fn build_with_registry(
         dropped: dropped_names,
         instructions,
         skills,
+        code_index,
         truncated,
         prompt,
     }
@@ -547,6 +615,30 @@ fn packet_id(task: &TaskRequest, branch: &str, attempt: usize, prompt: &str) -> 
     attempt.hash(&mut h);
     prompt.hash(&mut h);
     format!("ctx-{:016x}", h.finish())
+}
+
+/// What the code index is asked. Title plus acceptance criteria, because the
+/// criteria are the part that names the code ("the redirect test"), while the
+/// description is often prose.
+fn task_query(task: &TaskRequest) -> String {
+    let mut query = task.title.trim().to_string();
+    if !task.acceptance_criteria.is_empty() {
+        query.push_str(". ");
+        query.push_str(
+            &task
+                .acceptance_criteria
+                .iter()
+                .map(|ac| ac.trim())
+                .collect::<Vec<_>>()
+                .join("; "),
+        );
+    }
+    let query = query.trim().to_string();
+    if query.is_empty() {
+        task.description.trim().to_string()
+    } else {
+        query
+    }
 }
 
 fn one_line(text: &str) -> String {
@@ -854,6 +946,17 @@ mod tests {
             std::fs::write(&path, body).unwrap();
             path
         }
+        fn write_exec(&self, name: &str, body: &str) -> PathBuf {
+            let path = self.write(name, body);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let mut perms = std::fs::metadata(&path).unwrap().permissions();
+                perms.set_mode(0o755);
+                std::fs::set_permissions(&path, perms).unwrap();
+            }
+            path
+        }
     }
 
     impl Drop for TempDir {
@@ -1034,6 +1137,140 @@ mod tests {
         assert_eq!(base.id, same.id);
         assert_ne!(base.id, retry.id);
         assert!(base.id.starts_with("ctx-") && base.id.len() == 20);
+    }
+
+    /// A stand-in for the `leantoken` CLI: answers `context` with two ranges.
+    fn fake_code_index(dir: &TempDir) -> PathBuf {
+        dir.write_exec(
+            "leantoken",
+            r#"#!/bin/sh
+for arg in "$@"; do
+  if [ "$arg" = "context" ]; then
+    cat <<'JSON'
+{"fragments":[
+  {"path":"src/auth/login.rs","start_line":12,"end_line":40,"reason":"text; symbol","content":"fn login() {}\n"},
+  {"path":"src/auth/sso.rs","start_line":3,"end_line":9,"reason":"symbol"}
+],"omission_summary":{"budget_or_result_limit":4},
+ "meta":{"source_tokens":321,"total_response_tokens":410}}
+JSON
+    exit 0
+  fi
+done
+exit 0
+"#,
+        )
+    }
+
+    #[test]
+    fn code_index_adds_a_ranked_code_section_and_manifest_entry() {
+        let dir = TempDir::new("code-index");
+        dir.write("AGENTS.md", "Root rules: run cargo test.\n");
+        let bin = fake_code_index(&dir);
+
+        let t = task();
+        let packet = build_with_registry(
+            &t,
+            "bark/fix-login",
+            &PacketOptions {
+                code_index_bin: Some(bin),
+                code_index_budget: 400,
+                ..PacketOptions::new(dir.path())
+            },
+            None,
+        );
+
+        assert!(packet.prompt.contains("## Relevant code"));
+        assert!(packet.prompt.contains("- `src/auth/login.rs:12-40` — text; symbol"));
+        assert!(packet.prompt.contains("- `src/auth/sso.rs:3-9` — symbol"));
+        // pointers by default: no source pasted
+        assert!(!packet.prompt.contains("fn login() {}"));
+        assert!(packet.prompt.contains("4 further range(s) were left out"));
+
+        let code = packet.code_index.as_ref().expect("manifest entry");
+        assert_eq!(code.fragments.len(), 2);
+        assert_eq!(code.omitted, 4);
+        assert_eq!(code.source_tokens, 321);
+
+        // the query is the title plus the acceptance criteria, not the prose
+        assert!(packet.prompt.contains("## Task: Fix login"));
+    }
+
+    #[test]
+    fn code_index_snippets_paste_bounded_source_when_enabled() {
+        let dir = TempDir::new("code-index-snippets");
+        let bin = fake_code_index(&dir);
+        let t = task();
+        let packet = build_with_registry(
+            &t,
+            "bark/fix-login",
+            &PacketOptions {
+                code_index_bin: Some(bin),
+                code_index_snippets: true,
+                ..PacketOptions::new(dir.path())
+            },
+            None,
+        );
+        assert!(packet.prompt.contains("fn login() {}"));
+    }
+
+    #[test]
+    fn missing_code_index_is_silent_and_packet_unchanged() {
+        let dir = TempDir::new("code-index-missing");
+        let t = task();
+        let without = build_with_registry(&t, "bark/x", &PacketOptions::new(dir.path()), None);
+        let disabled = build_with_registry(
+            &t,
+            "bark/x",
+            &PacketOptions {
+                code_index_bin: Some(dir.path().join("does-not-exist")),
+                ..PacketOptions::new(dir.path())
+            },
+            None,
+        );
+        assert!(without.code_index.is_none());
+        assert!(disabled.code_index.is_none());
+        assert!(!disabled.prompt.contains("## Relevant code"));
+    }
+
+    #[test]
+    fn code_index_is_dropped_before_the_projects_own_rules() {
+        let dir = TempDir::new("code-index-budget");
+        dir.write("project_context.md", "context line\n");
+        dir.write(".board/rules/style.md", "Style: small PRs.\n");
+        // A chatty index: one long pointer list.
+        let bin = dir.write_exec(
+            "leantoken",
+            r#"#!/bin/sh
+for arg in "$@"; do
+  if [ "$arg" = "context" ]; then
+    printf '{"fragments":['
+    i=0
+    while [ $i -lt 40 ]; do
+      printf '{"path":"src/file%s.rs","start_line":1,"end_line":2,"reason":"text"},' "$i"
+      i=$((i+1))
+    done
+    printf '{"path":"src/last.rs","start_line":1,"end_line":2}]}'
+    exit 0
+  fi
+done
+exit 0
+"#,
+        );
+        let t = task();
+        let packet = build_with_registry(
+            &t,
+            "bark/x",
+            &PacketOptions {
+                code_index_bin: Some(bin),
+                ..PacketOptions::new(dir.path()).with_budget(400)
+            },
+            None,
+        );
+
+        assert!(packet.dropped.iter().any(|n| n == "code-index"));
+        // rules and context survive a dropped code index
+        assert!(packet.prompt.contains("Style: small PRs."));
+        assert!(packet.prompt.contains("context line"));
     }
 
     #[test]

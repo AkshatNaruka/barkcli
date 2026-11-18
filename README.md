@@ -339,8 +339,14 @@ acceptance gate:
   dispatches at the ceiling, and the report prints cost per merged change for
   the run and per provider from recorded history.
 - **The harness is tested like a product.** `cargo test --test harness_eval`
-  drives eight scripted-backend scenarios (merge, retry with verdict, no-op
-  gate, verifier veto, budget stop, hook veto, packet trimming) in CI.
+  drives scripted-backend scenarios (merge, retry with verdict, no-op gate,
+  verifier veto, budget stop, hook veto, code-index evidence, packet trimming)
+  in CI.
+- **The packet points at the right code.** If
+  [LeanToken](https://github.com/morluto/leantoken) is installed, each attempt's
+  prompt gains a small `## Relevant code` section listing the ranges the index
+  ranked for that task — inside its own token budget, dropped like any other
+  optional layer, and silent when the tool is absent.
 
 Watch it live in the web app's Orchestrate view (`/api/run/live`), or read
 [the command reference](https://akshatnaruka.github.io/barkcli/docs/commands/run).

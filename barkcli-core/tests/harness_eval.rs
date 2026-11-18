@@ -140,6 +140,7 @@ impl Drop for Scenario {
     fn drop(&mut self) {
         std::env::remove_var("BARKCLI_AGENT_CMD");
         std::env::remove_var("BARKCLI_VERIFIER_CMD");
+        std::env::remove_var("LEANTOKEN_BIN");
         let _ = std::env::set_current_dir(std::env::temp_dir());
     }
 }
@@ -443,7 +444,69 @@ fn eval_pre_merge_hook_veto_keeps_the_branch() {
     assert!(log.contains("\"outcome\":\"blocked\""));
 }
 
-// ── 8. the packet budget trims instead of bailing ──
+// ── 8. code-index evidence reaches the packet (LeanToken adapter) ──
+
+#[test]
+fn eval_code_index_evidence_is_included_and_recorded() {
+    let _serial = SERIAL.lock().unwrap();
+    let scenario = Scenario::new("code-index", writing_agent());
+
+    // A stand-in for the `leantoken` binary: the adapter only needs the
+    // documented `--json context` shape, so CI never installs the real tool.
+    let fake = scenario.root.join("fake-leantoken.sh");
+    std::fs::write(
+        &fake,
+        r#"#!/bin/sh
+for arg in "$@"; do
+  if [ "$arg" = "context" ]; then
+    echo '{"fragments":[{"path":"package.json","start_line":1,"end_line":1,"reason":"text"}],"meta":{"source_tokens":11}}'
+    exit 0
+  fi
+done
+exit 0
+"#,
+    )
+    .unwrap();
+    let mut perms = std::fs::metadata(&fake).unwrap().permissions();
+    perms.set_mode(0o755);
+    std::fs::set_permissions(&fake, perms).unwrap();
+    std::env::set_var("LEANTOKEN_BIN", &fake);
+
+    let report = scenario.run(RunOptions {
+        intent: "Point the packet at the right file".into(),
+        yes: true,
+        test_cmd: Some("node test.js".into()),
+        max_attempts: 1,
+        ..Default::default()
+    });
+    assert!(report.completed >= 1, "outcomes: {:?}", report.tasks);
+
+    let prompt = scenario
+        .sessions()
+        .iter()
+        .find_map(|dir| std::fs::read_to_string(dir.join("prompt.md")).ok())
+        .expect("a prompt");
+    assert!(
+        prompt.contains("## Relevant code") && prompt.contains("`package.json:1-1`"),
+        "the packet must carry the ranked ranges"
+    );
+
+    let manifest: serde_json::Value = scenario
+        .sessions()
+        .iter()
+        .find_map(|dir| {
+            std::fs::read_to_string(dir.join("context.json"))
+                .ok()
+                .and_then(|json| serde_json::from_str(&json).ok())
+        })
+        .expect("context manifest");
+    assert_eq!(manifest["code_index"]["fragments"][0]["path"], "package.json");
+    assert_eq!(manifest["code_index"]["source_tokens"], 11);
+
+    std::env::remove_var("LEANTOKEN_BIN");
+}
+
+// ── 9. the packet budget trims instead of bailing ──
 
 #[test]
 fn eval_packet_budget_trims_a_huge_context_instead_of_bailing() {
