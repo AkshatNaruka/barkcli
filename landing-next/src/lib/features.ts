@@ -248,6 +248,7 @@ export const FEATURES_DATA: FeatureDetail[] = [
     overview:
       "Extend your coding agents with reproducible playbooks, specialized domain skills, and external toolchains. All remote skills are cryptographically verified and pinned in skills.lock for zero supply chain risk.",
     capabilities: [
+      "15 world-class built-in engineering skills (TDD, debugging, refactoring, API design, SWE-bench)",
       "Install verified skills from skills.sh with SHA-256 lockfile pinning",
       "83 standard MCP tools exposed over stdio and JSON-RPC HTTP",
       "Auto-discovery of external agent binaries (e.g. fx, deepsec, agent-browser)",
@@ -333,10 +334,12 @@ export const FEATURES_DATA: FeatureDetail[] = [
       "Coordinate multiple coding agents working in parallel. barkcli manages task claiming, worker heartbeat leasing, role assignment (builder, tester, reviewer), and enforces acceptance testing before any task is marked done.",
     capabilities: [
       "Task claiming protocol with heartbeat leases to prevent duplicate work",
+      "LeanToken code-index evidence with automated board & session artifact blacklisting",
+      "Reflective failure mode classification and 1-shot retry diagnostic guidance",
       "Role-based worker allocation: Builder, Tester, Verifier, and Human reviewer",
       "Parallel worktrees: run N agents simultaneously on separate branches",
       "Automatic merge train: passes gate, merges in order, re-dispatches on conflict",
-      "Review queue handoff: human acts at plan approval and final acceptance",
+      "Review queue handoff with cross-project filtering: human acts at plan approval and final acceptance",
     ],
     cliExamples: [
       {

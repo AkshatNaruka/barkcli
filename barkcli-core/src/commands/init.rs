@@ -179,6 +179,74 @@ fn wire_automations(args: &[String], root: &Path, board_dir: &Path) -> Result<()
         }
     }
 
+    if decide(
+        "Pre-push guard",
+        "Run quick validation guard before git push?",
+        true,
+    ) {
+        let hooks_dir = root.join(".git").join("hooks");
+        if hooks_dir.is_dir() {
+            let pre_push = hooks_dir.join("pre-push");
+            if !pre_push.exists() {
+                let content = "#!/bin/sh\nbarkcli guard --quick >/dev/null 2>&1 || exit 0\n";
+                if std::fs::write(&pre_push, content).is_ok() {
+                    #[cfg(unix)] {
+                        use std::os::unix::fs::PermissionsExt;
+                        if let Ok(m) = std::fs::metadata(&pre_push) {
+                            let mut p = m.permissions();
+                            p.set_mode(0o755);
+                            let _ = std::fs::set_permissions(&pre_push, p);
+                        }
+                    }
+                    println!("  {} pre-push guard hook", style::ok("Enabled"));
+                }
+            }
+        }
+    }
+
+    if decide(
+        "CI gate workflow",
+        "Generate GitHub Actions workflow for PR acceptance gating?",
+        false,
+    ) {
+        match install_ci_workflow(root) {
+            Ok(()) => println!("  {} CI acceptance gate workflow", style::ok("Enabled")),
+            Err(e) => eprintln!("  {} CI workflow: {}", style::warn("Skipped"), e),
+        }
+    }
+
+    Ok(())
+}
+
+fn install_ci_workflow(root: &Path) -> Result<()> {
+    let workflows_dir = root.join(".github").join("workflows");
+    std::fs::create_dir_all(&workflows_dir).context("failed to create .github/workflows directory")?;
+    let gate_yml = workflows_dir.join("bark-gate.yml");
+    if !gate_yml.exists() {
+        let content = r#"name: Bark Acceptance Gate
+
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Bark Board & Gate
+        run: |
+          if [ -f "Cargo.toml" ]; then
+            cargo test --all-targets
+          elif [ -f "package.json" ]; then
+            npm test --if-present
+          fi
+"#;
+        std::fs::write(&gate_yml, content).context("writing bark-gate.yml")?;
+        println!("  {} .github/workflows/bark-gate.yml", style::ok("Created"));
+    }
     Ok(())
 }
 
@@ -227,6 +295,19 @@ fn install_git_hooks(root: &Path) -> Result<()> {
             std::fs::set_permissions(&post_commit, p).ok();
         }
         println!("  {} .git/hooks/post-commit (auto-checkpoints)", style::ok("Installed"));
+    }
+
+    let pre_push = hooks_dir.join("pre-push");
+    if !pre_push.exists() {
+        let content = "#!/bin/sh\nbarkcli guard --quick >/dev/null 2>&1 || exit 0\n";
+        std::fs::write(&pre_push, content).context("pre-push hook")?;
+        #[cfg(unix)] {
+            use std::os::unix::fs::PermissionsExt;
+            let mut p = std::fs::metadata(&pre_push)?.permissions();
+            p.set_mode(0o755);
+            std::fs::set_permissions(&pre_push, p).ok();
+        }
+        println!("  {} .git/hooks/pre-push (guard validation)", style::ok("Installed"));
     }
 
     Ok(())

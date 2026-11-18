@@ -127,6 +127,9 @@ pub struct ContextSettings {
     /// Paste the returned source instead of only pointing at ranges.
     #[serde(default)]
     pub code_index_snippets: bool,
+    /// Optional extra blacklist patterns excluded from code-index evidence.
+    #[serde(default)]
+    pub code_index_blacklist: Vec<String>,
 }
 
 fn default_packet_budget() -> usize {
@@ -151,6 +154,7 @@ impl Default for ContextSettings {
             code_index: default_code_index(),
             code_index_budget_tokens: default_code_index_budget(),
             code_index_snippets: false,
+            code_index_blacklist: Vec::new(),
         }
     }
 }

@@ -210,6 +210,7 @@ export function ReviewSurface({
   const [revision, setRevision] = useState(0);
   const [activeTab, setActiveTab] = useState<"all" | "prs" | "ready" | "plans">("all");
   const [prFilter, setPrFilter] = useState<"pending" | "all">("pending");
+  const [projectFilter, setProjectFilter] = useState<string>("all");
 
   const activePrNumber = selectedPrItem
     ? selectedPrItem.number
@@ -342,12 +343,29 @@ export function ReviewSurface({
     }
   };
 
+  const distinctProjects = useMemo(() => {
+    const names = new Set<string>();
+    for (const item of items) {
+      const name = item.project_name || (item.project_root ? projectDisplayName(undefined, item.project_root) : "");
+      if (name) names.add(name);
+    }
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [items]);
+
+  const filteredItems = useMemo(() => {
+    if (projectFilter === "all") return items;
+    return items.filter((item) => {
+      const name = item.project_name || (item.project_root ? projectDisplayName(undefined, item.project_root) : "");
+      return name === projectFilter;
+    });
+  }, [items, projectFilter]);
+
   const { ready, plans } = useMemo(() => {
     const ready: QueueItem[] = [];
     const plans: QueueItem[] = [];
-    for (const item of items) (hasBuild(item) ? ready : plans).push(item);
+    for (const item of filteredItems) (hasBuild(item) ? ready : plans).push(item);
     return { ready, plans };
-  }, [items]);
+  }, [filteredItems]);
 
   const pendingPrs = useMemo(() => {
     return prs.filter((p) => p.state === "OPEN");
@@ -450,6 +468,26 @@ export function ReviewSurface({
           </div>
         )}
       </div>
+
+      {distinctProjects.length > 0 && (
+        <div className="review-project-filter flex items-center gap-1.5 text-xs text-muted mb-3">
+          <Icon name="folder" size={13} />
+          <span>Project:</span>
+          <select
+            aria-label="Filter reviews by project"
+            value={projectFilter}
+            onChange={(e) => setProjectFilter(e.target.value)}
+            className="bark-select bg-surface border border-subtle rounded px-2 py-1 text-xs"
+          >
+            <option value="all">All projects ({items.length})</option>
+            {distinctProjects.map((proj) => (
+              <option key={proj} value={proj}>
+                {proj}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {loading ? (
         <p role="status" className="surface-loading">Loading review…</p>

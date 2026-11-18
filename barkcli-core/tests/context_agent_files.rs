@@ -8,7 +8,7 @@ use barkcli_core::storage::board_file::write_board;
 fn tmp_project(tag: &str) -> std::path::PathBuf {
     let dir = std::env::temp_dir().join(format!("bark_wire_{}_{}", tag, std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::create_dir_all(dir.join(".board")).unwrap();
     dir
 }
 

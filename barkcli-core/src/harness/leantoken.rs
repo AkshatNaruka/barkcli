@@ -152,6 +152,97 @@ fn resolve(value: &str) -> Option<PathBuf> {
     None
 }
 
+/// Strip board files, session artifacts, and board metadata words from a query
+/// so the code index searches for actual source symbols rather than tracking files.
+pub fn sanitize_query(raw: &str) -> String {
+    let mut words = Vec::new();
+    for word in raw.split_whitespace() {
+        let clean = word.trim_matches(|c: char| c.is_ascii_punctuation());
+        let lower = clean.to_ascii_lowercase();
+        if lower.ends_with(".board")
+            || lower.ends_with(".board.lock")
+            || lower == "dev.board"
+            || lower == "tasks.board"
+            || lower == "project_context.md"
+            || lower == ".board"
+            || lower.starts_with(".board/")
+            || lower.starts_with(".agents/")
+            || lower.starts_with(".sessions/")
+        {
+            continue;
+        }
+        words.push(word);
+    }
+    let res = words.join(" ").trim().to_string();
+    if res.is_empty() {
+        raw.trim().to_string()
+    } else {
+        res
+    }
+}
+
+/// Returns true if `path` is an internal board or session artifact that must never
+/// be surfaced to an agent as relevant code evidence.
+pub fn is_blacklisted_artifact(path: &str, extra_blacklist: &[String]) -> bool {
+    let p = path.trim().replace('\\', "/");
+    let name = p.rsplit('/').next().unwrap_or(&p);
+
+    // 1. Board files and locks
+    if name.ends_with(".board")
+        || name.ends_with(".board.lock")
+        || name == "dev.board"
+        || name == "tasks.board"
+        || name == "skills.lock"
+    {
+        return true;
+    }
+
+    // 2. Directories housing internal board metadata, agent state, or sessions
+    if p.starts_with(".board/")
+        || p == ".board"
+        || p.starts_with(".agents/")
+        || p == ".agents"
+        || p.starts_with(".claude/")
+        || p == ".claude"
+        || p.starts_with(".opencode/")
+        || p == ".opencode"
+        || p.starts_with(".sessions/")
+        || p == ".sessions"
+        || p.starts_with(".session/")
+        || p == ".session"
+    {
+        return true;
+    }
+
+    // 3. Living context file and session-level jsonl logs
+    if name == "project_context.md" || name.ends_with(".jsonl") {
+        return true;
+    }
+
+    // 4. Custom extra blacklist patterns
+    for pattern in extra_blacklist {
+        let pat = pattern.trim().replace('\\', "/");
+        if pat.is_empty() {
+            continue;
+        }
+        if pat.starts_with('*') {
+            let ext = &pat[1..];
+            if p.ends_with(ext) || name.ends_with(ext) {
+                return true;
+            }
+        } else if pat.ends_with("/*") || pat.ends_with("/**") {
+            let prefix = pat.trim_end_matches('*').trim_end_matches('/');
+            if p.starts_with(prefix) {
+                return true;
+            }
+        } else if p == pat || name == pat || p.contains(&pat) {
+            return true;
+        }
+    }
+
+    false
+}
+
 /// Ask the index which ranges this task touches.
 ///
 /// Runs `index` first: the CLI refuses to answer against an uninitialised
@@ -164,6 +255,18 @@ pub fn evidence(
     budget_tokens: usize,
     timeout: Duration,
 ) -> Result<Evidence> {
+    evidence_with_blacklist(bin, root, task, budget_tokens, timeout, &[])
+}
+
+/// Ask the index which ranges this task touches, filtering out blacklisted artifacts.
+pub fn evidence_with_blacklist(
+    bin: &Path,
+    root: &Path,
+    task: &str,
+    budget_tokens: usize,
+    timeout: Duration,
+    extra_blacklist: &[String],
+) -> Result<Evidence> {
     let deadline = Instant::now() + timeout;
 
     // Build the index. Failure is not fatal: an existing index may still
@@ -171,6 +274,7 @@ pub fn evidence(
     // output is discarded, so a large index report can never fill a pipe.
     let _ = run(bin, root, &["index"], None, remaining(deadline), false);
 
+    let clean_task = sanitize_query(task);
     let budget = budget_tokens.max(1).to_string();
     let output = run(
         bin,
@@ -179,7 +283,7 @@ pub fn evidence(
             "--json",
             "context",
             "--task",
-            task,
+            &clean_task,
             "--budget",
             budget.as_str(),
         ],
@@ -188,7 +292,7 @@ pub fn evidence(
         true,
     )?;
 
-    parse_context_json(&output)
+    parse_context_json_with_blacklist(&output, extra_blacklist)
 }
 
 /// Parse the CLI's `--json context` output.
@@ -196,6 +300,11 @@ pub fn evidence(
 /// The shape is documented in LeanToken's usage guide; unknown fields are
 /// ignored so a newer release cannot break an attempt.
 pub fn parse_context_json(raw: &str) -> Result<Evidence> {
+    parse_context_json_with_blacklist(raw, &[])
+}
+
+/// Parse the CLI's `--json context` output with board and session artifacts filtered out.
+pub fn parse_context_json_with_blacklist(raw: &str, extra_blacklist: &[String]) -> Result<Evidence> {
     let value: serde_json::Value = serde_json::from_str(raw.trim())
         .with_context(|| format!("leantoken returned non-JSON: {}", first_line(raw)))?;
 
@@ -225,6 +334,7 @@ pub fn parse_context_json(raw: &str) -> Result<Evidence> {
         fragments: fragments
             .into_iter()
             .filter(|f| !f.path.trim().is_empty() && f.end_line >= f.start_line)
+            .filter(|f| !is_blacklisted_artifact(&f.path, extra_blacklist))
             .map(|f| Fragment {
                 path: f.path,
                 start_line: f.start_line.max(1),
@@ -528,4 +638,63 @@ exit 0
 
         let _ = std::fs::remove_dir_all(&dir);
     }
+
+    #[test]
+    fn blacklist_filters_board_and_session_artifacts() {
+        assert!(is_blacklisted_artifact("dev.board", &[]));
+        assert!(is_blacklisted_artifact("tasks.board", &[]));
+        assert!(is_blacklisted_artifact("phase4.board", &[]));
+        assert!(is_blacklisted_artifact("dev.board.lock", &[]));
+        assert!(is_blacklisted_artifact(".board/config.json", &[]));
+        assert!(is_blacklisted_artifact(".board/runs/run-123.json", &[]));
+        assert!(is_blacklisted_artifact(".agents/state.json", &[]));
+        assert!(is_blacklisted_artifact(".claude/settings.json", &[]));
+        assert!(is_blacklisted_artifact(".opencode/session.json", &[]));
+        assert!(is_blacklisted_artifact(".sessions/run.log", &[]));
+        assert!(is_blacklisted_artifact("project_context.md", &[]));
+        assert!(is_blacklisted_artifact("skills.lock", &[]));
+        assert!(is_blacklisted_artifact("hooks.jsonl", &[]));
+
+        // Real code must NOT be blacklisted
+        assert!(!is_blacklisted_artifact("src/main.rs", &[]));
+        assert!(!is_blacklisted_artifact("barkcli-core/src/harness/mod.rs", &[]));
+        assert!(!is_blacklisted_artifact("web/src/App.tsx", &[]));
+        assert!(!is_blacklisted_artifact("tests/harness_eval.rs", &[]));
+
+        // Custom extra blacklist
+        let custom = vec!["*.generated.rs".to_string(), "dist/**".to_string()];
+        assert!(is_blacklisted_artifact("src/proto.generated.rs", &custom));
+        assert!(is_blacklisted_artifact("dist/bundle.js", &custom));
+        assert!(!is_blacklisted_artifact("src/proto.rs", &custom));
+    }
+
+    #[test]
+    fn parse_context_json_drops_blacklisted_artifacts() {
+        let payload = r#"{
+          "fragments": [
+            {"path":"dev.board","start_line":1,"end_line":10,"reason":"text"},
+            {"path":".board/runs/run-1.json","start_line":1,"end_line":20,"reason":"symbol"},
+            {"path":"project_context.md","start_line":5,"end_line":15,"reason":"text"},
+            {"path":"src/handler.rs","start_line":12,"end_line":24,"reason":"symbol; reference"},
+            {"path":"tasks.board","start_line":1,"end_line":5,"reason":"text"}
+          ],
+          "meta": {"source_tokens": 42}
+        }"#;
+
+        let evidence = parse_context_json(payload).unwrap();
+        assert_eq!(evidence.fragments.len(), 1);
+        assert_eq!(evidence.fragments[0].path, "src/handler.rs");
+        assert_eq!(evidence.fragments[0].start_line, 12);
+        assert_eq!(evidence.fragments[0].end_line, 24);
+    }
+
+    #[test]
+    fn sanitize_query_strips_board_and_session_noise() {
+        let dirty = "Implement auth in dev.board and tasks.board with project_context.md for login";
+        let clean = sanitize_query(dirty);
+        assert_eq!(clean, "Implement auth in and with for login");
+        assert!(!clean.contains(".board"));
+        assert!(!clean.contains("project_context.md"));
+    }
 }
+

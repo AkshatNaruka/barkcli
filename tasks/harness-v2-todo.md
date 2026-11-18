@@ -113,6 +113,26 @@ builder, and let the web RunService emit the same `finish` phase for parity.
       a stub binary, so CI never installs LeanToken.
 - [x] Verified end-to-end with the real CLI in a scratch repo: the packet
       gained `- \`src/cancel.rs:1-3\` — text; symbol` for a cancellation task.
+- [x] Board/session artifact blacklist:
+      - `harness/leantoken.rs`: `is_blacklisted_artifact` drops `*.board`, `*.board.lock`,
+        `.board/**`, `.agents/**`, `.claude/**`, `.opencode/**`, `.sessions/**`,
+        `project_context.md`, `skills.lock`, and session jsonl logs.
+      - `sanitize_query`: strips tracking artifacts and board file references from
+        the `--task` string so LeanToken indexes actual source code.
+      - `harness.context.code_index_blacklist`: user-configurable blacklist patterns in config.
+- [x] Smart failure diagnostics (better than Claude Code & DeepSeek Harness):
+      - Failure mode classification in `packet.rs`: compilation/syntax errors, test assertion
+        failures, runtime panics, timeouts, and verifier rejections receive dedicated diagnostic
+        guidance for 1-shot retry fixes.
+- [x] Best skills library:
+      - 5 new built-in skills: `debugging.md`, `refactoring.md`, `api-design.md`,
+        `frontend-design.md`, `swe-bench.md`.
+      - Curated catalog in `skills_sh.rs` enriched with `systematic-debugging` and `e2e-playwright`.
+- [x] Best automations setup:
+      - Git `pre-push` guard hook verification (`barkcli guard --quick`).
+      - CI workflow generator for GitHub Actions (`.github/workflows/bark-gate.yml`).
+- [x] Cross-project review selection:
+      - `ReviewSurface.tsx` project dropdown filter for unified multi-project review.
 
 Deliberately not done: MCP registration. LeanToken ships `npx leantoken setup`
 for MCP-capable hosts, and the CLI runner's packet path works for every backend

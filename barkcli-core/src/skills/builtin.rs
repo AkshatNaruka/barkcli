@@ -10,6 +10,11 @@ pub fn builtin_skills() -> Vec<crate::skills::Skill> {
         load_builtin(include_str!("builtin/performance-engineer.md"), "performance-engineer.md"),
         load_builtin(include_str!("builtin/database-architect.md"), "database-architect.md"),
         load_builtin(include_str!("builtin/architecture-review.md"), "architecture-review.md"),
+        load_builtin(include_str!("builtin/debugging.md"), "debugging.md"),
+        load_builtin(include_str!("builtin/refactoring.md"), "refactoring.md"),
+        load_builtin(include_str!("builtin/api-design.md"), "api-design.md"),
+        load_builtin(include_str!("builtin/frontend-design.md"), "frontend-design.md"),
+        load_builtin(include_str!("builtin/swe-bench.md"), "swe-bench.md"),
     ]
 }
 

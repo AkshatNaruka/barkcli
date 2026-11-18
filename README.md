@@ -345,8 +345,9 @@ acceptance gate:
 - **The packet points at the right code.** If
   [LeanToken](https://github.com/morluto/leantoken) is installed, each attempt's
   prompt gains a small `## Relevant code` section listing the ranges the index
-  ranked for that task — inside its own token budget, dropped like any other
-  optional layer, and silent when the tool is absent.
+  ranked for that task — inside its own token budget, filtered through an artifact
+  blacklist (no `.board` files or session logs leak into evidence), dropped like any
+  other optional layer, and silent when the tool is absent.
 
 Watch it live in the web app's Orchestrate view (`/api/run/live`), or read
 [the command reference](https://akshatnaruka.github.io/barkcli/docs/commands/run).

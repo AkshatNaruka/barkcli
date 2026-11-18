@@ -119,6 +119,8 @@ pub struct PacketOptions<'a> {
     pub code_index_budget: usize,
     /// Paste the returned source instead of only pointing at ranges.
     pub code_index_snippets: bool,
+    /// Extra paths or patterns excluded from code index evidence.
+    pub code_index_blacklist: Vec<String>,
 }
 
 impl<'a> PacketOptions<'a> {
@@ -152,6 +154,11 @@ impl<'a> PacketOptions<'a> {
 
     pub fn with_budget(mut self, tokens: usize) -> Self {
         self.budget_tokens = tokens;
+        self
+    }
+
+    pub fn with_code_index_blacklist(mut self, list: Vec<String>) -> Self {
+        self.code_index_blacklist = list;
         self
     }
 }
@@ -295,7 +302,7 @@ pub fn build_with_registry(
     let code_index = opts.code_index_bin.as_deref().and_then(|bin| {
         let query = task_query(task);
         let timeout = std::time::Duration::from_secs(CODEX_INDEX_TIMEOUT_SECS);
-        match crate::harness::leantoken::evidence(
+        match crate::harness::leantoken::evidence_with_blacklist(
             bin,
             root,
             &query,
@@ -305,6 +312,7 @@ pub fn build_with_registry(
                 opts.code_index_budget
             },
             timeout,
+            &opts.code_index_blacklist,
         ) {
             Ok(evidence) if !evidence.is_empty() => Some(evidence),
             Ok(_) => None,
@@ -488,6 +496,33 @@ pub fn build_with_registry(
             opts.attempt.saturating_sub(1),
             verdict.trim()
         ));
+
+        // Intelligent failure diagnosis across common error topologies
+        let v = verdict.to_lowercase();
+        if v.contains("error[e")
+            || v.contains("syntaxerror")
+            || v.contains("compileerror")
+            || v.contains("cannot find")
+            || v.contains("unresolved import")
+        {
+            text.push_str("### Diagnostic Guidance: Compilation / Syntax Failure\n");
+            text.push_str("- The code failed compilation. Inspect specific compiler diagnostics and line citations above.\n");
+            text.push_str("- Fix type definitions and missing symbols surgically; do not re-scaffold untouched files.\n\n");
+        } else if v.contains("assertion failed")
+            || v.contains("failures:")
+            || v.contains("test result: failed")
+        {
+            text.push_str("### Diagnostic Guidance: Acceptance Test Failure\n");
+            text.push_str("- Verification failed an assertion. Review actual vs expected outcomes in the test tail above.\n");
+            text.push_str("- Adapt logic to satisfy edge cases and boundary criteria without breaking passing tests.\n\n");
+        } else if v.contains("panicked at") {
+            text.push_str("### Diagnostic Guidance: Runtime Panic\n");
+            text.push_str("- The process crashed with a panic. Add defensive bounds checks and guard unwraps.\n\n");
+        } else if v.contains("timed out") || v.contains("deadline") {
+            text.push_str("### Diagnostic Guidance: Timeout / Hang\n");
+            text.push_str("- The gate exceeded its time ceiling. Investigate blocking locks, infinite loops, or network waits.\n\n");
+        }
+
         text.push_str(
             "Fix the reported failure. Rerun the project's tests yourself before finishing.",
         );
@@ -634,11 +669,12 @@ fn task_query(task: &TaskRequest) -> String {
         );
     }
     let query = query.trim().to_string();
-    if query.is_empty() {
+    let raw = if query.is_empty() {
         task.description.trim().to_string()
     } else {
         query
-    }
+    };
+    crate::harness::leantoken::sanitize_query(&raw)
 }
 
 fn one_line(text: &str) -> String {

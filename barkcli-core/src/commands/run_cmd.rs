@@ -1023,6 +1023,7 @@ fn dispatch_next(
             code_index_bin,
             code_index_budget: harness.context.code_index_budget_tokens,
             code_index_snippets: harness.context.code_index_snippets,
+            code_index_blacklist: harness.context.code_index_blacklist.clone(),
         },
     );
     println!(

@@ -564,6 +564,7 @@ It is optional and silent:
 - pointers by default. A stale line range is harmless because the agent opens
   the file; `code_index_snippets: true` pastes the returned source instead, for
   backends that never read files;
+- internal board and session artifacts (`*.board`, `.board/**`, `.agents/**`, `.claude/**`, `project_context.md`, `skills.lock`, `*.jsonl`) are automatically blacklisted from the query and filtered from returned fragments. Additional patterns can be configured with `code_index_blacklist: ["vendor/**", "*.min.js"]`;
 - a missing binary, an unready index or a slow call (20s cap) drops the section
   and the attempt continues. The index is asked about the attempt's worktree, so
   its ranges match the code the agent is about to see.

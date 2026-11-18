@@ -195,6 +195,50 @@ Always validate query parameters and request bodies with strict schemas before e
 "#.into(),
             safety: None,
         },
+        RemoteSkill {
+            id: "systematic-debugging".into(),
+            name: "Systematic Debugging".into(),
+            description: "Root-cause diagnosis, non-destructive test reproduction, and defect resolution.".into(),
+            author: "barkcli".into(),
+            license: "MIT".into(),
+            repository: "https://github.com/barkcli/barkcli".into(),
+            upstream_url: "https://skills.sh/barkcli/systematic-debugging".into(),
+            category: "debugging".into(),
+            tags: vec!["debug".into(), "troubleshooting".into(), "testing".into(), "triage".into()],
+            content: r#"---
+name: Systematic Debugging
+description: Isolate defect root causes with minimal reproducer test cases before editing code.
+triggers: [debug, triage, bugfix, investigate]
+---
+
+# Systematic Debugging
+
+Reproduce defects cleanly with automated assertions before applying surgical code changes.
+"#.into(),
+            safety: None,
+        },
+        RemoteSkill {
+            id: "e2e-playwright".into(),
+            name: "Playwright E2E Testing".into(),
+            description: "Resilient end-to-end browser assertions, network interceptors, and visual diffs.".into(),
+            author: "microsoft".into(),
+            license: "Apache-2.0".into(),
+            repository: "https://github.com/microsoft/playwright".into(),
+            upstream_url: "https://skills.sh/microsoft/e2e-playwright".into(),
+            category: "testing".into(),
+            tags: vec!["playwright".into(), "e2e".into(), "testing".into(), "browser".into()],
+            content: r#"---
+name: Playwright E2E Testing
+description: End-to-end browser integration testing with auto-waiting selectors and network mocks.
+triggers: [playwright, e2e, browser-test, web-test]
+---
+
+# Playwright E2E Testing
+
+Use resilient text/role locators and avoid brittle CSS selectors or arbitrary sleep calls.
+"#.into(),
+            safety: None,
+        },
     ]
 }
 
