@@ -562,6 +562,7 @@ async fn auto_init() {
                         runtime: Default::default(),
                         guard: Default::default(),
                         receipts: Default::default(),
+                        harness: Default::default(),
                     };
                     let config_json = serde_json::to_string_pretty(&config).unwrap_or_default();
                     let _ = std::fs::write(board_dir.join("config.json"), config_json);

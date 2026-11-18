@@ -4,11 +4,11 @@
 //! every chat/build prompt tells the agent to end its turn with one fenced
 //! block when it is blocked on a decision or a missing credential:
 //!
-//! ```text
+//! ````text
 //! ```bark-question
 //! {"questions":[{"header":"Scope","question":"Which package?","options":[{"label":"web","description":"…"}]}]}
 //! ```
-//! ```
+//! ````
 //!
 //! The server lifts that block out of the reply, records a `question` thread
 //! event with the structured payload, and the thread dock asks the user. The

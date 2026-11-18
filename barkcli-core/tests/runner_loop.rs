@@ -458,3 +458,124 @@ exit 0
     );
     std::env::remove_var("BARKCLI_AGENT_CMD");
 }
+
+/// Harness v2 / phase 1: the runner records what an attempt actually spent.
+/// A wrapper backend that prints Claude-style JSONL is parsed the same way as
+/// the real backend, persisted next to the transcript, and rolled up into the
+/// report (CLI `--json` consumers read this).
+#[test]
+fn run_loop_records_backend_usage() {
+    let _serial = SERIAL.lock().unwrap();
+
+    let root = unique_root("usage", 5);
+    let metered_agent = r#"#!/bin/sh
+set -e
+cat > test.js <<'EOF'
+console.log("smoke ok");
+EOF
+printf '%s\n' '{"type":"result","subtype":"success","is_error":false,"result":"done","usage":{"input_tokens":18400,"output_tokens":2100,"cache_read_input_tokens":96000},"total_cost_usd":0.0412}'
+exit 0
+"#;
+    seed_repo(&root, metered_agent);
+    std::env::set_current_dir(&root).unwrap();
+    write_board("run-board5", &Board::new("run-board5")).unwrap();
+
+    std::env::set_var("BARKCLI_AGENT_CMD", "./fake-agent.sh");
+    let report = run(RunOptions {
+        intent: "Add a passing smoke test".into(),
+        board: Some("run-board5".into()),
+        offline: true,
+        yes: true,
+        test_cmd: Some("node test.js".into()),
+        max_attempts: 1,
+        max_minutes: 2,
+        idle_minutes: 1,
+        ..Default::default()
+    })
+    .unwrap();
+
+    assert!(
+        report.usage.input_tokens >= 18_400,
+        "report must roll up attempt usage, got {:?}",
+        report.usage
+    );
+    // Attempts are separate processes, so the run total is the SUM of what
+    // each attempt spent (a max would report one attempt as the whole run).
+    let merged = report.completed as f64;
+    assert!(merged >= 1.0);
+    assert!(
+        (report.usage.cost_usd - 0.0412 * merged).abs() < 1e-9,
+        "cost sums across attempts: {:?} for {} merges",
+        report.usage,
+        merged
+    );
+    assert!(
+        (report.cost_per_merged_change.unwrap() - 0.0412).abs() < 1e-9,
+        "cost per merged change: {:?}",
+        report.cost_per_merged_change
+    );
+
+    let metered = report
+        .tasks
+        .iter()
+        .find(|t| t.usage.input_tokens > 0)
+        .expect("at least one task must carry usage");
+    assert_eq!(metered.usage.input_tokens, 18_400);
+    assert_eq!(metered.usage.output_tokens, 2_100);
+    assert_eq!(metered.usage.cached_input_tokens, 96_000);
+
+    // Persisted next to the transcript, so a failed attempt stays auditable.
+    let sessions = root.join(".board/sessions");
+    let usage_files: Vec<String> = std::fs::read_dir(&sessions)
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .map(|e| e.path().join("usage.json"))
+        .filter(|p| p.exists())
+        .map(|p| std::fs::read_to_string(p).unwrap())
+        .collect();
+    assert!(
+        usage_files.iter().any(|u| u.contains("18400")),
+        "usage.json must be written beside the transcript"
+    );
+
+    // H9: the CLI run writes the same run records the web app lists.
+    let runs_dir = root.join(".board/runs");
+    let runs: Vec<serde_json::Value> = std::fs::read_dir(&runs_dir)
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("json"))
+        .map(|p| serde_json::from_str(&std::fs::read_to_string(p).unwrap()).unwrap())
+        .collect();
+    assert!(!runs.is_empty(), "run records must be emitted");
+    let merged_run = runs
+        .iter()
+        .find(|r| r["status"] == "merged")
+        .expect("at least one merged run record");
+    assert_eq!(merged_run["provider"], "agent-cmd");
+    assert!(merged_run["context_manifest_id"]
+        .as_str()
+        .unwrap_or_default()
+        .starts_with("ctx-"));
+    assert!(merged_run["head_sha"].is_string());
+    assert!(merged_run["gate"]["passed"].as_bool().unwrap());
+    assert_eq!(merged_run["usage"]["input_tokens"], 18_400);
+    // Later attempts can legitimately be no-ops (the file already exists on
+    // main), so require at least one record with a real diff.
+    assert!(
+        runs.iter()
+            .any(|r| r["diff_stats"]["files"].as_u64().unwrap_or(0) >= 1),
+        "a run record must carry diff stats"
+    );
+
+    // H11: per-backend roll-up comes from the same records.
+    let agent_cmd = report
+        .cost_by_backend
+        .iter()
+        .find(|c| c.provider == "agent-cmd")
+        .expect("agent-cmd cost row");
+    assert_eq!(agent_cmd.merged, merged as u32);
+    assert!((agent_cmd.usd_per_merged_change.unwrap() - 0.0412).abs() < 1e-9);
+
+    std::env::remove_var("BARKCLI_AGENT_CMD");
+}

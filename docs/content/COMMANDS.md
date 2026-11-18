@@ -478,10 +478,174 @@ Set `BARKCLI_AGENT_CMD="<script>"` to drive tasks with any command instead of a
 detected backend — the script runs inside the worktree with the prompt-file
 path as `$1` (also exposed as `BARKCLI_PROMPT_FILE`).
 
+#### Attempt telemetry
+
+Every attempt records what it spent. Claude Code's `stream-json` result event
+and Codex's `turn.completed` event both carry token counts, and Claude reports
+`total_cost_usd`. The runner parses them while it tees the transcript, writes
+`usage.json` next to `transcript.log`, prints a one-line summary, and rolls the
+totals into both the human report (a `usage:` header line plus a `spend:` line
+under each task) and `barkcli run --json`:
+
+```json
+{
+  "tasks": [{ "task_id": "…", "status": "completed",
+              "usage": { "input_tokens": 18400, "output_tokens": 2100,
+                         "cached_input_tokens": 96000, "cost_usd": 0.0412 } }],
+  "usage": { "input_tokens": 55200, "output_tokens": 6300,
+             "cached_input_tokens": 288000, "cost_usd": 0.1236 },
+  "cost_per_merged_change": 0.0412,
+  "cost_by_backend": [{ "provider": "claude", "runs": 3, "merged": 3,
+                        "cost_usd": 0.1236, "usd_per_merged_change": 0.0412 }]
+}
+```
+
+Cost is cumulative *within* one process, so a single attempt keeps the peak
+value from its stream; the **run** total sums the per-attempt costs, because
+every attempt is its own process. Plain-text backends (OpenCode) print `usage
+unavailable` rather than guessing; a wrapper script around `claude`/`codex` is
+still auto-detected even though its declared stream is plain text.
+
 A task fails the loop when: the gate fails after `--max-attempts`, the agent
 crashes without producing changes (a no-op gate doesn't count), or the merge
 conflicts after the final attempt. Failed attempts are recorded as project
 memory facts and the verdict is injected into re-dispatch prompts.
+
+#### Context packet
+
+Each attempt gets a budgeted prompt instead of one unbounded concatenation.
+The runner reads, in order: a managed policy (`$BARKCLI_HOME/policy.md` or
+`~/.bark/policy.md`), `project_context.md`, `AGENTS.md` / `CLAUDE.md` (project
+root and ancestors), `.board/rules/*.md`, and subtree rules next to the files
+being touched. HTML comments are stripped. The top matching skill keeps its
+full body; the rest become an index of `id — description — absolute path`, with
+every body written to the session directory (never the worktree).
+
+Budget defaults to 8k tokens (~32 KB). When it is exceeded, sections are
+dropped in this order: subtree rules → skill index → extra context files →
+board rules → agent files → `project_context.md`. The task, its acceptance
+criteria, the branch and the retry verdict are never dropped, and the old
+"prompt exceeds budget" abort is gone.
+
+Every attempt prints a one-liner and writes `context.json` beside `prompt.md`:
+
+```text
+  · context 22.2 KB · ~5.7k tokens (ctx-287fb98e0e757786)
+```
+
+`context.json` records the packet id, byte/token counts, each section (kept or
+dropped), the instruction files that were read and the skill paths — enough to
+reproduce or diff a prompt after the fact.
+
+#### Retry checkpoints
+
+Before an attempt starts, the harness commits any dirty tracked files as
+`bark checkpoint: <task> attempt <n>` and tags the result
+`bark/try/<task>/<n>`. On a retry it resets the worktree to the **attempt-1**
+tag and cleans untracked leftovers, so attempt 5 is not attempt 1 plus four
+layers of noise. Set `harness.retry_reset: false` to keep the dirty branch
+instead. Tags are pruned once the branch merges. A merge-conflict re-dispatch is
+never rewound — its branch was recreated on the new main and rewinding would
+re-introduce the conflict.
+
+#### Lifecycle hooks
+
+Project policy that the harness cannot know ("no merge without a changeset
+entry") is configuration, not a patch to barkcli. Hooks run at:
+`attempt.start`, `pre_spawn`, `post_agent`, `post_gate`, `pre_merge`,
+`attempt.end`.
+
+Each hook gets one JSON object on stdin (`event`, `task_id`, `card_id`, `title`,
+`branch`, `worktree`, `attempt`, plus whatever is known at that point:
+`exit_code`, `gate_ok`/`gate_cmd`/`gate_tail`, `usage`, `note`) and runs with
+the worktree as its working directory. Exit **0** proceeds, **2** vetoes, and
+anything else warns; `on_failure: "block"` upgrades crashes and timeouts to a
+veto. A veto on `pre_merge` keeps the branch for review and records the reason
+on the task; a veto on `post_gate` fails the attempt; a veto on `pre_spawn`
+stops the backend before it runs. Every run is appended to `hooks.jsonl` in the
+session directory.
+
+#### Backend permissions
+
+Permission flags are derived from config instead of hard-coded per backend:
+Claude gets `--permission-mode` plus `--allowedTools` (skipped when the list is
+empty), Codex gets `--sandbox`. Blank values fall back to `acceptEdits` and
+`workspace-write`; OpenCode's `--auto` stays part of its recipe.
+
+#### Run records
+
+Every attempt writes a `RunRecord` to `.board/runs/<run_id>.json` — the same
+store the web app lists in Review, Usage and the contribution graph. A
+`barkcli run` is therefore visible in the browser, priced in the analytics, and
+counted in `cost per merged change`, without a second history format.
+
+Each record carries the provider, permission mode, branch, base/head SHAs, the
+packet id (`context_manifest_id`, which points at `context.json`), gate
+verification (`tested_head` / `target_head`), diff stats, token/cost usage and
+the merge outcome (`merged`, `needs_review`, `failed`). A retry is a new record,
+so old attempts stay inspectable.
+
+#### Verifier subagent
+
+The gate proves the tests pass; it cannot prove the diff satisfies the
+acceptance criteria. Set `harness.verify.enabled` and every branch that passes
+the gate and the guard is also reviewed by a **separate** process with a fresh
+context — the task, its acceptance criteria, the diff and the gate tail. The
+author's transcript is deliberately not passed along.
+
+The reviewer answers with one line:
+
+```text
+VERDICT: PASS
+VERDICT: FAIL — the acceptance criteria ask for a redirect test; none was added
+```
+
+A `FAIL` re-queues the task with the reviewer's reason as the retry verdict
+(unless `block_on_fail: false`), and the review is recorded on the run's
+contribution graph with a `verifier:` identity that can never equal the author.
+An unparseable answer, a crash or a timeout is `uncertain`: it is printed and
+never blocks the merge.
+
+`harness.verify.command` is a shell command that receives the prompt on stdin
+(`BARKCLI_VERIFIER_CMD` overrides it, which is how the eval suite stays
+deterministic). With neither set, the run's own backend is used.
+
+#### Spend ceiling
+
+`harness.budget.max_run_usd` caps what one `barkcli run` may spend. The loop
+checks accumulated attempt cost before dispatching the next task: at the
+ceiling it stops starting new work and leaves the rest queued (in-flight
+attempts always finish, so a run never strands a half-written worktree). The
+report prints the ceiling, and `--json` carries it as `budget_ceiling_usd`.
+
+The report also prints **cost per merged change**, both for the current run
+(`cost_per_merged_change`) and per provider from `.board/runs`
+(`cost_by_backend`), which is the number the "cheaper per merged change"
+question actually needs:
+
+```text
+  cost per merged change (from .board/runs)
+    claude         12 run(s), 9 merged, $0.3912 total → $0.0435/merge
+```
+
+All of it lives in `.board/config.json` (every field defaults, so older files
+keep loading):
+
+```json
+{
+  "version": 1,
+  "harness": {
+    "context": { "budget_tokens": 8000, "instructions": true, "skills": true, "strip_comments": true },
+    "retry_reset": true,
+    "hooks": [
+      { "event": "pre_merge", "command": "scripts/check-changeset.sh", "timeout_secs": 30, "on_failure": "block" }
+    ],
+    "permissions": { "mode": "acceptEdits", "allowed_tools": ["Read", "Edit", "Bash"], "sandbox": "workspace-write" },
+    "verify": { "enabled": true, "timeout_secs": 180, "block_on_fail": true },
+    "budget": { "max_run_usd": 5.0 }
+  }
+}
+```
 
 #### Parallel pool & the merge train
 

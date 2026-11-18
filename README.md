@@ -309,6 +309,38 @@ acceptance gate:
 - Every verdict is recorded in the run report (`parallel`, `workers_peak`,
   `merged_branches`) and in cross-session memory, so the next run doesn't repeat
   the last one's mistakes.
+- **Attempts are metered.** Token counts and cost are parsed from the agent's
+  stream (Claude `usage` / `total_cost_usd`, Codex `turn.completed.usage`),
+  written to `usage.json` beside the transcript, and rolled up into
+  `barkcli run --json` — so "cheaper per merged change" is a measurable
+  question, not a vibe.
+- **Context is assembled, not dumped.** Each attempt gets a budgeted packet
+  (8k tokens by default): managed policy → `project_context.md` → `AGENTS.md`
+  ancestors → `.board/rules` → subtree rules, with the top skill inline and the
+  rest as an index. The task, its acceptance criteria and the retry verdict are
+  never trimmed, and every packet writes a reproducible `context.json`.
+- **Retries start clean.** A checkpoint tag before each attempt means a retry
+  resets to the attempt-1 state instead of inheriting the failed attempt's
+  half-applied edits.
+- **Policy is config.** Hooks fire at six lifecycle events
+  (`attempt.start`, `pre_spawn`, `post_agent`, `post_gate`, `pre_merge`,
+  `attempt.end`); exit `2` vetoes a merge without a Rust patch. Backend
+  permission flags are derived from the same `harness` block.
+- **A second agent reviews the diff.** With `harness.verify.enabled`, a verifier
+  with a fresh context checks the change against the acceptance criteria before
+  the merge. Its verdict is recorded on the contribution graph under its own
+  identity (self-verification is rejected), and a `FAIL` re-queues the task with
+  the reviewer's reason.
+- **One history for CLI and web.** Every attempt writes the same
+  `RunRecord` the app lists in `.board/runs/` — provider, branch, base/head
+  SHAs, packet id, gate verification, diff stats, spend and outcome — so a
+  terminal run shows up in Review, Usage and the contribution graph.
+- **Spend is capped and priced.** `harness.budget.max_run_usd` stops new
+  dispatches at the ceiling, and the report prints cost per merged change for
+  the run and per provider from recorded history.
+- **The harness is tested like a product.** `cargo test --test harness_eval`
+  drives eight scripted-backend scenarios (merge, retry with verdict, no-op
+  gate, verifier veto, budget stop, hook veto, packet trimming) in CI.
 
 Watch it live in the web app's Orchestrate view (`/api/run/live`), or read
 [the command reference](https://akshatnaruka.github.io/barkcli/docs/commands/run).

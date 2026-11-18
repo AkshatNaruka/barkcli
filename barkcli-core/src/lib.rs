@@ -8,6 +8,7 @@ pub mod context;
 pub mod context_file;
 pub mod editor;
 pub mod guard;
+pub mod harness;
 pub mod history;
 pub mod mcp;
 pub mod memory;

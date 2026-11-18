@@ -17,6 +17,7 @@ pub mod roles;
 pub mod session;
 pub mod team;
 pub mod toolchain;
+pub mod usage;
 pub mod verify;
 pub mod worktree;
 pub mod worktree_lifecycle;

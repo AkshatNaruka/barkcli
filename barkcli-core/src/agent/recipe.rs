@@ -21,6 +21,8 @@
 use std::process::Command;
 
 use super::session::SessionBackend;
+use crate::harness::permissions;
+use crate::models::config::PermissionSettings;
 
 /// Terminal verdict parsed from the transcript stream. `None` = keep watching.
 #[derive(Debug, Clone, PartialEq)]
@@ -58,8 +60,14 @@ impl Recipe {
         Self { backend, stream }
     }
 
-    /// Build the headless command. `cwd` is the caller's job (`current_dir`).
+    /// Build the headless command with the default permission policy.
+    /// `cwd` is the caller's job (`current_dir`).
     pub fn command(&self, prompt: &str) -> Command {
+        self.command_with(prompt, &PermissionSettings::default())
+    }
+
+    /// Build the headless command, deriving permission flags from config.
+    pub fn command_with(&self, prompt: &str, permissions: &PermissionSettings) -> Command {
         let mut cmd = match self.backend {
             SessionBackend::Opencode => {
                 let mut c = Command::new("opencode");
@@ -79,21 +87,19 @@ impl Recipe {
                     .arg(prompt)
                     .arg("--output-format")
                     .arg("stream-json")
-                    .arg("--verbose")
-                    .arg("--permission-mode")
-                    .arg("acceptEdits")
-                    .arg("--allowedTools")
-                    .arg("Read,Edit,Bash");
+                    .arg("--verbose");
+                for flag in permissions::flags(&SessionBackend::ClaudeCode, permissions) {
+                    c.arg(flag);
+                }
                 c
             }
             SessionBackend::Codex => {
                 let mut c = Command::new("codex");
-                c.arg("exec")
-                    .arg("--json")
-                    .arg("--sandbox")
-                    .arg("workspace-write")
-                    .arg("--skip-git-repo-check")
-                    .arg(prompt);
+                c.arg("exec").arg("--json");
+                for flag in permissions::flags(&SessionBackend::Codex, permissions) {
+                    c.arg(flag);
+                }
+                c.arg("--skip-git-repo-check").arg(prompt);
                 c
             }
             _ => Command::new("true"),
@@ -150,16 +156,6 @@ impl Recipe {
             Stream::Plain => None,
         }
     }
-}
-
-/// Claude-style run prompts are getting long; single-arg still safe till
-/// ARG_MAX, but enforce a cap and route giant prompts to a file already
-/// written by the runner.
-pub(crate) const MAX_PROMPT_ARG_BYTES: usize = 120_000;
-
-/// Validate a prompt is safe to hand as a single CLI argument.
-pub fn prompt_arg_ok(prompt: &str) -> bool {
-    prompt.len() <= MAX_PROMPT_ARG_BYTES
 }
 
 #[cfg(test)]
@@ -229,12 +225,5 @@ mod tests {
 
         let opencode = Recipe::for_backend(SessionBackend::Opencode).command("hi");
         assert!(format!("{:?}", opencode).contains("opencode"));
-    }
-
-    #[test]
-    fn prompt_arg_cap() {
-        assert!(prompt_arg_ok("normal"));
-        let big = "x".repeat(MAX_PROMPT_ARG_BYTES + 1);
-        assert!(!prompt_arg_ok(&big));
     }
 }

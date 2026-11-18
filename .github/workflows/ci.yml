@@ -41,6 +41,35 @@ jobs:
       - name: Run tests
         run: cargo test --verbose
 
+  harness-eval:
+    name: Harness eval suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: harness-eval-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: harness-eval-cargo-
+
+      - name: Install node (the scripted gate runs real `node`)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run the harness eval suite
+        env:
+          CARGO_TERM_COLOR: always
+        run: cargo test -p barkcli-core --test harness_eval -- --test-threads=1
+
   macos-app:
     name: macOS app bundle
     runs-on: macos-14

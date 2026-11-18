@@ -39,15 +39,21 @@ use serde::Serialize;
 
 use crate::agent::decompose::{decompose_task, CardDecompositionContext};
 use crate::agent::queue::{create_task, populate_context_files, TaskRequest, TaskStatus};
-use crate::agent::recipe::{prompt_arg_ok, AgentVerdict, Recipe, Stream};
+use crate::agent::recipe::{AgentVerdict, Recipe, Stream};
 use crate::agent::worktree::{acquire_worktree, release_worktree};
 use crate::agent::{
-    build_task_prompt, load_session, save_session, sessions_dir, skills_for_task, AgentRole,
-    Session, SessionBackend, SessionStatus, TaskQueue,
+    load_session, save_session, sessions_dir, AgentRole, Session, SessionBackend, SessionStatus,
+    TaskQueue,
 };
+use crate::agent::usage::{self, UsageTotals};
 use crate::guard::{self, DiffSet, GuardReport};
+use crate::harness::lifecycle::{self, HookContext};
+use crate::harness::packet::{self, PacketOptions};
+use crate::harness::record::{self, AttemptFacts, AttemptRecord, BackendCost, GateResultFacts};
+use crate::harness::verify::{self, Review, ReviewInput};
 use crate::memory::store::{MemoryStore, ProjectFact};
-use crate::models::config::{GuardSettings, ReceiptSettings};
+use crate::models::config::{GuardSettings, HarnessSettings, ReceiptSettings};
+use crate::runtime::event::RunStatus;
 use crate::receipt::{
     self,
     builder::{self, ReceiptInput},
@@ -145,6 +151,9 @@ pub struct TaskOutcome {
     pub gate: Option<GateResult>,
     pub transcript: Option<String>,
     pub note: Option<String>,
+    /// What this attempt spent, when the backend reports it.
+    #[serde(default, skip_serializing_if = "UsageTotals::is_empty")]
+    pub usage: UsageTotals,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -167,6 +176,19 @@ pub struct RunReport {
     /// Branches that landed on main, in merge-train order.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub merged_branches: Option<Vec<String>>,
+    /// Token/cost roll-up across every attempt in this run.
+    #[serde(default, skip_serializing_if = "UsageTotals::is_empty")]
+    pub usage: UsageTotals,
+    /// This run's cost divided by the changes it merged.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cost_per_merged_change: Option<f64>,
+    /// Cost per merged change by provider, aggregated from `.board/runs/`
+    /// (the same records the web app lists).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cost_by_backend: Vec<BackendCost>,
+    /// The ceiling that stopped dispatching, when one did.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub budget_ceiling_usd: Option<f64>,
 }
 
 // ── CLI ──
@@ -300,9 +322,17 @@ struct WDone {
     dirty: bool,
     made_commits: u32,
     transcript_path: Option<String>,
+    /// Tokens/cost parsed from the agent's stream, if the backend reports it.
+    usage: UsageTotals,
     /// Worker-side fatal error (panic). The attempt still reports Done so
     /// the dispatcher can re-queue instead of hanging.
     error: Option<String>,
+    /// The attempt's shared run record (web + CLI history).
+    record: Option<AttemptRecord>,
+    /// Commit the attempt ended on, and its diff against `base_commit`.
+    head_sha: Option<String>,
+    diff: (u32, u32, u32),
+    files_touched: Vec<String>,
 }
 
 // ── the loop ──
@@ -376,6 +406,10 @@ pub fn run(opts: RunOptions) -> Result<RunReport> {
                 parallel: parallel_opt(&opts),
                 workers_peak: None,
                 merged_branches: None,
+                usage: UsageTotals::default(),
+                cost_per_merged_change: None,
+                cost_by_backend: Vec::new(),
+                budget_ceiling_usd: None,
             });
         }
 
@@ -421,6 +455,10 @@ pub fn run(opts: RunOptions) -> Result<RunReport> {
             parallel: parallel_opt(&opts),
             workers_peak: None,
             merged_branches: None,
+            usage: UsageTotals::default(),
+            cost_per_merged_change: None,
+            cost_by_backend: Vec::new(),
+            budget_ceiling_usd: None,
         });
     }
 
@@ -497,7 +535,8 @@ pub fn run(opts: RunOptions) -> Result<RunReport> {
                 gate: None,
                 transcript: None,
                 note: None,
-            })
+                            usage: UsageTotals::default(),
+})
             .collect();
         let n = tasks.len() as u32;
         println!(
@@ -521,6 +560,10 @@ pub fn run(opts: RunOptions) -> Result<RunReport> {
             parallel: parallel_opt(&opts),
             workers_peak: None,
             merged_branches: None,
+            usage: UsageTotals::default(),
+            cost_per_merged_change: None,
+            cost_by_backend: Vec::new(),
+            budget_ceiling_usd: None,
         });
     }
 
@@ -555,12 +598,26 @@ pub fn run(opts: RunOptions) -> Result<RunReport> {
     // Merge-train solo backlog: tasks whose merge conflicted and are waiting
     // to be re-dispatched alone (pool drained, main frozen for the attempt).
     let mut solo: Vec<String> = Vec::new();
+    // Spend accumulated by finished attempts, and whether a ceiling stopped us.
+    let mut spent_usd = 0.0f64;
+    let mut budget_stopped = false;
 
     loop {
         // Top up the pool while slots are free and pending work exists.
         // While the solo backlog is non-empty, only backlog tasks dispatch,
         // and only once the pool has fully drained.
-        while in_flight < opts.max_agents {
+        while !budget_stopped && in_flight < opts.max_agents {
+            if let Some(limit) = config.harness.budget.max_run_usd {
+                if spent_usd >= limit {
+                    budget_stopped = true;
+                    println!(
+                        "{} budget ceiling ${:.4} reached — no new attempts dispatched",
+                        style::warn("Budget:"),
+                        limit
+                    );
+                    break;
+                }
+            }
             let mut only: Option<String> = None;
             if !solo.is_empty() {
                 if in_flight > 0 {
@@ -583,6 +640,7 @@ pub fn run(opts: RunOptions) -> Result<RunReport> {
             match dispatch_next(
                 &board_name,
                 &opts,
+                &config.harness,
                 injected.as_deref(),
                 backend.as_ref(),
                 only.as_deref(),
@@ -605,7 +663,8 @@ pub fn run(opts: RunOptions) -> Result<RunReport> {
                         gate: None,
                         transcript: None,
                         note: Some("retry ceiling reached".into()),
-                    });
+                                            usage: UsageTotals::default(),
+});
                 }
                 DispatchNext::HardFail(task_id, note) => {
                     solo.retain(|s| s != &task_id);
@@ -622,7 +681,8 @@ pub fn run(opts: RunOptions) -> Result<RunReport> {
                             "dispatch failed: {} — task marked failed",
                             note
                         )),
-                    });
+                                            usage: UsageTotals::default(),
+});
                 }
                 // Requeued for a later attempt, or nothing pending at all:
                 // leave the top-up loop and check the drain conditions.
@@ -633,6 +693,9 @@ pub fn run(opts: RunOptions) -> Result<RunReport> {
         if in_flight == 0 {
             // The run is over only when the queue has nothing pending.
             // When targeting a specific card, only pending tasks for that card are considered.
+            if budget_stopped {
+                break;
+            }
             let q = load_queue(&board_name)?;
             let pending_remains = match &opts.card_id {
                 Some(cid) => q.tasks.iter().any(|t| &t.card_id == cid && t.status == TaskStatus::Pending),
@@ -652,7 +715,16 @@ pub fn run(opts: RunOptions) -> Result<RunReport> {
             }
             Ok(WMsg::Done(done)) => {
                 in_flight -= 1;
-                match handle_done(
+                spent_usd += done.usage.cost_usd;
+                let attempt_record = done.record.clone();
+                let attempt_task_id = done.task_id.clone();
+                let outcome_mark = outcomes.len();
+                let verify_backend = if injected.is_some() {
+                    None
+                } else {
+                    backend.as_ref()
+                };
+                let signal = handle_done(
                     &board_name,
                     &opts,
                     done,
@@ -661,7 +733,33 @@ pub fn run(opts: RunOptions) -> Result<RunReport> {
                     &mut verdicts,
                     &guard_settings,
                     &receipt_settings,
-                )? {
+                    &config.harness,
+                    verify_backend,
+                )?;
+
+                // Close the attempt's shared record from its outcome. Every
+                // terminal path pushes exactly one outcome; a path that pushes
+                // none re-queued the task, which is a failed attempt.
+                if let Some(rec) = &attempt_record {
+                    let (status, summary, error) = match outcomes.get(outcome_mark) {
+                        Some(outcome) => {
+                            let status = match outcome.status.as_str() {
+                                "completed" => RunStatus::Merged,
+                                "ready-unmerged" => RunStatus::NeedsReview,
+                                _ => RunStatus::Failed,
+                            };
+                            (status, format!("{} ({})", outcome.status, outcome.title), outcome.note.clone())
+                        }
+                        None => (
+                            RunStatus::Failed,
+                            "attempt re-queued".to_string(),
+                            verdicts.get(&attempt_task_id).cloned(),
+                        ),
+                    };
+                    rec.finish(status, Some(summary), error);
+                }
+
+                match signal {
                     HandleSignal::Normal => {}
                     HandleSignal::SoloWait(task_id) => {
                         if !solo.contains(&task_id) {
@@ -677,11 +775,18 @@ pub fn run(opts: RunOptions) -> Result<RunReport> {
         }
     }
 
+    let mut usage_total = UsageTotals::default();
+    for outcome in &outcomes {
+        // Sum, not max: each attempt is its own process.
+        usage_total.merge(&outcome.usage);
+    }
+    let completed = outcomes.iter().filter(|o| o.status == "completed").count() as u32;
+
     Ok(RunReport {
         intent: opts.intent.clone(),
         card_id,
         backend_used,
-        completed: outcomes.iter().filter(|o| o.status == "completed").count() as u32,
+        completed,
         failed: outcomes.iter().filter(|o| o.status == "failed").count() as u32,
         queued: outcomes.iter().filter(|o| o.status == "queued").count() as u32,
         tasks: outcomes,
@@ -694,6 +799,17 @@ pub fn run(opts: RunOptions) -> Result<RunReport> {
         } else {
             Some(merged_branches)
         },
+        cost_per_merged_change: (completed > 0 && usage_total.cost_usd > 0.0)
+            .then(|| usage_total.cost_usd / completed as f64),
+        cost_by_backend: record::cost_by_backend(),
+        budget_ceiling_usd: budget_stopped.then_some(
+            config
+                .harness
+                .budget
+                .max_run_usd
+                .unwrap_or_default(),
+        ),
+        usage: usage_total,
     })
 }
 
@@ -737,6 +853,7 @@ enum HandleSignal {
 fn dispatch_next(
     board_name: &str,
     opts: &RunOptions,
+    harness: &HarnessSettings,
     injected: Option<&str>,
     backend: Option<&SessionBackend>,
     only: Option<&str>,
@@ -830,31 +947,85 @@ fn dispatch_next(
     };
     let branch = format!("bark/{}", slug);
     // Base commit the branch was cut from (change-detection later).
-    let base_commit = git_out(&find_project_root()?, &["rev-parse", "HEAD"])?;
-
-    // ── prompt (retry attempts get the failure verdict injected) ──
-    let skills_md = skills_for_task(&task);
-    let mut prompt = build_task_prompt(&task, &branch, skills_md.as_deref());
-    if let Some(v) = verdicts.get(&task_id) {
-        prompt = format!(
-            "# Previous attempt failed\n\nAttempt {} failed the acceptance gate:\n\n{}\n\nFix the reported failure. Rerun the project's tests yourself before finishing.\n\n---\n\n{}",
-            attempt_no.saturating_sub(1),
-            v,
-            prompt
-        );
-    }
-    prompt.push_str("\n\n## Session contract\n\n");
-    prompt.push_str("- Work entirely inside this checkout.\n");
-    prompt.push_str("- Commit your work when done.\n");
-    prompt.push_str(
-        "- The supervisor re-runs the project's tests after you exit; only a passing gate merges.\n",
-    );
-    if !prompt_arg_ok(&prompt) {
-        anyhow::bail!("prompt exceeds single-arg budget; reduce context files");
-    }
+    let project_root = find_project_root()?;
+    let base_commit = git_out(&project_root, &["rev-parse", "HEAD"])?;
 
     let sess_dir: PathBuf = sessions_dir()?.join(&session.id);
     std::fs::create_dir_all(&sess_dir).ok();
+    let hook_log = sess_dir.join("hooks.jsonl");
+    let hook_ctx = HookContext::new(
+        &task_id,
+        &task.card_id,
+        &task.title,
+        &branch,
+        &wt_path,
+        attempt_no,
+    );
+
+    // ── project hooks: attempt.start ──
+    lifecycle::run_event(
+        &harness.hooks,
+        "attempt.start",
+        &hook_ctx,
+        &wt_path,
+        Some(&hook_log),
+    )
+    .announce();
+
+    // ── checkpoint (retries reset to the attempt-1 snapshot) ──
+    // A merge-conflict re-dispatch is not a failed attempt: its branch is
+    // recreated on top of the new main and must NOT be rewound to the old base.
+    let merge_conflict_retry = verdicts
+        .get(&task_id)
+        .is_some_and(|v| v.starts_with("merge conflict"));
+    match crate::harness::checkpoint::prepare(
+        &wt_path,
+        &task_id,
+        attempt_no as usize,
+        harness.retry_reset && !merge_conflict_retry,
+    ) {
+        Ok(cp) => println!(
+            "  {} checkpoint {} {}",
+            style::muted("·"),
+            if cp.reset {
+                "reset to attempt 1"
+            } else if cp.committed {
+                "saved"
+            } else {
+                "pinned"
+            },
+            style::muted(&cp.tag)
+        ),
+        Err(e) => println!("{} checkpoint skipped: {}", style::warn("!"), e),
+    }
+
+    // ── context packet (retry attempts get the failure verdict injected) ──
+    let packet = packet::build(
+        &task,
+        &branch,
+        &PacketOptions {
+            project_root: Some(&project_root),
+            session_dir: Some(&sess_dir),
+            verdict: verdicts.get(&task_id).map(String::as_str),
+            attempt: attempt_no as usize,
+            budget_tokens: harness.context.budget_tokens,
+            instruction_layers: harness.context.instructions,
+            skill_context: harness.context.skills,
+            strip_comments: harness.context.strip_comments,
+            policy_path: None,
+        },
+    );
+    println!(
+        "  {} context {} ({})",
+        style::muted("·"),
+        packet.summary(),
+        style::muted(&packet.id)
+    );
+    if let Err(e) = packet.write_manifest(&sess_dir.join("context.json")) {
+        println!("{} context manifest: {}", style::warn("!"), e);
+    }
+    let prompt = packet.prompt.clone();
+
     let transcript = sess_dir.join("transcript.log");
     let prompt_file = sess_dir.join("prompt.md");
     std::fs::write(&prompt_file, &prompt)?;
@@ -865,8 +1036,39 @@ fn dispatch_next(
 
     let stream = stream_for(injected.is_some(), backend);
 
+    // ── project hooks: pre_spawn (a veto stops the backend before it runs) ──
+    let pre_spawn = lifecycle::run_event(
+        &harness.hooks,
+        "pre_spawn",
+        &hook_ctx,
+        &wt_path,
+        Some(&hook_log),
+    );
+    pre_spawn.announce();
+    if let Some(reason) = pre_spawn.blocked {
+        release_worktree(&slug, true).ok();
+        let msg = format!("pre_spawn hook: {}", reason);
+        println!("{} {}", style::warn("✘"), msg);
+        if attempt_no < opts.max_attempts {
+            record_failure_fact(board_name, &task, attempt_no, &msg)?;
+            requeue(&mut q, &task_id)?;
+            save_queue(board_name, &q)?;
+            return Ok(DispatchNext::RetryPending);
+        }
+        q.update_status(&task_id, TaskStatus::Failed)?;
+        save_queue(board_name, &q)?;
+        return Ok(DispatchNext::HardFail(task_id, msg));
+    }
+
     // ── spawn ──
-    let mut child = match spawn_agent(injected, backend.cloned(), &prompt, &prompt_file, &wt_path) {
+    let mut child = match spawn_agent(
+        injected,
+        backend.cloned(),
+        &prompt,
+        &prompt_file,
+        &wt_path,
+        &harness.permissions,
+    ) {
         Ok(c) => c,
         Err(e) => {
             release_worktree(&slug, true).ok();
@@ -891,12 +1093,40 @@ fn dispatch_next(
     );
     save_session(&session)?;
 
+    // ── shared run record (the web app lists the same file) ──
+    let provider = injected
+        .map(|_| "agent-cmd".to_string())
+        .or_else(|| backend.map(|b| b.display_name().to_string()))
+        .unwrap_or_else(|| "auto".to_string());
+    let attempt_record = AttemptRecord::start(&record::StartInfo {
+        task: &task,
+        branch: &branch,
+        worktree: &wt_path,
+        attempt: attempt_no,
+        base_sha: Some(&base_commit),
+        provider: &provider,
+        model: None,
+        permission_mode: &harness.permissions.mode,
+        role: task.metadata.role.as_deref(),
+        context_manifest_id: Some(&packet.id),
+        prompt: &prompt,
+        transcript: Some(&transcript.to_string_lossy()),
+    });
+    if let Some(rec) = &attempt_record {
+        println!(
+            "  {} run {}",
+            style::muted("·"),
+            style::muted(&rec.run_id)
+        );
+    }
+
     // ── hand the attempt to a worker thread ──
     let tx_w = tx.clone();
     let task_w = task.clone();
     let test_cmd = opts.test_cmd.clone();
     let idle_min = opts.idle_minutes;
     let max_min = opts.max_minutes;
+    let hooks = harness.hooks.clone();
     let tid = task_id.clone();
     thread::spawn(move || {
         // Panic isolation: a worker must never strand the dispatcher. Any
@@ -904,6 +1134,7 @@ fn dispatch_next(
         // re-queues or fails the task).
         let tid_inner = tid.clone();
         let tx_inner = tx_w.clone();
+        let record_inner = attempt_record.clone();
         let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
             run_attempt(
                 tid_inner,
@@ -918,6 +1149,8 @@ fn dispatch_next(
                 &wt_path,
                 &base_commit,
                 session,
+                hooks,
+                record_inner,
                 tx_inner,
             )
         }));
@@ -941,7 +1174,12 @@ fn dispatch_next(
                 dirty: false,
                 made_commits: 0,
                 transcript_path: None,
+                usage: UsageTotals::default(),
                 error: Some("worker thread panicked".into()),
+                record: attempt_record,
+                head_sha: None,
+                diff: (0, 0, 0),
+                files_touched: Vec::new(),
             })),
         };
         let _ = tx_w.send(msg);
@@ -967,8 +1205,26 @@ fn run_attempt(
     wt_path: &Path,
     base_commit: &str,
     mut session: Session,
+    hooks: Vec<crate::models::config::HarnessHook>,
+    record: Option<AttemptRecord>,
     tx: mpsc::Sender<WMsg>,
 ) -> WMsg {
+    let sess_dir = session
+        .prompt_path
+        .as_ref()
+        .and_then(|p| Path::new(p).parent())
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("."));
+    let hook_log = sess_dir.join("hooks.jsonl");
+    let hook_ctx = HookContext::new(
+        &task_id,
+        &task.card_id,
+        &task.title,
+        &session.branch.clone().unwrap_or_default(),
+        wt_path,
+        attempt_no,
+    );
+
     // Beats go through the channel; the dispatcher (single owner of the
     // queue file) refreshes the lease on receipt.
     let beat_task = task_id.clone();
@@ -987,21 +1243,47 @@ fn run_attempt(
         Ok(())
     };
 
-    let mut verdict_seen: Option<AgentVerdict> = None;
-    let watch_err = watch(child, stream, transcript, max_minutes, idle_minutes, &mut beat)
-        .map(|v| {
-            verdict_seen = v;
-        })
-        .err()
-        .map(|e| e.to_string());
+    let (verdict_seen, usage_totals, watch_err) =
+        match watch(child, stream, transcript, max_minutes, idle_minutes, &mut beat) {
+            Ok(watched) => (watched.verdict, watched.usage, None),
+            Err(e) => (None, UsageTotals::default(), Some(e.to_string())),
+        };
     // One final beat so a long gate can't expire the lease.
     let _ = tx.send(WMsg::Beat {
         task_id: task_id.clone(),
     });
 
     let exit_code = child.wait().ok().and_then(|s| s.code());
+
+    // Keep what the attempt spent next to its transcript, and say it out loud:
+    // "which backend/prompt policy is cheaper per merged change" is only
+    // answerable if every attempt records this.
+    if !usage_totals.is_empty() {
+        if let Ok(json) = serde_json::to_string_pretty(&usage_totals) {
+            std::fs::write(sess_dir.join("usage.json"), json).ok();
+        }
+        println!("{} {}", style::accent("Usage:"), usage_totals.summary());
+    }
+
+    // ── project hooks: post_agent (the backend has exited) ──
+    let post_agent = lifecycle::run_event(
+        &hooks,
+        "post_agent",
+        &HookContext {
+            exit_code,
+            usage: Some(usage_totals.clone()),
+            note: watch_err.clone(),
+            ..hook_ctx.clone()
+        },
+        wt_path,
+        Some(&hook_log),
+    );
+    post_agent.announce();
+    let post_agent_veto = post_agent.blocked.clone();
+
     let agent_failed = matches!(verdict_seen.as_ref(), Some(AgentVerdict::Failed(_)))
-        || exit_code.map(|c| c != 0).unwrap_or(false);
+        || exit_code.map(|c| c != 0).unwrap_or(false)
+        || post_agent_veto.is_some();
 
     session.exit_code = exit_code;
     session.ended_at = Some(Utc::now());
@@ -1026,20 +1308,13 @@ fn run_attempt(
         println!("{} transcript error: {}", style::warn("⚠"), e);
     }
 
-    let sess_dir = session
-        .prompt_path
-        .as_ref()
-        .and_then(|p| Path::new(p).parent())
-        .map(|p| p.to_path_buf())
-        .unwrap_or_else(|| PathBuf::from("."));
-
     // The honesty rule, in two layers:
     //   1. the agent's self-report NEVER completes a task — the gate runs
     //      regardless of exit code or stream verdict;
     //   2. an agent that crashed and produced no changes can't claim a
     //      passing gate either (an empty worktree passes a trivial gate) —
     //      that attempt counts as failed.
-    let gate = match detect_test_cmd(wt_path, test_cmd.clone()) {
+    let mut gate = match detect_test_cmd(wt_path, test_cmd.clone()) {
         Some(cmd) => {
             let is_default_rust = test_cmd.is_none() && cmd == "cargo test --quiet";
             if is_default_rust && !rust_gate_relevant_changes(wt_path, base_commit) {
@@ -1074,6 +1349,26 @@ fn run_attempt(
         .trim()
         .is_empty();
     let branch_wt = session.branch.clone().unwrap_or_default();
+
+    // ── project hooks: post_gate (a veto fails the attempt) ──
+    let post_gate = lifecycle::run_event(
+        &hooks,
+        "post_gate",
+        &HookContext {
+            gate_ok: Some(gate.ok),
+            gate_cmd: gate.cmd.clone(),
+            gate_tail: Some(truncate(&gate.tail, 1200)),
+            usage: Some(usage_totals.clone()),
+            ..hook_ctx.clone()
+        },
+        wt_path,
+        Some(&hook_log),
+    );
+    post_gate.announce();
+    if let Some(reason) = &post_gate.blocked {
+        gate.ok = false;
+        gate.tail = format!("{}\n\n{}", gate.tail, reason).trim().to_string();
+    }
     let made_commits = git_out(
         wt_path,
         &[
@@ -1103,6 +1398,61 @@ fn run_attempt(
         }
     }
 
+    // ── project hooks: attempt.end ──
+    lifecycle::run_event(
+        &hooks,
+        "attempt.end",
+        &HookContext {
+            exit_code,
+            gate_ok: Some(gate.ok),
+            gate_cmd: gate.cmd.clone(),
+            usage: Some(usage_totals.clone()),
+            diff_files: None,
+            note: Some(format!(
+                "{} commit(s); {}",
+                made_commits,
+                if candidates_ok { "candidate" } else { "not a candidate" }
+            )),
+            ..hook_ctx.clone()
+        },
+        wt_path,
+        Some(&hook_log),
+    )
+    .announce();
+
+    // ── shared run record: attempt facts ──
+    let head_sha = git_out(wt_path, &["rev-parse", "HEAD"]).ok();
+    let (diff_files, diff_additions, diff_deletions, files_touched) =
+        record::diff_stats(wt_path, base_commit);
+    if let Some(rec) = &record {
+        rec.facts(&AttemptFacts {
+            exit_code,
+            gate: Some(GateResultFacts {
+                passed: gate.ok,
+                command: gate.cmd.clone(),
+                summary: Some(truncate(&gate.tail, 200)).filter(|t| !t.trim().is_empty()),
+                log_path: Some(
+                    sess_dir
+                        .join("gate.log")
+                        .to_string_lossy()
+                        .into_owned(),
+                ),
+                tested_head: head_sha.clone(),
+            }),
+            usage: usage_totals.clone(),
+            diff_files,
+            diff_additions,
+            diff_deletions,
+            head_sha: head_sha.clone(),
+            files_touched: files_touched.clone(),
+            error: if candidates_ok {
+                None
+            } else {
+                Some(truncate(&gate.tail, 400)).filter(|t| !t.trim().is_empty())
+            },
+        });
+    }
+
     WMsg::Done(Box::new(WDone {
         task_id,
         title: task.title.clone(),
@@ -1115,7 +1465,12 @@ fn run_attempt(
         dirty,
         made_commits,
         transcript_path: Some(transcript.to_string_lossy().into_owned()),
+        usage: usage_totals,
         error: None,
+        record,
+        head_sha,
+        diff: (diff_files, diff_additions, diff_deletions),
+        files_touched,
     }))
 }
 
@@ -1133,6 +1488,8 @@ fn handle_done(
     verdicts: &mut HashMap<String, String>,
     guard_settings: &GuardSettings,
     receipt_settings: &ReceiptSettings,
+    harness: &HarnessSettings,
+    verify_backend: Option<&SessionBackend>,
 ) -> Result<HandleSignal> {
     let task_id = done.task_id.clone();
     let attempt_no = done.attempt;
@@ -1160,7 +1517,8 @@ fn handle_done(
             gate: None,
             transcript: transcript_path,
             note: Some(err),
-        });
+                    usage: done.usage.clone(),
+});
         return Ok(HandleSignal::SoloClear(task_id));
     }
 
@@ -1201,7 +1559,7 @@ fn handle_done(
     }
 
     let gate_ev = crate::threads::ThreadEvent::new(
-        &task.card_id,
+        &done.card_id,
         crate::threads::ThreadEventKind::Gate,
         "barkcli",
         format!(
@@ -1238,7 +1596,8 @@ fn handle_done(
                     "branch {} ready; pass --yes to auto-merge",
                     branch
                 )),
-            });
+                            usage: done.usage.clone(),
+});
             return Ok(HandleSignal::SoloClear(task_id));
         }
 
@@ -1246,8 +1605,10 @@ fn handle_done(
         let base_sha = git_out(&root, &["merge-base", "HEAD", &branch])
             .ok()
             .map(|sha| sha.trim().to_string());
-        let head_sha = git_out(&root, &["rev-parse", &branch])
-            .ok()
+        let head_sha = done
+            .head_sha
+            .clone()
+            .or_else(|| git_out(&root, &["rev-parse", &branch]).ok())
             .map(|sha| sha.trim().to_string());
 
         // Guard runs after the gate and before the merge. A scan failure is
@@ -1303,6 +1664,127 @@ fn handle_done(
                 gate: Some(done.gate),
                 transcript: transcript_path,
                 note: Some(note),
+                            usage: done.usage.clone(),
+});
+            return Ok(HandleSignal::SoloClear(task_id));
+        }
+
+        // ── independent review (verifier subagent) ──
+        // Runs after the deterministic checks and before any user pre_merge
+        // hook, so a hook can see that the change was reviewed. A FAIL with
+        // `block_on_fail` re-queues the task with the reviewer's reason, which
+        // the next attempt's packet injects as a verdict.
+        let review = run_verifier(
+            harness,
+            &task,
+            &branch,
+            &session
+                .worktree_path
+                .as_ref()
+                .map(PathBuf::from)
+                .filter(|p| p.is_dir())
+                .unwrap_or_else(|| root.clone()),
+            base_sha.as_deref().unwrap_or("HEAD"),
+            &done.gate,
+            &done.files_touched,
+            &done.record,
+            verify_backend,
+        );
+        if let Some(review) = &review {
+            if review.verdict == verify::Verdict::Fail && harness.verify.block_on_fail {
+                let note = format!("verifier rejected the change: {}", review.reason);
+                q.add_note(&task_id, "runner", &note)?;
+                verdicts.insert(
+                    task_id.clone(),
+                    format!("Independent review failed:\n{}", review.reason),
+                );
+                save_queue(board_name, &q)?;
+                println!(
+                    "{} verifier rejected the change — branch {} kept, re-queued",
+                    style::warn("✘"),
+                    style::strong(&branch)
+                );
+                release_worktree(&slug, true).ok();
+                let mut session = session;
+                session.add_note("runner", "verifier rejected the change; re-queued");
+                save_session(&session)?;
+                if attempt_no < opts.max_attempts {
+                    requeue(&mut q, &task_id)?;
+                    save_queue(board_name, &q)?;
+                    return Ok(HandleSignal::Normal);
+                }
+                q.update_status(&task_id, TaskStatus::Failed)?;
+                save_queue(board_name, &q)?;
+                outcomes.push(TaskOutcome {
+                    task_id: task_id.clone(),
+                    title: done.title,
+                    attempts: attempt_no,
+                    status: "failed".into(),
+                    merged: false,
+                    gate: Some(done.gate),
+                    transcript: transcript_path,
+                    note: Some(note),
+                    usage: done.usage.clone(),
+                });
+                return Ok(HandleSignal::SoloClear(task_id));
+            }
+        }
+
+        // ── project hooks: pre_merge ──
+        // Runs after the built-in guard (receipts depend on its report) and
+        // before the merge. A veto keeps the branch, exactly like a guard
+        // block: the work is preserved for review, nothing lands on main.
+        let merge_cwd = session
+            .worktree_path
+            .as_ref()
+            .map(PathBuf::from)
+            .filter(|p| p.is_dir())
+            .unwrap_or_else(|| root.clone());
+        let hook_log = sessions_dir()
+            .ok()
+            .map(|dir| dir.join(&session.id).join("hooks.jsonl"));
+        let pre_merge = lifecycle::run_event(
+            &harness.hooks,
+            "pre_merge",
+            &HookContext {
+                gate_ok: Some(done.gate.ok),
+                gate_cmd: done.gate.cmd.clone(),
+                gate_tail: Some(truncate(&done.gate.tail, 1200)),
+                usage: Some(done.usage.clone()),
+                diff_files: Some(done.diff.0 as usize),
+                diff_lines: Some((done.diff.1 + done.diff.2) as usize),
+                ..HookContext::new(
+                    &task_id,
+                    &task.card_id,
+                    &task.title,
+                    &branch,
+                    &merge_cwd,
+                    attempt_no,
+                )
+            },
+            &merge_cwd,
+            hook_log.as_deref(),
+        );
+        pre_merge.announce();
+        if let Some(reason) = pre_merge.blocked {
+            let note = format!("pre_merge hook blocked merge: {}", reason);
+            q.add_note(&task_id, "runner", &note)?;
+            save_queue(board_name, &q)?;
+            println!(
+                "{} pre_merge hook blocked merge — branch {} kept for review",
+                style::warn("✘"),
+                style::strong(&branch)
+            );
+            outcomes.push(TaskOutcome {
+                task_id: task_id.clone(),
+                title: done.title,
+                attempts: attempt_no,
+                status: "ready-unmerged".into(),
+                merged: false,
+                gate: Some(done.gate),
+                transcript: transcript_path,
+                note: Some(note),
+                usage: done.usage.clone(),
             });
             return Ok(HandleSignal::SoloClear(task_id));
         }
@@ -1310,6 +1792,8 @@ fn handle_done(
         match git_out(&root, &["merge", "--no-ff", "--no-edit", &branch]) {
             Ok(_) => {
                 release_worktree(&slug, true).ok();
+                // Attempt tags stay queryable until the branch lands, then go.
+                crate::harness::checkpoint::prune(&root, &task_id);
                 q.complete(&task_id)?;
                 // Parent card completes when all of its queue tasks do.
                 let all_done = q
@@ -1373,7 +1857,8 @@ fn handle_done(
                     gate: Some(done.gate),
                     transcript: transcript_path,
                     note: None,
-                });
+                                    usage: done.usage.clone(),
+});
                 return Ok(HandleSignal::SoloClear(task_id));
             }
             Err(conflict) => {
@@ -1406,7 +1891,8 @@ fn handle_done(
                     gate: Some(done.gate),
                     transcript: transcript_path,
                     note: Some("final attempt hit a merge conflict".into()),
-                });
+                                    usage: done.usage.clone(),
+});
                 return Ok(HandleSignal::SoloClear(task_id));
             }
         }
@@ -1474,7 +1960,8 @@ fn handle_done(
         gate: Some(done.gate),
         transcript: transcript_path,
         note: Some("final attempt failed the gate".into()),
-    });
+            usage: done.usage.clone(),
+});
     Ok(HandleSignal::SoloClear(task_id))
 }
 
@@ -1489,6 +1976,97 @@ fn beat_lease(board_name: &str, task_id: &str, lease_minutes: i64) -> Result<()>
 
 fn should_block_merge(settings: &GuardSettings, report: Option<&GuardReport>) -> bool {
     settings.block && report.map(|report| !report.passed).unwrap_or(false)
+}
+
+/// Run the verifier subagent for a candidate change.
+#[allow(clippy::too_many_arguments)]
+///
+/// Returns `Some(Review)` when a review ran. `None` means verification is off.
+/// The review is recorded on the attempt's contribution graph with an identity
+/// that always differs from the author's, which is what makes it admissible.
+fn run_verifier(
+    harness: &HarnessSettings,
+    task: &TaskRequest,
+    branch: &str,
+    worktree: &Path,
+    base: &str,
+    gate: &GateResult,
+    files: &[String],
+    record: &Option<AttemptRecord>,
+    backend: Option<&SessionBackend>,
+) -> Option<Review> {
+    if !harness.verify.enabled {
+        return None;
+    }
+    let diff = std::process::Command::new("git")
+        .args(["diff", "--no-color", base, "HEAD"])
+        .current_dir(worktree)
+        .output()
+        .ok()
+        .map(|out| String::from_utf8_lossy(&out.stdout).into_owned())
+        .unwrap_or_default();
+    let input = ReviewInput {
+        task,
+        branch,
+        gate_command: gate.cmd.as_deref(),
+        gate_output: &gate.tail,
+        diff: &diff,
+        files,
+    };
+    let timeout = std::time::Duration::from_secs(harness.verify.timeout_secs.max(1));
+    let injected = std::env::var("BARKCLI_VERIFIER_CMD")
+        .ok()
+        .filter(|v| !v.trim().is_empty());
+    let command = injected
+        .as_deref()
+        .or(harness.verify.command.as_deref());
+
+    let reviewed = match (command, backend) {
+        (Some(script), _) => verify::review(&input, Some(script), worktree, timeout),
+        (None, Some(b)) => verify::review_with_backend(
+            &input,
+            b,
+            &harness.permissions,
+            worktree,
+            timeout,
+        ),
+        (None, None) => {
+            println!(
+                "{} verifier skipped: no command and no backend",
+                style::warn("⚠")
+            );
+            return None;
+        }
+    };
+
+    match reviewed {
+        Ok(review) => {
+            // Only a real verdict becomes a graph node. "Uncertain" is the
+            // absence of a review, and recording it as a failed verification
+            // would poison the contribution graph with a non-finding.
+            if review.verdict != verify::Verdict::Uncertain {
+                if let Some(rec) = record {
+                    rec.verify(&review.verifier, review.passed(), Some(review.summary()));
+                }
+            }
+            println!(
+                "{} {}",
+                if review.passed() {
+                    style::ok("✔ review")
+                } else if review.verdict == verify::Verdict::Uncertain {
+                    style::warn("⚠ review")
+                } else {
+                    style::warn("✘ review")
+                },
+                style::muted(review.summary())
+            );
+            Some(review)
+        }
+        Err(err) => {
+            println!("{} verifier failed to run: {}", style::warn("⚠"), err);
+            None
+        }
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1597,6 +2175,7 @@ fn spawn_agent(
     prompt_text: &str,
     prompt_file: &Path,
     workdir: &Path,
+    permissions: &crate::models::config::PermissionSettings,
 ) -> Result<Child> {
     let mut cmd = if let Some(script) = injected {
         let mut builder = Command::new("sh");
@@ -1613,7 +2192,7 @@ fn spawn_agent(
         builder
     } else {
         let b = backend.ok_or_else(|| anyhow!("no backend to launch"))?;
-        Recipe::for_backend(b).command(prompt_text)
+        Recipe::for_backend(b).command_with(prompt_text, permissions)
     };
     cmd.current_dir(workdir)
         .stdin(Stdio::null())
@@ -1632,9 +2211,16 @@ fn stream_for(injected: bool, backend: Option<&SessionBackend>) -> Stream {
     }
 }
 
+/// What the watcher learned from one attempt's stream.
+#[derive(Default)]
+struct WatchOutcome {
+    verdict: Option<AgentVerdict>,
+    usage: UsageTotals,
+}
+
 /// Watch a running agent: tee output to the transcript, parse stream
-/// verdicts, tick the heartbeat closure every 30s, enforce idle + wall-clock
-/// limits (both kill). What happens after is gates' business.
+/// verdicts and usage, tick the heartbeat closure every 30s, enforce idle +
+/// wall-clock limits (both kill). What happens after is gates' business.
 fn watch(
     child: &mut Child,
     stream: Stream,
@@ -1642,7 +2228,7 @@ fn watch(
     max_minutes: u64,
     idle_minutes: u64,
     on_beat: &mut dyn FnMut() -> Result<()>,
-) -> Result<Option<AgentVerdict>> {
+) -> Result<WatchOutcome> {
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
 
@@ -1693,13 +2279,16 @@ fn watch(
     let mut last_activity = Instant::now();
     let mut last_beat = Instant::now();
 
-    let mut verdict: Option<AgentVerdict> = None;
+    let mut outcome = WatchOutcome::default();
     loop {
         match rx.recv_timeout(Duration::from_millis(500)) {
             Ok(line) => {
                 file.write_all(line.as_bytes()).ok();
                 if let Some(v) = parse_stream(stream, &line) {
-                    verdict = Some(v);
+                    outcome.verdict = Some(v);
+                }
+                if let Some(spend) = usage::usage_event(stream, &line) {
+                    outcome.usage.add(&spend);
                 }
                 last_activity = Instant::now();
             }
@@ -1709,7 +2298,10 @@ fn watch(
                     for line in rx.iter() {
                         file.write_all(line.as_bytes()).ok();
                         if let Some(v) = parse_stream(stream, &line) {
-                            verdict = Some(v);
+                            outcome.verdict = Some(v);
+                        }
+                        if let Some(spend) = usage::usage_event(stream, &line) {
+                            outcome.usage.add(&spend);
                         }
                     }
                     break;
@@ -1730,7 +2322,7 @@ fn watch(
     }
     file.flush().ok();
 
-    Ok(verdict)
+    Ok(outcome)
 }
 
 fn parse_stream(kind: Stream, line: &str) -> Option<AgentVerdict> {
@@ -1979,6 +2571,18 @@ fn print_report(report: &RunReport, json: bool) -> Result<()> {
         println!("  merges:   {}", m.len());
     }
     println!("  time:     {}s", report.duration_seconds);
+    if !report.usage.is_empty() {
+        println!("  usage:    {}", report.usage.summary());
+    }
+    if let Some(cost) = report.cost_per_merged_change {
+        println!("  $/merge:  ${:.4}", cost);
+    }
+    if let Some(ceiling) = report.budget_ceiling_usd {
+        println!(
+            "  budget:   ${:.4} ceiling reached — stopped dispatching",
+            ceiling
+        );
+    }
     println!();
     for t in &report.tasks {
         let mark = match t.status.as_str() {
@@ -1998,6 +2602,23 @@ fn print_report(report: &RunReport, json: bool) -> Result<()> {
         }
         if let Some(n) = &t.note {
             println!("      {}", style::muted(n));
+        }
+        if !t.usage.is_empty() {
+            println!("      spend: {}", style::muted(&t.usage.summary()));
+        }
+    }
+    if !report.cost_by_backend.is_empty() {
+        println!();
+        println!("  cost per merged change (from .board/runs)");
+        for cost in &report.cost_by_backend {
+            let per = cost
+                .usd_per_merged_change
+                .map(|v| format!("${:.4}/merge", v))
+                .unwrap_or_else(|| "no cost reported".into());
+            println!(
+                "    {:<14} {} run(s), {} merged, ${:.4} total → {}",
+                cost.provider, cost.runs, cost.merged, cost.cost_usd, per
+            );
         }
     }
     println!();
