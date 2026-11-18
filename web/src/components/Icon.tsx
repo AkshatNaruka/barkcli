@@ -35,6 +35,7 @@ import {
   GripVertical,
   History,
   Inbox,
+  Image as LucideImage,
   Key,
   Layers,
   LayoutGrid,
@@ -43,11 +44,14 @@ import {
   ListFilter,
   ListTree,
   MessageSquare,
+  Mic,
+  MicOff,
   Monitor,
   Moon,
   MoreHorizontal,
   Palette,
   PanelLeft,
+  Paperclip,
   Pencil,
   Pin,
   Play,
@@ -65,6 +69,8 @@ import {
   Trash2,
   TriangleAlert,
   Users,
+  Volume2,
+  VolumeX,
   WrapText,
   X,
   type LucideIcon,
@@ -78,7 +84,8 @@ export type IconName =
   | "chevL" | "chevR" | "chevDown" | "chevUp" | "flag" | "link" | "moon" | "sun" | "monitor"
   | "x" | "users" | "inbox" | "arrowUp" | "arrowFlat" | "arrowDown" | "arrowLeft"
   | "download" | "palette" | "eye" | "eyeOff" | "plus" | "stop" | "dots" | "grid" | "folder" | "filter" | "branch" | "pr" | "terminal" | "list" | "sliders" | "grip"
-  | "play" | "wrap" | "globe" | "filePlus" | "checkSquare" | "folderPlus" | "key";
+  | "play" | "wrap" | "globe" | "filePlus" | "checkSquare" | "folderPlus" | "key"
+  | "paperclip" | "mic" | "micOff" | "speaker" | "volumeX" | "image" | "file";
 
 const GLYPHS: Record<IconName, LucideIcon> = {
   search: Search,
@@ -148,6 +155,13 @@ const GLYPHS: Record<IconName, LucideIcon> = {
   filePlus: FilePlus,
   checkSquare: CheckSquare,
   folderPlus: FolderPlus,
+  paperclip: Paperclip,
+  mic: Mic,
+  micOff: MicOff,
+  speaker: Volume2,
+  volumeX: VolumeX,
+  image: LucideImage,
+  file: FileText,
 };
 
 /**

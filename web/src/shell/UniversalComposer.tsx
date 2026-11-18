@@ -15,6 +15,7 @@ import {
   projectDisplayName,
   switchProject,
 } from "../lib/desktop";
+import { formatPromptWithAttachments, type PromptAttachment } from "../lib/attachments";
 
 interface UniversalComposerProps {
   isOpen: boolean;
@@ -94,6 +95,7 @@ function DraftComposer({
       : null
   );
   const [workspaceStrategy, setWorkspaceStrategy] = useState<"root" | "worktree">("root");
+  const [attachments, setAttachments] = useState<PromptAttachment[]>([]);
   const created = useRef<string | null>(null);
   const sending = useRef(false);
 
@@ -149,11 +151,11 @@ function DraftComposer({
   };
 
   const submit = async () => {
-    if (!text.trim() || sending.current) return;
+    if ((!text.trim() && attachments.length === 0) || sending.current) return;
     sending.current = true;
     setSubmitting(true);
     setError(null);
-    const prompt = text.trim();
+    const prompt = formatPromptWithAttachments(text, attachments);
     const composerMode = mode === "ask" ? "chat" : mode === "plan" ? "plan_first" : "build";
     const strategy = noProject ? "scratch" : workspaceStrategy;
     try {
@@ -242,6 +244,7 @@ function DraftComposer({
           );
       }
       setText("");
+      setAttachments([]);
       onCreated(result.thread_id);
       onClose();
       window.dispatchEvent(new Event("bark-threads-changed"));
@@ -316,6 +319,8 @@ function DraftComposer({
         mode={mode}
         onModeChange={setMode}
         agent={agent}
+        attachments={attachments}
+        onAttachmentsChange={setAttachments}
         onSubmit={submit}
         busy={submitting || switching}
         error={error}

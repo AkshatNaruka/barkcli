@@ -552,6 +552,16 @@ summary.sidebar-group { cursor: pointer; }
 .slash-palette::-webkit-scrollbar-thumb:hover { background: var(--muted); background-clip: content-box; }
 .thread-composer { position: relative; border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); border-radius: 10px; background: color-mix(in srgb, var(--surface) 60%, transparent); padding: 10px 12px; box-shadow: none; transition: border-color 150ms ease; }
 .thread-composer:focus-within { border-color: color-mix(in srgb, var(--border-strong) 90%, transparent); }
+.thread-composer.is-drag-over { border-color: var(--accent); background: color-mix(in srgb, var(--surface) 80%, transparent); }
+.composer-attachment-tray { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 2px 2px 8px; margin-bottom: 4px; border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent); }
+.composer-attachment-chip { display: inline-flex; align-items: center; gap: 6px; background: color-mix(in srgb, var(--surface) 90%, transparent); border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 6px; padding: 3px 6px; font-size: 11px; color: var(--text); max-width: 220px; transition: border-color 120ms ease; }
+.composer-attachment-chip:hover { border-color: var(--accent); }
+.composer-attachment-thumb { width: 18px; height: 18px; border-radius: 3px; object-fit: cover; flex-shrink: 0; }
+.composer-attachment-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, "SF Mono", monospace; font-size: 10.5px; }
+.composer-attachment-size { flex-shrink: 0; }
+.composer-attachment-remove { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; border-radius: 9999px; color: var(--muted); background: transparent; border: 0; cursor: pointer; margin-left: 2px; transition: all 120ms ease; flex-shrink: 0; }
+.composer-attachment-remove:hover { background: var(--card); color: var(--danger, #ef4444); }
+.composer-drag-overlay { position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; border-radius: 9px; border: 2px dashed var(--accent); background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(4px); pointer-events: none; }
 .thread-composer textarea { display: block; background: transparent; border: 0; width: 100%; min-height: 48px; max-height: 240px; resize: none; overflow-y: auto; color: var(--text); font-size: 14px; line-height: 1.6; padding: 2px; }
 .thread-composer textarea:focus-visible { outline: none; }
 .composer-suggestions, .composer-suggestions-bar { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 4px 10px; }

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Icon } from "../components/Icon";
 import type { ThreadEvent } from "../lib/types";
 import { relativeTime } from "../lib/threads";
+import { useTextToSpeech } from "../lib/voice";
 
 function EventTime({ iso }: { iso: string }) {
   const date = new Date(iso);
@@ -115,6 +116,8 @@ export function AssistantMessageCard({
 
   const activeStreaming = isStreaming || isProgressing;
   const authorName = formatBackendName(event.author);
+  const { isSupported: isTtsSupported, isSpeaking, speakingId, toggleSpeak } = useTextToSpeech();
+  const isSpeakingThis = isSpeaking && speakingId === event.id;
 
   return (
     <article
@@ -140,6 +143,22 @@ export function AssistantMessageCard({
         <div className="chat-assistant-actions">
           {!activeStreaming && (
             <>
+              {isTtsSupported && (
+                <button
+                  type="button"
+                  onClick={() => toggleSpeak(event.id, displayedText)}
+                  className={`chat-action-btn ${isSpeakingThis ? "!opacity-100 text-accent font-medium" : ""}`}
+                  aria-label={isSpeakingThis ? "Stop reading aloud" : "Read aloud"}
+                  title={isSpeakingThis ? "Stop reading aloud" : "Read aloud (Text-to-Speech)"}
+                >
+                  <Icon
+                    name={isSpeakingThis ? "volumeX" : "speaker"}
+                    size={11}
+                    className={isSpeakingThis ? "text-accent animate-pulse" : ""}
+                  />
+                  <span>{isSpeakingThis ? "Stop" : "Speak"}</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onCopy}

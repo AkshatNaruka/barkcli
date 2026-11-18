@@ -8258,6 +8258,8 @@ struct ChatThreadRequest {
     skip_user_event: bool,
     #[serde(default)]
     board: Option<String>,
+    #[serde(default)]
+    attachments: Option<serde_json::Value>,
 }
 
 fn persist_chat_event(
@@ -8343,6 +8345,7 @@ async fn chat_thread_handler(
             "backend": provider,
             "model": req.model,
             "files": req.files,
+            "attachments": req.attachments,
         })),
     );
     if !req.skip_user_event {
@@ -8951,6 +8954,8 @@ struct PostMessageRequest {
     mode: Option<String>,
     #[serde(default)]
     model: Option<String>,
+    #[serde(default)]
+    attachments: Option<serde_json::Value>,
 }
 
 async fn post_thread_message_handler(
@@ -8968,7 +8973,12 @@ async fn post_thread_message_handler(
         barkcli_core::threads::ThreadEventKind::User,
         &author,
         text,
-        Some(serde_json::json!({ "backend": req.backend, "model": req.model, "mode": req.mode })),
+        Some(serde_json::json!({
+            "backend": req.backend,
+            "model": req.model,
+            "mode": req.mode,
+            "attachments": req.attachments,
+        })),
     );
     barkcli_core::threads::append_event(&card_id, &user_ev)
         .map_err(|e| ServerError::internal(e.to_string()))?;

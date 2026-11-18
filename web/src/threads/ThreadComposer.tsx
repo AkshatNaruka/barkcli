@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Icon } from "../components/Icon";
 import type { AgentSelection } from "../lib/useAgentSelection";
 import { navigate, updateRouteState } from "../lib/hashnav";
@@ -7,6 +7,12 @@ import type { ComposerMode } from "../lib/composer";
 import { SelectMenu } from "../components/SelectMenu";
 import { SlashCommandMenu } from "./SlashCommandMenu";
 import { matchSlashCommands, type SlashCommand } from "../lib/slashCommands";
+import {
+  fileToPromptAttachment,
+  formatFileSize,
+  type PromptAttachment,
+} from "../lib/attachments";
+import { useVoiceDictation } from "../lib/voice";
 
 const MODES = [
   { value: "build", label: "Build", hint: "Make changes with your agent in an isolated worktree" },
@@ -42,6 +48,8 @@ export function ThreadComposer({
   workspaceStrategy,
   onWorkspaceStrategyChange,
   footer,
+  attachments,
+  onAttachmentsChange,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -60,11 +68,122 @@ export function ThreadComposer({
   onWorkspaceStrategyChange?: (value: "root" | "worktree") => void;
   /** Scope/checkout bar rendered inside the composer card (new threads only). */
   footer?: React.ReactNode;
+  /** Files attached to the prompt */
+  attachments?: PromptAttachment[];
+  onAttachmentsChange?: React.Dispatch<React.SetStateAction<PromptAttachment[]>> | ((attachments: PromptAttachment[]) => void);
 }) {
   const id = useId();
   const textarea = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [dismissedSlash, setDismissedSlash] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounter = useRef(0);
+
+  const [localAttachments, setLocalAttachments] = useState<PromptAttachment[]>([]);
+  const currentAttachments = attachments ?? localAttachments;
+
+  const updateAttachments = useCallback(
+    (updater: (prev: PromptAttachment[]) => PromptAttachment[]) => {
+      const next = updater(currentAttachments);
+      if (onAttachmentsChange) {
+        (onAttachmentsChange as (atts: PromptAttachment[]) => void)(next);
+      } else {
+        setLocalAttachments(next);
+      }
+    },
+    [currentAttachments, onAttachmentsChange]
+  );
+
+  const clearAttachments = useCallback(() => {
+    if (onAttachmentsChange) {
+      (onAttachmentsChange as (atts: PromptAttachment[]) => void)([]);
+    } else {
+      setLocalAttachments([]);
+    }
+  }, [onAttachmentsChange]);
+
+  const handleVoiceTranscript = useCallback((transcript: string) => {
+    if (!transcript) return;
+    onChange(value.trimEnd() ? `${value.trimEnd()} ${transcript}` : transcript);
+  }, [onChange, value]);
+
+  const {
+    isSupported: isVoiceSupported,
+    isListening,
+    toggleListening,
+    stopListening,
+  } = useVoiceDictation({
+    onTranscript: handleVoiceTranscript,
+  });
+
+  const addFiles = useCallback(async (files: FileList | File[]) => {
+    if (!files || files.length === 0) return;
+    const list = Array.from(files);
+    const newAtts: PromptAttachment[] = [];
+    for (const file of list) {
+      try {
+        const att = await fileToPromptAttachment(file);
+        newAtts.push(att);
+      } catch (err) {
+        console.warn("Failed to attach file", file.name, err);
+      }
+    }
+    if (newAtts.length > 0) {
+      updateAttachments((prev) => [...prev, ...newAtts]);
+    }
+  }, [updateAttachments]);
+
+  const removeAttachment = useCallback((id: string) => {
+    updateAttachments((prev) => prev.filter((a) => a.id !== id));
+  }, [updateAttachments]);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      void addFiles(e.target.files);
+      e.target.value = "";
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current++;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current <= 0) {
+      setIsDragging(false);
+      dragCounter.current = 0;
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    dragCounter.current = 0;
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      void addFiles(e.dataTransfer.files);
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    if (e.clipboardData.files && e.clipboardData.files.length > 0) {
+      void addFiles(e.clipboardData.files);
+    }
+  };
 
   useEffect(() => {
     const node = textarea.current;
@@ -171,10 +290,15 @@ export function ThreadComposer({
         </div>
       )}
       <form
-        className="thread-composer"
+        className={`thread-composer ${isDragging ? "is-drag-over ring-2 ring-accent/60" : ""}`}
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
         onSubmit={(event) => {
           event.preventDefault();
-          if (!value.trim()) return;
+          if (!value.trim() && currentAttachments.length === 0) return;
+          if (isListening) stopListening();
           if (active && onQueue) {
             onQueue();
           } else if (!busy && !active) {
@@ -182,6 +306,66 @@ export function ThreadComposer({
           }
         }}
       >
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden="true"
+          data-testid="file-attachment-input"
+          onChange={handleFileSelect}
+        />
+
+        {isDragging && (
+          <div className="composer-drag-overlay" aria-hidden="true">
+            <div className="flex flex-col items-center gap-1.5 p-4 text-center">
+              <Icon name="paperclip" size={22} className="text-accent animate-bounce" />
+              <span className="text-[12.5px] font-medium text-text">Drop files to attach to prompt</span>
+              <span className="text-[10.5px] text-muted">Supports images, source code, data, and documents</span>
+            </div>
+          </div>
+        )}
+
+        {currentAttachments.length > 0 && (
+          <div className="composer-attachment-tray" aria-label="Attached files">
+            {currentAttachments.map((att) => (
+              <div key={att.id} className="composer-attachment-chip group">
+                {att.isImage && att.dataUrl ? (
+                  <img src={att.dataUrl} alt={att.name} className="composer-attachment-thumb" />
+                ) : (
+                  <Icon name={att.isImage ? "image" : "file"} size={12} className="text-muted/80 shrink-0" />
+                )}
+                <span className="composer-attachment-name" title={att.name}>
+                  {att.name}
+                </span>
+                <span className="composer-attachment-size font-mono text-[9.5px] text-muted/60">
+                  {formatFileSize(att.size)}
+                </span>
+                <button
+                  type="button"
+                  className="composer-attachment-remove"
+                  onClick={() => removeAttachment(att.id)}
+                  aria-label={`Remove ${att.name}`}
+                  title="Remove attachment"
+                >
+                  <Icon name="x" size={10} />
+                </button>
+              </div>
+            ))}
+            {currentAttachments.length > 1 && (
+              <button
+                type="button"
+                onClick={clearAttachments}
+                className="text-[10.5px] text-muted hover:text-danger px-1 transition-colors"
+                title="Clear all attachments"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+        )}
+
         <label className="sr-only" htmlFor={`${id}-prompt`}>
           {mode === "ask" ? "Ask the local agent" : "What do you want to build?"}
         </label>
@@ -191,6 +375,7 @@ export function ThreadComposer({
           data-testid="thread-composer"
           value={value}
           onChange={(event) => onChange(event.target.value)}
+          onPaste={handlePaste}
           autoFocus={autoFocus}
           name="prompt"
           rows={2}
@@ -228,7 +413,8 @@ export function ThreadComposer({
                 (event.key === "Enter" && (event.metaKey || event.ctrlKey)))
             ) {
               event.preventDefault();
-              if (!value.trim()) return;
+              if (!value.trim() && currentAttachments.length === 0) return;
+              if (isListening) stopListening();
               if (active && onQueue) {
                 onQueue();
               } else if (!busy && !active) {
@@ -274,6 +460,51 @@ export function ThreadComposer({
             <span className="sr-only">Context Primed</span>
           </button>
 
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="composer-btn-secondary inline-flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-muted/70 hover:text-text hover:bg-surface/50 transition-colors"
+            title="Attach files (images, code, documents) — or drag & drop"
+            aria-label="Attach files"
+          >
+            <Icon name="paperclip" size={13} />
+            {currentAttachments.length > 0 && (
+              <span className="inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-accent px-1 font-mono text-[9px] font-bold text-white">
+                {currentAttachments.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={toggleListening}
+            className={`composer-btn-secondary inline-flex items-center gap-1 rounded px-1.5 py-1 text-[11px] transition-colors ${
+              isListening
+                ? "bg-danger/15 text-danger border border-danger/30 hover:bg-danger/25"
+                : "text-muted/70 hover:text-text hover:bg-surface/50"
+            }`}
+            title={
+              !isVoiceSupported
+                ? "Speech recognition not supported in this browser"
+                : isListening
+                ? "Listening… Click to stop dictation"
+                : "Voice dictation (Speak to write in prompt)"
+            }
+            aria-label={isListening ? "Stop voice dictation" : "Voice dictation"}
+          >
+            <Icon
+              name={isListening ? "mic" : "mic"}
+              size={13}
+              className={isListening ? "text-danger animate-pulse" : ""}
+            />
+            {isListening && (
+              <span className="hidden xs:inline-flex items-center gap-1 font-mono text-[10px] text-danger font-semibold">
+                <span className="h-1.5 w-1.5 rounded-full bg-danger animate-ping" />
+                <span>Listening…</span>
+              </span>
+            )}
+          </button>
+
           <div className="composer-actions-right">
             <span className="composer-hint-key" aria-hidden="true">
               {active ? "↵ queue · ⇧↵ newline" : "↵ send · ⇧↵ newline"}
@@ -309,7 +540,7 @@ export function ThreadComposer({
                 data-testid="composer-submit"
                 aria-label={busy ? "Starting" : mode === "plan" ? "Prepare plan" : "Send message"}
                 title={mode === "plan" ? "Prepare plan (Enter)" : "Send message (Enter)"}
-                disabled={!value.trim() || busy || (mode !== "plan" && !agent.ready)}
+                disabled={(!value.trim() && currentAttachments.length === 0) || busy || (mode !== "plan" && !agent.ready)}
               >
                 <Icon name="arrowUp" size={16} />
               </button>

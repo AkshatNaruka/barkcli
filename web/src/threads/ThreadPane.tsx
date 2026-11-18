@@ -42,6 +42,12 @@ import { relativeTime, formatElapsed } from "../lib/threads";
 import { isDemoMode } from "../lib/demo";
 import { navigate, updateRouteState } from "../lib/hashnav";
 import { ThreadComposer } from "./ThreadComposer";
+import {
+  formatFileSize,
+  formatPromptWithAttachments,
+  extractAttachmentsFromEvent,
+  type PromptAttachment,
+} from "../lib/attachments";
 import { AssistantMessageCard, LiveAgentWorkingBubble, useElapsedSeconds } from "./AssistantMessageCard";
 import { StepExplorer } from "./StepExplorer";
 import { DiffSummaryCard } from "./DiffSummaryCard";
@@ -192,15 +198,25 @@ function UserMessageCard({
   onReuse: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const isLong = event.text.length > 500 || event.text.split("\n").length > 7;
+  const [lightboxImg, setLightboxImg] = useState<{ src: string; name: string } | null>(null);
 
-  let displayText = event.text;
+  const attachments = useMemo(() => extractAttachmentsFromEvent(event), [event]);
+
+  // Strip attached files block from raw displayText so the message bubble looks clean
+  const rawText = event.text;
+  const primaryText = rawText.includes("\n\n--- Attached Files")
+    ? rawText.split("\n\n--- Attached Files")[0]
+    : rawText;
+
+  const isLong = primaryText.length > 500 || primaryText.split("\n").length > 7;
+
+  let displayText = primaryText;
   if (isLong && !expanded) {
-    const lines = event.text.split("\n");
+    const lines = primaryText.split("\n");
     if (lines.length > 7) {
       displayText = lines.slice(0, 6).join("\n") + "…";
     } else {
-      displayText = event.text.slice(0, 400) + "…";
+      displayText = primaryText.slice(0, 400) + "…";
     }
   }
 
@@ -252,7 +268,71 @@ function UserMessageCard({
             </button>
           </div>
         )}
+
+        {attachments.length > 0 && (
+          <div className="chat-user-attachments mt-2.5 pt-2 border-t border-border/40 flex flex-wrap gap-2">
+            {attachments.map((att) => (
+              <div
+                key={att.id}
+                className="chat-attachment-chip flex items-center gap-1.5 rounded-lg border border-border/60 bg-surface/70 px-2 py-1 text-[11px] shadow-2xs hover:bg-surface transition-colors"
+              >
+                {att.isImage && att.dataUrl ? (
+                  <button
+                    type="button"
+                    onClick={() => setLightboxImg({ src: att.dataUrl!, name: att.name })}
+                    className="cursor-zoom-in"
+                    title={`View ${att.name}`}
+                  >
+                    <img
+                      src={att.dataUrl}
+                      alt={att.name}
+                      className="h-6 w-6 rounded object-cover border border-border/40 hover:opacity-90"
+                    />
+                  </button>
+                ) : (
+                  <Icon name={att.isImage ? "image" : "file"} size={12} className="text-muted/80 shrink-0" />
+                )}
+                <span className="font-mono text-[11px] text-text font-medium max-w-[160px] truncate" title={att.name}>
+                  {att.name}
+                </span>
+                <span className="font-mono text-[9px] text-muted/60">
+                  {formatFileSize(att.size)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+
+      {lightboxImg && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4"
+          onClick={() => setLightboxImg(null)}
+          role="dialog"
+          aria-label="Image Preview"
+        >
+          <div className="relative max-h-[90vh] max-w-[90vw] overflow-hidden rounded-xl bg-surface border border-border p-2 shadow-2xl">
+            <div className="flex items-center justify-between pb-2 px-2 border-b border-border/50">
+              <span className="font-mono text-[12px] font-medium text-text truncate max-w-[300px]">
+                {lightboxImg.name}
+              </span>
+              <button
+                type="button"
+                onClick={() => setLightboxImg(null)}
+                className="rounded p-1 text-muted hover:text-text hover:bg-card"
+                aria-label="Close image preview"
+              >
+                <Icon name="x" size={14} />
+              </button>
+            </div>
+            <img
+              src={lightboxImg.src}
+              alt={lightboxImg.name}
+              className="mt-2 max-h-[80vh] max-w-[85vw] rounded-lg object-contain mx-auto"
+            />
+          </div>
+        </div>
+      )}
     </article>
   );
 }
@@ -342,6 +422,7 @@ export function ThreadPane({
   const [loadError, setLoadError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [input, setInput] = useDraft(scope, threadId || "new");
+  const [attachments, setAttachments] = useState<PromptAttachment[]>([]);
   const agent = useAgentSelection(scope);
   const { backend, role, setRole, providers, model } = agent;
   const [connectionError, setConnectionError] = useState(false);
@@ -697,7 +778,7 @@ export function ThreadPane({
 
   const handleSendMessage = async () => {
     let text = input.trim();
-    if (!text || !threadId || submitting || chatBusy || activeRun || sendLock.current) return;
+    if ((!text && attachments.length === 0) || !threadId || submitting || chatBusy || activeRun || sendLock.current) return;
 
     let targetMode = chatMode;
 
@@ -828,14 +909,19 @@ export function ThreadPane({
     sendLock.current = true;
     setSubmitting(true);
     setSendError(null);
+    const currentAtts = [...attachments];
+    const messagePrompt = formatPromptWithAttachments(text, currentAtts);
     try {
       if (targetMode === "ask") {
         const provider = backend === "claude" ? "claude-code" : backend;
         const started = await startThreadChat(threadId, {
-          text,
+          text: messagePrompt,
           provider,
           model: model.trim() || undefined,
           board: boardName,
+          ...(currentAtts.length > 0
+            ? { attachments: currentAtts, files: currentAtts.map((a) => a.name) }
+            : {}),
         });
         if (!started) {
           setInput(text);
@@ -845,6 +931,7 @@ export function ThreadPane({
           return;
         }
         setInput("");
+        setAttachments([]);
         stickToBottom.current = true;
         setChatBusy(true);
         const next = await fetchThread(threadId, boardName);
@@ -854,21 +941,23 @@ export function ThreadPane({
       }
       if (targetMode === "build") {
         if (!agent.ready) throw new Error("Choose an installed, signed-in agent before building. Your draft is saved.");
-        if (pendingBuild.current !== text) {
-          const saved = await postThreadMessage(threadId, text, {
+        if (pendingBuild.current !== messagePrompt) {
+          const saved = await postThreadMessage(threadId, messagePrompt, {
             author: "you", backend, model: model.trim() || undefined, mode: "build", board: boardName,
+            ...(currentAtts.length > 0 ? { attachments: currentAtts } : {}),
           });
           if (!saved) throw new Error("Could not save your prompt. Check the local server and try again.");
-          pendingBuild.current = text;
+          pendingBuild.current = messagePrompt;
         }
         const run = await startThreadBuild(threadId, {
           provider: backend === "claude" ? "claude-code" : backend,
-          model: model.trim() || undefined, role, prompt: text, board: boardName,
+          model: model.trim() || undefined, role, prompt: messagePrompt, board: boardName,
           test_cmd: agent.testCommand.trim() || undefined,
           parent_run_id: latestRun && latestRun.status !== "merged" ? latestRun.id : undefined,
         });
         pendingBuild.current = null;
         setInput("");
+        setAttachments([]);
         stickToBottom.current = true;
         setThread((previous) => previous ? { ...previous, runs: [...(previous.runs || []), run] } : previous);
         const next = await fetchThread(threadId, boardName);
@@ -877,10 +966,11 @@ export function ThreadPane({
         return;
       }
       setChatBusy(true);
-      const event = await postThreadMessage(threadId, text, {
+      const event = await postThreadMessage(threadId, messagePrompt, {
         author: "you",
         backend, model: model.trim() || undefined, mode: "plan_first",
         board: boardName,
+        ...(currentAtts.length > 0 ? { attachments: currentAtts } : {}),
       });
       if (!event) {
         setChatBusy(false);
@@ -888,6 +978,7 @@ export function ThreadPane({
         return;
       }
       setInput("");
+      setAttachments([]);
       const refreshed = await fetchThread(threadId, boardName);
       if (refreshed) setThread(refreshed);
       if (event) {
@@ -2097,6 +2188,8 @@ export function ThreadPane({
           mode={chatMode}
           onModeChange={setChatMode}
           agent={agent}
+          attachments={attachments}
+          onAttachmentsChange={setAttachments}
           onSubmit={handleSendMessage}
           onQueue={() => {
             const text = input.trim();

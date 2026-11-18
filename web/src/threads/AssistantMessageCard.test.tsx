@@ -131,4 +131,44 @@ describe("AssistantMessageCard & LiveAgentWorkingBubble", () => {
     fireEvent.click(copyBtn);
     expect(onCopy).toHaveBeenCalledTimes(1);
   });
+
+  it("renders Read aloud button and speaks when clicked if SpeechSynthesis is supported", () => {
+    const speakMock = vi.fn();
+    const cancelMock = vi.fn();
+    (window as any).speechSynthesis = {
+      speak: speakMock,
+      cancel: cancelMock,
+      getVoices: vi.fn().mockReturnValue([]),
+    };
+    (window as any).SpeechSynthesisUtterance = vi.fn().mockImplementation(function (this: any, text: string) {
+      this.text = text;
+    });
+
+    const event: ThreadEvent = {
+      id: "evt-tts-1",
+      card_id: "card-1",
+      seq: 3,
+      kind: "assistant",
+      author: "claude-code",
+      text: "Here is your detailed answer.",
+      created_at: new Date().toISOString(),
+    };
+
+    render(
+      <AssistantMessageCard
+        event={event}
+        isStreaming={false}
+        isLatest={false}
+        copied={false}
+        onCopy={vi.fn()}
+      >
+        {(text) => <span>{text}</span>}
+      </AssistantMessageCard>
+    );
+
+    const speakBtn = screen.getByRole("button", { name: /read aloud/i });
+    expect(speakBtn).toBeInTheDocument();
+    fireEvent.click(speakBtn);
+    expect(speakMock).toHaveBeenCalled();
+  });
 });

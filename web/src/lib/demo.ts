@@ -952,7 +952,7 @@ function demoReviewQueue() {
   ];
 }
 
-function postDemoThreadMessage(id: string, text: string): ThreadEvent | null {
+function postDemoThreadMessage(id: string, text: string, data?: any): ThreadEvent | null {
   const s = getStore();
   const record = s.threads.find((thread) => thread.detail.id === id);
   const body = (text || "").trim();
@@ -964,6 +964,7 @@ function postDemoThreadMessage(id: string, text: string): ThreadEvent | null {
     kind: "user",
     author: "you",
     text: body,
+    data: data ? { ...data, attachments: data.attachments } : undefined,
     created_at: now,
   };
   record.detail.events.push(event);
@@ -1024,7 +1025,7 @@ const ROUTES: Route[] = [
   { method: "GET", re: /^\/api\/threads$/, handle: (_m, { q }) => listDemoThreads(q.get("name")) },
   { method: "GET", re: /^\/api\/threads\/([^/]+)$/, handle: (m, { q }) => getDemoThread(m[1], q.get("name")) },
   { method: "POST", re: /^\/api\/threads$/, handle: (_m, { body, q }) => createDemoThread(body.text, q.get("name")) },
-  { method: "POST", re: /^\/api\/threads\/([^/]+)\/messages$/, handle: (m, { body }) => postDemoThreadMessage(m[1], body.text) },
+  { method: "POST", re: /^\/api\/threads\/([^/]+)\/messages$/, handle: (m, { body }) => postDemoThreadMessage(m[1], body.text, body) },
   { method: "GET", re: /^\/api\/tasks\/([^/]+)\/diff$/, handle: (m) => demoDiffForTask(m[1]) || { task_id: m[1], branch: "", diff: "", files: [] } },
   { method: "POST", re: /^\/api\/tasks\/([^/]+)\/race$/, handle: () => ({ ok: true }) },
   {

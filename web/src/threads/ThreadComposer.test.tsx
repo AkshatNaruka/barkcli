@@ -94,4 +94,81 @@ describe("ThreadComposer", () => {
     expect(onModeChange).toHaveBeenCalledWith("build");
     expect(onChange).toHaveBeenCalledWith("/build ");
   });
+
+  it("renders attach button and voice dictation button", () => {
+    render(
+      <ThreadComposer
+        value=""
+        onChange={vi.fn()}
+        mode="build"
+        onModeChange={vi.fn()}
+        agent={dummyAgent}
+        onSubmit={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: /attach files/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /voice dictation/i })).toBeInTheDocument();
+    expect(screen.getByTestId("file-attachment-input")).toBeInTheDocument();
+  });
+
+  it("renders attachment chips and calls removeAttachment", async () => {
+    const onAttachmentsChange = vi.fn();
+    const attachments = [
+      {
+        id: "att-1",
+        name: "test-code.ts",
+        size: 1024,
+        type: "text/typescript",
+        isImage: false,
+      },
+    ];
+
+    render(
+      <ThreadComposer
+        value=""
+        onChange={vi.fn()}
+        mode="build"
+        onModeChange={vi.fn()}
+        agent={dummyAgent}
+        attachments={attachments}
+        onAttachmentsChange={onAttachmentsChange}
+        onSubmit={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("test-code.ts")).toBeInTheDocument();
+    expect(screen.getByText("1.0 KB")).toBeInTheDocument();
+
+    const removeBtn = screen.getByRole("button", { name: /remove test-code.ts/i });
+    await userEvent.click(removeBtn);
+    expect(onAttachmentsChange).toHaveBeenCalled();
+  });
+
+  it("enables submit when attachments exist even if prompt text is blank", () => {
+    const attachments = [
+      {
+        id: "att-img",
+        name: "screenshot.png",
+        size: 2048,
+        type: "image/png",
+        isImage: true,
+      },
+    ];
+
+    render(
+      <ThreadComposer
+        value=""
+        onChange={vi.fn()}
+        mode="build"
+        onModeChange={vi.fn()}
+        agent={dummyAgent}
+        attachments={attachments}
+        onSubmit={vi.fn()}
+      />
+    );
+
+    const submitBtn = screen.getByTestId("composer-submit");
+    expect(submitBtn).not.toBeDisabled();
+  });
 });

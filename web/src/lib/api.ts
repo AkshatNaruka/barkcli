@@ -1613,16 +1613,27 @@ export async function deleteThread(
 export async function postThreadMessage(
   id: string,
   text: string,
-  opts?: { author?: string; backend?: string; model?: string; mode?: "plan_first" | "build"; board?: string }
+  opts?: {
+    author?: string;
+    backend?: string;
+    model?: string;
+    mode?: "plan_first" | "build";
+    board?: string;
+    attachments?: any;
+  }
 ): Promise<ThreadEvent | null> {
-  return postJson(`/api/threads/${encodeURIComponent(id)}/messages`, {
+  const payload: Record<string, any> = {
     text,
     author: opts?.author,
     backend: opts?.backend,
     model: opts?.model,
     mode: opts?.mode,
     board: opts?.board,
-  });
+  };
+  if (opts?.attachments !== undefined) {
+    payload.attachments = opts.attachments;
+  }
+  return postJson(`/api/threads/${encodeURIComponent(id)}/messages`, payload);
 }
 
 /** Start a read-only local-agent chat turn. Build work uses startThreadRun. */
@@ -1635,6 +1646,7 @@ export async function startThreadChat(
     files?: string[];
     board?: string;
     skip_user_event?: boolean;
+    attachments?: any;
   }
 ): Promise<ChatStart | null> {
   return postJson(`/api/threads/${encodeURIComponent(id)}/chat`, body);
