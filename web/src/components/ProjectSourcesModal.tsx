@@ -166,25 +166,28 @@ export function ProjectSourcesModal({
     }
   };
 
+  if (!isOpen) return null;
+
   return (
     <AccessibleDialog
       label="Sources"
       onClose={onClose}
+      className="bark-dialog-frameless"
     >
       <div
-        className="w-[580px] max-w-[95vw] bg-[#0c0c0e] border border-[#27272a] shadow-2xl rounded-2xl overflow-hidden text-text flex flex-col focus:outline-none"
+        className="w-[560px] max-w-[92vw] overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0c0c0e]/95 backdrop-blur-2xl text-text shadow-2xl shadow-black/90 focus:outline-none flex flex-col"
         onKeyDown={handleKeyDown}
       >
         {/* Header bar with Back button and search input */}
-        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-[#222226]">
+        <div className="flex items-center gap-2.5 px-4 py-3 border-b border-white/[0.08]">
           <button
             type="button"
             onClick={onBack || onClose}
-            className="text-muted-strong hover:text-text p-1 -ml-1 rounded transition-colors"
+            className="text-muted-strong hover:text-text p-1 -ml-1 rounded-md transition-colors hover:bg-white/[0.06] cursor-pointer"
             title="Back (Backspace / Esc)"
             aria-label="Back"
           >
-            <Icon name="arrowLeft" size={17} />
+            <Icon name="arrowLeft" size={16} />
           </button>
           <input
             ref={inputRef}
@@ -192,13 +195,16 @@ export function ProjectSourcesModal({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search..."
-            className="flex-1 bg-transparent border-0 text-[14px] text-text placeholder-muted-dim focus:outline-none"
+            className="flex-1 bg-transparent border-0 text-[13.5px] text-text placeholder:text-muted-dim focus:outline-none"
           />
+          <kbd className="hidden sm:inline-block text-[10px] font-mono text-muted-dim/60 bg-white/[0.04] border border-white/5 px-1.5 py-0.5 rounded">
+            Esc
+          </kbd>
         </div>
 
         {/* Modal Body */}
         {cloningUrl ? (
-          <div className="p-5 flex flex-col gap-4">
+          <div className="p-5 flex flex-col gap-3.5">
             <h4 className="text-[13px] font-semibold text-text">Clone Git Repository</h4>
             <input
               type="text"
@@ -206,7 +212,7 @@ export function ProjectSourcesModal({
               value={inputUrl}
               onChange={(e) => setInputUrl(e.target.value)}
               placeholder="https://github.com/owner/repo.git or owner/repo"
-              className="w-full bg-[#16161a] border border-[#2e2e34] rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:border-accent"
+              className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-[13px] text-text placeholder:text-muted-dim focus:outline-none focus:border-accent"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && inputUrl.trim()) {
                   window.alert(`Cloning ${inputUrl.trim()} into projects...`);
@@ -217,11 +223,11 @@ export function ProjectSourcesModal({
                 }
               }}
             />
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => setCloningUrl(false)}
-                className="px-3 py-1.5 text-[12px] text-muted hover:text-text rounded cursor-pointer"
+                className="px-3 py-1.5 text-[12px] text-muted-dim hover:text-text rounded-md cursor-pointer transition-colors"
               >
                 Cancel
               </button>
@@ -234,14 +240,14 @@ export function ProjectSourcesModal({
                     onClose();
                   }
                 }}
-                className="px-3.5 py-1.5 text-[12px] font-medium bg-accent text-accent-text rounded-lg cursor-pointer"
+                className="px-3.5 py-1.5 text-[12px] font-medium bg-accent text-accent-text rounded-lg cursor-pointer hover:opacity-95 transition-all shadow-sm"
               >
                 Clone
               </button>
             </div>
           </div>
         ) : newProjectMode ? (
-          <div className="p-5 flex flex-col gap-4">
+          <div className="p-5 flex flex-col gap-3.5">
             <h4 className="text-[13px] font-semibold text-text">Start New Project</h4>
             <input
               type="text"
@@ -249,7 +255,7 @@ export function ProjectSourcesModal({
               value={newProjectName}
               onChange={(e) => setNewProjectName(e.target.value)}
               placeholder="project-name"
-              className="w-full bg-[#16161a] border border-[#2e2e34] rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:border-accent"
+              className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-[13px] text-text placeholder:text-muted-dim focus:outline-none focus:border-accent"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && newProjectName.trim()) {
                   window.alert(`Initializing new repository for ${newProjectName.trim()}...`);
@@ -260,11 +266,11 @@ export function ProjectSourcesModal({
                 }
               }}
             />
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => setNewProjectMode(false)}
-                className="px-3 py-1.5 text-[12px] text-muted hover:text-text rounded cursor-pointer"
+                className="px-3 py-1.5 text-[12px] text-muted-dim hover:text-text rounded-md cursor-pointer transition-colors"
               >
                 Cancel
               </button>
@@ -277,16 +283,16 @@ export function ProjectSourcesModal({
                     onClose();
                   }
                 }}
-                className="px-3.5 py-1.5 text-[12px] font-medium bg-accent text-accent-text rounded-lg cursor-pointer"
+                className="px-3.5 py-1.5 text-[12px] font-medium bg-accent text-accent-text rounded-lg cursor-pointer hover:opacity-95 transition-all shadow-sm"
               >
                 Create
               </button>
             </div>
           </div>
         ) : (
-          <div className="p-2.5 max-h-[min(480px,calc(85vh-120px))] overflow-y-auto">
-            <div className="px-3 py-1 text-[11px] font-semibold text-muted-dim uppercase tracking-wider">Sources</div>
-            <div className="flex flex-col gap-1 mt-0.5">
+          <div className="px-2 pb-2 max-h-[380px] overflow-y-auto">
+            <div className="px-2 pt-2.5 pb-1 text-[10.5px] font-semibold text-muted-dim uppercase tracking-wider">Sources</div>
+            <div className="flex flex-col gap-0.5">
               {filtered.map((item, idx) => {
                 const isSelected = idx === selectedIndex;
                 return (
@@ -295,13 +301,13 @@ export function ProjectSourcesModal({
                     type="button"
                     onClick={() => handleSelect(item)}
                     onMouseEnter={() => setSelectedIndex(idx)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-colors cursor-pointer ${
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-all cursor-pointer ${
                       isSelected
-                        ? "bg-[#18181c] text-text ring-1 ring-white/10"
-                        : "text-muted-strong hover:bg-[#141417] hover:text-text"
+                        ? "bg-white/[0.08] text-text ring-1 ring-white/10 shadow-sm"
+                        : "text-muted-strong hover:bg-white/[0.03] hover:text-text"
                     }`}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       <div className="shrink-0 flex items-center justify-center w-5 h-5">
                         {renderIcon(item.icon)}
                       </div>
@@ -309,13 +315,13 @@ export function ProjectSourcesModal({
                         <span className="text-[13px] font-medium text-text truncate">
                           {item.title}
                         </span>
-                        <span className="text-[11.5px] text-muted-dim truncate">
+                        <span className="text-[11px] text-muted-dim truncate mt-0.5">
                           {item.description}
                         </span>
                       </div>
                     </div>
                     {item.badge && (
-                      <span className="shrink-0 text-[10.5px] font-medium text-amber-500 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full">
+                      <span className="shrink-0 text-[10px] font-medium text-amber-400 bg-amber-400/10 border border-amber-400/25 px-2 py-0.5 rounded-full font-mono">
                         {item.badge}
                       </span>
                     )}
@@ -332,22 +338,24 @@ export function ProjectSourcesModal({
         )}
 
         {/* Modal Footer with Keyboard Navigation hints */}
-        <div className="flex items-center gap-4 px-4 py-2.5 bg-[#09090b] border-t border-[#1c1c20] text-[11px] text-muted-dim select-none">
-          <span className="flex items-center gap-1.5">
-            <kbd className="px-1.5 py-0.5 rounded bg-[#1e1e24] text-[#a1a1aa] text-[10px] border border-[#2d2d34] font-mono">↑</kbd>
-            <kbd className="px-1.5 py-0.5 rounded bg-[#1e1e24] text-[#a1a1aa] text-[10px] border border-[#2d2d34] font-mono">↓</kbd>
-            <span>Navigate</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <kbd className="px-1.5 py-0.5 rounded bg-[#1e1e24] text-[#a1a1aa] text-[10px] border border-[#2d2d34] font-mono">Enter</kbd>
-            <span>Select</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <kbd className="px-1.5 py-0.5 rounded bg-[#1e1e24] text-[#a1a1aa] text-[10px] border border-[#2d2d34] font-mono">Backspace</kbd>
-            <span>Back</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <kbd className="px-1.5 py-0.5 rounded bg-[#1e1e24] text-[#a1a1aa] text-[10px] border border-[#2d2d34] font-mono">Esc</kbd>
+        <div className="flex select-none items-center justify-between border-t border-white/[0.06] bg-black/40 px-3.5 py-2 text-[11px] text-muted-dim">
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1">
+              <kbd className="rounded border border-white/10 bg-white/[0.04] px-1 py-0.5 text-[10px] text-muted-strong font-mono">↑</kbd>
+              <kbd className="rounded border border-white/10 bg-white/[0.04] px-1 py-0.5 text-[10px] text-muted-strong font-mono">↓</kbd>
+              <span>Navigate</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="rounded border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-muted-strong font-mono">Enter</kbd>
+              <span>Select</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="rounded border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-muted-strong font-mono">Backspace</kbd>
+              <span>Back</span>
+            </span>
+          </div>
+          <span className="flex items-center gap-1">
+            <kbd className="rounded border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-muted-strong font-mono">Esc</kbd>
             <span>Close</span>
           </span>
         </div>

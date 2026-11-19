@@ -218,25 +218,27 @@ export function ProjectPickerModal({
     }
   };
 
+  if (!isOpen) return null;
+
   return (
-    <AccessibleDialog label={title} onClose={onClose}>
+    <AccessibleDialog label={title} onClose={onClose} className="bark-dialog-frameless">
       <div
-        className="w-[620px] max-w-[95vw] overflow-hidden rounded-2xl border border-border bg-card text-text shadow-2xl focus:outline-none"
+        className="w-[560px] max-w-[92vw] overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0c0c0e]/95 backdrop-blur-2xl text-text shadow-2xl shadow-black/90 focus:outline-none flex flex-col"
         onKeyDown={handleKeyDown}
       >
-        <div className="flex items-center gap-3 border-b border-border/70 px-4 py-3.5">
+        <div className="flex items-center gap-2.5 border-b border-white/[0.08] px-4 py-3">
           {onBack ? (
             <button
               type="button"
               onClick={onBack}
-              className="rounded-md p-1 -ml-1 text-muted-strong transition-colors hover:bg-surface hover:text-text"
+              className="rounded-md p-1 -ml-1 text-muted-strong transition-colors hover:bg-white/[0.06] hover:text-text cursor-pointer"
               title="Back (Backspace)"
               aria-label="Back"
             >
-              <Icon name="arrowLeft" size={17} />
+              <Icon name="arrowLeft" size={16} />
             </button>
           ) : (
-            <Icon name="search" size={15} className="-ml-1 shrink-0 text-muted-dim" />
+            <Icon name="search" size={15} className="-ml-0.5 shrink-0 text-muted-dim" />
           )}
           <input
             ref={inputRef}
@@ -245,18 +247,21 @@ export function ProjectPickerModal({
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search..."
             aria-label="Search projects"
-            className="flex-1 border-0 bg-transparent text-[14px] text-text placeholder:text-muted-dim focus:outline-none"
+            className="flex-1 border-0 bg-transparent text-[13.5px] text-text placeholder:text-muted-dim focus:outline-none"
           />
+          <kbd className="hidden sm:inline-block text-[10px] font-mono text-muted-dim/60 bg-white/[0.04] border border-white/5 px-1.5 py-0.5 rounded">
+            Esc
+          </kbd>
         </div>
 
-        <div className="max-h-[400px] overflow-y-auto p-2">
-          <div className="flex items-center justify-between px-3 py-1">
-            <span className="text-[11px] font-semibold text-muted-dim">Projects</span>
+        <div className="max-h-[380px] overflow-y-auto px-2 pb-2">
+          <div className="flex items-center justify-between px-2 pt-2.5 pb-1">
+            <span className="text-[10.5px] font-semibold text-muted-dim uppercase tracking-wider">Projects</span>
             {onOpenSources && (
               <button
                 type="button"
                 onClick={onOpenSources}
-                className="flex items-center gap-1 text-[11px] font-medium text-accent hover:underline"
+                className="flex items-center gap-1.5 text-[11px] font-medium text-accent hover:text-white transition-colors cursor-pointer"
               >
                 <Icon name="plus" size={11} />
                 <span>Add project…</span>
@@ -272,34 +277,41 @@ export function ProjectPickerModal({
                   type="button"
                   onClick={() => handleSelect(item)}
                   onMouseEnter={() => setSelectedIndex(index)}
-                  className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition-colors ${
+                  className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left transition-all cursor-pointer ${
                     isSelected
-                      ? "bg-surface text-text ring-1 ring-white/[0.06]"
-                      : "text-muted-strong hover:bg-surface/60 hover:text-text"
+                      ? "bg-white/[0.08] text-text ring-1 ring-white/10 shadow-sm"
+                      : "text-muted-strong hover:bg-white/[0.03] hover:text-text"
                   }`}
                 >
-                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <div className="flex min-w-0 flex-1 items-center gap-2.5">
                     <ProjectAvatar
                       name={item.isScratch ? "No project" : item.name}
                       size="md"
                     />
                     <div className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate text-[13px] font-medium text-text">
-                        {item.name}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-[13px] font-medium text-text">
+                          {item.name}
+                        </span>
+                        {item.isCurrent && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded">
+                            current
+                          </span>
+                        )}
+                      </div>
                       {item.path ? (
-                        <span className="truncate text-[11.5px] text-muted-dim">
+                        <span className="truncate text-[11px] text-muted-dim">
                           {item.meta || "Local"} · {item.path}
                         </span>
                       ) : (
-                        <span className="truncate text-[11.5px] text-muted-dim">
+                        <span className="truncate text-[11px] text-muted-dim">
                           {item.meta || "Local"} · Start without a repository
                         </span>
                       )}
                     </div>
                   </div>
                   {item.shortcut && (
-                    <span className="shrink-0 pl-2 font-mono text-[11px] tracking-tight text-muted-dim">
+                    <span className="shrink-0 pl-2 font-mono text-[10.5px] tracking-tight text-muted-dim bg-white/[0.04] px-1.5 py-0.5 rounded border border-white/5">
                       {item.shortcut}
                     </span>
                   )}
@@ -314,22 +326,26 @@ export function ProjectPickerModal({
           </div>
         </div>
 
-        <div className="flex select-none items-center gap-4 border-t border-border/70 bg-bg/60 px-4 py-2.5 text-[11px] text-muted-dim">
-          <span className="flex items-center gap-1.5">
-            <kbd className="rounded border border-border bg-surface px-1.5 py-0.5 text-[10px] text-muted-strong">↑</kbd>
-            <kbd className="rounded border border-border bg-surface px-1.5 py-0.5 text-[10px] text-muted-strong">↓</kbd>
-            <span>Navigate</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <kbd className="rounded border border-border bg-surface px-1.5 py-0.5 text-[10px] text-muted-strong">Enter</kbd>
-            <span>Select</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <kbd className="rounded border border-border bg-surface px-1.5 py-0.5 text-[10px] text-muted-strong">Backspace</kbd>
-            <span>Back</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <kbd className="rounded border border-border bg-surface px-1.5 py-0.5 text-[10px] text-muted-strong">Esc</kbd>
+        <div className="flex select-none items-center justify-between border-t border-white/[0.06] bg-black/40 px-3.5 py-2 text-[11px] text-muted-dim">
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1">
+              <kbd className="rounded border border-white/10 bg-white/[0.04] px-1 py-0.5 text-[10px] text-muted-strong font-mono">↑</kbd>
+              <kbd className="rounded border border-white/10 bg-white/[0.04] px-1 py-0.5 text-[10px] text-muted-strong font-mono">↓</kbd>
+              <span>Navigate</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="rounded border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-muted-strong font-mono">Enter</kbd>
+              <span>Select</span>
+            </span>
+            {onBack && (
+              <span className="flex items-center gap-1">
+                <kbd className="rounded border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-muted-strong font-mono">Backspace</kbd>
+                <span>Back</span>
+              </span>
+            )}
+          </div>
+          <span className="flex items-center gap-1">
+            <kbd className="rounded border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-muted-strong font-mono">Esc</kbd>
             <span>Close</span>
           </span>
         </div>

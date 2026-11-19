@@ -933,6 +933,7 @@ summary.sidebar-group { cursor: pointer; }
 .bark-dialog.agent-editor { width: min(560px, 100%); padding: 0; overflow: hidden; }
 /* Rules: the full text gets its own scroll region between header and actions. */
 .bark-dialog.rule-dialog { width: min(620px, 100%); padding: 0; overflow: hidden; display: flex; flex-direction: column; max-height: min(560px, calc(100dvh - 40px)); }
+.bark-dialog.bark-dialog-frameless { padding: 0 !important; background: transparent !important; border: none !important; box-shadow: none !important; width: auto !important; max-width: 100% !important; max-height: none !important; overflow: visible !important; }
 .command-palette { padding: 0; align-self: flex-start; margin-top: min(100px, 10dvh); width: min(640px, 100%); max-width: 640px; background: var(--surface); border-color: var(--border); border-radius: 14px; display: flex; flex-direction: column; overflow: hidden; max-height: min(600px, calc(100dvh - 160px)); }
 .workspace-sidebar-scrim { display: none; }
 .execution-summary { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; font-size: 12px; padding-block: 14px; color: var(--muted); }
