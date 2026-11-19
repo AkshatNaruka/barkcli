@@ -87,8 +87,10 @@ Cargo: \`cargo install barkcli\`
 
 The CLI is free and open source (MIT) — free forever. A hosted team layer (multiplayer sessions, cloud sync, reliability analytics) is planned at $99/month per team, flat. See [pricing details](/pricing.md).
 
-## Source Code
+## Source Code & Creator
 
+- Creator & Maintainer: Akshat Naruka (@probiex007)
+- X / Twitter: https://x.com/probiex007
 - GitHub: https://github.com/AkshatNaruka/barkcli
 - Issues: https://github.com/AkshatNaruka/barkcli/issues
 - License: MIT

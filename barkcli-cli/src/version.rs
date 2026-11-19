@@ -11,7 +11,7 @@ pub struct Release {
 }
 
 pub fn do_update() {
-    println!("barkcli {} (git: {})", env!("CARGO_PKG_VERSION"), env!("GIT_HASH"));
+    println!("barkcli {} (git: {}) · by Akshat Naruka (@probiex007)", env!("CARGO_PKG_VERSION"), env!("GIT_HASH"));
     let exe = match std::env::current_exe() {
         Ok(p) => p,
         Err(e) => { eprintln!("Cannot determine binary path: {}", e); std::process::exit(1); }

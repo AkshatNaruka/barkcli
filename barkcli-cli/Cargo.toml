@@ -2,7 +2,7 @@
 name = "barkcli"
 description = "The management layer for AI agents — intent, plans, worktrees, test gate, merge train"
 license = "MIT"
-authors = ["Akshat Naruka <narukaakshat@gmail.com>"]
+authors = ["Akshat Naruka <narukaakshat@gmail.com> (@probiex007)"]
 version = "0.4.59"
 edition = "2021"
 repository = "https://github.com/AkshatNaruka/barkcli"

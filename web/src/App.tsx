@@ -28,7 +28,7 @@ import {
   onboardProject,
   type GitInfo,
 } from "./lib/api";
-import { isDesktop, isMac, onMenu, openProjectDialog, openTerminal, revealProject, switchProject } from "./lib/desktop";
+import { isDesktop, isMac, onMenu, openExternalUrl, openProjectDialog, openTerminal, revealProject, switchProject } from "./lib/desktop";
 import { isDemoMode } from "./lib/demo";
 import { useRoute, useRouteState, navigate, updateRouteState, parseRouteState, type Route } from "./lib/hashnav";
 import { APP_COMMANDS, commandForKey } from "./lib/commands";
@@ -1260,5 +1260,18 @@ function HelpModal({ onClose }: { onClose: () => void }) {
     </div>
     <h3 className="help-shortcuts-title">Keyboard shortcuts</h3>
     <div className="space-y-3">{APP_COMMANDS.filter((command) => command.shortcut).map((command) => <div className="flex justify-between gap-5 text-sm" key={command.id}><span>{command.label}</span><kbd className="text-muted text-xs whitespace-nowrap">⌘{command.modifiers?.includes("shift") ? "⇧" : ""}{command.shortcut!.toUpperCase()}</kbd></div>)}<div className="flex justify-between gap-5 text-sm"><span>Submit prompt</span><kbd className="text-muted text-xs">⌘Return</kbd></div><div className="flex justify-between gap-5 text-sm"><span>Build / Review</span><kbd className="text-muted text-xs">⌘1 / ⌘2</kbd></div></div>
+    <div className="mt-6 pt-3 border-t border-border flex items-center justify-between text-xs text-muted">
+      <span>
+        Created by{" "}
+        <button
+          type="button"
+          onClick={() => void openExternalUrl("https://x.com/probiex007")}
+          className="text-text hover:text-accent font-medium underline underline-offset-2 transition-colors inline-flex items-center gap-1"
+        >
+          Akshat Naruka (@probiex007)
+        </button>
+      </span>
+      <span className="font-mono text-[11px] text-muted-dim">MIT License</span>
+    </div>
   </AccessibleDialog>;
 }

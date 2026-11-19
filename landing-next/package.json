@@ -1,6 +1,8 @@
 {
   "name": "landing-next",
   "version": "0.1.0",
+  "author": "Akshat Naruka (@probiex007)",
+  "license": "MIT",
   "private": true,
   "scripts": {
     "dev": "next dev",

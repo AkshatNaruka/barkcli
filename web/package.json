@@ -2,6 +2,8 @@
   "name": "barkcli-web",
   "private": true,
   "version": "0.1.0",
+  "author": "Akshat Naruka (@probiex007)",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",

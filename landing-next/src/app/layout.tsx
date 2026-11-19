@@ -49,8 +49,8 @@ export const metadata: Metadata = {
     "collective memory for agents",
   ],
   applicationName: "barkcli",
-  authors: [{ name: "Akshat Naruka", url: "https://github.com/AkshatNaruka" }],
-  creator: "Akshat Naruka",
+  authors: [{ name: "Akshat Naruka (@probiex007)", url: "https://x.com/probiex007" }],
+  creator: "Akshat Naruka (@probiex007)",
   publisher: "barkcli",
   category: "developer tools",
   alternates: {
@@ -148,7 +148,7 @@ const structuredData = {
       author: {
         "@type": "Person",
         name: "Akshat Naruka",
-        url: "https://github.com/AkshatNaruka",
+        url: "https://x.com/probiex007",
       },
       featureList: [
         "Management layer for AI coding agents",

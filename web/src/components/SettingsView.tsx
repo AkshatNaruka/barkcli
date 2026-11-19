@@ -779,7 +779,10 @@ export function SettingsView({
         </nav>
 
         {/* Sidebar Footer */}
-        <div className="h-10 px-3.5 border-t border-border flex items-center justify-between text-[11px] text-muted shrink-0 bg-surface/30">
+        <div
+          className="h-10 px-3.5 border-t border-border flex items-center justify-between text-[11px] text-muted shrink-0 bg-surface/30 cursor-default"
+          title="Bark by Akshat Naruka (@probiex007) · MIT License"
+        >
           <span className="flex items-center gap-1.5 font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             v{serverVersion}
@@ -1969,6 +1972,48 @@ export function SettingsView({
                   <Icon name={copiedCliInstall ? "check" : "copy"} size={11} />
                   {copiedCliInstall ? "Copied" : "Copy"}
                 </button>
+              </div>
+            </Section>
+
+            <Section
+              title="About & Creator"
+              description="Bark is an open-source autonomous agent management layer created and maintained by Akshat Naruka."
+            >
+              <div className="rounded-xl border border-border bg-white/[0.02] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <strong className="text-sm font-semibold text-text">Akshat Naruka</strong>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-accent/15 text-accent border border-accent/25">
+                      @probiex007
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted leading-relaxed">
+                    The management layer for AI agents. Free and open source under the MIT License.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => void openExternalUrl("https://x.com/probiex007")}
+                    className="bark-button text-xs flex items-center gap-1.5"
+                    title="Follow @probiex007 on X"
+                  >
+                    <svg aria-hidden="true" className="w-3 h-3 fill-current" viewBox="0 0 24 24">
+                      <path d="M14.234 10.162 22.977 0h-2.072l-7.591 8.824L7.251 0H.258l9.168 13.343L.258 24H2.33l8.016-9.318L16.749 24h6.993zm-2.837 3.299-.929-1.329L3.076 1.56h3.182l5.965 8.532.929 1.329 7.754 11.09h-3.182z" />
+                    </svg>
+                    <span>@probiex007</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void openExternalUrl("https://github.com/AkshatNaruka/barkcli")}
+                    className="bark-button text-xs flex items-center gap-1.5"
+                    title="View Bark repository on GitHub"
+                  >
+                    <Icon name="branch" size={12} />
+                    <span>GitHub</span>
+                  </button>
+                </div>
               </div>
             </Section>
           </>

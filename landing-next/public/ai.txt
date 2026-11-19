@@ -57,7 +57,8 @@ barkcli solves the critical flaws of serial terminal coding agents:
 
 ## Contact
 
-- Maintainer: Akshat Naruka
+- Creator & Maintainer: Akshat Naruka (@probiex007)
+- X / Twitter: https://x.com/probiex007
 - Email: narukaakshat@gmail.com
 - Repository: https://github.com/AkshatNaruka/barkcli
 - Issues: https://github.com/AkshatNaruka/barkcli/issues

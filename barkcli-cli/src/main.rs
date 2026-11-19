@@ -745,7 +745,7 @@ fn check_daemon_status() {
 
 fn print_version() {
     let pro = if license::is_licensed() { " pro" } else { "" };
-    println!("barkcli{} {} (git: {})", pro, VERSION, GIT_HASH);
+    println!("barkcli{} {} (git: {}) · by Akshat Naruka (@probiex007)", pro, VERSION, GIT_HASH);
 }
 
 fn main() {

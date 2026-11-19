@@ -12,5 +12,7 @@
   <string>Bark uses your microphone for voice dictation in thread prompts.</string>
   <key>NSSpeechRecognitionUsageDescription</key>
   <string>Bark uses speech recognition to transcribe your spoken prompts.</string>
+  <key>NSHumanReadableCopyright</key>
+  <string>Copyright © 2026 Akshat Naruka (@probiex007). Open source under MIT.</string>
 </dict>
 </plist>

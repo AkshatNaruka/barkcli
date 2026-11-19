@@ -53,8 +53,20 @@ export function Footer() {
               <span className="font-bold tracking-tight text-xl text-white">barkcli</span>
             </Link>
 
-            <p className="max-w-[280px] text-[13px] leading-[1.6] text-white/60 mb-6">
+            <p className="max-w-[280px] text-[13px] leading-[1.6] text-white/60 mb-3">
               The management layer for AI agents. Humans write intent, agents build and test in isolated worktrees, and only passing work merges.
+            </p>
+
+            <p className="text-[12px] font-mono text-white/50 mb-5">
+              Built by{" "}
+              <a
+                href="https://x.com/probiex007"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#E5AA7A] hover:underline transition-colors"
+              >
+                Akshat Naruka (@probiex007)
+              </a>
             </p>
 
             <a
@@ -297,7 +309,16 @@ export function Footer() {
         {/* Bottom Sub-Footer */}
         <div className="mt-10 flex flex-col gap-3 border-t border-white/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
           <span className="font-mono text-[11px] text-white/50">
-            © {new Date().getFullYear()} barkcli · The management layer for AI agents · Free & Open Source (MIT)
+            © {new Date().getFullYear()} barkcli · Built by{" "}
+            <a
+              href="https://x.com/probiex007"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white/70 hover:text-[#E5AA7A] transition-colors underline underline-offset-2"
+            >
+              Akshat Naruka (@probiex007)
+            </a>{" "}
+            · Free & Open Source (MIT)
           </span>
 
           <ul className="flex flex-wrap items-center gap-4 text-xs font-mono">

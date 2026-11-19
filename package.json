@@ -1,6 +1,8 @@
 {
   "name": "barkcli",
   "version": "0.2.0",
+  "author": "Akshat Naruka (@probiex007)",
+  "license": "MIT",
   "private": true,
   "scripts": {
     "dev": "cd landing-next && npm run dev",
