@@ -127,6 +127,29 @@ impl Default for TerminalSettings {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct ModelSyncSettings {
+    pub auto_sync: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_synced_at: Option<String>,
+    #[serde(default)]
+    pub custom_models: std::collections::HashMap<String, Vec<String>>,
+    #[serde(default)]
+    pub cached_models: std::collections::HashMap<String, Vec<String>>,
+}
+
+impl Default for ModelSyncSettings {
+    fn default() -> Self {
+        Self {
+            auto_sync: true,
+            last_synced_at: None,
+            custom_models: std::collections::HashMap::new(),
+            cached_models: std::collections::HashMap::new(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct StoredSettings {
@@ -136,6 +159,9 @@ pub struct StoredSettings {
     pub api_keys: ApiKeySettings,
     #[serde(default)]
     pub terminal: TerminalSettings,
+    /// Model sync preferences, custom model overrides, and cached discovered models.
+    #[serde(default)]
+    pub models: ModelSyncSettings,
     /// Opaque MCP server list, kept in the shape the web client authored.
     #[serde(default)]
     pub mcp_servers: Vec<Value>,
@@ -147,6 +173,7 @@ impl Default for StoredSettings {
             general: GeneralSettings::default(),
             api_keys: ApiKeySettings::default(),
             terminal: TerminalSettings::default(),
+            models: ModelSyncSettings::default(),
             mcp_servers: Vec::new(),
         }
     }
@@ -188,6 +215,14 @@ impl StoredSettings {
         self.api_keys.ollama_endpoint = self.api_keys.ollama_endpoint.trim().to_string();
         self.api_keys.default_backend = self.api_keys.default_backend.trim().to_string();
         self.api_keys.default_model = self.api_keys.default_model.trim().to_string();
+        for models in self.models.custom_models.values_mut() {
+            models.retain(|m| !m.trim().is_empty());
+            models.dedup();
+        }
+        for models in self.models.cached_models.values_mut() {
+            models.retain(|m| !m.trim().is_empty());
+            models.dedup();
+        }
     }
 
     /// Add or replace one credential. Used by the in-thread credential request

@@ -12,6 +12,30 @@ vi.mock("../lib/api", () => ({
   fetchProviders: vi.fn(async () => []),
   fetchProviderModels: vi.fn(async () => []),
   fetchSettings: vi.fn(async () => null),
+  fetchModelSyncStatus: vi.fn(async () => ({
+    success: true,
+    syncedAt: new Date().toISOString(),
+    autoSync: true,
+    totalModels: 42,
+    providers: [
+      { id: "opencode", name: "OpenCode", available: true, count: 6, models: ["opencode/pulse-alpha-free"], source: "CLI" },
+      { id: "claude-code", name: "Claude", available: true, count: 5, models: ["claude-3-7-sonnet"], source: "T3 Bridge" },
+    ],
+    customModels: {},
+  })),
+  syncAllModels: vi.fn(async () => ({
+    success: true,
+    syncedAt: new Date().toISOString(),
+    autoSync: true,
+    totalModels: 42,
+    providers: [
+      { id: "opencode", name: "OpenCode", available: true, count: 6, models: ["opencode/pulse-alpha-free"], source: "CLI" },
+    ],
+    customModels: {},
+  })),
+  addCustomModel: vi.fn(async () => ["custom-model-1"]),
+  removeCustomModel: vi.fn(async () => []),
+  updateModelAutoSync: vi.fn(async (auto) => auto),
   ping: vi.fn(async () => ({ status: "ok", timestamp: "", version: "0.0.0-test", uptime_seconds: 0 })),
   saveSettings: vi.fn(async () => null),
   validateBoards: vi.fn(async () => ({ all_valid: true })),
@@ -252,5 +276,21 @@ describe("SettingsView", () => {
 
     // A hidden destination stays listed so it can be brought back.
     expect(screen.getByRole("button", { name: "Show Board" })).toBeInTheDocument();
+  });
+
+  it("renders the AI Model Registry & Market Sync section and triggers sync", async () => {
+    const { syncAllModels } = await import("../lib/api");
+    const user = userEvent.setup();
+    render(<SettingsView initialSection="updates" />);
+
+    expect(await screen.findByText("AI Model Registry & Market Sync")).toBeInTheDocument();
+    expect(screen.getByText("Live Sync Active")).toBeInTheDocument();
+    expect(screen.getByText("42 AI Models Available")).toBeInTheDocument();
+
+    const syncButton = screen.getByRole("button", { name: /Sync models now/i });
+    expect(syncButton).toBeInTheDocument();
+    await user.click(syncButton);
+
+    expect(syncAllModels).toHaveBeenCalled();
   });
 });

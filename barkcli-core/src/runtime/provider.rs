@@ -160,7 +160,31 @@ impl ProviderRegistry {
     }
 
     pub fn models(&self, id: &str) -> Option<Vec<String>> {
-        self.get(id).map(|adapter| adapter.models())
+        let mut models = if let Some(adapter) = self.get(id) {
+            adapter.models()
+        } else if id == "ollama" {
+            let settings = crate::settings::load();
+            crate::ai::provider::probe_ollama(&settings.api_keys.ollama_endpoint).unwrap_or_default()
+        } else {
+            return None;
+        };
+
+        let settings = crate::settings::load();
+        if let Some(cached) = settings.models.cached_models.get(id) {
+            for m in cached {
+                if !models.contains(m) {
+                    models.push(m.clone());
+                }
+            }
+        }
+        if let Some(custom) = settings.models.custom_models.get(id) {
+            for m in custom {
+                if !models.contains(m) {
+                    models.push(m.clone());
+                }
+            }
+        }
+        Some(models)
     }
 
     pub fn available(&self) -> Vec<ProviderStatus> {
@@ -169,6 +193,145 @@ impl ProviderRegistry {
             .filter(|status| status.available)
             .collect()
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderModelReport {
+    pub id: String,
+    pub name: String,
+    pub available: bool,
+    pub count: usize,
+    pub models: Vec<String>,
+    pub source: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelSyncReport {
+    pub success: bool,
+    pub synced_at: String,
+    pub auto_sync: bool,
+    pub total_models: usize,
+    pub providers: Vec<ProviderModelReport>,
+    pub custom_models: std::collections::HashMap<String, Vec<String>>,
+}
+
+pub fn get_model_sync_status() -> ModelSyncReport {
+    let registry = ProviderRegistry::standard();
+    let settings = crate::settings::load();
+    let mut reports = Vec::new();
+    let mut total_count = 0;
+
+    for adapter in &registry.adapters {
+        let id = adapter.id();
+        let status = adapter.probe();
+        let models = registry.models(id).unwrap_or_default();
+        total_count += models.len();
+        let source = if !super::providers::t3_cached_models(id).is_empty() {
+            "T3 Bridge & Live Registry".to_string()
+        } else if status.available {
+            "Local CLI & Registry".to_string()
+        } else {
+            "Frontier Catalog".to_string()
+        };
+        reports.push(ProviderModelReport {
+            id: id.to_string(),
+            name: adapter.name().to_string(),
+            available: status.available,
+            count: models.len(),
+            models,
+            source,
+        });
+    }
+
+    // Include Ollama if configured
+    let ollama_models = registry.models("ollama").unwrap_or_default();
+    let ollama_available = !ollama_models.is_empty();
+    total_count += ollama_models.len();
+    reports.push(ProviderModelReport {
+        id: "ollama".to_string(),
+        name: "Ollama (Local)".to_string(),
+        available: ollama_available,
+        count: ollama_models.len(),
+        models: ollama_models,
+        source: "Local Daemon (/api/tags)".to_string(),
+    });
+
+    ModelSyncReport {
+        success: true,
+        synced_at: settings.models.last_synced_at.unwrap_or_else(|| chrono::Utc::now().to_rfc3339()),
+        auto_sync: settings.models.auto_sync,
+        total_models: total_count,
+        providers: reports,
+        custom_models: settings.models.custom_models,
+    }
+}
+
+pub fn sync_all_models() -> Result<ModelSyncReport> {
+    let registry = ProviderRegistry::standard();
+    let mut settings = crate::settings::load();
+    let now = chrono::Utc::now().to_rfc3339();
+
+    for adapter in &registry.adapters {
+        let id = adapter.id();
+        let mut discovered = adapter.models();
+        for m in super::providers::t3_cached_models(id) {
+            if !discovered.contains(&m) {
+                discovered.push(m);
+            }
+        }
+        if !discovered.is_empty() {
+            settings.models.cached_models.insert(id.to_string(), discovered);
+        }
+    }
+
+    // Probe Ollama if endpoint configured
+    if !settings.api_keys.ollama_endpoint.trim().is_empty() {
+        if let Ok(models) = crate::ai::provider::probe_ollama(&settings.api_keys.ollama_endpoint) {
+            if !models.is_empty() {
+                settings.models.cached_models.insert("ollama".to_string(), models);
+            }
+        }
+    }
+
+    settings.models.last_synced_at = Some(now);
+    crate::settings::save(&settings)?;
+
+    Ok(get_model_sync_status())
+}
+
+pub fn add_custom_model(provider_id: &str, model: &str) -> Result<Vec<String>> {
+    let mut settings = crate::settings::load();
+    let model = model.trim();
+    if model.is_empty() {
+        anyhow::bail!("model id cannot be empty");
+    }
+    let entry = settings.models.custom_models.entry(provider_id.to_string()).or_default();
+    if !entry.contains(&model.to_string()) {
+        entry.push(model.to_string());
+    }
+    crate::settings::save(&settings)?;
+    let registry = ProviderRegistry::standard();
+    Ok(registry.models(provider_id).unwrap_or_default())
+}
+
+pub fn remove_custom_model(provider_id: &str, model: &str) -> Result<Vec<String>> {
+    let mut settings = crate::settings::load();
+    let model = model.trim();
+    if let Some(entry) = settings.models.custom_models.get_mut(provider_id) {
+        entry.retain(|m| m != model);
+    }
+    crate::settings::save(&settings)?;
+    let registry = ProviderRegistry::standard();
+    Ok(registry.models(provider_id).unwrap_or_default())
+}
+
+pub fn set_auto_sync(enabled: bool) -> Result<bool> {
+    let mut settings = crate::settings::load();
+    settings.models.auto_sync = enabled;
+    crate::settings::save(&settings)?;
+    Ok(enabled)
 }
 
 /// Deterministic adapter used by tests and demos. It never touches the network.

@@ -29,7 +29,8 @@ const BRAND_COLORS: Record<string, string> = {
   "claude-code": "#D97757",
 };
 
-function initials(name: string) {
+function initials(name?: string) {
+  if (!name) return "?";
   const letters = name.replace(/[^a-z0-9]/gi, "");
   return (letters.slice(0, 2) || "?").toUpperCase();
 }
@@ -41,7 +42,7 @@ export function ProviderIcon({
   className = "",
 }: {
   id: string;
-  name: string;
+  name?: string;
   size?: number;
   className?: string;
 }) {
@@ -55,7 +56,7 @@ export function ProviderIcon({
         style={{ width: size, height: size, fontSize: Math.max(8, size * 0.38) }}
         aria-hidden="true"
       >
-        {initials(name)}
+        {initials(name || id)}
       </span>
     );
   }

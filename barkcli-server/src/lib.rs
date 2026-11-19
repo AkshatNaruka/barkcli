@@ -140,6 +140,14 @@ where
     register_recent_project_root(&project_root_or_cwd());
     reconcile_runtime_runs();
 
+    // Background auto-sync of AI models if enabled
+    tokio::spawn(async {
+        let settings = barkcli_core::settings::load();
+        if settings.models.auto_sync {
+            let _ = tokio::task::spawn_blocking(barkcli_core::runtime::provider::sync_all_models).await;
+        }
+    });
+
     let (tx, _) = broadcast::channel::<String>(16);
     let (thread_tx, _) = broadcast::channel::<barkcli_core::threads::ThreadEvent>(128);
 
@@ -181,6 +189,10 @@ where
         .route("/api/providers", get(list_providers_handler))
         .route("/api/providers/{id}/probe", post(probe_provider_handler))
         .route("/api/providers/{id}/models", get(provider_models_handler))
+        .route("/api/models/sync-status", get(model_sync_status_handler))
+        .route("/api/models/sync", post(model_sync_handler))
+        .route("/api/models/custom", post(model_custom_handler))
+        .route("/api/models/settings", put(model_settings_handler))
         .route("/api/runs/{id}", get(get_run_handler))
         .route("/api/runs/{id}/ancestry", get(run_ancestry_handler))
         .route("/api/runs/{id}/link", post(link_run_handler))
@@ -6770,6 +6782,66 @@ async fn provider_models_handler(
     Ok(Json(models))
 }
 
+async fn model_sync_status_handler() -> Result<Json<serde_json::Value>, ServerError> {
+    let report = barkcli_core::runtime::provider::get_model_sync_status();
+    Ok(Json(serde_json::to_value(report).unwrap_or(serde_json::json!({}))))
+}
+
+async fn model_sync_handler() -> Result<Json<serde_json::Value>, ServerError> {
+    let report = tokio::task::spawn_blocking(barkcli_core::runtime::provider::sync_all_models)
+        .await
+        .map_err(|e| ServerError::internal(e.to_string()))?
+        .map_err(|e| ServerError::internal(e.to_string()))?;
+    Ok(Json(serde_json::to_value(report).unwrap_or(serde_json::json!({}))))
+}
+
+#[derive(Deserialize)]
+struct CustomModelRequest {
+    provider: String,
+    model: String,
+    #[serde(default)]
+    action: Option<String>,
+}
+
+async fn model_custom_handler(
+    Json(req): Json<CustomModelRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let provider = req.provider.trim();
+    let model = req.model.trim();
+    if provider.is_empty() || model.is_empty() {
+        return Err(ServerError::bad("provider and model are required"));
+    }
+    let action = req.action.as_deref().unwrap_or("add");
+    let models = if action == "remove" || action == "delete" {
+        barkcli_core::runtime::provider::remove_custom_model(provider, model)
+    } else {
+        barkcli_core::runtime::provider::add_custom_model(provider, model)
+    }
+    .map_err(|e| ServerError::bad(e.to_string()))?;
+
+    Ok(Json(serde_json::json!({
+        "ok": true,
+        "provider": provider,
+        "models": models,
+    })))
+}
+
+#[derive(Deserialize)]
+struct ModelSettingsRequest {
+    auto_sync: bool,
+}
+
+async fn model_settings_handler(
+    Json(req): Json<ModelSettingsRequest>,
+) -> Result<Json<serde_json::Value>, ServerError> {
+    let auto_sync = barkcli_core::runtime::provider::set_auto_sync(req.auto_sync)
+        .map_err(|e| ServerError::bad(e.to_string()))?;
+    Ok(Json(serde_json::json!({
+        "ok": true,
+        "auto_sync": auto_sync,
+    })))
+}
+
 #[derive(Deserialize)]
 struct StartThreadRunRequest {
     #[serde(flatten)]
@@ -10091,6 +10163,15 @@ mod tests {
             .unwrap()
     }
 
+    fn put_json_request(uri: &str, body: serde_json::Value) -> Request {
+        Request::builder()
+            .method("PUT")
+            .uri(uri)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(axum::body::Body::from(body.to_string()))
+            .unwrap()
+    }
+
     async fn json_body(res: Response) -> serde_json::Value {
         let body = to_bytes(res.into_body(), usize::MAX).await.unwrap();
         serde_json::from_slice(&body).unwrap()
@@ -10200,6 +10281,10 @@ cards:
             .route("/api/hooks", get(hooks_status_handler))
             .route("/api/hooks/install", post(install_hooks_handler))
             .route("/api/providers/{id}/models", get(provider_models_handler))
+            .route("/api/models/sync-status", get(model_sync_status_handler))
+            .route("/api/models/sync", post(model_sync_handler))
+            .route("/api/models/custom", post(model_custom_handler))
+            .route("/api/models/settings", put(model_settings_handler))
             .route("/api/threads/{id}/chat", post(chat_thread_handler))
             .route("/api/threads/{id}/chat/stop", post(stop_chat_handler))
             .route("/api/threads", post(create_thread_handler))
@@ -10328,6 +10413,67 @@ cards:
         assert_eq!(res.status(), StatusCode::BAD_REQUEST);
         let value = json_body(res).await;
         assert!(value["error"].as_str().unwrap().contains("unknown provider"));
+    }
+
+    #[tokio::test]
+    async fn model_sync_endpoints_work() {
+        let app = project_router(test_state(None));
+
+        // 1. Status endpoint
+        let res = app
+            .clone()
+            .oneshot(get_request("/api/models/sync-status"))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let value = json_body(res).await;
+        assert_eq!(value["success"], true);
+        assert!(value["totalModels"].as_u64().unwrap() > 0);
+        assert!(value["providers"].is_array());
+
+        // 2. Add custom model
+        let res = app
+            .clone()
+            .oneshot(post_json_request(
+                "/api/models/custom",
+                serde_json::json!({
+                    "provider": "claude-code",
+                    "model": "claude-test-model-frontier",
+                    "action": "add"
+                }),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        let value = json_body(res).await;
+        assert_eq!(value["ok"], true);
+        let models = value["models"].as_array().unwrap();
+        assert!(models.iter().any(|m| m == "claude-test-model-frontier"));
+
+        // 3. Remove custom model
+        let res = app
+            .clone()
+            .oneshot(post_json_request(
+                "/api/models/custom",
+                serde_json::json!({
+                    "provider": "claude-code",
+                    "model": "claude-test-model-frontier",
+                    "action": "remove"
+                }),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+
+        // 4. Update auto_sync setting
+        let res = app
+            .oneshot(put_json_request(
+                "/api/models/settings",
+                serde_json::json!({ "auto_sync": true }),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
     }
 
     #[tokio::test]

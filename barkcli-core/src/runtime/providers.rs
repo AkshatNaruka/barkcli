@@ -224,25 +224,118 @@ fn opencode_capabilities() -> ProviderCapabilities {
     }
 }
 
+/// Reads model slugs from T3 Code cache files when present on the host system.
+pub fn t3_cached_models(provider_id: &str) -> Vec<String> {
+    let home = std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(std::path::PathBuf::from);
+    let home = match home {
+        Some(h) => h,
+        None => return Vec::new(),
+    };
+    let cache_dir = home.join(".t3").join("caches");
+    if !cache_dir.exists() {
+        return Vec::new();
+    }
+
+    let filenames = match provider_id {
+        "claude-code" | "claude" => vec!["claudeAgent.json", "claude.json"],
+        "codex" => vec!["codex.json"],
+        "opencode" => vec!["opencode.json"],
+        "antigravity" => vec!["antigravity.json"],
+        "cursor" => vec!["cursor.json"],
+        "grok-build" | "grok" => vec!["grok.json"],
+        "kimi" => vec!["kimi.json"],
+        "muse-code" | "muse" => vec!["muse.json"],
+        _ => vec![],
+    };
+
+    let mut results = Vec::new();
+    for fname in filenames {
+        let p = cache_dir.join(fname);
+        if let Ok(bytes) = std::fs::read(&p) {
+            if let Ok(val) = serde_json::from_slice::<Value>(&bytes) {
+                if let Some(models) = val.get("models").and_then(Value::as_array) {
+                    for m in models {
+                        if let Some(slug) = m.get("slug").and_then(Value::as_str) {
+                            let slug = slug.trim();
+                            if !slug.is_empty() && !results.contains(&slug.to_string()) {
+                                results.push(slug.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    results
+}
+
 fn claude_models() -> Vec<String> {
-    vec![
-        "claude-haiku-5.5".to_string(),
-        "claude-3-7-sonnet".to_string(),
-        "claude-3-5-sonnet".to_string(),
-        "claude-opus-4-6".to_string(),
-        "gpt-4o".to_string(),
-    ]
+    let mut models = Vec::new();
+    for m in t3_cached_models("claude-code") {
+        if !models.contains(&m) {
+            models.push(m);
+        }
+    }
+    let standard = [
+        "claude-opus-5-5",
+        "claude-sonnet-5-5",
+        "claude-3-7-sonnet",
+        "claude-3-5-sonnet",
+        "claude-haiku-5.5",
+        "claude-opus-4-6",
+        "gpt-4o",
+    ];
+    for m in standard {
+        let s = m.to_string();
+        if !models.contains(&s) {
+            models.push(s);
+        }
+    }
+    models
 }
 
 fn codex_models() -> Vec<String> {
+    let mut models = Vec::new();
     let home = std::env::var_os("CODEX_HOME").map(std::path::PathBuf::from)
         .or_else(|| std::env::var_os("HOME").map(|home| std::path::PathBuf::from(home).join(".codex")));
     let catalog = home.and_then(|home| std::fs::read(home.join("models_cache.json")).ok())
         .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok());
-    catalog.as_ref().and_then(|value| value.get("models")).and_then(Value::as_array)
-        .map(|models| models.iter().filter(|model| model.get("visibility").and_then(Value::as_str) != Some("hide"))
-            .filter_map(|model| model.get("slug").and_then(Value::as_str)).map(str::to_string).collect())
-        .unwrap_or_default()
+    if let Some(arr) = catalog.as_ref().and_then(|value| value.get("models")).and_then(Value::as_array) {
+        for model in arr {
+            if model.get("visibility").and_then(Value::as_str) != Some("hide") {
+                if let Some(slug) = model.get("slug").and_then(Value::as_str) {
+                    let s = slug.trim().to_string();
+                    if !s.is_empty() && !models.contains(&s) {
+                        models.push(s);
+                    }
+                }
+            }
+        }
+    }
+    for m in t3_cached_models("codex") {
+        if !models.contains(&m) {
+            models.push(m);
+        }
+    }
+    let standard = [
+        "gpt-6.2-sol",
+        "gpt-5.3-codex",
+        "gpt-5",
+        "gpt-4.5-preview",
+        "gpt-4o",
+        "o3",
+        "o3-mini",
+        "o1",
+    ];
+    for m in standard {
+        let s = m.to_string();
+        if !models.contains(&s) {
+            models.push(s);
+        }
+    }
+    models
 }
 
 fn claude_capabilities() -> ProviderCapabilities {
@@ -1100,7 +1193,13 @@ impl ProviderAdapter for ProbeOnlyProvider {
         }
     }
     fn models(&self) -> Vec<String> {
-        self.models.clone()
+        let mut models = self.models.clone();
+        for m in t3_cached_models(self.id) {
+            if !models.contains(&m) {
+                models.push(m);
+            }
+        }
+        models
     }
     fn start(&self, _req: StartRun, _sink: EventSink) -> Result<Box<dyn RunHandle>> {
         Err(anyhow!(

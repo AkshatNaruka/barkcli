@@ -8,11 +8,17 @@ import {
   fetchProviders,
   fetchProviderModels,
   fetchSettings,
+  fetchModelSyncStatus,
+  syncAllModels,
+  addCustomModel,
+  removeCustomModel,
+  updateModelAutoSync,
   ping,
   probeOllama,
   saveSettings,
   validateBoards,
   type BoardConfig,
+  type ModelSyncReport,
 } from "../lib/api";
 import { isDesktop, openExternalUrl, openLogs, openProviderLogin, openTerminal } from "../lib/desktop";
 import { THEMES, ACCENT_IDS, accentLabel, accentColor, parseAppearance, shareUrl, useTheme } from "../lib/theme";
@@ -248,7 +254,74 @@ export function SettingsView({
   const [newEnvKey, setNewEnvKey] = useState("");
   const [newEnvVal, setNewEnvVal] = useState("");
 
+  // Model Sync & Auto-Update State
+  const [modelSyncReport, setModelSyncReport] = useState<ModelSyncReport | null>(null);
+  const [isSyncingModels, setIsSyncingModels] = useState(false);
+  const [modelSyncMsg, setModelSyncMsg] = useState<string | null>(null);
+  const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
+  const [customModelInputs, setCustomModelInputs] = useState<Record<string, string>>({});
+
+  const refreshModelSync = async () => {
+    try {
+      const rep = await fetchModelSyncStatus();
+      if (rep) setModelSyncReport(rep);
+    } catch {}
+  };
+
+  const handleSyncModels = async () => {
+    setIsSyncingModels(true);
+    setModelSyncMsg("Scanning local CLIs, T3 cache bridge, and provider registries…");
+    try {
+      const rep = await syncAllModels();
+      if (rep) {
+        setModelSyncReport(rep);
+        setModelSyncMsg(`Synced ${rep.totalModels} models across ${rep.providers.length} providers.`);
+        if (apiKeys.defaultBackend) {
+          void fetchProviderModels(apiKeys.defaultBackend).then((m) => setDefaultModels(m));
+        }
+      } else {
+        setModelSyncMsg("Model sync completed.");
+      }
+    } catch (e: any) {
+      setModelSyncMsg(`Sync error: ${e?.message ?? "unknown error"}`);
+    } finally {
+      setIsSyncingModels(false);
+      window.setTimeout(() => setModelSyncMsg(null), 4000);
+    }
+  };
+
+  const handleToggleAutoSync = async (enabled: boolean) => {
+    const updated = await updateModelAutoSync(enabled);
+    if (modelSyncReport) {
+      setModelSyncReport({ ...modelSyncReport, autoSync: updated });
+    }
+  };
+
+  const handleAddCustomModel = async (providerId: string) => {
+    const model = customModelInputs[providerId]?.trim();
+    if (!model) return;
+    const res = await addCustomModel(providerId, model);
+    if (res) {
+      setCustomModelInputs((prev) => ({ ...prev, [providerId]: "" }));
+      await refreshModelSync();
+      if (apiKeys.defaultBackend === providerId) {
+        setDefaultModels(res);
+      }
+    }
+  };
+
+  const handleRemoveCustomModel = async (providerId: string, model: string) => {
+    const res = await removeCustomModel(providerId, model);
+    if (res) {
+      await refreshModelSync();
+      if (apiKeys.defaultBackend === providerId) {
+        setDefaultModels(res);
+      }
+    }
+  };
+
   useEffect(() => {
+    void refreshModelSync();
     if (board) {
       setTitle(board.title);
       setDescription(board.description || "");
@@ -1621,6 +1694,20 @@ export function SettingsView({
                 Models come from the selected agent, not a hardcoded list. Credentials for cloud
                 providers are injected into the agent's environment from this page.
               </p>
+              <div className="flex items-center justify-between pt-2 border-t border-border/30">
+                <span className="text-[11px] text-muted">
+                  {modelSyncReport ? `${modelSyncReport.totalModels} models live synced across ${modelSyncReport.providers.length} providers` : "Live market sync active"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void handleSyncModels()}
+                  disabled={isSyncingModels}
+                  className="text-xs text-accent hover:underline flex items-center gap-1 font-medium"
+                >
+                  <Icon name="refresh" size={11} className={isSyncingModels ? "animate-spin" : ""} />
+                  {isSyncingModels ? "Syncing models…" : "Sync models now"}
+                </button>
+              </div>
             </Section>
           </>
         )}
@@ -1832,6 +1919,189 @@ export function SettingsView({
                       Last checked: {new Date(updatePrefs.lastChecked).toLocaleTimeString()}
                     </span>
                   )}
+                </div>
+              </div>
+            </Section>
+
+            {/* AI Model Registry & Market Sync */}
+            <Section
+              title="AI Model Registry & Market Sync"
+              description="Automatically detects and synchronizes new models as soon as they launch from Anthropic, OpenAI, OpenCode, Google Gemini, Ollama, and more."
+            >
+              <div className="rounded-xl border border-border bg-white/[0.02] p-4 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <strong className="text-sm font-semibold text-text">
+                        {modelSyncReport ? `${modelSyncReport.totalModels} AI Models Available` : "AI Model Sync"}
+                      </strong>
+                      <span className="flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        Live Sync Active
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted mt-1">
+                      {modelSyncReport?.syncedAt
+                        ? `Last synced: ${new Date(modelSyncReport.syncedAt).toLocaleTimeString()} (${new Date(modelSyncReport.syncedAt).toLocaleDateString()})`
+                        : "Synchronized with local CLIs, T3 Code profile bridges, and live provider registries."}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleSyncModels()}
+                      disabled={isSyncingModels}
+                      className="bark-primary flex items-center gap-1.5 text-xs px-3 py-1.5 shadow-sm"
+                    >
+                      <Icon name="refresh" size={13} className={isSyncingModels ? "animate-spin" : ""} />
+                      {isSyncingModels ? "Syncing models…" : "Sync models now"}
+                    </button>
+                  </div>
+                </div>
+
+                {modelSyncMsg && (
+                  <div className="text-xs font-mono text-accent bg-accent/10 px-3 py-2 rounded-lg border border-accent/20 flex items-center gap-2">
+                    <Icon name="check" size={13} />
+                    <span>{modelSyncMsg}</span>
+                  </div>
+                )}
+
+                {/* Auto-sync Switch */}
+                <div className="pt-2 border-t border-border/40 flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-medium text-text block">Auto-Sync On Launch & Market Updates</span>
+                    <span className="text-[11px] text-muted block">
+                      Background worker automatically checks for newly released models when Bark starts up.
+                    </span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={modelSyncReport?.autoSync ?? true}
+                      onChange={(e) => void handleToggleAutoSync(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-white/[0.1] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-accent" />
+                  </label>
+                </div>
+
+                {/* Provider Catalogs Grid */}
+                <div className="pt-2 border-t border-border/40 space-y-2">
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-muted-dim block">
+                    Discovered Provider Catalogs
+                  </span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {(modelSyncReport?.providers ?? []).map((p) => {
+                      const isExpanded = expandedProvider === p.id;
+                      const customCount = (modelSyncReport?.customModels?.[p.id] ?? []).length;
+                      return (
+                        <div
+                          key={p.id}
+                          className="rounded-lg border border-border/60 bg-white/[0.015] hover:bg-white/[0.03] transition-colors p-3 space-y-2.5"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <ProviderIcon id={p.id} name={p.name} size={16} />
+                              <span className="text-xs font-semibold text-text">{p.name}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/[0.06] text-text">
+                                {p.count} models
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setExpandedProvider(isExpanded ? null : p.id)}
+                                className="text-muted hover:text-text p-1"
+                                title={isExpanded ? "Collapse" : "Expand models"}
+                              >
+                                <Icon name={isExpanded ? "chevUp" : "chevDown"} size={12} />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between text-[11px] text-muted">
+                            <span className="truncate">Source: {p.source}</span>
+                            {customCount > 0 && (
+                              <span className="text-accent text-[10px] font-mono">+{customCount} custom</span>
+                            )}
+                          </div>
+
+                          {/* Expanded Model Pills */}
+                          {isExpanded && (
+                            <div className="space-y-2 pt-2 border-t border-border/30">
+                              <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto pr-1">
+                                {p.models.map((m) => {
+                                  const isCustom = (modelSyncReport?.customModels?.[p.id] ?? []).includes(m);
+                                  const isFrontier =
+                                    m.includes("opus-5") ||
+                                    m.includes("gpt-6") ||
+                                    m.includes("gemini-4") ||
+                                    m.includes("sol");
+                                  return (
+                                    <span
+                                      key={m}
+                                      className={`inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-md border ${
+                                        isCustom
+                                          ? "bg-accent/10 border-accent/30 text-accent"
+                                          : isFrontier
+                                          ? "bg-purple-500/10 border-purple-500/30 text-purple-300"
+                                          : "bg-white/[0.04] border-border text-text"
+                                      }`}
+                                    >
+                                      <span>{m}</span>
+                                      {isFrontier && (
+                                        <span className="text-[9px] uppercase px-1 py-0.2 bg-purple-500/20 rounded text-purple-300">
+                                          Frontier
+                                        </span>
+                                      )}
+                                      {isCustom && (
+                                        <button
+                                          type="button"
+                                          onClick={() => void handleRemoveCustomModel(p.id, m)}
+                                          className="text-muted hover:text-red-400 ml-0.5"
+                                          title="Remove custom model"
+                                        >
+                                          ×
+                                        </button>
+                                      )}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Add Custom Model Input */}
+                              <div className="flex items-center gap-1.5 pt-1">
+                                <input
+                                  type="text"
+                                  placeholder={`Add model ID for ${p.name}…`}
+                                  value={customModelInputs[p.id] ?? ""}
+                                  onChange={(e) =>
+                                    setCustomModelInputs({ ...customModelInputs, [p.id]: e.target.value })
+                                  }
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      e.preventDefault();
+                                      void handleAddCustomModel(p.id);
+                                    }
+                                  }}
+                                  className="bark-input text-xs font-mono py-1 flex-1"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => void handleAddCustomModel(p.id)}
+                                  className="bark-button text-xs py-1 px-2.5 shrink-0"
+                                >
+                                  + Add
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </Section>

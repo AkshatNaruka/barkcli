@@ -1842,6 +1842,80 @@ export async function fetchProviderModels(id: string): Promise<string[]> {
   }
 }
 
+export interface ProviderModelReport {
+  id: string;
+  name: string;
+  available: boolean;
+  count: number;
+  models: string[];
+  source: string;
+}
+
+export interface ModelSyncReport {
+  success: boolean;
+  syncedAt: string;
+  autoSync: boolean;
+  totalModels: number;
+  providers: ProviderModelReport[];
+  customModels: Record<string, string[]>;
+}
+
+export async function fetchModelSyncStatus(): Promise<ModelSyncReport | null> {
+  if (isVscode) return null;
+  try {
+    const res = await fetch("/api/models/sync-status");
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function syncAllModels(): Promise<ModelSyncReport | null> {
+  if (isVscode) return null;
+  return postJson("/api/models/sync", {});
+}
+
+export async function addCustomModel(provider: string, model: string): Promise<string[] | null> {
+  if (isVscode) return null;
+  try {
+    const res = (await postJson("/api/models/custom", {
+      provider,
+      model,
+      action: "add",
+    })) as { ok: boolean; models: string[] } | null;
+    return res?.models ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function removeCustomModel(provider: string, model: string): Promise<string[] | null> {
+  if (isVscode) return null;
+  try {
+    const res = (await postJson("/api/models/custom", {
+      provider,
+      model,
+      action: "remove",
+    })) as { ok: boolean; models: string[] } | null;
+    return res?.models ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function updateModelAutoSync(autoSync: boolean): Promise<boolean> {
+  if (isVscode) return autoSync;
+  try {
+    const res = (await putJson("/api/models/settings", {
+      auto_sync: autoSync,
+    })) as { ok: boolean; autoSync: boolean } | null;
+    return res?.autoSync ?? autoSync;
+  } catch {
+    return autoSync;
+  }
+}
+
 export async function fetchThreadRuns(id: string): Promise<RunRecord[]> {
   if (isVscode) return [];
   try {
