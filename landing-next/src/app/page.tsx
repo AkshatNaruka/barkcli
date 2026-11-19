@@ -53,8 +53,13 @@ import {
 import { Footer } from "@/components/Footer";
 import { ScrollStory } from "@/components/ScrollStory";
 
-const INSTALL =
+const MAC_APP_INSTALL =
+  "curl -fsSL https://raw.githubusercontent.com/AkshatNaruka/barkcli/master/install-app.sh | bash";
+const CLI_INSTALL =
   "curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh";
+const DMG_DOWNLOAD_URL =
+  "https://github.com/AkshatNaruka/barkcli/releases/latest/download/Bark.dmg";
+const INSTALL = MAC_APP_INSTALL;
 
 // Hosted GitHub Pages build: link to the interactive board preview served
 // at /app/ (see .github/workflows/pages.yml). Hidden on the Vercel deploy.
@@ -651,6 +656,7 @@ function AnimatedSection({
 
 export default function Home() {
   const [copied, setCopied] = useState(false);
+  const [installTab, setInstallTab] = useState<"mac" | "cli">("mac");
   const [activeTab, setActiveTab] = useState("desktop");
   const [activeAgentTab, setActiveAgentTab] = useState("claude");
   const [copiedPrompt, setCopiedPrompt] = useState(false);
@@ -796,14 +802,41 @@ export default function Home() {
           </p>
 
           <div className="flex flex-col items-center gap-3 w-full max-w-xl">
+            {/* Install Type Tabs */}
+            <div className="flex items-center gap-1 p-1 bg-white/[0.04] border border-white/10 rounded-xl">
+              <button
+                onClick={() => setInstallTab("mac")}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  installTab === "mac"
+                    ? "bg-[#B8845C] text-white shadow-sm"
+                    : "text-white/60 hover:text-white"
+                }`}
+              >
+                <Laptop className="w-3.5 h-3.5" />
+                macOS App (1-Click)
+              </button>
+              <button
+                onClick={() => setInstallTab("cli")}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  installTab === "cli"
+                    ? "bg-[#B8845C] text-white shadow-sm"
+                    : "text-white/60 hover:text-white"
+                }`}
+              >
+                <Terminal className="w-3.5 h-3.5" />
+                CLI Binary
+              </button>
+            </div>
+
             <div className="flex items-center gap-1 border border-white/20 rounded-xl pl-5 pr-2 py-2.5 bg-black/50 backdrop-blur-xl w-full">
               <code className="text-white text-xs sm:text-sm font-mono truncate flex-1 min-w-0">
                 <span className="text-[#B8845C] select-none">$ </span>
-                {INSTALL}
+                {installTab === "mac" ? MAC_APP_INSTALL : CLI_INSTALL}
               </code>
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText(INSTALL);
+                  const cmd = installTab === "mac" ? MAC_APP_INSTALL : CLI_INSTALL;
+                  navigator.clipboard.writeText(cmd);
                   setCopied(true);
                   setTimeout(() => setCopied(false), 1500);
                 }}
@@ -823,14 +856,29 @@ export default function Home() {
               </button>
             </div>
 
+            {/* Quarantine notice badge */}
+            {installTab === "mac" && (
+              <p className="text-[11px] text-white/50 flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                Auto-clears Apple Gatekeeper quarantine (<code className="text-white/70">xattr -cr</code>) · Apple Silicon &amp; Intel
+              </p>
+            )}
+
             {/* CTAs */}
             <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
               <a
-                href="/docs"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#B8845C] text-white text-xs sm:text-sm font-medium hover:bg-[#a5764f] transition-all shadow-lg shadow-[#B8845C]/20"
+                href={DMG_DOWNLOAD_URL}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#F0CBA8] via-[#E5AA7A] to-[#B8845C] text-black font-semibold text-xs sm:text-sm hover:opacity-95 transition-all shadow-lg shadow-[#B8845C]/25"
               >
-                Explore Documentation
-                <ArrowRight className="w-3.5 h-3.5" />
+                <Download className="w-4 h-4" />
+                Download Bark for Mac (.dmg)
+              </a>
+              <a
+                href="/docs"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-white/15 bg-white/5 text-white/80 hover:text-white hover:bg-white/10 text-xs sm:text-sm font-medium transition-all"
+              >
+                <span>Docs</span>
+                <ArrowRight className="w-3.5 h-3.5 text-white/40" />
               </a>
               <a
                 href="https://github.com/AkshatNaruka/barkcli"
@@ -838,7 +886,7 @@ export default function Home() {
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-white/15 bg-white/5 text-white/80 hover:text-white hover:bg-white/10 text-xs sm:text-sm font-medium transition-all"
               >
-                <span>View on GitHub</span>
+                <span>GitHub</span>
                 <ExternalLink className="w-3.5 h-3.5 text-white/40" />
               </a>
             </div>
@@ -1571,8 +1619,22 @@ export default function Home() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {[
               {
+                title: "macOS Desktop App (.dmg)",
+                cmd: "Download Bark.dmg & drag to /Applications",
+                icon: Laptop,
+                href: DMG_DOWNLOAD_URL,
+                actionLabel: "Download .DMG",
+                badge: "Gatekeeper: xattr -cr /Applications/Bark.app",
+              },
+              {
+                title: "macOS App 1-Liner (curl)",
+                cmd: MAC_APP_INSTALL,
+                icon: Sparkles,
+                badge: "Auto-clears Gatekeeper quarantine",
+              },
+              {
                 title: "macOS / Linux CLI",
-                cmd: "curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh",
+                cmd: CLI_INSTALL,
                 icon: Terminal,
               },
               {
@@ -1589,27 +1651,39 @@ export default function Home() {
                 title: "GitHub Releases",
                 cmd: "github.com/AkshatNaruka/barkcli/releases/latest",
                 icon: GitMerge,
-              },
-              {
-                title: "Verify the download",
-                cmd: "shasum -a 256 -c SHA256SUMS",
-                icon: Shield,
-              },
-              {
-                title: "Update",
-                cmd: "barkcli update",
-                icon: RotateCcw,
+                href: "https://github.com/AkshatNaruka/barkcli/releases",
+                actionLabel: "View All Assets",
               },
             ].map((method, i) => (
               <AnimatedSection key={i} delay={i * 0.08}>
-                <div className="group border border-white/10 rounded-xl p-4 hover:border-[#B8845C]/30 transition-all duration-300 h-full bg-white/[0.01]">
-                  <div className="flex items-center gap-2 mb-3">
-                    <method.icon className="w-4 h-4 text-[#B8845C]" />
-                    <h4 className="text-sm font-semibold">{method.title}</h4>
+                <div className="group border border-white/10 rounded-xl p-4 hover:border-[#B8845C]/30 transition-all duration-300 h-full bg-white/[0.01] flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <method.icon className="w-4 h-4 text-[#B8845C]" />
+                        <h4 className="text-sm font-semibold">{method.title}</h4>
+                      </div>
+                      {method.badge && (
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          {method.badge}
+                        </span>
+                      )}
+                    </div>
+                    <code className="text-[#E5AA7A] text-xs font-mono block bg-white/5 rounded-lg px-3 py-2 break-all group-hover:bg-white/10 transition-colors">
+                      {method.cmd}
+                    </code>
                   </div>
-                  <code className="text-[#E5AA7A] text-xs font-mono block bg-white/5 rounded-lg px-3 py-2 break-all group-hover:bg-white/10 transition-colors">
-                    {method.cmd}
-                  </code>
+                  {method.href && (
+                    <div className="mt-3 pt-3 border-t border-white/5 flex justify-end">
+                      <a
+                        href={method.href}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-[#E5AA7A] hover:text-white transition-colors"
+                      >
+                        {method.actionLabel || "Download"}
+                        <ArrowRight className="w-3 h-3" />
+                      </a>
+                    </div>
+                  )}
                 </div>
               </AnimatedSection>
             ))}

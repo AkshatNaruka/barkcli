@@ -12,9 +12,10 @@ export const metadata: Metadata = generatePageMetadata({
 
 const steps = [
   {
-    name: "Install barkcli",
-    text: "Install barkcli with a single command. No dependencies required.",
-    command: "curl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh",
+    name: "Install Bark Desktop App (macOS) or CLI",
+    text: "Install the full macOS native desktop app (auto-clears Gatekeeper quarantine, includes GUI + CLI):",
+    command:
+      "curl -fsSL https://raw.githubusercontent.com/AkshatNaruka/barkcli/master/install-app.sh | bash\n\n# Or for CLI binary only (macOS / Linux):\ncurl -fsSL https://github.com/AkshatNaruka/barkcli/releases/latest/download/install.sh | sh",
   },
   {
     name: "Initialize your project",
